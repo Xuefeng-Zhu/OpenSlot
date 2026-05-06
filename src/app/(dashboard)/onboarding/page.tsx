@@ -1,354 +1,301 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy, User, Calendar, FileText, Link2 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import {
+  CalendarDays,
+  Check,
+  ChevronRight,
+  Clock3,
+  Copy,
+  Globe2,
+  Link2,
+  Plus,
+  User,
+  Video,
+} from "lucide-react";
+
+import {
+  AvatarPhoto,
+  MiniCalendar,
+  PoweredByOpenSlot,
+  TimeSlots,
+} from "@/components/brand/booking-preview";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AvailabilityDayRow,
-  type TimeInterval,
-} from "@/components/dashboard/availability-day-row";
+import { Switch } from "@/components/ui/switch";
 
-const STEPS = [
-  { label: "Create public profile", icon: User },
-  { label: "Set availability", icon: Calendar },
-  { label: "Create first event type", icon: FileText },
-  { label: "Share booking link", icon: Link2 },
-] as const;
+const steps = [
+  {
+    title: "Create public profile",
+    subtitle: "Add your details",
+    icon: User,
+  },
+  {
+    title: "Set availability",
+    subtitle: "When are you available?",
+    icon: Clock3,
+  },
+  {
+    title: "Create first event type",
+    subtitle: "Define your meeting",
+    icon: CalendarDays,
+  },
+  {
+    title: "Share your link",
+    subtitle: "Invite and get booked",
+    icon: Link2,
+  },
+];
 
-interface ProfileData {
-  displayName: string;
-  username: string;
-  bio: string;
-  avatarFile: File | null;
-}
-
-interface DayAvailability {
-  enabled: boolean;
-  intervals: TimeInterval[];
-}
-
-interface AvailabilityData {
-  monday: DayAvailability;
-  tuesday: DayAvailability;
-  wednesday: DayAvailability;
-  thursday: DayAvailability;
-  friday: DayAvailability;
-  saturday: DayAvailability;
-  sunday: DayAvailability;
-}
-
-interface EventTypeData {
-  title: string;
-  duration: string;
-  location: string;
-}
-
-const DEFAULT_WEEKDAY: DayAvailability = {
-  enabled: true,
-  intervals: [{ start: "09:00", end: "17:00" }],
-};
-
-const DEFAULT_WEEKEND: DayAvailability = {
-  enabled: false,
-  intervals: [],
-};
-
-function getDefaultAvailability(): AvailabilityData {
-  return {
-    monday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    tuesday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    wednesday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    thursday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    friday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    saturday: { ...DEFAULT_WEEKEND, intervals: [...DEFAULT_WEEKEND.intervals] },
-    sunday: { ...DEFAULT_WEEKEND, intervals: [...DEFAULT_WEEKEND.intervals] },
-  };
-}
+const days = [
+  { label: "Monday", enabled: true, end: "5:00 PM" },
+  { label: "Tuesday", enabled: true, end: "5:00 PM" },
+  { label: "Wednesday", enabled: true, end: "5:00 PM" },
+  { label: "Thursday", enabled: true, end: "5:00 PM" },
+  { label: "Friday", enabled: true, end: "3:00 PM" },
+  { label: "Saturday", enabled: false, end: "Unavailable" },
+  { label: "Sunday", enabled: false, end: "Unavailable" },
+];
 
 export default function OnboardingPage() {
-  const [currentStep, setCurrentStep] = React.useState(0);
+  const [currentStep, setCurrentStep] = React.useState(1);
   const [copied, setCopied] = React.useState(false);
 
-  // Step 1: Profile data
-  const [profileData, setProfileData] = React.useState<ProfileData>({
-    displayName: "",
-    username: "",
-    bio: "",
-    avatarFile: null,
-  });
-
-  // Step 2: Availability data
-  const [availabilityData, setAvailabilityData] = React.useState<AvailabilityData>(
-    getDefaultAvailability()
-  );
-
-  // Step 3: Event type data
-  const [eventTypeData, setEventTypeData] = React.useState<EventTypeData>({
-    title: "",
-    duration: "30",
-    location: "",
-  });
-
-  const handleNext = () => {
-    if (currentStep < STEPS.length - 1) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    const slug = eventTypeData.title
-      ? eventTypeData.title.toLowerCase().replace(/\s+/g, "-")
-      : "meeting";
-    const link = `openslot.com/${profileData.username || "username"}/${slug}`;
-    try {
-      await navigator.clipboard.writeText(link);
+  const handleCopy = () => {
+    navigator.clipboard.writeText("https://openslot.com/sarah-chen").then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback: just show copied state briefly
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
-  const updateAvailabilityDay = (
-    day: keyof AvailabilityData,
-    updates: Partial<DayAvailability>
-  ) => {
-    setAvailabilityData((prev) => ({
-      ...prev,
-      [day]: { ...prev[day], ...updates },
-    }));
+      setTimeout(() => setCopied(false), 1600);
+    });
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8 md:py-12">
-      {/* Progress Indicator */}
-      <ProgressIndicator currentStep={currentStep} />
+    <div className="mx-auto max-w-[1360px] px-5 py-8">
+      <Card className="bg-white">
+        <CardContent className="p-0">
+          <Progress currentStep={currentStep} />
+          <div className="grid gap-5 border-t border-border p-5 xl:grid-cols-[1.08fr_0.92fr]">
+            <section className="rounded-[16px] border border-border bg-white p-6">
+              {currentStep === 0 && <ProfileStep />}
+              {currentStep === 1 && <AvailabilityStep />}
+              {currentStep === 2 && <EventTypeStep />}
+              {currentStep === 3 && (
+                <ShareStep copied={copied} onCopy={handleCopy} />
+              )}
+            </section>
+            <LivePreview copied={copied} onCopy={handleCopy} />
+          </div>
 
-      {/* Step Content */}
-      <div className="mt-8">
-        {currentStep === 0 && (
-          <StepProfile data={profileData} onChange={setProfileData} />
-        )}
-        {currentStep === 1 && (
-          <StepAvailability
-            data={availabilityData}
-            onDayChange={updateAvailabilityDay}
-          />
-        )}
-        {currentStep === 2 && (
-          <StepEventType data={eventTypeData} onChange={setEventTypeData} />
-        )}
-        {currentStep === 3 && (
-          <StepBookingLink
-            username={profileData.username}
-            eventTitle={eventTypeData.title}
-            copied={copied}
-            onCopy={handleCopyLink}
-          />
-        )}
-      </div>
+          <div className="flex flex-col gap-4 px-5 pb-5 sm:flex-row sm:items-center sm:justify-between">
+            <Button
+              variant="outline"
+              disabled={currentStep === 0}
+              onClick={() => setCurrentStep((step) => Math.max(0, step - 1))}
+            >
+              Back
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-2 text-sm font-medium text-muted-foreground sm:flex">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Times are shown in your time zone
+              </div>
+              <Button
+                onClick={() => setCurrentStep((step) => Math.min(3, step + 1))}
+              >
+                {currentStep === 3 ? "Go to dashboard" : "View all steps"}
+                <ChevronRight className="ml-2 h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Navigation Buttons */}
-      <div className="mt-8 flex items-center justify-between">
-        {currentStep > 0 && currentStep < STEPS.length - 1 ? (
-          <Button variant="secondary" onClick={handleBack}>
-            Back
-          </Button>
-        ) : (
-          <div />
-        )}
-        {currentStep < STEPS.length - 1 && (
-          <Button onClick={handleNext}>
-            {currentStep === STEPS.length - 2 ? "Finish" : "Next"}
-          </Button>
-        )}
+      <div className="mt-6 flex flex-col items-center justify-between gap-5 rounded-[18px] border border-primary/10 bg-primary/[0.07] px-8 py-6 sm:flex-row">
+        <div className="flex items-center gap-5">
+          <div className="flex h-16 w-16 items-center justify-center rounded-[16px] bg-white text-primary shadow-sm">
+            <CalendarDays className="h-9 w-9" aria-hidden="true" />
+          </div>
+          <div>
+            <p className="text-lg font-extrabold text-foreground">
+              You are almost there!
+            </p>
+            <p className="text-sm font-medium text-muted-foreground">
+              Complete the next steps to start accepting bookings.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline">View all steps</Button>
       </div>
     </div>
   );
 }
 
-/* ─── Progress Indicator ─── */
-
-function ProgressIndicator({ currentStep }: { currentStep: number }) {
+function Progress({ currentStep }: { currentStep: number }) {
   return (
-    <nav aria-label="Onboarding progress">
-      {/* Desktop: full labels */}
-      <ol className="hidden md:flex items-center justify-between">
-        {STEPS.map((step, index) => {
-          const isCompleted = index < currentStep;
-          const isActive = index === currentStep;
-          const Icon = step.icon;
+    <nav aria-label="Onboarding progress" className="p-7">
+      <ol className="grid gap-5 md:grid-cols-4">
+        {steps.map((step, index) => {
+          const active = index === currentStep;
+          const complete = index < currentStep;
           return (
-            <li key={step.label} className="flex flex-1 items-center">
-              <div className="flex flex-col items-center gap-2">
-                <div
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors",
-                    isCompleted && "border-primary bg-primary text-primary-foreground",
-                    isActive && "border-primary bg-accent text-primary",
-                    !isCompleted && !isActive && "border-border bg-background text-muted-foreground"
-                  )}
-                  aria-current={isActive ? "step" : undefined}
-                >
-                  {isCompleted ? (
-                    <Check className="h-5 w-5" aria-hidden="true" />
-                  ) : (
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  )}
-                </div>
-                <span
-                  className={cn(
-                    "text-xs text-center max-w-[100px]",
-                    isActive ? "font-medium text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  {step.label}
-                </span>
+            <li key={step.title} className="flex items-center gap-4">
+              <div
+                className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border text-sm font-extrabold ${
+                  active
+                    ? "border-primary bg-primary text-white"
+                    : complete
+                    ? "border-primary/25 bg-primary/10 text-primary"
+                    : "border-border bg-white text-primary"
+                }`}
+                aria-current={active ? "step" : undefined}
+              >
+                {complete ? <Check className="h-5 w-5" aria-hidden="true" /> : index + 1}
               </div>
-              {index < STEPS.length - 1 && (
-                <div
-                  className={cn(
-                    "mx-2 h-0.5 flex-1 self-start mt-5",
-                    index < currentStep ? "bg-primary" : "bg-border"
-                  )}
-                  aria-hidden="true"
-                />
+              <div>
+                <p className={`text-sm font-extrabold ${active ? "text-primary" : "text-foreground"}`}>
+                  {step.title}
+                </p>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {step.subtitle}
+                </p>
+              </div>
+              {index < steps.length - 1 && (
+                <ChevronRight className="ml-auto hidden h-4 w-4 text-border md:block" aria-hidden="true" />
               )}
             </li>
           );
         })}
       </ol>
-
-      {/* Mobile: compact progress bar */}
-      <div className="md:hidden">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-foreground">
-            Step {currentStep + 1} of {STEPS.length}
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {STEPS[currentStep].label}
-          </span>
-        </div>
-        <div className="h-2 w-full rounded-full bg-muted" role="progressbar" aria-valuenow={currentStep + 1} aria-valuemin={1} aria-valuemax={STEPS.length}>
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${((currentStep + 1) / STEPS.length) * 100}%` }}
-          />
-        </div>
-      </div>
     </nav>
   );
 }
 
-/* ─── Step 1: Profile ─── */
-
-function StepProfile({
-  data,
-  onChange,
-}: {
-  data: ProfileData;
-  onChange: (data: ProfileData) => void;
-}) {
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
+function ProfileStep() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Create your public profile</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This information will be visible on your booking page.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="displayName">Display name</Label>
-          <Input
-            id="displayName"
-            value={data.displayName}
-            onChange={(e) => onChange({ ...data, displayName: e.target.value })}
-            placeholder="John Doe"
-          />
+    <div>
+      <h1 className="text-2xl font-extrabold text-foreground">
+        Create your public profile
+      </h1>
+      <p className="mt-2 text-base font-medium text-muted-foreground">
+        This information will be visible on your booking page.
+      </p>
+      <div className="mt-8 grid gap-5">
+        <div>
+          <Label htmlFor="display-name">Display name</Label>
+          <Input id="display-name" placeholder="Sarah Chen" />
         </div>
-
-        <div className="space-y-2">
+        <div>
           <Label htmlFor="username">Username</Label>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">openslot.com/</span>
-            <Input
-              id="username"
-              value={data.username}
-              onChange={(e) => onChange({ ...data, username: e.target.value })}
-              placeholder="johndoe"
-              className="flex-1"
-            />
-          </div>
+          <Input id="username" placeholder="sarah-chen" />
         </div>
-
-        <div className="space-y-2">
+        <div>
           <Label htmlFor="bio">Bio</Label>
-          <Textarea
-            id="bio"
-            value={data.bio}
-            onChange={(e) => onChange({ ...data, bio: e.target.value })}
-            placeholder="Tell people a bit about yourself..."
-            rows={3}
-          />
+          <Textarea id="bio" rows={4} placeholder="Tell people what they can book you for." />
         </div>
+      </div>
+    </div>
+  );
+}
 
-        <div className="space-y-2">
-          <Label htmlFor="avatar">Avatar (optional)</Label>
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-foreground text-lg font-medium">
-              {data.displayName
-                ? data.displayName.charAt(0).toUpperCase()
-                : "?"}
+function AvailabilityStep() {
+  return (
+    <div>
+      <h1 className="text-2xl font-extrabold text-foreground">
+        Set your availability
+      </h1>
+      <p className="mt-2 text-base font-medium text-muted-foreground">
+        Let people know when you are available for bookings.
+      </p>
+
+      <div className="mt-8 border-y border-border py-5">
+        <div className="grid gap-4 md:grid-cols-[1fr_230px] md:items-center">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-primary/10 text-primary">
+              <Globe2 className="h-6 w-6" aria-hidden="true" />
             </div>
             <div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Upload photo
-              </Button>
-              <input
-                ref={fileInputRef}
-                id="avatar"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  onChange({ ...data, avatarFile: file });
-                }}
-              />
-              {data.avatarFile && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {data.avatarFile.name}
-                </p>
-              )}
+              <p className="font-extrabold text-foreground">Timezone</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                This helps us show times in your local time and local time for each invitee.
+              </p>
             </div>
+          </div>
+          <button
+            type="button"
+            className="h-11 rounded-[10px] border border-border bg-white px-4 text-sm font-bold text-muted-foreground shadow-sm"
+          >
+            America/New_York (EDT)
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-5">
+        <div className="mb-5 flex items-center justify-between">
+          <div className="flex items-start gap-4">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-primary/10 text-primary">
+              <Clock3 className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="font-extrabold text-foreground">Weekly availability</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Set the days and times you are usually available.
+              </p>
+            </div>
+          </div>
+          <Button variant="ghost" className="hidden text-primary md:inline-flex">
+            Copy availability from...
+          </Button>
+        </div>
+
+        <div className="space-y-3">
+          {days.map((day) => (
+            <div
+              key={day.label}
+              className="grid gap-3 rounded-[12px] px-1 py-1 md:grid-cols-[190px_1fr_auto_auto] md:items-center"
+            >
+              <div className="flex items-center gap-3">
+                <Switch checked={day.enabled} aria-label={`${day.label} availability`} />
+                <span className="text-sm font-extrabold text-foreground">
+                  {day.label}
+                </span>
+              </div>
+              {day.enabled ? (
+                <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+                  <TimeSelect value="9:00 AM" />
+                  <span className="text-sm font-medium text-muted-foreground">to</span>
+                  <TimeSelect value={day.end} />
+                </div>
+              ) : (
+                <div className="h-11 rounded-[10px] border border-border bg-muted/60 px-4 py-3 text-sm font-medium text-muted-foreground">
+                  Unavailable
+                </div>
+              )}
+              <Button variant="ghost" size="icon" aria-label={`Add interval for ${day.label}`}>
+                <Plus className="h-4 w-4" aria-hidden="true" />
+              </Button>
+              <Button variant="ghost" size="icon" aria-label={`Copy ${day.label} availability`}>
+                <Copy className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 border-t border-border pt-5">
+        <div className="flex items-start gap-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-[12px] bg-primary/10 text-primary">
+            <Clock3 className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-extrabold text-foreground">Scheduling window</p>
+              <p className="text-sm font-medium text-muted-foreground">
+                Allow bookings 60 days in advance
+              </p>
+            </div>
+            <Button variant="outline">60 days</Button>
           </div>
         </div>
       </div>
@@ -356,171 +303,121 @@ function StepProfile({
   );
 }
 
-/* ─── Step 2: Availability ─── */
-
-function StepAvailability({
-  data,
-  onDayChange,
-}: {
-  data: AvailabilityData;
-  onDayChange: (day: keyof AvailabilityData, updates: Partial<DayAvailability>) => void;
-}) {
-  const days: { key: keyof AvailabilityData; label: string }[] = [
-    { key: "monday", label: "Monday" },
-    { key: "tuesday", label: "Tuesday" },
-    { key: "wednesday", label: "Wednesday" },
-    { key: "thursday", label: "Thursday" },
-    { key: "friday", label: "Friday" },
-    { key: "saturday", label: "Saturday" },
-    { key: "sunday", label: "Sunday" },
-  ];
-
+function EventTypeStep() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Set your availability</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Define when you&apos;re available for bookings. You can change this later.
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        {days.map(({ key, label }) => (
-          <AvailabilityDayRow
-            key={key}
-            day={label}
-            enabled={data[key].enabled}
-            intervals={data[key].intervals}
-            onToggle={(enabled) => onDayChange(key, { enabled })}
-            onIntervalsChange={(intervals) => onDayChange(key, { intervals })}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Step 3: Event Type ─── */
-
-function StepEventType({
-  data,
-  onChange,
-}: {
-  data: EventTypeData;
-  onChange: (data: EventTypeData) => void;
-}) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Create your first event type</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Set up a meeting type that people can book with you.
-        </p>
-      </div>
-
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="eventTitle">Title</Label>
-          <Input
-            id="eventTitle"
-            value={data.title}
-            onChange={(e) => onChange({ ...data, title: e.target.value })}
-            placeholder="30 Minute Meeting"
-          />
+    <div>
+      <h1 className="text-2xl font-extrabold text-foreground">
+        Create first event type
+      </h1>
+      <p className="mt-2 text-base font-medium text-muted-foreground">
+        Define the first meeting people can book.
+      </p>
+      <div className="mt-8 grid gap-5">
+        <div>
+          <Label htmlFor="event-title">Title</Label>
+          <Input id="event-title" placeholder="30 min intro call" />
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="eventDuration">Duration</Label>
-          <Select
-            value={data.duration}
-            onValueChange={(value) => onChange({ ...data, duration: value })}
-          >
-            <SelectTrigger id="eventDuration">
-              <SelectValue placeholder="Select duration" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="15">15 minutes</SelectItem>
-              <SelectItem value="30">30 minutes</SelectItem>
-              <SelectItem value="45">45 minutes</SelectItem>
-              <SelectItem value="60">60 minutes</SelectItem>
-              <SelectItem value="90">90 minutes</SelectItem>
-            </SelectContent>
-          </Select>
+        <div>
+          <Label htmlFor="duration">Duration</Label>
+          <Input id="duration" placeholder="30 min" />
         </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="eventLocation">Location</Label>
-          <Input
-            id="eventLocation"
-            value={data.location}
-            onChange={(e) => onChange({ ...data, location: e.target.value })}
-            placeholder="Zoom, Google Meet, or a physical address"
-          />
+        <div>
+          <Label htmlFor="location">Location</Label>
+          <Input id="location" placeholder="Zoom or Google Meet" />
         </div>
       </div>
     </div>
   );
 }
 
-/* ─── Step 4: Booking Link ─── */
-
-function StepBookingLink({
-  username,
-  eventTitle,
-  copied,
-  onCopy,
-}: {
-  username: string;
-  eventTitle: string;
-  copied: boolean;
-  onCopy: () => void;
-}) {
-  const slug = eventTitle
-    ? eventTitle.toLowerCase().replace(/\s+/g, "-")
-    : "meeting";
-  const bookingLink = `openslot.com/${username || "username"}/${slug}`;
-
+function ShareStep({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold text-foreground">Share your booking link</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          You&apos;re all set! Share this link so people can book time with you.
-        </p>
-      </div>
-
-      <div className="rounded-lg border border-border bg-card p-6 text-center">
-        <div className="flex items-center justify-center gap-2">
-          <Link2 className="h-5 w-5 text-primary" aria-hidden="true" />
-          <span className="text-lg font-medium text-foreground break-all">
-            {bookingLink}
-          </span>
-        </div>
-
-        <Button
-          onClick={onCopy}
-          variant={copied ? "secondary" : "default"}
-          className="mt-4"
-        >
-          {copied ? (
-            <>
-              <Check className="mr-2 h-4 w-4" aria-hidden="true" />
-              Copied!
-            </>
-          ) : (
-            <>
-              <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
-              Copy link
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div className="flex justify-center">
-        <Button asChild size="lg">
-          <a href="/dashboard">Go to dashboard</a>
+    <div>
+      <h1 className="text-2xl font-extrabold text-foreground">Share your link</h1>
+      <p className="mt-2 text-base font-medium text-muted-foreground">
+        You are ready to start accepting bookings.
+      </p>
+      <div className="mt-8 flex gap-3">
+        <Input readOnly value="https://openslot.com/sarah-chen" />
+        <Button variant="outline" onClick={onCopy}>
+          <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+          {copied ? "Copied" : "Copy link"}
         </Button>
       </div>
     </div>
+  );
+}
+
+function LivePreview({ copied, onCopy }: { copied: boolean; onCopy: () => void }) {
+  return (
+    <aside className="rounded-[16px] border border-border bg-white p-6">
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <h2 className="text-xl font-extrabold text-foreground">Live preview</h2>
+        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-extrabold text-emerald-700">
+          This is how others see you
+        </span>
+      </div>
+      <div className="mb-6">
+        <Label htmlFor="booking-link">Your booking link</Label>
+        <div className="mt-2 flex gap-3">
+          <Input id="booking-link" readOnly value="https://openslot.com/sarah-chen" />
+          <Button variant="outline" onClick={onCopy}>
+            <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+            {copied ? "Copied" : "Copy link"}
+          </Button>
+        </div>
+      </div>
+      <div className="rounded-[14px] border border-border p-5">
+        <div className="flex items-center gap-4">
+          <AvatarPhoto className="h-16 w-16" />
+          <div>
+            <p className="text-lg font-extrabold text-foreground">Sarah Chen</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              Product Designer
+            </p>
+          </div>
+        </div>
+        <h3 className="mt-7 text-xl font-extrabold text-foreground">
+          Book time with me
+        </h3>
+        <p className="mt-2 text-sm font-medium text-muted-foreground">
+          Choose a time that works for you. All times are shown in your local time.
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <SmallChip icon={<Clock3 className="h-4 w-4" />} label="30 min events" />
+          <SmallChip icon={<Video className="h-4 w-4" />} label="Zoom" />
+          <SmallChip icon={<CalendarDays className="h-4 w-4" />} label="Weekdays" />
+        </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_0.72fr]">
+          <MiniCalendar compact className="rounded-[14px] border border-border p-4" />
+          <div className="rounded-[14px] border border-border p-4">
+            <TimeSlots />
+          </div>
+        </div>
+        <div className="mt-5 border-t border-border pt-4">
+          <PoweredByOpenSlot />
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function TimeSelect({ value }: { value: string }) {
+  return (
+    <button
+      type="button"
+      className="h-11 rounded-[10px] border border-border bg-white px-4 text-left text-sm font-bold text-foreground shadow-sm"
+    >
+      {value}
+    </button>
+  );
+}
+
+function SmallChip({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2 rounded-[8px] border border-border px-3 py-2 text-sm font-bold text-muted-foreground">
+      <span className="text-primary">{icon}</span>
+      {label}
+    </span>
   );
 }

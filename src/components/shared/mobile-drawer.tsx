@@ -3,21 +3,24 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  LayoutDashboard,
+  Grid2X2,
   Calendar,
   Clock,
   BookOpen,
   Settings,
+  User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Drawer } from '@/components/ui/drawer'
 import { Avatar, getInitials } from '@/components/ui/avatar'
+import { OpenSlotLogo } from '@/components/brand/openslot-logo'
 
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Dashboard', href: '/dashboard', icon: Grid2X2 },
   { label: 'Event Types', href: '/event-types', icon: Calendar },
   { label: 'Availability', href: '/availability', icon: Clock },
   { label: 'Bookings', href: '/bookings', icon: BookOpen },
+  { label: 'Profile', href: '/profile', icon: User },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -43,31 +46,8 @@ export function MobileDrawer({ open, onClose, user }: MobileDrawerProps) {
   return (
     <Drawer open={open} onClose={onClose} title="Navigation menu">
       <div className="flex h-full flex-col">
-        {/* Logo */}
         <div className="p-6">
-          <Link
-            href="/dashboard"
-            className="flex items-center text-xl font-bold text-foreground"
-            onClick={onClose}
-          >
-            <svg
-              className="mr-2 h-7 w-7"
-              viewBox="0 0 28 28"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <rect width="28" height="28" rx="6" className="fill-primary" />
-              <path
-                d="M8 14.5L12 18.5L20 10.5"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            OpenSlot
-          </Link>
+          <OpenSlotLogo href="/dashboard" className="text-xl" />
         </div>
 
         {/* Navigation Links */}

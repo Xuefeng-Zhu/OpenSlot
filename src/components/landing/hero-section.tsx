@@ -1,96 +1,88 @@
-import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import Link from "next/link";
+import { ArrowRight, Check, CirclePlay, Sparkles, Star } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  BookingPreview,
+  ConfirmationToast,
+} from "@/components/brand/booking-preview";
 
 export function HeroSection() {
   return (
-    <section className="px-4 py-20 sm:px-6 sm:py-28 lg:px-8 lg:py-32">
-      <div className="mx-auto max-w-3xl text-center">
-        {/* Headline */}
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-          Scheduling that stays open.
-        </h1>
-
-        {/* Subheadline */}
-        <p className="mt-6 text-lg leading-8 text-muted-foreground sm:text-xl">
-          OpenSlot helps anyone share availability, prevent double-booking, and
-          let guests book time from any timezone.
-        </p>
-
-        {/* CTA Buttons */}
-        <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-          <Button asChild size="lg">
-            <Link href="/signup">Create your OpenSlot</Link>
-          </Button>
-          <Button asChild variant="outline" size="lg">
-            <Link href="#demo">View demo page</Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* Product Preview */}
-      <div className="mx-auto mt-16 max-w-4xl sm:mt-20">
-        <div className="overflow-hidden rounded-lg border border-border bg-card shadow-lg">
-          {/* Mock browser chrome */}
-          <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-3">
-            <div className="h-3 w-3 rounded-full bg-red-400" />
-            <div className="h-3 w-3 rounded-full bg-yellow-400" />
-            <div className="h-3 w-3 rounded-full bg-green-400" />
-            <div className="ml-4 h-5 flex-1 rounded-sm bg-background" />
+    <section className="relative overflow-hidden px-5 pb-10 pt-14 sm:px-8 lg:px-10 lg:pb-14 lg:pt-20">
+      <div className="openslot-dots pointer-events-none absolute right-0 top-36 hidden h-[360px] w-[360px] opacity-70 lg:block" />
+      <div className="mx-auto grid max-w-[1320px] items-center gap-12 lg:grid-cols-[0.88fr_1.12fr]">
+        <div className="relative z-10">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm font-bold text-primary">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            The open way to schedule
           </div>
-
-          {/* Mock booking page content */}
-          <div className="grid gap-6 p-6 sm:grid-cols-2 sm:p-8">
-            {/* Left panel - Host info */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/20" />
-                <div className="space-y-1">
-                  <div className="h-4 w-24 rounded bg-muted" />
-                  <div className="h-3 w-16 rounded bg-muted" />
+          <h1 className="max-w-[620px] text-[3.1rem] font-extrabold leading-[1.05] text-foreground sm:text-[4.4rem] lg:text-[5.2rem]">
+            Scheduling that stays <span className="text-primary">open.</span>
+          </h1>
+          <p className="mt-6 max-w-[560px] text-lg font-medium leading-8 text-muted-foreground sm:text-xl">
+            Share your availability. Prevent double-booking. Let others book
+            time that works for everyone automatically, across time zones.
+          </p>
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+            <Button asChild size="lg" className="min-w-[210px]">
+              <Link href="/signup">
+                Create your OpenSlot
+                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg" className="min-w-[180px]">
+              <Link href="#demo">
+                <CirclePlay className="mr-2 h-5 w-5" aria-hidden="true" />
+                View demo page
+              </Link>
+            </Button>
+          </div>
+          <div className="mt-9 flex items-center gap-4">
+            <div className="flex -space-x-2">
+              {["SC", "JW", "EP"].map((initials) => (
+                <div
+                  key={initials}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary/10 text-xs font-extrabold text-primary shadow-sm"
+                >
+                  {initials}
                 </div>
+              ))}
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-white bg-primary text-xs font-extrabold text-white shadow-sm">
+                +2k
               </div>
-              <div className="h-5 w-40 rounded bg-foreground/10" />
-              <div className="h-4 w-32 rounded bg-muted" />
-              <div className="h-4 w-28 rounded bg-muted" />
             </div>
-
-            {/* Right panel - Calendar and slots */}
-            <div className="space-y-4">
-              {/* Mini calendar mock */}
-              <div className="grid grid-cols-7 gap-1">
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <div
-                    key={`header-${i}`}
-                    className="h-4 rounded bg-muted text-center text-[8px] text-muted-foreground"
-                  />
-                ))}
-                {Array.from({ length: 28 }).map((_, i) => (
-                  <div
-                    key={`day-${i}`}
-                    className={`h-6 rounded text-center text-[10px] ${
-                      i === 14
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted/50'
-                    }`}
+            <div className="text-sm font-semibold text-muted-foreground">
+              <div className="mb-1 flex gap-0.5 text-amber-400">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <Star
+                    key={index}
+                    className="h-4 w-4 fill-current"
+                    aria-hidden="true"
                   />
                 ))}
               </div>
-
-              {/* Time slots mock */}
-              <div className="space-y-2">
-                {['9:00 AM', '10:30 AM', '2:00 PM'].map((time) => (
-                  <div
-                    key={time}
-                    className="flex h-9 items-center justify-center rounded-md border border-border text-xs font-medium text-muted-foreground"
-                  >
-                    {time}
-                  </div>
-                ))}
-              </div>
+              Loved by 2,000+ users worldwide
             </div>
+          </div>
+        </div>
+
+        <div className="relative" id="demo">
+          <div className="absolute -right-3 top-8 z-10 hidden rounded-[12px] border border-border bg-white px-4 py-3 text-sm font-bold text-foreground shadow-md sm:flex">
+            <span className="mr-2 h-5 w-5 rounded-full bg-emerald-500 text-center text-white">
+              <Check className="mx-auto h-5 w-3.5" aria-hidden="true" />
+            </span>
+            No double-booking
+          </div>
+          <BookingPreview />
+          <ConfirmationToast className="absolute -bottom-7 right-8 hidden sm:inline-flex" />
+          <div className="absolute -left-9 top-1/2 hidden rounded-[14px] border border-border bg-white px-4 py-3 text-sm font-bold text-foreground shadow-md lg:block">
+            Timezone
+            <br />
+            <span className="text-muted-foreground">detected</span>
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }

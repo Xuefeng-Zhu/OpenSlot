@@ -1,59 +1,71 @@
+import { CalendarDays, CheckCircle2, Link2, Users } from "lucide-react";
+
 const steps = [
   {
     number: 1,
-    title: 'Create your profile',
-    description:
-      'Sign up and set up your public scheduling page in minutes.',
+    icon: CalendarDays,
+    title: "Create your OpenSlot",
+    description: "Connect your calendar and set availability preferences.",
   },
   {
     number: 2,
-    title: 'Set your availability',
-    description:
-      'Define your weekly hours and let OpenSlot handle the rest.',
+    icon: Link2,
+    title: "Share your link",
+    description: "Send your OpenSlot link anywhere: email, chat, socials.",
   },
   {
     number: 3,
-    title: 'Share your link',
-    description:
-      'Send your booking link to clients, colleagues, or anyone who needs time with you.',
+    icon: Users,
+    title: "They pick a time",
+    description: "Others see your available times and book what works.",
   },
   {
     number: 4,
-    title: 'Get booked',
-    description:
-      'Guests pick a time that works for them, and you both get a confirmation.',
+    icon: CheckCircle2,
+    title: "You stay in sync",
+    description: "Events are added to your calendar automatically.",
   },
-]
+];
 
 export function HowItWorks() {
   return (
-    <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-      <div className="mx-auto max-w-7xl">
+    <section id="use-cases" className="px-5 py-10 sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-[1320px]">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          <p className="text-xs font-extrabold uppercase text-primary">
             How it works
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Get up and running in four simple steps.
           </p>
+          <h2 className="mt-2 text-2xl font-extrabold text-foreground sm:text-3xl">
+            Get booked in four simple steps
+          </h2>
         </div>
 
-        <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step) => (
-            <div key={step.number} className="text-center">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+            <div
+              key={step.number}
+              className="relative rounded-[16px] border border-border bg-white p-6 shadow-sm"
+            >
+              <div className="absolute -left-2 top-6 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-extrabold text-white shadow-sm">
                 {step.number}
               </div>
-              <h3 className="mt-4 text-base font-semibold text-foreground">
-                {step.title}
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                {step.description}
-              </p>
+              <div className="ml-7 flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] bg-accent text-primary">
+                  <step.icon className="h-7 w-7" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="mt-1 text-sm font-medium leading-6 text-muted-foreground">
+                    {step.description}
+                  </p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
       </div>
     </section>
-  )
+  );
 }

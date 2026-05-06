@@ -4,35 +4,35 @@
 
 @layer base {
   :root {
-    /* Brand Palette - HSL values for Tailwind consumption */
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* OpenSlot design system */
+    --background: 214 100% 99%;
+    --foreground: 226 52% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 226 52% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 215 20% 65%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 43%;
-    --accent: 214 95% 93%;
-    --accent-foreground: 221 83% 43%;
+    --popover-foreground: 226 52% 12%;
+    --primary: 216 94% 51%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 216 30% 95%;
+    --secondary-foreground: 226 52% 12%;
+    --muted: 217 38% 96%;
+    --muted-foreground: 222 23% 42%;
+    --accent: 216 94% 96%;
+    --accent-foreground: 216 94% 45%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --success: 160 84% 28%;
+    --success: 151 72% 36%;
     --success-foreground: 0 0% 100%;
-    --warning: 32 95% 35%;
+    --warning: 31 94% 49%;
     --warning-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-    --radius: 0.75rem;
-    --radius-input: 0.5rem;
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --border: 216 34% 88%;
+    --input: 216 34% 88%;
+    --ring: 216 94% 51%;
+    --radius: 0.875rem;
+    --radius-input: 0.625rem;
+    --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 0 rgb(15 23 42 / 0.03);
+    --shadow-md: 0 10px 24px -18px rgb(15 23 42 / 0.38), 0 3px 8px -6px rgb(15 23 42 / 0.22);
+    --shadow-lg: 0 24px 64px -40px rgb(15 23 42 / 0.42), 0 10px 24px -18px rgb(15 23 42 / 0.32);
   }
 
   .dark {
@@ -64,6 +64,26 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+@layer utilities {
+  .tracking-tight {
+    letter-spacing: 0 !important;
+  }
+
+  .openslot-page-glow {
+    background:
+      radial-gradient(circle at 8% 22%, rgb(13 110 253 / 0.07), transparent 24rem),
+      radial-gradient(circle at 88% 18%, rgb(13 110 253 / 0.05), transparent 26rem),
+      hsl(var(--background));
+  }
+
+  .openslot-dots {
+    background-image: radial-gradient(rgb(13 110 253 / 0.15) 1.1px, transparent 1.1px);
+    background-size: 8px 8px;
+    mask-image: linear-gradient(90deg, transparent, black 18%, black 82%, transparent);
   }
 }
 
