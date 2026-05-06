@@ -39,7 +39,7 @@ function LoginForm() {
     });
 
     if (signInError) {
-      setError("Invalid credentials. Please check your email and password.");
+      setError("Invalid email or password");
       setLoading(false);
       return;
     }
@@ -49,7 +49,7 @@ function LoginForm() {
   }
 
   return (
-    <Card>
+    <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Log in</CardTitle>
         <CardDescription>
@@ -76,7 +76,15 @@ function LoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link
+                href="/forgot-password"
+                className="text-sm text-primary underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               type="password"
@@ -94,7 +102,10 @@ function LoginForm() {
           </Button>
           <p className="text-sm text-muted-foreground">
             Don&apos;t have an account?{" "}
-            <Link href="/signup" className="text-primary underline-offset-4 hover:underline">
+            <Link
+              href="/signup"
+              className="text-primary underline-offset-4 hover:underline"
+            >
               Sign up
             </Link>
           </p>
@@ -106,8 +117,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense>
-      <LoginForm />
-    </Suspense>
+    <div className="flex min-h-screen items-center justify-center p-4 md:p-6">
+      <Suspense>
+        <LoginForm />
+      </Suspense>
+    </div>
   );
 }

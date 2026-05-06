@@ -2,26 +2,48 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import {
+  LayoutDashboard,
+  Calendar,
+  Clock,
+  BookOpen,
+  Settings,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Avatar, getInitials } from '@/components/ui/avatar'
 
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard' },
-  { label: 'Event Types', href: '/event-types' },
-  { label: 'Availability', href: '/availability' },
-  { label: 'Bookings', href: '/bookings' },
-  { label: 'Profile', href: '/profile' },
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Event Types', href: '/event-types', icon: Calendar },
+  { label: 'Availability', href: '/availability', icon: Clock },
+  { label: 'Bookings', href: '/bookings', icon: BookOpen },
+  { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
-interface SidebarNavProps {
-  userName: string
-  userEmail: string
+interface SidebarNavUser {
+  name?: string
+  email?: string
+  avatarUrl?: string | null
 }
 
-export function SidebarNav({ userName, userEmail }: SidebarNavProps) {
+interface SidebarNavProps {
+  user?: SidebarNavUser
+  /** @deprecated Use `user` prop instead */
+  userName?: string
+  /** @deprecated Use `user` prop instead */
+  userEmail?: string
+}
+
+export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
   const pathname = usePathname()
   const router = useRouter()
+
+  // Support both new `user` prop and legacy individual props
+  const displayName = user?.name || userName || ''
+  const displayEmail = user?.email || userEmail || ''
+  const avatarUrl = user?.avatarUrl || null
 
   async function handleLogout() {
     const supabase = createClient()
@@ -31,38 +53,74 @@ export function SidebarNav({ userName, userEmail }: SidebarNavProps) {
   }
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-muted/40">
+    <aside className="flex h-full w-64 flex-col border-r bg-card">
+      {/* Logo */}
       <div className="p-6">
-        <Link href="/dashboard" className="text-xl font-bold">
+        <Link
+          href="/dashboard"
+          className="flex items-center text-xl font-bold text-foreground"
+        >
+          <svg
+            className="mr-2 h-7 w-7"
+            viewBox="0 0 28 28"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <rect width="28" height="28" rx="6" className="fill-primary" />
+            <path
+              d="M8 14.5L12 18.5L20 10.5"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
           OpenSlot
         </Link>
       </div>
 
+      {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-3" aria-label="Dashboard navigation">
         {navItems.map((item) => {
           const isActive = pathname === item.href
+          const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 isActive
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
               aria-current={isActive ? 'page' : undefined}
             >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               {item.label}
             </Link>
           )
         })}
       </nav>
 
+      {/* User Profile Section */}
       <div className="border-t p-4">
-        <div className="mb-3 truncate">
-          <p className="text-sm font-medium truncate">{userName || 'User'}</p>
-          <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
+        <div className="mb-3 flex items-center gap-3">
+          <Avatar
+            src={avatarUrl}
+            alt={displayName || 'User avatar'}
+            fallback={getInitials(displayName || 'U')}
+            size="sm"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">
+              {displayName || 'User'}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {displayEmail}
+            </p>
+          </div>
         </div>
         <Button
           variant="outline"

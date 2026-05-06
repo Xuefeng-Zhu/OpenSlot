@@ -1,101 +1,101 @@
-import { createAdminClient } from "@/lib/supabase/admin";
-import { CancelBookingForm } from "@/components/booking/cancel-booking-form";
+"use client";
+
+import { useState } from "react";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  Calendar,
+  Clock,
+  Globe,
+  User,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
-interface CancelBookingPageProps {
-  params: Promise<{ token: string }>;
-}
+type PageState = "active" | "cancelled" | "already-cancelled" | "invalid";
 
-export default async function CancelBookingPage({
-  params,
-}: CancelBookingPageProps) {
-  const { token } = await params;
+// Mock data for the UI shell
+const mockBooking = {
+  eventTitle: "30-min Discovery Call",
+  hostName: "John Doe",
+  date: "Monday, January 20, 2025",
+  time: "10:00 AM – 10:30 AM",
+  timezone: "America/New_York",
+  cancelledAt: "January 15, 2025",
+};
 
-  // Use admin client to bypass RLS — lookup by cancellation_token
-  const adminClient = createAdminClient();
+export default function CancelBookingPage() {
+  // For the UI shell, we show the active state by default
+  const [pageState, setPageState] = useState<PageState>("active");
+  const [reason, setReason] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data: booking, error } = await adminClient
-    .from("bookings")
-    .select("*")
-    .eq("cancellation_token", token)
-    .single();
+  const handleCancel = async () => {
+    setIsSubmitting(true);
+    // Simulate API call
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsSubmitting(false);
+    setPageState("cancelled");
+  };
 
-  // Invalid token — no booking found
-  if (error || !booking) {
+  // Error state - invalid/expired token
+  if (pageState === "invalid") {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-lg mx-auto">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
-              <svg
-                className="h-6 w-6 text-red-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+        <Card className="max-w-lg w-full">
+          <CardContent className="pt-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+              <XCircle className="h-6 w-6 text-destructive" aria-hidden="true" />
             </div>
-            <CardTitle className="text-xl">Invalid Cancellation Link</CardTitle>
-            <CardDescription>
-              This cancellation link is invalid or has expired. Please check the
-              link in your confirmation email and try again.
-            </CardDescription>
-          </CardHeader>
+            <h1 className="text-xl font-bold text-foreground">
+              Invalid Cancellation Link
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This cancellation link is no longer valid. It may have expired or
+              already been used.
+            </p>
+          </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Already cancelled
-  if (booking.status === "cancelled") {
+  // Already cancelled state
+  if (pageState === "already-cancelled") {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <Card className="max-w-lg mx-auto">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-              <svg
-                className="h-6 w-6 text-gray-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
+        <Card className="max-w-lg w-full">
+          <CardContent className="pt-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+              <AlertCircle
+                className="h-6 w-6 text-muted-foreground"
                 aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"
-                />
-              </svg>
+              />
             </div>
-            <CardTitle className="text-xl">Already Cancelled</CardTitle>
-            <CardDescription>
-              This booking has already been cancelled.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Guest</span>
-                <span className="font-medium">{booking.guest_name}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant="destructive">Cancelled</Badge>
+            <h1 className="text-xl font-bold text-foreground">
+              Already Cancelled
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This booking was already cancelled on {mockBooking.cancelledAt}.
+            </p>
+            <div className="mt-4 rounded-md border border-border p-4 text-left">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Event</span>
+                  <span className="font-medium">{mockBooking.eventTitle}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Host</span>
+                  <span className="font-medium">{mockBooking.hostName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant="danger">Cancelled</Badge>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -104,35 +104,106 @@ export default async function CancelBookingPage({
     );
   }
 
-  // Fetch event type and host profile for display
-  const [eventTypeResult, hostProfileResult] = await Promise.all([
-    adminClient
-      .from("event_types")
-      .select("title")
-      .eq("id", booking.event_type_id)
-      .single(),
-    adminClient
-      .from("profiles")
-      .select("name")
-      .eq("id", booking.host_user_id)
-      .single(),
-  ]);
+  // Success state - just cancelled
+  if (pageState === "cancelled") {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <Card className="max-w-lg w-full">
+          <CardContent className="pt-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+              <CheckCircle
+                className="h-6 w-6 text-success"
+                aria-hidden="true"
+              />
+            </div>
+            <h1 className="text-xl font-bold text-foreground">
+              Booking Cancelled
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Your booking has been successfully cancelled. The host has been
+              notified.
+            </p>
+            <div className="mt-4 rounded-md border border-border p-4 text-left">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Event</span>
+                  <span className="font-medium">{mockBooking.eventTitle}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Host</span>
+                  <span className="font-medium">{mockBooking.hostName}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Date</span>
+                  <span className="font-medium">{mockBooking.date}</span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const eventTitle = eventTypeResult.data?.title ?? "Meeting";
-  const hostName = hostProfileResult.data?.name ?? "Host";
-
+  // Active state - show cancellation form
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
-      <CancelBookingForm
-        bookingId={booking.id}
-        cancellationToken={token}
-        eventTitle={eventTitle}
-        hostName={hostName}
-        guestName={booking.guest_name}
-        startAt={booking.start_at}
-        endAt={booking.end_at}
-        guestTimezone={booking.guest_timezone}
-      />
+      <Card className="max-w-lg w-full">
+        <CardHeader className="text-center">
+          <CardTitle className="text-xl">Cancel Booking</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Are you sure you want to cancel this booking?
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Booking details */}
+          <div className="rounded-md border border-border p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span className="text-sm font-medium">
+                {mockBooking.eventTitle}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span className="text-sm">{mockBooking.hostName}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span className="text-sm">
+                {mockBooking.date} · {mockBooking.time}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Globe className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              <span className="text-sm">{mockBooking.timezone}</span>
+            </div>
+          </div>
+
+          {/* Reason textarea */}
+          <div>
+            <Label htmlFor="cancel-reason">Reason (optional)</Label>
+            <Textarea
+              id="cancel-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Let the host know why you're cancelling..."
+              rows={3}
+              className="mt-1"
+            />
+          </div>
+
+          {/* Action button */}
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Cancelling..." : "Cancel booking"}
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

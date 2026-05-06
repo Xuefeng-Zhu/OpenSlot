@@ -129,7 +129,7 @@ export function CancelBookingForm({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Status</span>
-              <Badge variant="destructive">Cancelled</Badge>
+              <Badge variant="danger">Cancelled</Badge>
             </div>
           </div>
           <p className="text-sm text-muted-foreground text-center">

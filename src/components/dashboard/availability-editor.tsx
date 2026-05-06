@@ -355,7 +355,7 @@ export function AvailabilityEditor({
                       {override.start_time} - {override.end_time}
                     </Badge>
                   ) : (
-                    <Badge variant="destructive">Unavailable</Badge>
+                    <Badge variant="danger">Unavailable</Badge>
                   )}
                   {override.reason && (
                     <span className="text-sm text-muted-foreground">

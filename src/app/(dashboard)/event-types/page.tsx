@@ -1,105 +1,136 @@
-import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
-import { EventTypeActions } from './event-type-actions'
-import type { Tables } from '@/lib/types/database'
+"use client";
 
-export default async function EventTypesPage() {
-  const supabase = await createServerSupabaseClient()
+import { useState } from "react";
+import Link from "next/link";
+import { Plus, Calendar } from "lucide-react";
+import { EventTypeCard } from "@/components/dashboard/event-type-card";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+interface MockEventType {
+  id: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  locationType: string;
+  slug: string;
+  isActive: boolean;
+  bookingUrl: string;
+}
 
-  if (!user) {
-    redirect('/login')
-  }
+const mockEventTypes: MockEventType[] = [
+  {
+    id: "1",
+    title: "30-min Discovery Call",
+    description:
+      "A quick introductory call to discuss your needs and see if we're a good fit for working together.",
+    durationMinutes: 30,
+    locationType: "Online",
+    slug: "discovery-call",
+    isActive: true,
+    bookingUrl: "https://openslot.app/johndoe/discovery-call",
+  },
+  {
+    id: "2",
+    title: "60-min Consultation",
+    description:
+      "An in-depth consultation session to dive deep into your project requirements and provide actionable advice.",
+    durationMinutes: 60,
+    locationType: "Online",
+    slug: "consultation",
+    isActive: true,
+    bookingUrl: "https://openslot.app/johndoe/consultation",
+  },
+  {
+    id: "3",
+    title: "15-min Quick Chat",
+    description: "A brief check-in for quick questions or follow-ups.",
+    durationMinutes: 15,
+    locationType: "Phone",
+    slug: "quick-chat",
+    isActive: false,
+    bookingUrl: "https://openslot.app/johndoe/quick-chat",
+  },
+];
 
-  // Get the user's profile
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
+export default function EventTypesPage() {
+  const { toast } = useToast();
+  const [eventTypes] = useState<MockEventType[]>(mockEventTypes);
 
-  const profile = profileData as Pick<Tables<'profiles'>, 'id'> | null
+  const handleCopyLink = (bookingUrl: string) => {
+    navigator.clipboard.writeText(bookingUrl).then(() => {
+      toast({
+        title: "Link copied!",
+        description: "Booking URL has been copied to your clipboard.",
+      });
+    });
+  };
 
-  if (!profile) {
-    redirect('/profile')
-  }
+  const handlePreview = (slug: string) => {
+    window.open(`/johndoe/${slug}`, "_blank");
+  };
 
-  // Fetch all event types for this user
-  const { data: eventTypesData } = await supabase
-    .from('event_types')
-    .select('*')
-    .eq('user_id', profile.id)
-    .order('created_at', { ascending: false })
+  const handleEdit = (id: string) => {
+    window.location.href = `/event-types/${id}/edit`;
+  };
 
-  const eventTypes = (eventTypesData ?? []) as Tables<'event_types'>[]
+  const handleDelete = (id: string) => {
+    toast({
+      title: "Event type deleted",
+      description: "The event type has been removed.",
+      variant: "destructive",
+    });
+  };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Event Types</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Event Types</h1>
           <p className="text-muted-foreground">
             Manage your event types that guests can book.
           </p>
         </div>
         <Button asChild>
-          <Link href="/event-types/new">Create Event Type</Link>
+          <Link href="/event-types/new">
+            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
+            Create event type
+          </Link>
         </Button>
       </div>
 
       {eventTypes.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">
-              You haven&apos;t created any event types yet.
-            </p>
-            <Button asChild>
-              <Link href="/event-types/new">Create Your First Event Type</Link>
-            </Button>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={<Calendar className="h-6 w-6" />}
+          heading="No event types yet"
+          description="Create your first event type to start accepting bookings from guests."
+          action={{
+            label: "Create your first event type",
+            onClick: () => (window.location.href = "/event-types/new"),
+          }}
+        />
       ) : (
-        <div className="grid gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {eventTypes.map((eventType) => (
-            <Card key={eventType.id}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <div className="space-y-1">
-                  <CardTitle className="text-xl">{eventType.title}</CardTitle>
-                  <CardDescription>
-                    {eventType.duration_minutes} min
-                    {eventType.location_type !== 'online' && ` · ${eventType.location_type.replace('_', ' ')}`}
-                    {eventType.location_type === 'online' && ' · Online'}
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant={eventType.is_active ? 'default' : 'secondary'}>
-                    {eventType.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                  <EventTypeActions eventTypeId={eventType.id} eventTypeTitle={eventType.title} />
-                </div>
-              </CardHeader>
-              {eventType.description && (
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{eventType.description}</p>
-                </CardContent>
-              )}
-            </Card>
+            <EventTypeCard
+              key={eventType.id}
+              id={eventType.id}
+              title={eventType.title}
+              description={eventType.description}
+              durationMinutes={eventType.durationMinutes}
+              locationType={eventType.locationType}
+              slug={eventType.slug}
+              isActive={eventType.isActive}
+              bookingUrl={eventType.bookingUrl}
+              onCopyLink={() => handleCopyLink(eventType.bookingUrl)}
+              onPreview={() => handlePreview(eventType.slug)}
+              onEdit={() => handleEdit(eventType.id)}
+              onDelete={() => handleDelete(eventType.id)}
+            />
           ))}
         </div>
       )}
     </div>
-  )
+  );
 }

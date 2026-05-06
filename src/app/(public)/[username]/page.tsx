@@ -1,126 +1,138 @@
-import { notFound } from "next/navigation";
-import Link from "next/link";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import type { Tables } from "@/lib/types/database";
+"use client";
 
-interface HostProfilePageProps {
-  params: Promise<{ username: string }>;
+import { useState } from "react";
+import Link from "next/link";
+import { Clock, MapPin, Globe } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Avatar } from "@/components/ui/avatar";
+
+interface EventType {
+  id: string;
+  title: string;
+  description: string;
+  durationMinutes: number;
+  locationType: string;
+  slug: string;
 }
 
-type Profile = Pick<Tables<"profiles">, "id" | "name" | "username" | "avatar_url">;
-type EventType = Pick<
-  Tables<"event_types">,
-  "id" | "title" | "slug" | "description" | "duration_minutes" | "location_type" | "is_active"
->;
+// Mock data for the UI shell
+const mockProfile = {
+  name: "John Doe",
+  username: "johndoe",
+  bio: "Product designer and consultant. I help startups build better products through design thinking and user research.",
+  avatarUrl: null as string | null,
+  timezone: "America/New_York",
+};
 
-export default async function HostProfilePage({ params }: HostProfilePageProps) {
-  const { username } = await params;
-  const supabase = await createServerSupabaseClient();
+const mockEventTypes: EventType[] = [
+  {
+    id: "1",
+    title: "30-min Discovery Call",
+    description:
+      "A quick introductory call to discuss your needs and see if we're a good fit for working together.",
+    durationMinutes: 30,
+    locationType: "Online",
+    slug: "discovery-call",
+  },
+  {
+    id: "2",
+    title: "60-min Consultation",
+    description:
+      "An in-depth consultation session to dive deep into your project requirements and provide actionable advice.",
+    durationMinutes: 60,
+    locationType: "Online",
+    slug: "consultation",
+  },
+  {
+    id: "3",
+    title: "15-min Quick Chat",
+    description: "A brief check-in for quick questions or follow-ups.",
+    durationMinutes: 15,
+    locationType: "Phone",
+    slug: "quick-chat",
+  },
+];
 
-  // Fetch the profile by username
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("id, name, username, avatar_url")
-    .eq("username", username)
-    .single();
-
-  const profile = profileData as Profile | null;
-
-  if (!profile) {
-    notFound();
-  }
-
-  // Fetch active event types for this host
-  const { data: eventTypesData } = await supabase
-    .from("event_types")
-    .select("id, title, slug, description, duration_minutes, location_type, is_active")
-    .eq("user_id", profile.id)
-    .eq("is_active", true)
-    .order("created_at", { ascending: true });
-
-  const activeEventTypes = (eventTypesData as EventType[] | null) ?? [];
+export default function PublicProfilePage() {
+  const [profile] = useState(mockProfile);
+  const [eventTypes] = useState<EventType[]>(mockEventTypes);
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Host profile header */}
+    <div className="max-w-2xl mx-auto px-4 py-8 md:px-0">
+      {/* Host profile card */}
       <div className="flex flex-col items-center text-center mb-8">
-        {profile.avatar_url ? (
-          <img
-            src={profile.avatar_url}
-            alt={`${profile.name}'s avatar`}
-            className="w-20 h-20 rounded-full object-cover mb-4"
-          />
-        ) : (
-          <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-            <span className="text-2xl font-semibold text-muted-foreground">
-              {profile.name?.charAt(0)?.toUpperCase() || "?"}
-            </span>
-          </div>
+        <Avatar
+          src={profile.avatarUrl}
+          alt={`${profile.name}'s avatar`}
+          fallback={profile.name
+            .split(" ")
+            .map((w) => w[0])
+            .join("")
+            .toUpperCase()
+            .slice(0, 2)}
+          size="lg"
+        />
+        <h1 className="mt-4 text-2xl font-bold text-foreground">
+          {profile.name}
+        </h1>
+        {profile.bio && (
+          <p className="mt-2 text-sm text-muted-foreground max-w-md">
+            {profile.bio}
+          </p>
         )}
-        <h1 className="text-2xl font-bold">{profile.name}</h1>
-        <p className="text-muted-foreground">@{profile.username}</p>
+        <div className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
+          <Globe className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>{profile.timezone}</span>
+        </div>
       </div>
 
       {/* Event types list */}
-      {activeEventTypes.length === 0 ? (
+      {eventTypes.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            This user has no available event types.
-          </p>
+          <p className="text-muted-foreground">No available event types</p>
         </div>
       ) : (
         <div className="space-y-4">
-          {activeEventTypes.map((eventType) => (
-            <Link
+          {eventTypes.map((eventType) => (
+            <Card
               key={eventType.id}
-              href={`/${profile.username}/${eventType.slug}`}
-              className="block"
+              className="w-full hover:border-primary/50 transition-colors"
             >
-              <Card className="hover:border-primary/50 transition-colors">
-                <CardHeader>
-                  <CardTitle className="text-lg">{eventType.title}</CardTitle>
-                  {eventType.description && (
-                    <CardDescription>{eventType.description}</CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-3">
-                    <Badge variant="secondary">
-                      {eventType.duration_minutes} min
-                    </Badge>
-                    <Badge variant="outline">
-                      {formatLocationType(eventType.location_type)}
-                    </Badge>
+              <CardContent className="p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <h2 className="text-lg font-semibold text-foreground">
+                      {eventType.title}
+                    </h2>
+                    {eventType.description && (
+                      <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                        {eventType.description}
+                      </p>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" aria-hidden="true" />
+                        {eventType.durationMinutes} min
+                      </Badge>
+                      <Badge variant="outline" className="flex items-center gap-1">
+                        <MapPin className="h-3 w-3" aria-hidden="true" />
+                        {eventType.locationType}
+                      </Badge>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                  <Button asChild className="shrink-0">
+                    <Link href={`/${profile.username}/${eventType.slug}`}>
+                      Book
+                    </Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
     </div>
   );
-}
-
-function formatLocationType(locationType: string): string {
-  switch (locationType) {
-    case "online":
-      return "Online";
-    case "phone":
-      return "Phone";
-    case "in_person":
-      return "In Person";
-    case "custom":
-      return "Custom";
-    default:
-      return locationType;
-  }
 }
