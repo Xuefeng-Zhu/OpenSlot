@@ -104,7 +104,7 @@ export function HeroSection() {
                   <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                     <span>🌐 Timezone</span>
                   </div>
-                  <div className="text-[10px] text-muted-foreground">America/New York (EDT)</div>
+                  <div className="text-[10px] text-muted-foreground">America/Los Angeles (PDT)</div>
                 </div>
                 <p className="text-[10px] text-muted-foreground italic">
                   Let&apos;s find time to connect!<br />Pick a slot that works for you.
@@ -113,7 +113,7 @@ export function HeroSection() {
 
               {/* Middle - Calendar */}
               <div>
-                <div className="text-xs font-medium text-foreground mb-2">June 2025</div>
+                <div className="text-xs font-medium text-foreground mb-2">May 2026</div>
                 <div className="grid grid-cols-7 gap-0.5 text-[9px]">
                   {['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'].map((d) => (
                     <div key={d} className="flex h-5 items-center justify-center text-muted-foreground font-medium">{d}</div>
@@ -143,7 +143,7 @@ export function HeroSection() {
 
               {/* Right - Time slots */}
               <div>
-                <div className="text-xs font-medium text-foreground mb-1">Friday, June 13, 2025</div>
+                <div className="text-xs font-medium text-foreground mb-1">Friday, May 15, 2026</div>
                 <div className="text-[9px] text-muted-foreground mb-2">Available times</div>
                 <div className="space-y-1.5">
                   {['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM'].map((time, i) => (

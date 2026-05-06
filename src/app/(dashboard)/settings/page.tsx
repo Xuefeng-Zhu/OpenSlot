@@ -25,8 +25,8 @@ export default function SettingsPage() {
   const { toast } = useToast();
 
   // Account state
-  const [name, setName] = useState("John Doe");
-  const [email, setEmail] = useState("john@example.com");
+  const [name, setName] = useState("Sarah Chen");
+  const [email, setEmail] = useState("sarah@example.com");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 

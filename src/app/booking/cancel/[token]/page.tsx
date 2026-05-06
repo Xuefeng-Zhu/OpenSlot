@@ -20,12 +20,12 @@ type PageState = "active" | "cancelled" | "already-cancelled" | "invalid";
 
 // Mock data for the UI shell
 const mockBooking = {
-  eventTitle: "30-min Discovery Call",
-  hostName: "John Doe",
-  date: "Monday, January 20, 2025",
-  time: "10:00 AM – 10:30 AM",
-  timezone: "America/New_York",
-  cancelledAt: "January 15, 2025",
+  eventTitle: "30 min intro call",
+  hostName: "Sarah Chen",
+  date: "Friday, May 15, 2026",
+  time: "10:30 AM – 11:00 AM",
+  timezone: "America/Los_Angeles",
+  cancelledAt: "May 10, 2026",
 };
 
 export default function CancelBookingPage() {

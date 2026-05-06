@@ -37,17 +37,17 @@ const mockSlots = [
 ];
 
 const mockHost = {
-  name: "John Doe",
-  username: "johndoe",
+  name: "Sarah Chen",
+  username: "sarah-chen",
   avatarUrl: null as string | null,
 };
 
 const mockEvent = {
-  title: "30-min Discovery Call",
+  title: "30 min intro call",
   duration: 30,
-  location: "Online (Zoom)",
+  location: "Online meeting",
   description:
-    "A quick introductory call to discuss your needs and see if we're a good fit.",
+    "A quick call to connect and learn more.",
 };
 
 export default function PublicBookingPage() {

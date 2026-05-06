@@ -286,7 +286,7 @@ function StepProfile({
             id="displayName"
             value={data.displayName}
             onChange={(e) => onChange({ ...data, displayName: e.target.value })}
-            placeholder="John Doe"
+            placeholder="Sarah Chen"
           />
         </div>
 
@@ -298,7 +298,7 @@ function StepProfile({
               id="username"
               value={data.username}
               onChange={(e) => onChange({ ...data, username: e.target.value })}
-              placeholder="johndoe"
+              placeholder="sarah-chen"
               className="flex-1"
             />
           </div>
@@ -454,7 +454,7 @@ function StepEventType({
             id="eventLocation"
             value={data.location}
             onChange={(e) => onChange({ ...data, location: e.target.value })}
-            placeholder="Zoom, Google Meet, or a physical address"
+            placeholder="Online meeting, phone call, or in person"
           />
         </div>
       </div>

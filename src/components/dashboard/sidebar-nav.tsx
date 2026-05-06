@@ -10,6 +10,7 @@ import {
   Settings,
   Plus,
   ExternalLink,
+  User,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -21,7 +22,7 @@ const navItems = [
   { label: 'Event Types', href: '/event-types', icon: Calendar },
   { label: 'Availability', href: '/availability', icon: Clock },
   { label: 'Bookings', href: '/bookings', icon: BookOpen },
-  { label: 'Profile', href: '/profile', icon: null },
+  { label: 'Profile', href: '/profile', icon: User },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -85,9 +86,9 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
 
       {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-3" aria-label="Dashboard navigation">
-        {navItems.filter(item => item.icon).map((item) => {
+        {navItems.map((item) => {
           const isActive = pathname === item.href
-          const Icon = item.icon!
+          const Icon = item.icon
           return (
             <Link
               key={item.href}

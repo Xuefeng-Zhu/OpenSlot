@@ -20,9 +20,9 @@ interface EventType {
 
 // Mock data for the UI shell
 const mockProfile = {
-  name: "Alex Kim",
-  username: "alex-kim",
-  bio: "I help early-stage founders grow smarter. Book time to talk growth, product, or anything in between.",
+  name: "Sarah Chen",
+  username: "sarah-chen",
+  bio: "I help teams design intuitive, impactful products users love. Book time to talk design, product, or anything in between.",
   avatarUrl: null as string | null,
   timezone: "Pacific Time (PT)",
   responseTime: "Within a few hours",
@@ -33,28 +33,28 @@ const mockEventTypes: EventType[] = [
     id: "1",
     title: "30 min intro call",
     description:
-      "A quick intro to get to know each other. Perfect for founders exploring ideas.",
+      "A quick call to connect and learn more.",
     durationMinutes: 30,
-    locationType: "Online",
-    slug: "30-min-intro-call",
+    locationType: "Online meeting",
+    slug: "intro-call",
     price: "Free",
   },
   {
     id: "2",
     title: "Strategy session",
     description:
-      "Deep dive into your growth or product strategy. Walk away with actionable next steps.",
+      "A deeper session to discuss goals and next steps.",
     durationMinutes: 60,
-    locationType: "Online",
+    locationType: "Online meeting",
     slug: "strategy-session",
     price: "Free",
   },
   {
     id: "3",
     title: "Office hours",
-    description: "Ask me anything. Open Q&A on growth, product, and scaling your startup.",
-    durationMinutes: 60,
-    locationType: "Online",
+    description: "Open time for questions, feedback, or support.",
+    durationMinutes: 45,
+    locationType: "Custom location",
     slug: "office-hours",
     price: "Free",
   },
@@ -85,7 +85,7 @@ export default function PublicProfilePage() {
               <h1 className="mt-4 text-xl font-bold text-foreground">
                 {profile.name}
               </h1>
-              <p className="text-sm text-muted-foreground">Product Growth Advisor</p>
+              <p className="text-sm text-muted-foreground">Product Designer</p>
               {profile.bio && (
                 <p className="mt-3 text-sm text-muted-foreground">
                   {profile.bio}

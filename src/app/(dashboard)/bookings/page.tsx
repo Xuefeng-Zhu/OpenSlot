@@ -53,29 +53,29 @@ const mockBookings: Booking[] = [
     id: "1",
     guestName: "Alice Johnson",
     guestEmail: "alice@example.com",
-    eventType: "30-min Discovery Call",
-    date: "Mon, Jan 20, 2025",
-    time: "10:00 AM – 10:30 AM",
+    eventType: "30 min intro call",
+    date: "Fri, May 15, 2026",
+    time: "10:30 AM – 11:00 AM",
     status: "upcoming",
-    timezone: "America/New_York",
+    timezone: "America/Los_Angeles",
     notes: "Looking forward to discussing the project.",
   },
   {
     id: "2",
     guestName: "Bob Smith",
     guestEmail: "bob@example.com",
-    eventType: "60-min Consultation",
-    date: "Tue, Jan 21, 2025",
+    eventType: "Strategy session",
+    date: "Mon, May 18, 2026",
     time: "2:00 PM – 3:00 PM",
     status: "upcoming",
-    timezone: "America/Chicago",
+    timezone: "America/Los_Angeles",
   },
   {
     id: "3",
     guestName: "Carol Davis",
     guestEmail: "carol@example.com",
-    eventType: "30-min Discovery Call",
-    date: "Wed, Jan 15, 2025",
+    eventType: "30 min intro call",
+    date: "Wed, May 6, 2026",
     time: "9:00 AM – 9:30 AM",
     status: "past",
     timezone: "America/Los_Angeles",
@@ -84,21 +84,21 @@ const mockBookings: Booking[] = [
     id: "4",
     guestName: "Dan Wilson",
     guestEmail: "dan@example.com",
-    eventType: "15-min Quick Chat",
-    date: "Thu, Jan 10, 2025",
-    time: "11:00 AM – 11:15 AM",
+    eventType: "Office hours",
+    date: "Mon, May 4, 2026",
+    time: "11:00 AM – 11:45 AM",
     status: "past",
-    timezone: "Europe/London",
+    timezone: "America/Los_Angeles",
   },
   {
     id: "5",
     guestName: "Eve Martinez",
     guestEmail: "eve@example.com",
-    eventType: "60-min Consultation",
-    date: "Fri, Jan 5, 2025",
+    eventType: "Strategy session",
+    date: "Fri, May 1, 2026",
     time: "4:00 PM – 5:00 PM",
     status: "cancelled",
-    timezone: "America/New_York",
+    timezone: "America/Los_Angeles",
     notes: "Had a scheduling conflict.",
   },
 ];
@@ -135,6 +135,12 @@ export default function BookingsPage() {
       description: `The booking with ${selectedBooking?.guestName} has been cancelled.`,
     });
   };
+
+  function getStatusLabel(status: string): string {
+    if (status === "upcoming") return "Confirmed";
+    if (status === "cancelled") return "Cancelled";
+    return "Completed";
+  }
 
   const renderEmptyState = (tab: string) => {
     const messages: Record<string, { heading: string; description: string }> = {
@@ -307,8 +313,7 @@ export default function BookingsPage() {
                       : "secondary"
                   }
                 >
-                  {selectedBooking.status.charAt(0).toUpperCase() +
-                    selectedBooking.status.slice(1)}
+                  {getStatusLabel(selectedBooking.status)}
                 </Badge>
               </div>
             </div>
@@ -442,8 +447,7 @@ function BookingsTable({
                           : "secondary"
                       }
                     >
-                      {booking.status.charAt(0).toUpperCase() +
-                        booking.status.slice(1)}
+                      {getStatusLabel(booking.status)}
                     </Badge>
                   </td>
                   <td className="p-3">
@@ -496,8 +500,7 @@ function BookingsTable({
                   }
                   className="ml-2 shrink-0"
                 >
-                  {booking.status.charAt(0).toUpperCase() +
-                    booking.status.slice(1)}
+                  {getStatusLabel(booking.status)}
                 </Badge>
               </div>
             </CardContent>

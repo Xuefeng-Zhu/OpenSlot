@@ -34,7 +34,7 @@ const mockBookings = [
     date: "Today",
     time: "10:00 AM",
     duration: "30 min",
-    status: "Upcoming",
+    status: "Confirmed",
   },
   {
     id: "2",
@@ -43,7 +43,7 @@ const mockBookings = [
     date: "Today",
     time: "1:00 PM",
     duration: "45 min",
-    status: "Upcoming",
+    status: "Confirmed",
   },
   {
     id: "3",
@@ -52,7 +52,7 @@ const mockBookings = [
     date: "Tomorrow",
     time: "9:30 AM",
     duration: "15 min",
-    status: "Upcoming",
+    status: "Confirmed",
   },
   {
     id: "4",
@@ -61,16 +61,16 @@ const mockBookings = [
     date: "Tomorrow",
     time: "11:00 AM",
     duration: "30 min",
-    status: "Upcoming",
+    status: "Confirmed",
   },
   {
     id: "5",
     guestName: "Sophie Lee",
     eventTitle: "Design Review",
-    date: "Fri, Jun 20",
+    date: "Fri, May 20",
     time: "2:00 PM",
     duration: "45 min",
-    status: "Upcoming",
+    status: "Confirmed",
   },
 ];
 
@@ -86,7 +86,7 @@ export default function DashboardPage() {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
 
-  const bookingLink = "openslot.com/sarah-chen";
+  const bookingLink = "openslot.app/sarah-chen";
   const displayedBookings = getDisplayedBookings(mockBookings);
   const completedCount = setupChecklist.filter((i) => i.completed).length;
   const completionPercent = Math.round((completedCount / setupChecklist.length) * 100);
@@ -258,7 +258,7 @@ export default function DashboardPage() {
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <CardTitle className="text-lg">Public profile preview</CardTitle>
               <Button variant="ghost" size="sm" asChild className="text-primary">
-                <Link href="/johndoe">
+                <Link href="/sarah-chen">
                   View full page
                   <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
                 </Link>
@@ -287,12 +287,12 @@ export default function DashboardPage() {
                 </span>
                 <span className="flex items-center gap-1">
                   <MapPin className="h-3 w-3" aria-hidden="true" />
-                  Google Meet
+                  Online meeting
                 </span>
               </div>
               <div className="mt-4">
                 <Button variant="outline" size="sm" className="w-full" asChild>
-                  <Link href="/johndoe" target="_blank" rel="noopener noreferrer">
+                  <Link href="/sarah-chen" target="_blank" rel="noopener noreferrer">
                     Preview booking page
                     <ExternalLink className="h-3 w-3 ml-1" aria-hidden="true" />
                   </Link>

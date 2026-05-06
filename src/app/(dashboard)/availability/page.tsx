@@ -30,11 +30,11 @@ const DAYS = [
 ] as const;
 
 const defaultAvailability: Record<string, DayAvailability> = {
-  Monday: { enabled: true, intervals: [{ start: "09:00", end: "12:00" }, { start: "14:00", end: "17:00" }] },
-  Tuesday: { enabled: true, intervals: [{ start: "09:00", end: "12:00" }, { start: "13:00", end: "16:00" }] },
-  Wednesday: { enabled: true, intervals: [{ start: "09:00", end: "12:00" }] },
-  Thursday: { enabled: true, intervals: [{ start: "13:00", end: "17:00" }] },
-  Friday: { enabled: true, intervals: [{ start: "09:00", end: "13:00" }] },
+  Monday: { enabled: true, intervals: [{ start: "09:00", end: "17:00" }] },
+  Tuesday: { enabled: true, intervals: [{ start: "09:00", end: "17:00" }] },
+  Wednesday: { enabled: true, intervals: [{ start: "09:00", end: "17:00" }] },
+  Thursday: { enabled: true, intervals: [{ start: "09:00", end: "17:00" }] },
+  Friday: { enabled: true, intervals: [{ start: "09:00", end: "15:00" }] },
   Saturday: { enabled: false, intervals: [] },
   Sunday: { enabled: false, intervals: [] },
 };
