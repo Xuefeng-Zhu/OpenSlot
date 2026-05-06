@@ -68,7 +68,7 @@ describe('Property 6: EventTypeCard Completeness', () => {
           if (isActive) {
             expect(textContent).toContain('Active')
           } else {
-            expect(textContent).toContain('Draft')
+            expect(textContent).toContain('Paused')
           }
 
           cleanup()

@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Plus, Calendar } from "lucide-react";
+import { Plus, Calendar, Search } from "lucide-react";
 import { EventTypeCard } from "@/components/dashboard/event-type-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 
 interface MockEventType {
@@ -22,41 +23,54 @@ interface MockEventType {
 const mockEventTypes: MockEventType[] = [
   {
     id: "1",
-    title: "30-min Discovery Call",
+    title: "30 min intro call",
     description:
-      "A quick introductory call to discuss your needs and see if we're a good fit for working together.",
+      "A quick 30-minute call to connect, learn about your needs, and see how we can help.",
     durationMinutes: 30,
-    locationType: "Online",
-    slug: "discovery-call",
+    locationType: "Zoom",
+    slug: "30-min-intro-call",
     isActive: true,
-    bookingUrl: "https://openslot.app/johndoe/discovery-call",
+    bookingUrl: "https://openslot.com/sarah-chen/30-min-intro-call",
   },
   {
     id: "2",
-    title: "60-min Consultation",
+    title: "Strategy session",
     description:
-      "An in-depth consultation session to dive deep into your project requirements and provide actionable advice.",
+      "A 60-minute deep dive to explore your goals, challenges, and opportunities.",
     durationMinutes: 60,
-    locationType: "Online",
-    slug: "consultation",
+    locationType: "Google Meet",
+    slug: "strategy-session",
     isActive: true,
-    bookingUrl: "https://openslot.app/johndoe/consultation",
+    bookingUrl: "https://openslot.com/sarah-chen/strategy-session",
   },
   {
     id: "3",
-    title: "15-min Quick Chat",
-    description: "A brief check-in for quick questions or follow-ups.",
-    durationMinutes: 15,
-    locationType: "Phone",
-    slug: "quick-chat",
+    title: "Office hours",
+    description: "Open office hours for quick questions, feedback, or anything on your mind.",
+    durationMinutes: 45,
+    locationType: "Zoom",
+    slug: "office-hours",
     isActive: false,
-    bookingUrl: "https://openslot.app/johndoe/quick-chat",
+    bookingUrl: "https://openslot.com/sarah-chen/office-hours",
   },
 ];
+
+type FilterTab = "all" | "active" | "paused";
 
 export default function EventTypesPage() {
   const { toast } = useToast();
   const [eventTypes] = useState<MockEventType[]>(mockEventTypes);
+  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredEventTypes = eventTypes.filter((et) => {
+    // Filter by status
+    if (activeFilter === "active" && !et.isActive) return false;
+    if (activeFilter === "paused" && et.isActive) return false;
+    // Filter by search
+    if (searchQuery && !et.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    return true;
+  });
 
   const handleCopyLink = (bookingUrl: string) => {
     navigator.clipboard.writeText(bookingUrl).then(() => {
@@ -68,7 +82,7 @@ export default function EventTypesPage() {
   };
 
   const handlePreview = (slug: string) => {
-    window.open(`/johndoe/${slug}`, "_blank");
+    window.open(`/sarah-chen/${slug}`, "_blank");
   };
 
   const handleEdit = (id: string) => {
@@ -85,22 +99,66 @@ export default function EventTypesPage() {
 
   return (
     <div className="space-y-6">
+      {/* Page header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Event Types</h1>
           <p className="text-muted-foreground">
-            Manage your event types that guests can book.
+            Create and manage the types of events people can book with you.
           </p>
         </div>
         <Button asChild>
           <Link href="/event-types/new">
             <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-            Create event type
+            New event type
           </Link>
         </Button>
       </div>
 
-      {eventTypes.length === 0 ? (
+      {/* Filter tabs and search */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={activeFilter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveFilter("all")}
+            className="rounded-full"
+          >
+            All
+          </Button>
+          <Button
+            variant={activeFilter === "active" ? "outline" : "ghost"}
+            size="sm"
+            onClick={() => setActiveFilter("active")}
+            className={`rounded-full ${activeFilter === "active" ? "border-success/50 text-success" : ""}`}
+          >
+            <span className="mr-1.5 h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+            Active
+          </Button>
+          <Button
+            variant={activeFilter === "paused" ? "outline" : "ghost"}
+            size="sm"
+            onClick={() => setActiveFilter("paused")}
+            className={`rounded-full ${activeFilter === "paused" ? "border-warning/50 text-warning" : ""}`}
+          >
+            <span className="mr-1.5 h-2 w-2 rounded-full bg-warning" aria-hidden="true" />
+            Paused
+          </Button>
+        </div>
+        <div className="relative w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <Input
+            placeholder="Search event types..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+            aria-label="Search event types"
+          />
+        </div>
+      </div>
+
+      {/* Event type list */}
+      {filteredEventTypes.length === 0 && eventTypes.length === 0 ? (
         <EmptyState
           icon={<Calendar className="h-6 w-6" />}
           heading="No event types yet"
@@ -110,9 +168,13 @@ export default function EventTypesPage() {
             onClick: () => (window.location.href = "/event-types/new"),
           }}
         />
+      ) : filteredEventTypes.length === 0 ? (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">No event types match your filters.</p>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {eventTypes.map((eventType) => (
+        <div className="space-y-4">
+          {filteredEventTypes.map((eventType) => (
             <EventTypeCard
               key={eventType.id}
               id={eventType.id}
@@ -129,6 +191,13 @@ export default function EventTypesPage() {
               onDelete={() => handleDelete(eventType.id)}
             />
           ))}
+        </div>
+      )}
+
+      {/* Pagination info */}
+      {filteredEventTypes.length > 0 && (
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <p>Showing 1 to {filteredEventTypes.length} of {filteredEventTypes.length} event types</p>
         </div>
       )}
     </div>

@@ -32,7 +32,11 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
 
       {/* Content area */}
       <div className="flex flex-1 flex-col">
-        <TopBar title="Dashboard" onMenuToggle={() => setDrawerOpen(true)} />
+        <TopBar
+          title="Dashboard"
+          onMenuToggle={() => setDrawerOpen(true)}
+          user={{ name: user.name }}
+        />
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
     </div>

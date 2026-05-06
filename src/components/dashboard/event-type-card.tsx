@@ -5,8 +5,11 @@ import {
   Copy,
   ExternalLink,
   Pencil,
-  MoreHorizontal,
+  MoreVertical,
   Trash2,
+  Clock,
+  MapPin,
+  Link2,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -35,7 +38,15 @@ export interface EventTypeCardProps {
   onDelete: () => void;
 }
 
+const iconColors = [
+  "bg-accent text-primary",
+  "bg-purple-50 text-purple-600",
+  "bg-emerald-50 text-emerald-600",
+  "bg-amber-50 text-amber-600",
+];
+
 export function EventTypeCard({
+  id,
   title,
   description,
   durationMinutes,
@@ -47,76 +58,100 @@ export function EventTypeCard({
   onEdit,
   onDelete,
 }: EventTypeCardProps) {
+  // Deterministic color based on id
+  const colorIndex = parseInt(id, 10) % iconColors.length || 0;
+  const iconColor = iconColors[colorIndex];
+
   return (
-    <Card className="p-6">
-      <div className="flex flex-col gap-4">
-        {/* Header: title + status */}
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-base font-semibold text-foreground">{title}</h3>
-          <Badge variant={isActive ? "success" : "secondary"}>
-            {isActive ? "Active" : "Draft"}
-          </Badge>
+    <Card className="p-5">
+      <div className="flex items-start gap-4">
+        {/* Icon */}
+        <div className={cn("flex h-12 w-12 items-center justify-center rounded-xl shrink-0", iconColor)}>
+          <Clock className="h-5 w-5" aria-hidden="true" />
         </div>
 
-        {/* Description (truncated to 2 lines) */}
-        {description && (
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {description}
-          </p>
-        )}
+        {/* Content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-semibold text-foreground">{title}</h3>
+              {description && (
+                <p className="mt-0.5 text-sm text-muted-foreground line-clamp-2">
+                  {description}
+                </p>
+              )}
+            </div>
+            <Badge
+              variant={isActive ? "success" : "warning"}
+              className="shrink-0"
+            >
+              <span className={cn("mr-1.5 h-1.5 w-1.5 rounded-full", isActive ? "bg-success-foreground" : "bg-warning-foreground")} aria-hidden="true" />
+              {isActive ? "Active" : "Paused"}
+            </Badge>
+          </div>
 
-        {/* Meta: duration, location, slug */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline">{durationMinutes} min</Badge>
-          <span className="text-sm text-muted-foreground">{locationType}</span>
-          <span className="text-xs text-muted-foreground">/{slug}</span>
-        </div>
+          {/* Meta info */}
+          <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+              {durationMinutes} min
+            </span>
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+              {locationType}
+            </span>
+            <span className="flex items-center gap-1">
+              <Link2 className="h-3.5 w-3.5" aria-hidden="true" />
+              /{slug}
+            </span>
+          </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 pt-2 border-t border-border">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onCopyLink}
-            aria-label="Copy link"
-          >
-            <Copy className="h-4 w-4 mr-1" aria-hidden="true" />
-            Copy link
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onPreview}
-            aria-label="Preview"
-          >
-            <ExternalLink className="h-4 w-4 mr-1" aria-hidden="true" />
-            Preview
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEdit}
-            aria-label="Edit"
-          >
-            <Pencil className="h-4 w-4 mr-1" aria-hidden="true" />
-            Edit
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="More options">
-                <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={onDelete}
-                className="text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {/* Actions */}
+          <div className="mt-3 flex items-center gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCopyLink}
+              className="h-8"
+            >
+              <Copy className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Copy link
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onPreview}
+              className="h-8"
+            >
+              <ExternalLink className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Preview
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onEdit}
+              className="h-8"
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Edit
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 w-8 p-0" aria-label="More options">
+                  <MoreVertical className="h-3.5 w-3.5" aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={onDelete}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </Card>

@@ -1,27 +1,33 @@
+import { Calendar, Link2, Clock, CheckCircle } from 'lucide-react'
+
 const steps = [
   {
     number: 1,
-    title: 'Create your profile',
+    icon: Calendar,
+    title: 'Create your OpenSlot',
     description:
-      'Sign up and set up your public scheduling page in minutes.',
+      'Connect your calendar and set your availability preferences.',
   },
   {
     number: 2,
-    title: 'Set your availability',
+    icon: Link2,
+    title: 'Share your link',
     description:
-      'Define your weekly hours and let OpenSlot handle the rest.',
+      'Send your OpenSlot link anywhere—email, chat, socials, you name it.',
   },
   {
     number: 3,
-    title: 'Share your link',
+    icon: Clock,
+    title: 'They pick a time',
     description:
-      'Send your booking link to clients, colleagues, or anyone who needs time with you.',
+      'Others see your available times and book what works for them.',
   },
   {
     number: 4,
-    title: 'Get booked',
+    icon: CheckCircle,
+    title: 'You stay in sync',
     description:
-      'Guests pick a time that works for them, and you both get a confirmation.',
+      'Events are added to your calendar automatically. Everyone stays on track.',
   },
 ]
 
@@ -30,21 +36,24 @@ export function HowItWorks() {
     <section className="px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            How it works
-          </h2>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Get up and running in four simple steps.
+          <p className="text-sm font-semibold uppercase tracking-wider text-primary">
+            HOW IT WORKS
           </p>
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            Get booked in four simple steps
+          </h2>
         </div>
 
-        <div className="mx-auto mt-12 grid max-w-4xl grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step) => (
             <div key={step.number} className="text-center">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
                 {step.number}
               </div>
-              <h3 className="mt-4 text-base font-semibold text-foreground">
+              <div className="mt-4 mx-auto flex h-10 w-10 items-center justify-center">
+                <step.icon className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <h3 className="mt-2 text-base font-semibold text-foreground">
                 {step.title}
               </h3>
               <p className="mt-2 text-sm text-muted-foreground">

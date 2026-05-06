@@ -8,6 +8,8 @@ import {
   Clock,
   BookOpen,
   Settings,
+  Plus,
+  ExternalLink,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -15,10 +17,11 @@ import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
 
 const navItems = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Event Types', href: '/event-types', icon: Calendar },
   { label: 'Availability', href: '/availability', icon: Clock },
   { label: 'Bookings', href: '/bookings', icon: BookOpen },
+  { label: 'Profile', href: '/profile', icon: null },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -55,7 +58,7 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
   return (
     <aside className="flex h-full w-64 flex-col border-r bg-card">
       {/* Logo */}
-      <div className="p-6">
+      <div className="p-6 pb-4">
         <Link
           href="/dashboard"
           className="flex items-center text-xl font-bold text-foreground"
@@ -82,9 +85,9 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
 
       {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-3" aria-label="Dashboard navigation">
-        {navItems.map((item) => {
+        {navItems.filter(item => item.icon).map((item) => {
           const isActive = pathname === item.href
-          const Icon = item.icon
+          const Icon = item.icon!
           return (
             <Link
               key={item.href}
@@ -104,9 +107,33 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
         })}
       </nav>
 
+      {/* New event type button */}
+      <div className="px-3 mb-4">
+        <Button asChild className="w-full" size="sm">
+          <Link href="/event-types/new">
+            <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
+            New event type
+          </Link>
+        </Button>
+      </div>
+
+      {/* Share your link CTA */}
+      <div className="mx-3 mb-4 rounded-lg bg-accent/50 p-4">
+        <p className="text-sm font-medium text-foreground">Share your link</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Invite clients to book time with you in just a few clicks.
+        </p>
+        <Button variant="outline" size="sm" className="mt-3 w-full" asChild>
+          <Link href="/dashboard">
+            View booking page
+            <ExternalLink className="h-3 w-3 ml-1.5" aria-hidden="true" />
+          </Link>
+        </Button>
+      </div>
+
       {/* User Profile Section */}
       <div className="border-t p-4">
-        <div className="mb-3 flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <Avatar
             src={avatarUrl}
             alt={displayName || 'User avatar'}
@@ -122,14 +149,6 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full"
-          onClick={handleLogout}
-        >
-          Log out
-        </Button>
       </div>
     </aside>
   )
