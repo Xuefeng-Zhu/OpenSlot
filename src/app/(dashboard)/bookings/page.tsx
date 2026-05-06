@@ -103,6 +103,12 @@ const mockBookings: Booking[] = [
   },
 ];
 
+function getStatusLabel(status: string): string {
+  if (status === "upcoming") return "Confirmed";
+  if (status === "cancelled") return "Cancelled";
+  return "Completed";
+}
+
 export default function BookingsPage() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("upcoming");
@@ -135,12 +141,6 @@ export default function BookingsPage() {
       description: `The booking with ${selectedBooking?.guestName} has been cancelled.`,
     });
   };
-
-  function getStatusLabel(status: string): string {
-    if (status === "upcoming") return "Confirmed";
-    if (status === "cancelled") return "Cancelled";
-    return "Completed";
-  }
 
   const renderEmptyState = (tab: string) => {
     const messages: Record<string, { heading: string; description: string }> = {
