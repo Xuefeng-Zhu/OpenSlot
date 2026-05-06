@@ -24,7 +24,7 @@ function filterActiveEventTypes(eventTypes: EventType[]): EventType[] {
   return eventTypes.filter((et) => et.is_active === true)
 }
 
-const eventTypeArb = fc.record({
+const eventTypeFields = {
   id: fc.uuid(),
   title: fc.string({ minLength: 1, maxLength: 100 }),
   slug: fc.stringOf(
@@ -34,7 +34,9 @@ const eventTypeArb = fc.record({
   description: fc.string({ minLength: 0, maxLength: 200 }),
   duration_minutes: fc.integer({ min: 1, max: 480 }),
   is_active: fc.boolean(),
-})
+}
+
+const eventTypeArb = fc.record(eventTypeFields)
 
 describe('Property 9: Public listing shows only active event types', () => {
   it('returns exactly those event types where is_active is true', () => {
@@ -92,7 +94,7 @@ describe('Property 9: Public listing shows only active event types', () => {
       fc.property(
         fc.array(
           fc.record({
-            ...eventTypeArb.model,
+            ...eventTypeFields,
             is_active: fc.constant(false),
           }),
           { minLength: 1, maxLength: 20 }

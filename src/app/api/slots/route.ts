@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { computeAvailableSlots } from '@/lib/availability/compute-slots'
+import type { Tables } from '@/lib/types/database'
 import type {
   AvailabilityRule,
   AvailabilityOverride,
@@ -51,11 +52,16 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient()
 
     // Fetch event type to get duration, buffers, min_notice, max_booking_days
-    const { data: eventType, error: eventTypeError } = await supabase
+    const { data: eventTypeData, error: eventTypeError } = await supabase
       .from('event_types')
-      .select('*')
+      .select('duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead')
       .eq('id', eventTypeId)
       .single()
+
+    const eventType = eventTypeData as Pick<
+      Tables<'event_types'>,
+      'duration_minutes' | 'buffer_before_minutes' | 'buffer_after_minutes' | 'min_notice_minutes' | 'max_booking_days_ahead'
+    > | null
 
     if (eventTypeError || !eventType) {
       return NextResponse.json(
@@ -65,9 +71,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch active availability rules for the host
-    const { data: rules, error: rulesError } = await supabase
+    const { data: rulesData, error: rulesError } = await supabase
       .from('availability_rules')
-      .select('*')
+      .select('id, user_id, weekday, start_time, end_time, timezone, is_active')
       .eq('user_id', hostUserId)
       .eq('is_active', true)
 
@@ -79,9 +85,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch availability overrides for the host on the requested date
-    const { data: overrides, error: overridesError } = await supabase
+    const { data: overridesData, error: overridesError } = await supabase
       .from('availability_overrides')
-      .select('*')
+      .select('id, user_id, date, start_time, end_time, timezone, is_available, reason')
       .eq('user_id', hostUserId)
       .eq('date', date)
 
@@ -98,7 +104,7 @@ export async function GET(request: NextRequest) {
     const dayStart = `${date}T00:00:00Z`
     const dayEnd = `${date}T23:59:59Z`
 
-    const { data: bookings, error: bookingsError } = await supabase
+    const { data: bookingsData, error: bookingsError } = await supabase
       .from('bookings')
       .select('start_at, end_at')
       .eq('host_user_id', hostUserId)
@@ -117,7 +123,7 @@ export async function GET(request: NextRequest) {
     // and haven't expired yet
     const nowISO = new Date().toISOString()
 
-    const { data: holds, error: holdsError } = await supabase
+    const { data: holdsData, error: holdsError } = await supabase
       .from('slot_holds')
       .select('start_at, end_at')
       .eq('host_user_id', hostUserId)
@@ -133,19 +139,24 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const rules = (rulesData ?? []) as Pick<Tables<'availability_rules'>, 'id' | 'user_id' | 'weekday' | 'start_time' | 'end_time' | 'timezone' | 'is_active'>[]
+    const overrides = (overridesData ?? []) as Pick<Tables<'availability_overrides'>, 'id' | 'user_id' | 'date' | 'start_time' | 'end_time' | 'timezone' | 'is_available' | 'reason'>[]
+    const bookings = (bookingsData ?? []) as Pick<Tables<'bookings'>, 'start_at' | 'end_at'>[]
+    const holds = (holdsData ?? []) as Pick<Tables<'slot_holds'>, 'start_at' | 'end_at'>[]
+
     // Map database rows to TimeSlot format
-    const existingBookings: TimeSlot[] = (bookings ?? []).map((b) => ({
+    const existingBookings: TimeSlot[] = bookings.map((b) => ({
       start: b.start_at,
       end: b.end_at,
     }))
 
-    const activeHolds: TimeSlot[] = (holds ?? []).map((h) => ({
+    const activeHolds: TimeSlot[] = holds.map((h) => ({
       start: h.start_at,
       end: h.end_at,
     }))
 
     // Map database rows to AvailabilityRule format
-    const availabilityRules: AvailabilityRule[] = (rules ?? []).map((r) => ({
+    const availabilityRules: AvailabilityRule[] = rules.map((r) => ({
       id: r.id,
       user_id: r.user_id,
       weekday: r.weekday,
@@ -156,7 +167,7 @@ export async function GET(request: NextRequest) {
     }))
 
     // Map database rows to AvailabilityOverride format
-    const availabilityOverrides: AvailabilityOverride[] = (overrides ?? []).map(
+    const availabilityOverrides: AvailabilityOverride[] = overrides.map(
       (o) => ({
         id: o.id,
         user_id: o.user_id,

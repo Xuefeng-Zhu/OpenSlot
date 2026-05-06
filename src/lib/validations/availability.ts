@@ -1,124 +1,55 @@
 import { z } from 'zod'
-import { isValidTimezone } from './profile'
+import { isValidTimezone } from '@/lib/validations/profile'
 
 /**
- * Validates a time string in HH:mm format.
+ * Schema for a single availability rule (standalone validation with timezone and time range check).
+ * Exported for use in tests and direct rule validation.
  */
-function isValidTimeString(time: string): boolean {
-  const match = time.match(/^(\d{2}):(\d{2})$/)
-  if (!match) return false
-  const hours = parseInt(match[1], 10)
-  const minutes = parseInt(match[2], 10)
-  return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59
-}
+export const availabilityRuleSchema = z.object({
+  id: z.string().uuid().optional(),
+  weekday: z.number().int().min(0).max(6),
+  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
+  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
+  timezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }).optional(),
+  is_active: z.boolean(),
+}).refine(
+  (data) => data.start_time < data.end_time,
+  { message: 'Start time must be before end time', path: ['start_time'] }
+)
 
 /**
- * Validates a date string in YYYY-MM-DD format.
+ * Schema for a single availability rule in the batch save request (no timezone field, no time range check at rule level).
  */
-function isValidDateString(date: string): boolean {
-  const match = date.match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!match) return false
-  const year = parseInt(match[1], 10)
-  const month = parseInt(match[2], 10)
-  const day = parseInt(match[3], 10)
-  if (year < 1900 || year > 2100) return false
-  if (month < 1 || month > 12) return false
-  if (day < 1 || day > 31) return false
-  // Basic validation — check the date is actually valid
-  const d = new Date(year, month - 1, day)
-  return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day
-}
+const saveAvailabilityRuleSchema = z.object({
+  id: z.string().uuid().optional(),
+  weekday: z.number().int().min(0).max(6),
+  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
+  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
+  is_active: z.boolean(),
+})
 
 /**
- * Schema for a single availability rule (weekly recurring).
+ * Schema for a single availability override in the save request.
  */
-export const availabilityRuleSchema = z
-  .object({
-    weekday: z
-      .number()
-      .int('Weekday must be a whole number')
-      .min(0, 'Weekday must be between 0 (Sunday) and 6 (Saturday)')
-      .max(6, 'Weekday must be between 0 (Sunday) and 6 (Saturday)'),
-    start_time: z
-      .string()
-      .refine(isValidTimeString, { message: 'Start time must be in HH:mm format' }),
-    end_time: z
-      .string()
-      .refine(isValidTimeString, { message: 'End time must be in HH:mm format' }),
-    timezone: z
-      .string()
-      .refine(isValidTimezone, { message: 'Please select a valid timezone' }),
-    is_active: z.boolean().default(true),
-  })
-  .refine(
-    (data) => data.start_time < data.end_time,
-    { message: 'Start time must be before end time', path: ['end_time'] }
-  )
+const availabilityOverrideSchema = z.object({
+  id: z.string().uuid().optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format').nullable(),
+  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format').nullable(),
+  is_available: z.boolean(),
+  reason: z.string().max(500).nullable().optional(),
+})
 
 /**
- * Schema for a date-specific availability override.
+ * Schema for the batch save availability request.
+ * Used by POST /api/availability to validate the request body.
  */
-export const availabilityOverrideSchema = z
-  .object({
-    date: z
-      .string()
-      .refine(isValidDateString, { message: 'Date must be in YYYY-MM-DD format' }),
-    start_time: z
-      .string()
-      .refine((val) => val === '' || isValidTimeString(val), {
-        message: 'Start time must be in HH:mm format',
-      })
-      .optional()
-      .nullable(),
-    end_time: z
-      .string()
-      .refine((val) => val === '' || isValidTimeString(val), {
-        message: 'End time must be in HH:mm format',
-      })
-      .optional()
-      .nullable(),
-    timezone: z
-      .string()
-      .refine(isValidTimezone, { message: 'Please select a valid timezone' }),
-    is_available: z.boolean().default(true),
-    reason: z.string().max(200, 'Reason must be 200 characters or less').optional().nullable(),
-  })
-  .refine(
-    (data) => {
-      // When marking as available, start_time and end_time are required
-      if (data.is_available) {
-        return (
-          data.start_time != null &&
-          data.start_time !== '' &&
-          data.end_time != null &&
-          data.end_time !== ''
-        )
-      }
-      return true
-    },
-    {
-      message: 'Start time and end time are required when marking as available',
-      path: ['start_time'],
-    }
-  )
-  .refine(
-    (data) => {
-      // When available with times, start must be before end
-      if (
-        data.is_available &&
-        data.start_time &&
-        data.end_time &&
-        data.start_time !== '' &&
-        data.end_time !== ''
-      ) {
-        return data.start_time < data.end_time
-      }
-      return true
-    },
-    { message: 'Start time must be before end time', path: ['end_time'] }
-  )
+export const saveAvailabilitySchema = z.object({
+  rules: z.array(saveAvailabilityRuleSchema),
+  overrides: z.array(availabilityOverrideSchema),
+  deletedRuleIds: z.array(z.string().uuid()),
+  deletedOverrideIds: z.array(z.string().uuid()),
+  timezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }),
+})
 
-export type AvailabilityRuleFormValues = z.infer<typeof availabilityRuleSchema>
-export type AvailabilityOverrideFormValues = z.infer<typeof availabilityOverrideSchema>
-
-export { isValidTimeString, isValidDateString }
+export type SaveAvailabilityInput = z.infer<typeof saveAvailabilitySchema>
