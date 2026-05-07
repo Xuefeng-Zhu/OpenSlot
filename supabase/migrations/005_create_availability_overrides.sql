@@ -1,6 +1,6 @@
 -- Availability overrides table
 CREATE TABLE availability_overrides (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   start_time TIME,

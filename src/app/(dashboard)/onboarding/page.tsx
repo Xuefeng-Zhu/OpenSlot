@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Copy, User, Calendar, FileText, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -30,8 +30,6 @@ const STEPS = [
 interface ProfileData {
   displayName: string;
   username: string;
-  bio: string;
-  avatarFile: File | null;
 }
 
 interface DayAvailability {
@@ -76,6 +74,12 @@ interface OnboardingValidationErrors {
   eventType: EventTypeValidationErrors;
 }
 
+interface OnboardingSaveResponse {
+  success: boolean;
+  bookingLink?: string;
+  error?: string;
+}
+
 const DEFAULT_WEEKDAY: DayAvailability = {
   enabled: true,
   intervals: [{ start: "09:00", end: "17:00" }],
@@ -115,6 +119,8 @@ function validateProfile(data: ProfileData): ProfileValidationErrors {
 
   if (!data.username.trim()) {
     errors.username = "Choose a username for your booking link.";
+  } else if (data.username.trim().length < 3) {
+    errors.username = "Use at least 3 characters.";
   } else if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(data.username.trim())) {
     errors.username = "Use lowercase letters, numbers, and hyphens.";
   }
@@ -193,9 +199,21 @@ function hasValidationErrors(errors: unknown): boolean {
   });
 }
 
+function getBrowserTimezone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
 export default function OnboardingPage() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(0);
   const [copied, setCopied] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
+  const [saveError, setSaveError] = React.useState("");
+  const [savedBookingLink, setSavedBookingLink] = React.useState("");
   const [validationErrors, setValidationErrors] =
     React.useState<OnboardingValidationErrors>(getEmptyValidationErrors);
 
@@ -203,8 +221,6 @@ export default function OnboardingPage() {
   const [profileData, setProfileData] = React.useState<ProfileData>({
     displayName: "",
     username: "",
-    bio: "",
-    avatarFile: null,
   });
 
   // Step 2: Availability data
@@ -229,7 +245,47 @@ export default function OnboardingPage() {
     setValidationErrors((prev) => ({ ...prev, eventType: {} }));
   };
 
-  const handleNext = () => {
+  const saveOnboarding = async () => {
+    setIsSaving(true);
+    setSaveError("");
+
+    try {
+      const response = await fetch("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile: profileData,
+          availability: availabilityData,
+          eventType: eventTypeData,
+          timezone: getBrowserTimezone(),
+        }),
+      });
+
+      const data = (await response
+        .json()
+        .catch(() => null)) as OnboardingSaveResponse | null;
+
+      if (!response.ok || !data?.success || !data.bookingLink) {
+        setSaveError(
+          data?.error || "Failed to save onboarding. Please try again."
+        );
+        return;
+      }
+
+      setSavedBookingLink(data.bookingLink);
+      setValidationErrors(getEmptyValidationErrors());
+      setCurrentStep(STEPS.length - 1);
+      router.refresh();
+    } catch {
+      setSaveError("Unable to save onboarding. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNext = async () => {
+    setSaveError("");
+
     if (currentStep === 0) {
       const profileErrors = validateProfile(profileData);
       if (hasValidationErrors(profileErrors)) {
@@ -258,6 +314,9 @@ export default function OnboardingPage() {
         }));
         return;
       }
+
+      await saveOnboarding();
+      return;
     }
 
     if (currentStep < STEPS.length - 1) {
@@ -267,16 +326,13 @@ export default function OnboardingPage() {
   };
 
   const handleBack = () => {
-    if (currentStep > 0) {
+    if (currentStep > 0 && !isSaving) {
       setCurrentStep(currentStep - 1);
     }
   };
 
   const handleCopyLink = async () => {
-    const slug = eventTypeData.title
-      ? eventTypeData.title.toLowerCase().replace(/\s+/g, "-")
-      : "meeting";
-    const link = `openslot.com/${profileData.username || "username"}/${slug}`;
+    const link = `openslot.com${savedBookingLink}`;
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
@@ -330,10 +386,14 @@ export default function OnboardingPage() {
             onChange={handleEventTypeChange}
           />
         )}
+        {saveError && (
+          <div className="mt-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+            {saveError}
+          </div>
+        )}
         {currentStep === 3 && (
           <StepBookingLink
-            username={profileData.username}
-            eventTitle={eventTypeData.title}
+            bookingLink={savedBookingLink}
             copied={copied}
             onCopy={handleCopyLink}
           />
@@ -343,15 +403,17 @@ export default function OnboardingPage() {
       {/* Navigation Buttons */}
       <div className="mt-8 flex items-center justify-between">
         {currentStep > 0 && currentStep < STEPS.length - 1 ? (
-          <Button variant="secondary" onClick={handleBack}>
+          <Button variant="secondary" onClick={handleBack} disabled={isSaving}>
             Back
           </Button>
         ) : (
           <div />
         )}
         {currentStep < STEPS.length - 1 && (
-          <Button onClick={handleNext}>
-            {currentStep === STEPS.length - 2 ? "Finish" : "Next"}
+          <Button onClick={handleNext} disabled={isSaving}>
+            {currentStep === STEPS.length - 2
+              ? isSaving ? "Saving..." : "Finish"
+              : "Next"}
           </Button>
         )}
       </div>
@@ -443,8 +505,6 @@ function StepProfile({
   errors: ProfileValidationErrors;
   onChange: (data: ProfileData) => void;
 }) {
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
   return (
     <div className="space-y-6">
       <div>
@@ -493,54 +553,6 @@ function StepProfile({
               {errors.username}
             </p>
           )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="bio">Bio</Label>
-          <Textarea
-            id="bio"
-            value={data.bio}
-            onChange={(e) => onChange({ ...data, bio: e.target.value })}
-            placeholder="Tell people a bit about yourself..."
-            rows={3}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="avatar">Avatar (optional)</Label>
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent text-accent-foreground text-lg font-medium">
-              {data.displayName
-                ? data.displayName.charAt(0).toUpperCase()
-                : "?"}
-            </div>
-            <div>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Upload photo
-              </Button>
-              <input
-                ref={fileInputRef}
-                id="avatar"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  onChange({ ...data, avatarFile: file });
-                }}
-              />
-              {data.avatarFile && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {data.avatarFile.name}
-                </p>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -682,20 +694,15 @@ function StepEventType({
 /* ─── Step 4: Booking Link ─── */
 
 function StepBookingLink({
-  username,
-  eventTitle,
+  bookingLink,
   copied,
   onCopy,
 }: {
-  username: string;
-  eventTitle: string;
+  bookingLink: string;
   copied: boolean;
   onCopy: () => void;
 }) {
-  const slug = eventTitle
-    ? eventTitle.toLowerCase().replace(/\s+/g, "-")
-    : "meeting";
-  const bookingLink = `openslot.com/${username || "username"}/${slug}`;
+  const displayLink = `openslot.com${bookingLink}`;
 
   return (
     <div className="space-y-6">
@@ -710,7 +717,7 @@ function StepBookingLink({
         <div className="flex items-center justify-center gap-2">
           <Link2 className="h-5 w-5 text-primary" aria-hidden="true" />
           <span className="text-lg font-medium text-foreground break-all">
-            {bookingLink}
+            {displayLink}
           </span>
         </div>
 
@@ -734,9 +741,14 @@ function StepBookingLink({
       </div>
 
       <div className="flex justify-center">
-        <Button asChild size="lg">
-          <Link href="/dashboard">Go to dashboard</Link>
-        </Button>
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Button asChild variant="outline" size="lg">
+            <Link href={bookingLink}>View booking page</Link>
+          </Button>
+          <Button asChild size="lg">
+            <Link href="/dashboard">Go to dashboard</Link>
+          </Button>
+        </div>
       </div>
     </div>
   );

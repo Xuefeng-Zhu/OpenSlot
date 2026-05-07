@@ -1,6 +1,6 @@
 -- Bookings table with exclusion constraint for anti-double-booking
 CREATE TABLE bookings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   event_type_id UUID NOT NULL REFERENCES event_types(id) ON DELETE CASCADE,
   host_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   guest_name TEXT NOT NULL,
@@ -11,8 +11,8 @@ CREATE TABLE bookings (
   end_at TIMESTAMPTZ NOT NULL,
   status TEXT NOT NULL DEFAULT 'confirmed',
   cancel_reason TEXT,
-  cancellation_token UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
-  reschedule_token UUID UNIQUE NOT NULL DEFAULT uuid_generate_v4(),
+  cancellation_token UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+  reschedule_token UUID UNIQUE NOT NULL DEFAULT gen_random_uuid(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   CONSTRAINT valid_booking_range CHECK (start_at < end_at),

@@ -1,6 +1,6 @@
 -- Availability rules table
 CREATE TABLE availability_rules (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   weekday INTEGER NOT NULL,
   start_time TIME NOT NULL,

@@ -6,6 +6,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 
 - Public landing page at `/`.
 - Email/password authentication through Supabase.
+- Onboarding setup that persists public profile basics, initial weekly availability, and a first active event type.
 - Profile settings with public username and default timezone.
 - Public host profile page at `/<username>`.
 - Public event booking page at `/<username>/<eventSlug>`.
@@ -26,7 +27,7 @@ These areas are visible in the UI but are not fully production-backed yet:
 | `/event-types/new` | Client-side UI and toast only; does not insert into Supabase. |
 | `/event-types/[id]/edit` | Mock-backed edit UI and toast only. |
 | `/settings` | Client-local settings UI; does not persist account, password, notification, or integration changes. |
-| `/onboarding` | Client-side onboarding flow; it validates input and copies links but does not persist setup data. |
+| `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
 | `/booking/cancel/[token]` | Mock UI shell; real cancellation logic exists in `src/lib/booking/cancel.ts` and `/api/bookings/[id]/cancel`. |
 | Email delivery | Console provider only by default; no production email provider is configured. |
 
@@ -38,9 +39,9 @@ Do not document these as complete without first wiring and validating persistenc
 
 1. User signs up or logs in.
 2. Supabase trigger creates a profile shell.
-3. User updates profile at `/profile`.
-4. User edits availability at `/availability`.
-5. Event type management is partially implemented; public pages read active event types from Supabase when present.
+3. User completes `/onboarding`, which saves profile, availability, and an initial event type.
+4. User can later update profile at `/profile` and availability at `/availability`.
+5. Event type dashboard management is partially implemented; public pages read active event types from Supabase when present.
 
 ### Guest Booking
 
