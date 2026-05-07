@@ -8,7 +8,7 @@ OpenSlot is an MVP scheduling platform that enables hosts to define weekly avail
 
 | Layer | Technology |
 |-------|-----------|
-| Framework | Next.js 14+ (App Router) |
+| Framework | Next.js 16 (App Router) |
 | Language | TypeScript (strict mode) |
 | Database & Auth | Supabase (Auth, Postgres, RLS) |
 | Styling | Tailwind CSS + shadcn/ui |
@@ -18,7 +18,7 @@ OpenSlot is an MVP scheduling platform that enables hosts to define weekly avail
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) 18+ and npm
+- [Node.js](https://nodejs.org/) 20.9+ and npm
 - A [Supabase](https://supabase.com/) project (free tier works)
 - [Supabase CLI](https://supabase.com/docs/guides/cli) (optional, for local development and running migrations)
 
@@ -56,6 +56,8 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 You can find these values in your Supabase project dashboard under **Settings → API**.
 
+The public landing page can render without Supabase credentials for local UI work, but authentication, dashboard, booking, and API routes require these environment variables.
+
 ### 4. Run database migrations
 
 Apply the migrations to your Supabase project using the Supabase CLI:
@@ -89,7 +91,7 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 | Script | Description |
 |--------|-------------|
 | `npm run dev` | Start the Next.js development server |
-| `npm run build` | Create a production build |
+| `npm run build` | Create a production build using the webpack builder |
 | `npm run start` | Start the production server |
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Run TypeScript type checking |
@@ -103,6 +105,7 @@ OpenSlot follows a **server-first architecture** for critical booking operations
 - **Server Components** render public booking pages and dashboard views with data fetched directly from Supabase.
 - **API Routes** (`/api/*`) handle all write operations for bookings and holds using the Supabase service role client, ensuring data integrity and security.
 - **Client Components** handle interactive UI (forms, date pickers, slot selection) and communicate with API routes for mutations.
+- **Proxy** (`src/proxy.ts`) refreshes Supabase sessions and redirects unauthenticated dashboard requests.
 - **Row-Level Security (RLS)** enforces data access at the database level — hosts can only access their own data, while guests can read public profiles and event types.
 - **PostgreSQL Exclusion Constraints** provide database-level anti-double-booking guarantees, preventing overlapping confirmed bookings even under concurrent requests.
 
@@ -146,7 +149,7 @@ openslot/
 │   │   ├── types/               # TypeScript type definitions
 │   │   ├── utils/               # Shared utilities (slug, timezone)
 │   │   └── validations/         # Zod validation schemas
-│   └── middleware.ts            # Auth middleware for protected routes
+│   └── proxy.ts                 # Auth proxy for protected routes
 ├── supabase/
 │   ├── migrations/              # Database migration files (001-010)
 │   └── seed.sql                 # Sample data for development

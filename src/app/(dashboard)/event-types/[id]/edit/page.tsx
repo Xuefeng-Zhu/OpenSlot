@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ChevronDown,
   ChevronRight,
@@ -22,6 +22,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { BookingSummaryCard } from "@/components/booking/booking-summary-card";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  getMockEventType,
+  MOCK_HOST_NAME,
+  type MockEventType,
+} from "../../mock-event-types";
 
 interface FormSection {
   id: string;
@@ -31,22 +36,52 @@ interface FormSection {
 }
 
 export default function EditEventTypePage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const eventTypeId = Array.isArray(params.id) ? params.id[0] : params.id;
+  const eventType = getMockEventType(eventTypeId);
+
+  if (!eventType) {
+    return <EventTypeNotFound />;
+  }
+
+  return <EditEventTypeForm eventType={eventType} />;
+}
+
+function EventTypeNotFound() {
+  const router = useRouter();
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">
+          Event type not found
+        </h1>
+        <p className="text-muted-foreground">
+          We couldn&apos;t find that event type. It may have been deleted.
+        </p>
+      </div>
+      <Button onClick={() => router.push("/event-types")}>
+        Back to event types
+      </Button>
+    </div>
+  );
+}
+
+function EditEventTypeForm({ eventType }: { eventType: MockEventType }) {
   const router = useRouter();
   const { toast } = useToast();
   const [showPreview, setShowPreview] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Pre-filled form state (mock existing event type)
-  const [title, setTitle] = useState("30-min Discovery Call");
-  const [slug, setSlug] = useState("discovery-call");
-  const [description, setDescription] = useState(
-    "A quick introductory call to discuss your needs and see if we're a good fit."
-  );
-  const [duration, setDuration] = useState(30);
+  const [title, setTitle] = useState(eventType.title);
+  const [slug, setSlug] = useState(eventType.slug);
+  const [description, setDescription] = useState(eventType.description);
+  const [duration, setDuration] = useState(eventType.durationMinutes);
   const [bufferBefore, setBufferBefore] = useState(5);
   const [bufferAfter, setBufferAfter] = useState(5);
-  const [locationType, setLocationType] = useState("online");
-  const [locationValue, setLocationValue] = useState("https://zoom.us/j/123456");
+  const [locationType, setLocationType] = useState(eventType.locationKind);
+  const [locationValue, setLocationValue] = useState(eventType.locationValue);
   const [minNotice, setMinNotice] = useState(60);
   const [maxDaysAhead, setMaxDaysAhead] = useState(60);
   const [confirmationMessage, setConfirmationMessage] = useState(
@@ -133,7 +168,7 @@ export default function EditEventTypePage() {
                           id="title"
                           value={title}
                           onChange={(e) => setTitle(e.target.value)}
-                          placeholder="e.g. 30-min Discovery Call"
+                          placeholder={`e.g. ${eventType.title}`}
                         />
                         {errors.title && (
                           <p className="text-xs text-destructive mt-1">{errors.title}</p>
@@ -145,7 +180,7 @@ export default function EditEventTypePage() {
                           id="slug"
                           value={slug}
                           onChange={(e) => setSlug(e.target.value)}
-                          placeholder="e.g. discovery-call"
+                          placeholder={`e.g. ${eventType.slug}`}
                         />
                         {errors.slug && (
                           <p className="text-xs text-destructive mt-1">{errors.slug}</p>
@@ -207,7 +242,11 @@ export default function EditEventTypePage() {
                         <select
                           id="location-type"
                           value={locationType}
-                          onChange={(e) => setLocationType(e.target.value)}
+                          onChange={(e) =>
+                            setLocationType(
+                              e.target.value as MockEventType["locationKind"]
+                            )
+                          }
                           className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
                           <option value="online">Online (Video)</option>
@@ -302,7 +341,7 @@ export default function EditEventTypePage() {
             </div>
             {showPreview && (
               <BookingSummaryCard
-                hostName="John Doe"
+                hostName={MOCK_HOST_NAME}
                 eventTitle={title || "Event Title"}
                 date="Mon, Jan 20, 2025"
                 time="10:00 AM"

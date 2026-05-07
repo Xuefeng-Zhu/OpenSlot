@@ -3,6 +3,8 @@ import { render } from "@testing-library/react";
 import { axe, toHaveNoViolations } from "jest-axe";
 import React from "react";
 
+/* eslint-disable @next/next/no-img-element */
+
 expect.extend(toHaveNoViolations);
 
 /**
@@ -103,13 +105,13 @@ describe("Image and Icon Accessibility", () => {
   it("multiple decorative icons all have aria-hidden", () => {
     const { container } = render(
       <nav aria-label="Test navigation">
-        <a href="/dashboard">
+        <a href="#dashboard">
           <svg className="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24">
             <rect width="24" height="24" />
           </svg>
           Dashboard
         </a>
-        <a href="/settings">
+        <a href="#settings">
           <svg className="h-4 w-4" aria-hidden="true" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" />
           </svg>
@@ -127,7 +129,7 @@ describe("Image and Icon Accessibility", () => {
   it("image without alt text produces axe violations", async () => {
     const { container } = render(
       <div>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+        {/* eslint-disable-next-line jsx-a11y/alt-text */}
         <img src="/photo.png" />
       </div>
     );

@@ -2,62 +2,23 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Calendar, Search } from "lucide-react";
 import { EventTypeCard } from "@/components/dashboard/event-type-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-
-interface MockEventType {
-  id: string;
-  title: string;
-  description: string;
-  durationMinutes: number;
-  locationType: string;
-  slug: string;
-  isActive: boolean;
-  bookingUrl: string;
-}
-
-const mockEventTypes: MockEventType[] = [
-  {
-    id: "1",
-    title: "30 min intro call",
-    description:
-      "A quick call to connect and learn more.",
-    durationMinutes: 30,
-    locationType: "Online meeting",
-    slug: "intro-call",
-    isActive: true,
-    bookingUrl: "https://openslot.app/sarah-chen/intro-call",
-  },
-  {
-    id: "2",
-    title: "Strategy session",
-    description:
-      "A deeper session to discuss goals and next steps.",
-    durationMinutes: 60,
-    locationType: "Online meeting",
-    slug: "strategy-session",
-    isActive: true,
-    bookingUrl: "https://openslot.app/sarah-chen/strategy-session",
-  },
-  {
-    id: "3",
-    title: "Office hours",
-    description: "Open time for questions, feedback, or support.",
-    durationMinutes: 45,
-    locationType: "Custom location",
-    slug: "office-hours",
-    isActive: false,
-    bookingUrl: "https://openslot.app/sarah-chen/office-hours",
-  },
-];
+import {
+  MOCK_HOST_USERNAME,
+  mockEventTypes,
+  type MockEventType,
+} from "./mock-event-types";
 
 type FilterTab = "all" | "active" | "paused";
 
 export default function EventTypesPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const [eventTypes] = useState<MockEventType[]>(mockEventTypes);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
@@ -82,11 +43,11 @@ export default function EventTypesPage() {
   };
 
   const handlePreview = (slug: string) => {
-    window.open(`/sarah-chen/${slug}`, "_blank");
+    window.open(`/${MOCK_HOST_USERNAME}/${slug}`, "_blank");
   };
 
   const handleEdit = (id: string) => {
-    window.location.href = `/event-types/${id}/edit`;
+    router.push(`/event-types/${id}/edit`);
   };
 
   const handleDelete = (id: string) => {
@@ -165,7 +126,7 @@ export default function EventTypesPage() {
           description="Create your first event type to start accepting bookings from guests."
           action={{
             label: "Create your first event type",
-            onClick: () => (window.location.href = "/event-types/new"),
+            onClick: () => router.push("/event-types/new"),
           }}
         />
       ) : filteredEventTypes.length === 0 ? (

@@ -1,4 +1,5 @@
 import * as React from "react";
+import Image from "next/image";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
@@ -8,14 +9,20 @@ const avatarVariants = cva(
   {
     variants: {
       size: {
-        sm: "h-8 w-8 text-xs",
-        md: "h-10 w-10 text-sm",
-        lg: "h-16 w-16 text-lg",
+        sm: "size-8 text-xs",
+        md: "size-10 text-sm",
+        lg: "size-16 text-lg",
       },
     },
     defaultVariants: { size: "md" },
   }
 );
+
+const avatarSizePx = {
+  sm: 32,
+  md: 40,
+  lg: 64,
+} as const;
 
 /**
  * Generate initials from a name string.
@@ -64,6 +71,8 @@ export interface AvatarProps
 
 const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
   ({ className, src, alt, fallback, size, ...props }, ref) => {
+    const imageSize = avatarSizePx[size ?? "md"];
+
     return (
       <div
         ref={ref}
@@ -71,10 +80,13 @@ const Avatar = React.forwardRef<HTMLDivElement, AvatarProps>(
         {...props}
       >
         {src ? (
-          <img
+          <Image
             src={src}
             alt={alt}
+            width={imageSize}
+            height={imageSize}
             className="h-full w-full object-cover"
+            unoptimized
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-accent text-accent-foreground font-medium">

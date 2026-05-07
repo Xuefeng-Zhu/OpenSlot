@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, getInitials } from "@/components/ui/avatar";
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 
@@ -305,19 +306,13 @@ export function SlotPicker({ eventType, hostProfile }: SlotPickerProps) {
     <div className="max-w-4xl mx-auto">
       {/* Event type header */}
       <div className="flex flex-col items-center text-center mb-8">
-        {hostProfile.avatar_url ? (
-          <img
-            src={hostProfile.avatar_url}
-            alt={`${hostProfile.name}'s avatar`}
-            className="w-16 h-16 rounded-full object-cover mb-3"
-          />
-        ) : (
-          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-3">
-            <span className="text-xl font-semibold text-muted-foreground">
-              {hostProfile.name?.charAt(0)?.toUpperCase() || "?"}
-            </span>
-          </div>
-        )}
+        <Avatar
+          src={hostProfile.avatar_url}
+          alt={`${hostProfile.name}'s avatar`}
+          fallback={getInitials(hostProfile.name) || "?"}
+          size="lg"
+          className="mb-3"
+        />
         <p className="text-muted-foreground text-sm">{hostProfile.name}</p>
         <h1 className="text-2xl font-bold mt-1">{eventType.title}</h1>
         <div className="flex items-center gap-2 mt-2">

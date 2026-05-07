@@ -1,16 +1,28 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,
     },
   })
 
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    if (request.nextUrl.pathname.startsWith('/dashboard')) {
+      const loginUrl = new URL('/login', request.url)
+      return NextResponse.redirect(loginUrl)
+    }
+
+    return response
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
@@ -36,7 +48,7 @@ export async function middleware(request: NextRequest) {
   // Refresh the auth session to keep it alive
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Protect /dashboard routes — redirect unauthenticated users to login
+  // Protect /dashboard routes - redirect unauthenticated users to login
   if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
     const returnUrl = encodeURIComponent(request.nextUrl.pathname)
     const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url)

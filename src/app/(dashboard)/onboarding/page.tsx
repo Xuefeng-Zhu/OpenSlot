@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { Check, Copy, User, Calendar, FileText, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,27 @@ interface EventTypeData {
   location: string;
 }
 
+interface ProfileValidationErrors {
+  displayName?: string;
+  username?: string;
+}
+
+interface AvailabilityValidationErrors {
+  general?: string;
+  days: Partial<Record<keyof AvailabilityData, string>>;
+}
+
+interface EventTypeValidationErrors {
+  title?: string;
+  location?: string;
+}
+
+interface OnboardingValidationErrors {
+  profile: ProfileValidationErrors;
+  availability: AvailabilityValidationErrors;
+  eventType: EventTypeValidationErrors;
+}
+
 const DEFAULT_WEEKDAY: DayAvailability = {
   enabled: true,
   intervals: [{ start: "09:00", end: "17:00" }],
@@ -76,9 +98,106 @@ function getDefaultAvailability(): AvailabilityData {
   };
 }
 
+function getEmptyValidationErrors(): OnboardingValidationErrors {
+  return {
+    profile: {},
+    availability: { days: {} },
+    eventType: {},
+  };
+}
+
+function validateProfile(data: ProfileData): ProfileValidationErrors {
+  const errors: ProfileValidationErrors = {};
+
+  if (!data.displayName.trim()) {
+    errors.displayName = "Enter the display name people will see.";
+  }
+
+  if (!data.username.trim()) {
+    errors.username = "Choose a username for your booking link.";
+  } else if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(data.username.trim())) {
+    errors.username = "Use lowercase letters, numbers, and hyphens.";
+  }
+
+  return errors;
+}
+
+function validateAvailability(data: AvailabilityData): AvailabilityValidationErrors {
+  const errors: AvailabilityValidationErrors = { days: {} };
+  let hasBookableInterval = false;
+
+  for (const [day, availability] of Object.entries(data) as [
+    keyof AvailabilityData,
+    DayAvailability,
+  ][]) {
+    if (!availability.enabled) {
+      continue;
+    }
+
+    if (availability.intervals.length === 0) {
+      errors.days[day] =
+        "Add at least one time interval or turn this day off.";
+      continue;
+    }
+
+    const invalidInterval = availability.intervals.find((interval) => {
+      if (!interval.start || !interval.end) {
+        return true;
+      }
+      return interval.end <= interval.start;
+    });
+
+    if (invalidInterval) {
+      errors.days[day] =
+        "Complete each interval with an end time after the start time.";
+      continue;
+    }
+
+    hasBookableInterval = true;
+  }
+
+  if (!hasBookableInterval) {
+    errors.general = "Set at least one available time before continuing.";
+  }
+
+  return errors;
+}
+
+function validateEventType(data: EventTypeData): EventTypeValidationErrors {
+  const errors: EventTypeValidationErrors = {};
+
+  if (!data.title.trim()) {
+    errors.title = "Enter a title for this event type.";
+  }
+
+  if (!data.location.trim()) {
+    errors.location = "Enter where this meeting will happen.";
+  }
+
+  return errors;
+}
+
+function hasValidationErrors(errors: unknown): boolean {
+  if (!errors || typeof errors !== "object") {
+    return false;
+  }
+
+  return Object.values(errors).some((value) => {
+    if (!value) {
+      return false;
+    }
+    if (typeof value === "string") {
+      return true;
+    }
+    return hasValidationErrors(value);
+  });
+}
+
 export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = React.useState(0);
   const [copied, setCopied] = React.useState(false);
+  const [validationErrors, setValidationErrors] =
+    React.useState<OnboardingValidationErrors>(getEmptyValidationErrors);
 
   // Step 1: Profile data
   const [profileData, setProfileData] = React.useState<ProfileData>({
@@ -100,8 +219,49 @@ export default function OnboardingPage() {
     location: "",
   });
 
+  const handleProfileChange = (data: ProfileData) => {
+    setProfileData(data);
+    setValidationErrors((prev) => ({ ...prev, profile: {} }));
+  };
+
+  const handleEventTypeChange = (data: EventTypeData) => {
+    setEventTypeData(data);
+    setValidationErrors((prev) => ({ ...prev, eventType: {} }));
+  };
+
   const handleNext = () => {
+    if (currentStep === 0) {
+      const profileErrors = validateProfile(profileData);
+      if (hasValidationErrors(profileErrors)) {
+        setValidationErrors((prev) => ({ ...prev, profile: profileErrors }));
+        return;
+      }
+    }
+
+    if (currentStep === 1) {
+      const availabilityErrors = validateAvailability(availabilityData);
+      if (hasValidationErrors(availabilityErrors)) {
+        setValidationErrors((prev) => ({
+          ...prev,
+          availability: availabilityErrors,
+        }));
+        return;
+      }
+    }
+
+    if (currentStep === 2) {
+      const eventTypeErrors = validateEventType(eventTypeData);
+      if (hasValidationErrors(eventTypeErrors)) {
+        setValidationErrors((prev) => ({
+          ...prev,
+          eventType: eventTypeErrors,
+        }));
+        return;
+      }
+    }
+
     if (currentStep < STEPS.length - 1) {
+      setValidationErrors(getEmptyValidationErrors());
       setCurrentStep(currentStep + 1);
     }
   };
@@ -132,6 +292,10 @@ export default function OnboardingPage() {
     day: keyof AvailabilityData,
     updates: Partial<DayAvailability>
   ) => {
+    setValidationErrors((prev) => ({
+      ...prev,
+      availability: { days: {} },
+    }));
     setAvailabilityData((prev) => ({
       ...prev,
       [day]: { ...prev[day], ...updates },
@@ -146,16 +310,25 @@ export default function OnboardingPage() {
       {/* Step Content */}
       <div className="mt-8">
         {currentStep === 0 && (
-          <StepProfile data={profileData} onChange={setProfileData} />
+          <StepProfile
+            data={profileData}
+            errors={validationErrors.profile}
+            onChange={handleProfileChange}
+          />
         )}
         {currentStep === 1 && (
           <StepAvailability
             data={availabilityData}
+            errors={validationErrors.availability}
             onDayChange={updateAvailabilityDay}
           />
         )}
         {currentStep === 2 && (
-          <StepEventType data={eventTypeData} onChange={setEventTypeData} />
+          <StepEventType
+            data={eventTypeData}
+            errors={validationErrors.eventType}
+            onChange={handleEventTypeChange}
+          />
         )}
         {currentStep === 3 && (
           <StepBookingLink
@@ -263,9 +436,11 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
 
 function StepProfile({
   data,
+  errors,
   onChange,
 }: {
   data: ProfileData;
+  errors: ProfileValidationErrors;
   onChange: (data: ProfileData) => void;
 }) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -287,7 +462,16 @@ function StepProfile({
             value={data.displayName}
             onChange={(e) => onChange({ ...data, displayName: e.target.value })}
             placeholder="Sarah Chen"
+            aria-invalid={!!errors.displayName}
+            aria-describedby={
+              errors.displayName ? "displayName-error" : undefined
+            }
           />
+          {errors.displayName && (
+            <p id="displayName-error" className="text-sm text-destructive">
+              {errors.displayName}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -300,8 +484,15 @@ function StepProfile({
               onChange={(e) => onChange({ ...data, username: e.target.value })}
               placeholder="sarah-chen"
               className="flex-1"
+              aria-invalid={!!errors.username}
+              aria-describedby={errors.username ? "username-error" : undefined}
             />
           </div>
+          {errors.username && (
+            <p id="username-error" className="text-sm text-destructive">
+              {errors.username}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -360,9 +551,11 @@ function StepProfile({
 
 function StepAvailability({
   data,
+  errors,
   onDayChange,
 }: {
   data: AvailabilityData;
+  errors: AvailabilityValidationErrors;
   onDayChange: (day: keyof AvailabilityData, updates: Partial<DayAvailability>) => void;
 }) {
   const days: { key: keyof AvailabilityData; label: string }[] = [
@@ -382,6 +575,11 @@ function StepAvailability({
         <p className="mt-1 text-sm text-muted-foreground">
           Define when you&apos;re available for bookings. You can change this later.
         </p>
+        {errors.general && (
+          <p className="mt-2 text-sm text-destructive" role="alert">
+            {errors.general}
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -393,6 +591,7 @@ function StepAvailability({
             intervals={data[key].intervals}
             onToggle={(enabled) => onDayChange(key, { enabled })}
             onIntervalsChange={(intervals) => onDayChange(key, { intervals })}
+            error={errors.days[key]}
           />
         ))}
       </div>
@@ -404,9 +603,11 @@ function StepAvailability({
 
 function StepEventType({
   data,
+  errors,
   onChange,
 }: {
   data: EventTypeData;
+  errors: EventTypeValidationErrors;
   onChange: (data: EventTypeData) => void;
 }) {
   return (
@@ -426,7 +627,14 @@ function StepEventType({
             value={data.title}
             onChange={(e) => onChange({ ...data, title: e.target.value })}
             placeholder="30 Minute Meeting"
+            aria-invalid={!!errors.title}
+            aria-describedby={errors.title ? "eventTitle-error" : undefined}
           />
+          {errors.title && (
+            <p id="eventTitle-error" className="text-sm text-destructive">
+              {errors.title}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -455,7 +663,16 @@ function StepEventType({
             value={data.location}
             onChange={(e) => onChange({ ...data, location: e.target.value })}
             placeholder="Online meeting, phone call, or in person"
+            aria-invalid={!!errors.location}
+            aria-describedby={
+              errors.location ? "eventLocation-error" : undefined
+            }
           />
+          {errors.location && (
+            <p id="eventLocation-error" className="text-sm text-destructive">
+              {errors.location}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -518,7 +735,7 @@ function StepBookingLink({
 
       <div className="flex justify-center">
         <Button asChild size="lg">
-          <a href="/dashboard">Go to dashboard</a>
+          <Link href="/dashboard">Go to dashboard</Link>
         </Button>
       </div>
     </div>
