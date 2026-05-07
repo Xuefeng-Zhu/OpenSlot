@@ -1,6 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-import { render, cleanup } from '@testing-library/react'
+import { render, cleanup, screen } from '@testing-library/react'
 import { createElement } from 'react'
 import { DashboardClient } from '../dashboard/dashboard-client'
 import type { DashboardClientProps } from '../dashboard/dashboard-client'
@@ -49,5 +49,33 @@ describe('Feature: ui-backend-integration, Property 2: Dashboard booking link co
       }),
       { numRuns: 100 }
     )
+  })
+
+  it('renders dashboard metric shortcuts as navigable links', () => {
+    const props: DashboardClientProps = {
+      profile: {
+        username: 'test-user',
+        name: 'Test User',
+      },
+      upcomingBookings: [],
+      activeEventTypeCount: 1,
+      bookingLink: '/test-user',
+    }
+
+    render(createElement(DashboardClient, props))
+
+    const bookingsLink = screen.getByRole('link', { name: 'View bookings' })
+    const eventTypesLink = screen.getByRole('link', {
+      name: 'Manage event types',
+    })
+    const availabilityLink = screen.getByRole('link', {
+      name: 'Manage availability',
+    })
+
+    expect(bookingsLink.getAttribute('href')).toBe('/bookings')
+    expect(eventTypesLink.getAttribute('href')).toBe('/event-types')
+    expect(availabilityLink.getAttribute('href')).toBe('/availability')
+
+    cleanup()
   })
 })

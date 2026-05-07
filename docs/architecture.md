@@ -1,0 +1,105 @@
+# Architecture
+
+OpenSlot is a Next.js App Router application with Supabase-backed persistence and server-first data loading for sensitive flows.
+
+## High-Level Layers
+
+```text
+Browser UI
+  -> Client Components for interaction and local form state
+  -> Next route handlers for writes and public slot APIs
+  -> Supabase clients
+  -> Postgres tables, RLS, constraints, indexes
+```
+
+## Route Groups
+
+| Path | Purpose |
+| --- | --- |
+| `src/app/page.tsx` | Public landing page. |
+| `src/app/(auth)/login/page.tsx` | Supabase password login. |
+| `src/app/(auth)/signup/page.tsx` | Supabase password signup. |
+| `src/app/(dashboard)/layout.tsx` | Authenticated dashboard layout and shell. |
+| `src/app/(dashboard)/dashboard/page.tsx` | Dashboard overview with profile, bookings, active event type count. |
+| `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |
+| `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
+| `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
+| `src/app/(dashboard)/event-types/*` | Current event type UI, mostly mock/prototype. |
+| `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
+| `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
+| `src/app/api/*` | Slot, hold, booking, cancellation, and availability APIs. |
+
+## Data Access Patterns
+
+- `src/lib/supabase/server.ts` creates a cookie-aware Supabase client for Server Components and route handlers.
+- `src/lib/supabase/client.ts` creates the browser client for client components.
+- `src/lib/supabase/admin.ts` creates a service role client for server-only writes that must bypass RLS.
+- `src/proxy.ts` refreshes Supabase sessions. The dashboard route group also enforces auth in `src/app/(dashboard)/layout.tsx`.
+
+## Booking Flow
+
+```text
+Public event page
+  -> SlotPicker
+  -> GET /api/slots
+  -> computeAvailableSlots()
+  -> POST /api/holds
+  -> BookingForm
+  -> POST /api/bookings
+  -> confirmBooking()
+  -> bookings insert + hold status update + email notifications
+```
+
+The final anti-double-booking guard is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`.
+
+## Availability Flow
+
+```text
+/availability server page
+  -> fetch profile, rules, overrides
+  -> AvailabilityClient
+  -> local diff state
+  -> POST /api/availability
+  -> authenticated profile lookup
+  -> service-role delete/update/insert scoped by user_id
+```
+
+Availability rules use database weekday values where `0 = Sunday` and `6 = Saturday`. The dashboard UI displays Monday first, so conversion helpers live in `src/components/dashboard/availability-client.tsx`.
+
+## Database Schema
+
+Migrations are in `supabase/migrations/`:
+
+- `001_enable_extensions.sql`: `uuid-ossp` and `btree_gist`.
+- `002_create_profiles.sql`: profile records linked to `auth.users`.
+- `003_create_event_types.sql`: event types and unique `(user_id, slug)`.
+- `004_create_availability_rules.sql`: recurring weekly availability.
+- `005_create_availability_overrides.sql`: date-specific availability exceptions.
+- `006_create_slot_holds.sql`: short-lived holds.
+- `007_create_bookings.sql`: bookings and exclusion constraint.
+- `008_create_rls_policies.sql`: RLS policies.
+- `009_create_indexes.sql`: lookup and performance indexes.
+- `010_create_profile_trigger.sql`: profile creation trigger on auth signup.
+
+## API Routes
+
+| Route | Auth | Main module |
+| --- | --- | --- |
+| `GET /api/slots` | Public read | `src/lib/availability/compute-slots.ts` |
+| `POST /api/holds` | Public token/slot operation, service role write | `src/app/api/holds/route.ts` |
+| `POST /api/bookings` | Hold token operation, service role write | `src/lib/booking/confirm.ts` |
+| `POST /api/bookings/[id]/cancel` | Cancellation token operation, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/availability` | Authenticated host | `src/app/api/availability/route.ts` |
+
+## Current Gaps to Preserve in Docs
+
+- Event type dashboard pages are mock/prototype despite database tables and an unused `EventTypeForm`.
+- The public cancellation page is a mock UI shell.
+- Settings and onboarding do not persist.
+- No realtime sync or calendar integrations are implemented.
+
+## Related Docs
+
+- [Product Overview](product-overview.md)
+- [Security](security.md)
+- [Testing](testing.md)

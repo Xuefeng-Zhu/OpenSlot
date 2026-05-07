@@ -98,6 +98,8 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 | `npm run test` | Run tests with Vitest |
 | `npm run test:watch` | Run tests in watch mode |
 
+For deterministic installs, prefer `npm ci` when working from the committed lockfile.
+
 ## Architecture Overview
 
 OpenSlot follows a **server-first architecture** for critical booking operations:
@@ -162,15 +164,28 @@ openslot/
 ## Key Features
 
 - **Authentication** — Email/password sign up and login via Supabase Auth
-- **Event Types** — Create multiple event types with configurable duration, buffers, and location
+- **Event Types** — Database schema and public event reads exist; dashboard event type management currently includes mock/prototype UI
 - **Weekly Availability** — Set recurring availability windows per weekday with timezone support
 - **Date Overrides** — Mark specific dates as unavailable or set custom hours
 - **Public Booking Pages** — Shareable URLs (`/username/event-slug`) for guests to book
 - **Slot Holds** — 5-minute temporary holds prevent race conditions during booking
 - **Anti-Double-Booking** — PostgreSQL exclusion constraints guarantee no overlapping confirmed bookings
-- **Email Notifications** — Confirmation and cancellation emails to both host and guest
-- **Cancellation** — Token-based cancellation links for guests; dashboard cancellation for hosts
+- **Email Notifications** — Confirmation and cancellation email plumbing exists and uses a console provider by default
+- **Cancellation** — Token-based cancellation API exists; the public cancellation page is currently a mock UI shell
 - **Timezone Support** — Full IANA timezone handling with correct DST transitions
+
+## Additional Documentation
+
+- [Agent and contributor guide](AGENTS.md)
+- [Product overview](docs/product-overview.md)
+- [Architecture](docs/architecture.md)
+- [Development](docs/development.md)
+- [Testing](docs/testing.md)
+- [Security](docs/security.md)
+- [Release notes](docs/release.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Contributing](docs/contributing.md)
+- [Agent workflow](docs/agent-workflow.md)
 
 ## License
 

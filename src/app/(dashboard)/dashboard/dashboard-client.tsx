@@ -117,7 +117,7 @@ export function DashboardClient({
           title="Upcoming bookings"
           value={upcomingBookings.length}
           icon={<Calendar className="h-5 w-5" />}
-          action={{ label: "View bookings", onClick: () => {} }}
+          action={{ label: "View bookings", href: "/bookings" }}
           subtitle={
             upcomingBookings.length > 0
               ? `Next: ${formatBookingDate(upcomingBookings[0].start_at)}`
@@ -128,7 +128,7 @@ export function DashboardClient({
           title="Active event types"
           value={activeEventTypeCount}
           icon={<CalendarCheck className="h-5 w-5" />}
-          action={{ label: "Manage event types", onClick: () => {} }}
+          action={{ label: "Manage event types", href: "/event-types" }}
           subtitle="All systems go"
         />
         <MetricCard
@@ -145,7 +145,7 @@ export function DashboardClient({
           value="Open"
           valueClassName="text-primary"
           icon={<Activity className="h-5 w-5" />}
-          action={{ label: "Manage availability", onClick: () => {} }}
+          action={{ label: "Manage availability", href: "/availability" }}
           subtitle="You're available to be booked"
         />
       </div>

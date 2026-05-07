@@ -1,20 +1,34 @@
 import * as React from "react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
+
+type MetricCardAction =
+  | {
+      label: string;
+      onClick: () => void;
+      href?: never;
+    }
+  | {
+      label: string;
+      href: string;
+      onClick?: never;
+    };
 
 export interface MetricCardProps {
   title: string;
   value: string | number;
   icon: React.ReactNode;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
+  action?: MetricCardAction;
   subtitle?: string;
   valueClassName?: string;
   className?: string;
 }
+
+const actionClassName =
+  "text-sm font-medium text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md transition-colors flex items-center gap-1";
 
 export function MetricCard({
   title,
@@ -46,16 +60,21 @@ export function MetricCard({
       </div>
       {action && (
         <div className="mt-3 pt-3 border-t border-border">
-          <button
-            type="button"
-            onClick={action.onClick}
-            className="text-sm font-medium text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md transition-colors flex items-center gap-1"
-          >
-            {action.label}
-            <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M4.5 3L7.5 6L4.5 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-          </button>
+          {action.href ? (
+            <Link href={action.href} className={actionClassName}>
+              {action.label}
+              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={action.onClick}
+              className={actionClassName}
+            >
+              {action.label}
+              <ArrowRight className="h-3 w-3" aria-hidden="true" />
+            </button>
+          )}
         </div>
       )}
     </Card>
