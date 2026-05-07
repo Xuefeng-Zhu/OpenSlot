@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import OnboardingPage from "../page";
+
+const refresh = vi.fn();
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh }),
+}));
 
 function advanceFromProfile() {
   fireEvent.change(screen.getByLabelText("Display name"), {
@@ -13,6 +19,14 @@ function advanceFromProfile() {
 }
 
 describe("Onboarding validation", () => {
+  beforeEach(() => {
+    refresh.mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("keeps users on profile setup until required profile fields are filled", () => {
     render(<OnboardingPage />);
 
@@ -61,5 +75,56 @@ describe("Onboarding validation", () => {
       screen.getByText("Enter where this meeting will happen.")
     ).toBeDefined();
     expect(screen.queryByText("Share your booking link")).toBeNull();
+  });
+
+  it("saves onboarding data before showing the booking link", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        bookingLink: "/sarah-chen/intro-call",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnboardingPage />);
+    advanceFromProfile();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Intro Call" },
+    });
+    fireEvent.change(screen.getByLabelText("Location"), {
+      target: { value: "Zoom" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Share your booking link")).toBeDefined();
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/onboarding",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+    );
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody.profile).toEqual({
+      displayName: "Sarah Chen",
+      username: "sarah-chen",
+    });
+    expect(requestBody.eventType).toEqual({
+      title: "Intro Call",
+      duration: "30",
+      location: "Zoom",
+    });
+    expect(requestBody.availability.monday.intervals).toEqual([
+      { start: "09:00", end: "17:00" },
+    ]);
+    expect(screen.getByText("openslot.com/sarah-chen/intro-call")).toBeDefined();
+    expect(refresh).toHaveBeenCalled();
   });
 });

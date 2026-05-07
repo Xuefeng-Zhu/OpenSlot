@@ -39,6 +39,10 @@ Check:
 - A profile exists for the auth user.
 - `supabase/migrations/010_create_profile_trigger.sql` has been applied for new signups.
 
+## Dashboard Redirects to Onboarding
+
+`/dashboard` redirects to `/onboarding` when the authenticated profile is missing a username. Complete onboarding or update `/profile` with a username. Onboarding persists profile setup, weekly availability, and the first event type through `/api/onboarding`.
+
 ## Public Profile or Booking Page 404s
 
 Check:

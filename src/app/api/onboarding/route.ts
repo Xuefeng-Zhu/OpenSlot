@@ -1,0 +1,178 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import {
+  buildOnboardingAvailabilityRules,
+  buildOnboardingEventSlug,
+  onboardingSchema,
+} from '@/lib/validations/onboarding'
+
+type OnboardingWriteClient = {
+  from: (table: 'profiles' | 'event_types' | 'availability_rules') => any
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const body = await request.json()
+    const parsed = onboardingSchema.safeParse(body)
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Validation failed',
+          details: parsed.error.flatten().fieldErrors,
+        },
+        { status: 400 }
+      )
+    }
+
+    const writeClient = (
+      process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : supabase
+    ) as OnboardingWriteClient
+    const { profile, availability, eventType, timezone } = parsed.data
+    const now = new Date().toISOString()
+    const eventSlug = buildOnboardingEventSlug(eventType.title)
+
+    const { data: savedProfile, error: saveProfileError } = await writeClient
+      .from('profiles')
+      .upsert(
+        {
+          auth_user_id: user.id,
+          email: user.email ?? '',
+          name: profile.displayName,
+          username: profile.username,
+          default_timezone: timezone,
+          updated_at: now,
+        },
+        { onConflict: 'auth_user_id' }
+      )
+      .select('id')
+      .single()
+
+    if (saveProfileError) {
+      if (
+        saveProfileError.code === '23505' &&
+        saveProfileError.message.includes('username')
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'This username is already taken. Please choose another.',
+          },
+          { status: 409 }
+        )
+      }
+
+      console.error('Error saving onboarding profile:', saveProfileError)
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Failed to save profile. Apply migration 011_allow_profile_insert.sql or configure SUPABASE_SERVICE_ROLE_KEY.',
+        },
+        { status: 500 }
+      )
+    }
+
+    const profileId = savedProfile?.id
+
+    if (!profileId) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to save profile' },
+        { status: 500 }
+      )
+    }
+
+    const { data: savedEventType, error: eventTypeError } =
+      await writeClient
+        .from('event_types')
+        .upsert(
+          {
+            user_id: profileId,
+            title: eventType.title,
+            slug: eventSlug,
+            description: '',
+            duration_minutes: eventType.duration,
+            buffer_before_minutes: 0,
+            buffer_after_minutes: 0,
+            min_notice_minutes: 60,
+            max_booking_days_ahead: 60,
+            location_type: 'custom',
+            location_value: eventType.location,
+            is_active: true,
+            updated_at: now,
+          },
+          { onConflict: 'user_id,slug' }
+        )
+        .select('slug')
+        .single()
+
+    if (eventTypeError) {
+      console.error('Error saving onboarding event type:', eventTypeError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to save event type' },
+        { status: 500 }
+      )
+    }
+
+    const { error: deleteRulesError } = await writeClient
+      .from('availability_rules')
+      .delete()
+      .eq('user_id', profileId)
+
+    if (deleteRulesError) {
+      console.error('Error clearing onboarding availability:', deleteRulesError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to save availability' },
+        { status: 500 }
+      )
+    }
+
+    const rules = buildOnboardingAvailabilityRules(availability).map((rule) => ({
+      ...rule,
+      user_id: profileId,
+      timezone,
+    }))
+
+    if (rules.length > 0) {
+      const { error: insertRulesError } = await writeClient
+        .from('availability_rules')
+        .insert(rules)
+
+      if (insertRulesError) {
+        console.error('Error inserting onboarding availability:', insertRulesError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to save availability' },
+          { status: 500 }
+        )
+      }
+    }
+
+    const bookingLink = `/${profile.username}/${savedEventType?.slug ?? eventSlug}`
+
+    return NextResponse.json({
+      success: true,
+      bookingLink,
+    })
+  } catch (error) {
+    console.error('Error in POST /api/onboarding:', error)
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}

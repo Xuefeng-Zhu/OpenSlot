@@ -6,7 +6,7 @@ Operational guide for coding agents and human contributors working in this repos
 
 OpenSlot is an MVP scheduling app. Hosts can authenticate with Supabase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around profile, availability, public profile/event pages, slot computation, holds, confirmed bookings, and booking cancellation APIs. The dashboard event type list/new/edit pages, onboarding flow, settings page, and `/booking/cancel/[token]` UI are not fully wired to live persistence yet.
+Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, availability, public profile/event pages, slot computation, holds, confirmed bookings, and booking cancellation APIs. The dashboard event type list/new/edit pages, settings page, and `/booking/cancel/[token]` UI are not fully wired to live persistence yet.
 
 ## Tech Stack
 
@@ -218,7 +218,7 @@ See [docs/security.md](docs/security.md).
 ## Common Pitfalls for Coding Agents
 
 - Quote paths containing route groups or dynamic segments in shell commands, for example `'src/app/(dashboard)/dashboard/page.tsx'`.
-- Do not assume every visible dashboard surface is live. Event type management, onboarding, settings, and the public cancellation page have prototype/mock portions.
+- Do not assume every visible dashboard surface is live. Event type management, settings, and the public cancellation page have prototype/mock portions.
 - The reusable `EventTypeForm` is not currently used by the visible new/edit event type routes.
 - `src/components/booking/cancel-booking-form.tsx` is not currently wired into `src/app/booking/cancel/[token]/page.tsx`.
 - If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.

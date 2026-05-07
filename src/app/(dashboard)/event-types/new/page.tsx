@@ -65,6 +65,15 @@ export default function NewEventTypePage() {
     );
   };
 
+  const clearFieldError = (field: string) => {
+    setErrors((prev) => {
+      if (!prev[field]) return prev;
+
+      const { [field]: _removed, ...next } = prev;
+      return next;
+    });
+  };
+
   const handleSave = () => {
     const newErrors: Record<string, string> = {};
     if (!title.trim()) newErrors.title = "Title is required";
@@ -128,7 +137,11 @@ export default function NewEventTypePage() {
                         <Input
                           id="title"
                           value={title}
-                          onChange={(e) => setTitle(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setTitle(value);
+                            if (value.trim()) clearFieldError("title");
+                          }}
                           placeholder="e.g. 30-min Discovery Call"
                         />
                         {errors.title && (
@@ -140,7 +153,11 @@ export default function NewEventTypePage() {
                         <Input
                           id="slug"
                           value={slug}
-                          onChange={(e) => setSlug(e.target.value)}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSlug(value);
+                            if (value.trim()) clearFieldError("slug");
+                          }}
                           placeholder="e.g. discovery-call"
                         />
                         {errors.slug && (

@@ -50,4 +50,32 @@ describe("EditEventTypePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to event types" }));
     expect(push).toHaveBeenCalledWith("/event-types");
   });
+
+  it("clears field-level validation errors when corrected", () => {
+    render(<EditEventTypePage />);
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("URL Slug"), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByText("Title is required")).toBeDefined();
+    expect(screen.getByText("URL slug is required")).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Strategy workshop" },
+    });
+
+    expect(screen.queryByText("Title is required")).toBeNull();
+    expect(screen.getByText("URL slug is required")).toBeDefined();
+
+    fireEvent.change(screen.getByLabelText("URL Slug"), {
+      target: { value: "strategy-workshop" },
+    });
+
+    expect(screen.queryByText("URL slug is required")).toBeNull();
+  });
 });

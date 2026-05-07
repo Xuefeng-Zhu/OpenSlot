@@ -24,6 +24,7 @@ Browser UI
 | `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |
 | `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
+| `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
 | `src/app/(dashboard)/event-types/*` | Current event type UI, mostly mock/prototype. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
@@ -66,6 +67,18 @@ The final anti-double-booking guard is the Postgres exclusion constraint in `sup
 
 Availability rules use database weekday values where `0 = Sunday` and `6 = Saturday`. The dashboard UI displays Monday first, so conversion helpers live in `src/components/dashboard/availability-client.tsx`.
 
+## Onboarding Flow
+
+```text
+/onboarding client page
+  -> validates profile, availability, and first event type locally
+  -> POST /api/onboarding
+  -> authenticated profile lookup
+  -> service-role profile update + event type upsert + availability rule replacement
+```
+
+The onboarding API stores the browser timezone as the profile default timezone and the timezone for created weekly availability rules.
+
 ## Database Schema
 
 Migrations are in `supabase/migrations/`:
@@ -89,13 +102,14 @@ Migrations are in `supabase/migrations/`:
 | `POST /api/holds` | Public token/slot operation, service role write | `src/app/api/holds/route.ts` |
 | `POST /api/bookings` | Hold token operation, service role write | `src/lib/booking/confirm.ts` |
 | `POST /api/bookings/[id]/cancel` | Cancellation token operation, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
 | `POST /api/availability` | Authenticated host | `src/app/api/availability/route.ts` |
 
 ## Current Gaps to Preserve in Docs
 
 - Event type dashboard pages are mock/prototype despite database tables and an unused `EventTypeForm`.
 - The public cancellation page is a mock UI shell.
-- Settings and onboarding do not persist.
+- Settings do not persist.
 - No realtime sync or calendar integrations are implemented.
 
 ## Related Docs
