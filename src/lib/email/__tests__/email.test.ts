@@ -66,6 +66,24 @@ describe('Email Templates', () => {
       expect(result.text).not.toContain('cancel')
       expect(result.html).not.toContain('Need to cancel?')
     })
+
+    it('escapes html-sensitive values in the html body', () => {
+      const details = {
+        ...sampleTemplateDetails,
+        eventTitle: '<script>alert("x")</script>',
+        hostName: 'Bob & Sons',
+        cancellationUrl: 'https://example.com/cancel?x="bad"&next=<tag>',
+      }
+
+      const result = bookingConfirmationGuestTemplate(details)
+
+      expect(result.text).toContain('<script>alert("x")</script>')
+      expect(result.html).not.toContain('<script>')
+      expect(result.html).not.toContain('href="https://example.com/cancel?x="bad"')
+      expect(result.html).toContain('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;')
+      expect(result.html).toContain('Bob &amp; Sons')
+      expect(result.html).toContain('x=&quot;bad&quot;&amp;next=&lt;tag&gt;')
+    })
   })
 
   describe('bookingNotificationHostTemplate', () => {
@@ -78,6 +96,19 @@ describe('Email Templates', () => {
       expect(result.text).toContain('alice@example.com')
       expect(result.text).toContain('Monday, January 15, 2025')
       expect(result.html).toContain('New Booking')
+    })
+
+    it('escapes guest details in html', () => {
+      const result = bookingNotificationHostTemplate({
+        ...sampleTemplateDetails,
+        guestName: 'Alice <img src=x onerror=alert(1)>',
+        guestEmail: 'alice&guest@example.com',
+      })
+
+      expect(result.text).toContain('Alice <img src=x onerror=alert(1)>')
+      expect(result.html).not.toContain('<img')
+      expect(result.html).toContain('Alice &lt;img src=x onerror=alert(1)&gt;')
+      expect(result.html).toContain('alice&amp;guest@example.com')
     })
   })
 
@@ -97,6 +128,20 @@ describe('Email Templates', () => {
       expect(result.subject).toContain('Cancelled')
       expect(result.text).toContain('Alice Guest')
       expect(result.text).toContain('cancelled')
+    })
+
+    it('escapes the other party in cancellation html', () => {
+      const result = cancellationTemplate(
+        {
+          ...sampleTemplateDetails,
+          guestName: 'Alice <b>Guest</b>',
+        },
+        'host'
+      )
+
+      expect(result.text).toContain('Alice <b>Guest</b>')
+      expect(result.html).not.toContain('<b>Guest</b>')
+      expect(result.html).toContain('Alice &lt;b&gt;Guest&lt;/b&gt;')
     })
   })
 })

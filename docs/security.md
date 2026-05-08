@@ -58,9 +58,8 @@ Do not weaken any of these without replacing the protection and updating tests.
 
 ## Email Privacy
 
-The current email provider logs messages to the console. Before adding a production provider:
+The current email provider logs messages to the console. HTML email templates escape interpolated booking values before rendering. Before adding a production provider:
 
-- Confirm user-provided content is escaped or sanitized in HTML templates.
 - Avoid logging full email payloads in production.
 - Store provider API keys in server-only environment variables.
 - Update `src/lib/email/send.ts`, `.env.example`, and these docs.
