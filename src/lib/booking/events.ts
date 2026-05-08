@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/types/database'
 
-export type BookingEventType = 'booking.confirmed' | 'booking.cancelled'
+export type BookingEventType =
+  | 'booking.confirmed'
+  | 'booking.cancelled'
+  | 'booking.rescheduled'
 export type BookingEventActorType = 'system' | 'host' | 'guest'
 
 export interface AppendBookingEventInput {

@@ -13,6 +13,7 @@ export interface BookingTemplateDetails {
   hostName: string
   timezone: string
   cancellationUrl?: string
+  rescheduleUrl?: string
 }
 
 function escapeHtml(value: string): string {
@@ -29,7 +30,15 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
   html: string
   text: string
 } {
-  const { eventTitle, date, time, hostName, timezone, cancellationUrl } = details
+  const {
+    eventTitle,
+    date,
+    time,
+    hostName,
+    timezone,
+    cancellationUrl,
+    rescheduleUrl,
+  } = details
   const htmlEventTitle = escapeHtml(eventTitle)
   const htmlDate = escapeHtml(date)
   const htmlTime = escapeHtml(time)
@@ -37,6 +46,9 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
   const htmlTimezone = escapeHtml(timezone)
   const htmlCancellationUrl = cancellationUrl
     ? escapeHtml(cancellationUrl)
+    : undefined
+  const htmlRescheduleUrl = rescheduleUrl
+    ? escapeHtml(rescheduleUrl)
     : undefined
 
   const subject = `Booking Confirmed: ${eventTitle} with ${hostName}`
@@ -48,6 +60,7 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
     `Host: ${hostName}`,
     `Date: ${date}`,
     `Time: ${time} (${timezone})`,
+    rescheduleUrl ? `\nNeed to reschedule? ${rescheduleUrl}` : '',
     cancellationUrl ? `\nNeed to cancel? ${cancellationUrl}` : '',
     ``,
     `Thank you for booking with OpenSlot.`,
@@ -68,6 +81,7 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
     <tr><td style="padding: 8px; font-weight: bold;">Date</td><td style="padding: 8px;">${htmlDate}</td></tr>
     <tr><td style="padding: 8px; font-weight: bold;">Time</td><td style="padding: 8px;">${htmlTime} (${htmlTimezone})</td></tr>
   </table>
+  ${htmlRescheduleUrl ? `<p><a href="${htmlRescheduleUrl}" style="color: #2563eb;">Need to reschedule?</a></p>` : ''}
   ${htmlCancellationUrl ? `<p><a href="${htmlCancellationUrl}" style="color: #dc2626;">Need to cancel?</a></p>` : ''}
   <p style="color: #666; font-size: 14px;">Thank you for booking with OpenSlot.</p>
 </body>

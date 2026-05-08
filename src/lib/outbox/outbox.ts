@@ -4,12 +4,16 @@ import type { Database, Json } from '@/lib/types/database'
 export type OutboxEventType =
   | 'booking.confirmed'
   | 'booking.cancelled'
+  | 'booking.rescheduled'
   | 'calendar.write.requested'
   | 'calendar.cancel.requested'
+  | 'calendar.reschedule.requested'
   | 'notifications.requested'
   | 'notifications.cancel.requested'
+  | 'notifications.reschedule.requested'
   | 'tenant.webhooks.requested'
   | 'tenant.webhooks.cancel.requested'
+  | 'tenant.webhooks.reschedule.requested'
 
 export interface EnqueueOutboxEventInput {
   aggregateType: string
@@ -36,6 +40,12 @@ export interface BookingOutboxInput {
 
 export interface BookingCancellationOutboxInput extends BookingOutboxInput {
   cancelReasonProvided: boolean
+}
+
+export interface BookingRescheduleOutboxInput extends BookingOutboxInput {
+  previousBookingId: string
+  previousStartAt: string
+  previousEndAt: string
 }
 
 interface BookingOutboxPayload {
@@ -122,6 +132,49 @@ export async function enqueueBookingCancelledOutbox(
       eventType: 'tenant.webhooks.cancel.requested',
       payload,
       dedupeKey: `booking:${booking.bookingId}:tenant-webhooks-cancel-requested`,
+    },
+  ])
+}
+
+export async function enqueueBookingRescheduledOutbox(
+  adminClient: SupabaseClient<Database>,
+  booking: BookingRescheduleOutboxInput
+): Promise<EnqueueOutboxEventsResult> {
+  const payload = {
+    ...buildBookingPayload(booking),
+    previousBookingId: booking.previousBookingId,
+    previousStartAt: booking.previousStartAt,
+    previousEndAt: booking.previousEndAt,
+  }
+
+  return enqueueOutboxEvents(adminClient, [
+    {
+      aggregateType: 'booking',
+      aggregateId: booking.bookingId,
+      eventType: 'booking.rescheduled',
+      payload,
+      dedupeKey: `booking:${booking.bookingId}:rescheduled`,
+    },
+    {
+      aggregateType: 'booking',
+      aggregateId: booking.bookingId,
+      eventType: 'calendar.reschedule.requested',
+      payload,
+      dedupeKey: `booking:${booking.bookingId}:calendar-reschedule-requested`,
+    },
+    {
+      aggregateType: 'booking',
+      aggregateId: booking.bookingId,
+      eventType: 'notifications.reschedule.requested',
+      payload,
+      dedupeKey: `booking:${booking.bookingId}:notifications-reschedule-requested`,
+    },
+    {
+      aggregateType: 'booking',
+      aggregateId: booking.bookingId,
+      eventType: 'tenant.webhooks.reschedule.requested',
+      payload,
+      dedupeKey: `booking:${booking.bookingId}:tenant-webhooks-reschedule-requested`,
     },
   ])
 }

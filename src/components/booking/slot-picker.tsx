@@ -48,6 +48,14 @@ interface HostProfile {
 interface SlotPickerProps {
   eventType: EventTypeInfo;
   hostProfile: HostProfile;
+  rescheduleContext?: {
+    token: string;
+    guestName: string;
+    guestEmail: string;
+    guestTimezone: string;
+    currentStartAt: string;
+    currentEndAt: string;
+  };
 }
 
 interface HoldInfo {
@@ -58,6 +66,7 @@ interface HoldInfo {
 interface BookingResult {
   bookingId: string;
   cancellationToken: string;
+  rescheduleToken?: string;
   startAt: string;
   endAt: string;
   guestName: string;
@@ -107,7 +116,11 @@ function getBrowserTimezone(): string {
   }
 }
 
-export function SlotPicker({ eventType, hostProfile }: SlotPickerProps) {
+export function SlotPicker({
+  eventType,
+  hostProfile,
+  rescheduleContext,
+}: SlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>("");
   const [slots, setSlots] = useState<TimeSlot[]>([]);
@@ -202,7 +215,7 @@ export function SlotPicker({ eventType, hostProfile }: SlotPickerProps) {
           hostUserId: hostProfile.id,
           startAt: slot.start,
           endAt: slot.end,
-          guestEmail: "pending@placeholder.com", // Will be updated on booking confirmation
+          guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
         }),
       });
 
@@ -291,12 +304,14 @@ export function SlotPicker({ eventType, hostProfile }: SlotPickerProps) {
         <BookingConfirmation
           bookingId={flowState.booking.bookingId}
           cancellationToken={flowState.booking.cancellationToken}
+          rescheduleToken={flowState.booking.rescheduleToken}
           startAt={flowState.booking.startAt}
           endAt={flowState.booking.endAt}
           guestName={flowState.booking.guestName}
           eventTitle={flowState.booking.eventTitle}
           hostName={hostProfile.name}
           timezone={timezone}
+          variant={rescheduleContext ? "reschedule" : "booking"}
         />
       </div>
     );
@@ -454,6 +469,16 @@ export function SlotPicker({ eventType, hostProfile }: SlotPickerProps) {
           eventTitle={eventType.title}
           hostName={hostProfile.name}
           timezone={timezone}
+          rescheduleToken={rescheduleContext?.token}
+          initialGuest={
+            rescheduleContext
+              ? {
+                  name: rescheduleContext.guestName,
+                  email: rescheduleContext.guestEmail,
+                  timezone: rescheduleContext.guestTimezone,
+                }
+              : undefined
+          }
           onConfirmed={handleBookingConfirmed}
           onHoldExpired={handleHoldExpired}
           onSlotTaken={handleSlotTaken}

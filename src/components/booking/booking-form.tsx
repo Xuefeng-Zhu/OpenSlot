@@ -75,9 +75,16 @@ interface BookingFormProps {
   eventTitle: string;
   hostName: string;
   timezone: string;
+  rescheduleToken?: string;
+  initialGuest?: {
+    name: string;
+    email: string;
+    timezone: string;
+  };
   onConfirmed: (result: {
     bookingId: string;
     cancellationToken: string;
+    rescheduleToken?: string;
     startAt: string;
     endAt: string;
     guestName: string;
@@ -94,6 +101,8 @@ export function BookingForm({
   eventTitle,
   hostName,
   timezone,
+  rescheduleToken,
+  initialGuest,
   onConfirmed,
   onHoldExpired,
   onSlotTaken,
@@ -114,9 +123,9 @@ export function BookingForm({
   } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
-      guestName: "",
-      guestEmail: "",
-      guestTimezone: timezone,
+      guestName: initialGuest?.name ?? "",
+      guestEmail: initialGuest?.email ?? "",
+      guestTimezone: initialGuest?.timezone ?? timezone,
       notes: "",
     },
   });
@@ -152,13 +161,16 @@ export function BookingForm({
     setError(null);
 
     try {
-      const response = await fetch("/api/bookings", {
+      const response = await fetch(
+        rescheduleToken ? "/api/bookings/reschedule" : "/api/bookings",
+        {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
+          ...(rescheduleToken ? { rescheduleToken } : {}),
           holdToken,
           guestName: data.guestName,
           guestEmail: data.guestEmail,
@@ -166,7 +178,8 @@ export function BookingForm({
           notes: data.notes || undefined,
           idempotencyKey,
         }),
-      });
+        }
+      );
 
       const result = await response.json();
 
@@ -190,6 +203,7 @@ export function BookingForm({
         onConfirmed({
           bookingId: result.bookingId,
           cancellationToken: result.cancellationToken,
+          rescheduleToken: result.rescheduleToken,
           startAt: selectedSlot.start,
           endAt: selectedSlot.end,
           guestName: data.guestName,
@@ -235,7 +249,9 @@ export function BookingForm({
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle className="text-lg">Confirm Your Booking</CardTitle>
+            <CardTitle className="text-lg">
+              {rescheduleToken ? "Confirm New Time" : "Confirm Your Booking"}
+            </CardTitle>
             <CardDescription>
               {eventTitle} with {hostName}
             </CardDescription>
@@ -357,7 +373,11 @@ export function BookingForm({
             className="w-full"
             disabled={submitting || timeRemaining <= 0}
           >
-            {submitting ? "Confirming..." : "Confirm Booking"}
+            {submitting
+              ? "Confirming..."
+              : rescheduleToken
+                ? "Confirm New Time"
+                : "Confirm Booking"}
           </Button>
         </form>
       </CardContent>

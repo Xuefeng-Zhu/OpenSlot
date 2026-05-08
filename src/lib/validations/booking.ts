@@ -48,3 +48,19 @@ export const cancelBookingSchema = z.object({
 })
 
 export type CancelBookingSchemaInput = z.infer<typeof cancelBookingSchema>
+
+/**
+ * Schema for rescheduling a booking from a new hold.
+ * Used by POST /api/bookings/reschedule to validate the request body.
+ */
+export const rescheduleBookingSchema = z.object({
+  rescheduleToken: z.string().uuid('Reschedule token must be a valid UUID'),
+  holdToken: z.string().uuid('Hold token must be a valid UUID'),
+  guestName: z.string().min(1, 'Guest name is required').max(100, 'Guest name must be 100 characters or less'),
+  guestEmail: z.string().email('Must be a valid email address'),
+  guestTimezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }),
+  notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
+  idempotencyKey: idempotencyKeySchema,
+})
+
+export type RescheduleBookingSchemaInput = z.infer<typeof rescheduleBookingSchema>

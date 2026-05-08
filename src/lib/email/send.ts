@@ -29,6 +29,7 @@ export interface BookingDetails {
   hostName: string
   hostEmail: string
   cancellationToken?: string
+  rescheduleToken?: string
 }
 
 /**
@@ -90,6 +91,12 @@ function buildCancellationUrl(cancellationToken: string | undefined): string | u
   return `${baseUrl}/booking/cancel/${cancellationToken}`
 }
 
+function buildRescheduleUrl(rescheduleToken: string | undefined): string | undefined {
+  if (!rescheduleToken) return undefined
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  return `${baseUrl}/booking/reschedule/${rescheduleToken}`
+}
+
 /**
  * Sends a booking confirmation email to the guest.
  * Fire-and-forget: catches errors and logs them.
@@ -99,6 +106,7 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
     const provider = getProvider()
     const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
     const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
+    const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
 
     const { subject, html, text } = bookingConfirmationGuestTemplate({
       eventTitle: booking.eventTitle,
@@ -109,6 +117,7 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
       hostName: booking.hostName,
       timezone: booking.guestTimezone,
       cancellationUrl,
+      rescheduleUrl,
     })
 
     const payload: EmailPayload = { to: booking.guestEmail, subject, html, text }

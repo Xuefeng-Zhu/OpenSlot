@@ -48,3 +48,26 @@ export interface CancelBookingResult {
   success: boolean
   error?: string
 }
+
+export interface RescheduleBookingInput {
+  rescheduleToken: string
+  holdToken: string
+  guestName: string
+  guestEmail: string
+  guestTimezone: string
+  notes?: string
+  idempotencyKey?: string
+}
+
+export interface RescheduleBookingResult {
+  success: boolean
+  bookingId?: string
+  previousBookingId?: string
+  cancellationToken?: string
+  rescheduleToken?: string
+  startAt?: string
+  endAt?: string
+  previousStartAt?: string
+  previousEndAt?: string
+  error?: string
+}

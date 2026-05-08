@@ -13,22 +13,26 @@ import { Badge } from "@/components/ui/badge";
 interface BookingConfirmationProps {
   bookingId: string;
   cancellationToken: string;
+  rescheduleToken?: string;
   startAt: string;
   endAt: string;
   guestName: string;
   eventTitle: string;
   hostName: string;
   timezone: string;
+  variant?: "booking" | "reschedule";
 }
 
 export function BookingConfirmation({
   cancellationToken,
+  rescheduleToken,
   startAt,
   endAt,
   guestName,
   eventTitle,
   hostName,
   timezone,
+  variant = "booking",
 }: BookingConfirmationProps) {
   function formatDateTime(isoString: string): string {
     const date = new Date(isoString);
@@ -51,6 +55,10 @@ export function BookingConfirmation({
   }
 
   const cancellationUrl = `/booking/cancel/${cancellationToken}`;
+  const rescheduleUrl = rescheduleToken
+    ? `/booking/reschedule/${rescheduleToken}`
+    : null;
+  const isReschedule = variant === "reschedule";
 
   return (
     <Card className="mt-6 max-w-lg mx-auto">
@@ -71,9 +79,13 @@ export function BookingConfirmation({
             />
           </svg>
         </div>
-        <CardTitle className="text-xl">Booking Confirmed!</CardTitle>
+        <CardTitle className="text-xl">
+          {isReschedule ? "Booking Rescheduled!" : "Booking Confirmed!"}
+        </CardTitle>
         <CardDescription>
-          Your meeting has been scheduled successfully.
+          {isReschedule
+            ? "Your meeting has been moved successfully."
+            : "Your meeting has been scheduled successfully."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -116,8 +128,12 @@ export function BookingConfirmation({
           A confirmation email has been sent with the booking details.
         </p>
 
-        {/* Cancellation link */}
-        <div className="pt-2 text-center">
+        <div className="flex justify-center gap-2 pt-2">
+          {rescheduleUrl && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={rescheduleUrl}>Need to reschedule?</a>
+            </Button>
+          )}
           <Button variant="outline" size="sm" asChild>
             <a href={cancellationUrl}>Need to cancel?</a>
           </Button>
