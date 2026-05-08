@@ -1,14 +1,13 @@
 /**
  * Email send functions for booking notifications.
  *
- * In development (NODE_ENV !== 'production'), emails are logged to the console.
- * In production, emails are sent via the configured provider.
+ * Emails are logged to the console unless EMAIL_PROVIDER is configured.
  *
  * All functions are fire-and-forget: errors are caught and logged, never thrown.
  */
 
 import type { EmailProvider, EmailPayload } from './provider'
-import { ConsoleEmailProvider } from './provider'
+import { ConsoleEmailProvider, ResendEmailProvider } from './provider'
 import {
   bookingConfirmationGuestTemplate,
   bookingNotificationHostTemplate,
@@ -34,14 +33,26 @@ export interface BookingDetails {
 
 /**
  * Returns the configured email provider.
- * In development, uses the console provider.
- * In production, uses the configured provider (defaults to console if none configured).
+ * Uses the configured provider when EMAIL_PROVIDER is set.
+ * Defaults to console so local and unconfigured production environments do not
+ * accidentally send mail.
  */
-function getProvider(): EmailProvider {
-  // In production, you would instantiate a real provider here (e.g., Resend, Postmark).
-  // For now, we always use the console provider as a safe default.
-  // To integrate a real provider, replace this with:
-  //   if (process.env.NODE_ENV === 'production') return new ResendProvider(...)
+export function getEmailProvider(): EmailProvider {
+  if (process.env.EMAIL_PROVIDER === 'resend') {
+    const apiKey = process.env.RESEND_API_KEY
+    const from = process.env.EMAIL_FROM
+
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is not configured')
+    }
+
+    if (!from) {
+      throw new Error('EMAIL_FROM is not configured')
+    }
+
+    return new ResendEmailProvider(apiKey, from)
+  }
+
   return new ConsoleEmailProvider()
 }
 
@@ -103,7 +114,7 @@ function buildRescheduleUrl(rescheduleToken: string | undefined): string | undef
  */
 export async function sendBookingConfirmationToGuest(booking: BookingDetails): Promise<void> {
   try {
-    const provider = getProvider()
+    const provider = getEmailProvider()
     const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
     const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
     const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
@@ -120,13 +131,12 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
       rescheduleUrl,
     })
 
-    const payload: EmailPayload = { to: booking.guestEmail, subject, html, text }
-
-    if (process.env.NODE_ENV !== 'production') {
-      // In dev mode, use console provider regardless
-      const devProvider = new ConsoleEmailProvider()
-      await devProvider.send(payload)
-      return
+    const payload: EmailPayload = {
+      to: booking.guestEmail,
+      subject,
+      html,
+      text,
+      idempotencyKey: `booking-confirmation:${booking.bookingId}:guest`,
     }
 
     const result = await provider.send(payload)
@@ -144,7 +154,7 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
  */
 export async function sendBookingNotificationToHost(booking: BookingDetails): Promise<void> {
   try {
-    const provider = getProvider()
+    const provider = getEmailProvider()
     const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
 
     const { subject, html, text } = bookingNotificationHostTemplate({
@@ -157,12 +167,12 @@ export async function sendBookingNotificationToHost(booking: BookingDetails): Pr
       timezone: booking.guestTimezone,
     })
 
-    const payload: EmailPayload = { to: booking.hostEmail, subject, html, text }
-
-    if (process.env.NODE_ENV !== 'production') {
-      const devProvider = new ConsoleEmailProvider()
-      await devProvider.send(payload)
-      return
+    const payload: EmailPayload = {
+      to: booking.hostEmail,
+      subject,
+      html,
+      text,
+      idempotencyKey: `booking-notification:${booking.bookingId}:host`,
     }
 
     const result = await provider.send(payload)
@@ -183,7 +193,7 @@ export async function sendCancellationEmail(
   recipient: 'guest' | 'host'
 ): Promise<void> {
   try {
-    const provider = getProvider()
+    const provider = getEmailProvider()
     const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
     const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
 
@@ -200,12 +210,12 @@ export async function sendCancellationEmail(
       recipient
     )
 
-    const payload: EmailPayload = { to: toEmail, subject, html, text }
-
-    if (process.env.NODE_ENV !== 'production') {
-      const devProvider = new ConsoleEmailProvider()
-      await devProvider.send(payload)
-      return
+    const payload: EmailPayload = {
+      to: toEmail,
+      subject,
+      html,
+      text,
+      idempotencyKey: `booking-cancellation:${booking.bookingId}:${recipient}`,
     }
 
     const result = await provider.send(payload)

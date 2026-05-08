@@ -61,7 +61,7 @@ Public event page
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
   -> provider calendar event create/delete through Google Calendar or Microsoft Graph
-  -> notification emails through the current console provider
+  -> notification emails through the configured email provider
   -> tenant webhook delivery rows for subscribed endpoints
   -> GET/POST /api/webhooks/process through Vercel Cron or an equivalent worker trigger
   -> /booking/cancel/[token]

@@ -6,12 +6,26 @@ import {
 } from '../templates'
 import type { BookingTemplateDetails } from '../templates'
 import {
+  getEmailProvider,
   sendBookingConfirmationToGuest,
   sendBookingNotificationToHost,
   sendCancellationEmail,
 } from '../send'
 import type { BookingDetails } from '../send'
-import { ConsoleEmailProvider } from '../provider'
+import { ConsoleEmailProvider, ResendEmailProvider } from '../provider'
+
+const originalEmailEnv = {
+  EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
+  EMAIL_FROM: process.env.EMAIL_FROM,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
+}
+
+afterEach(() => {
+  process.env.EMAIL_PROVIDER = originalEmailEnv.EMAIL_PROVIDER
+  process.env.EMAIL_FROM = originalEmailEnv.EMAIL_FROM
+  process.env.RESEND_API_KEY = originalEmailEnv.RESEND_API_KEY
+  vi.unstubAllGlobals()
+})
 
 const sampleTemplateDetails: BookingTemplateDetails = {
   eventTitle: '30 Minute Meeting',
@@ -165,6 +179,80 @@ describe('ConsoleEmailProvider', () => {
   })
 })
 
+describe('ResendEmailProvider', () => {
+  it('sends email through the Resend API', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ id: 'email-id' }), { status: 200 })
+    )
+    const provider = new ResendEmailProvider(
+      'resend-key',
+      'OpenSlot <bookings@example.com>',
+      fetchImpl as typeof fetch
+    )
+
+    const result = await provider.send({
+      to: 'test@example.com',
+      subject: 'Test Subject',
+      html: '<p>Hello</p>',
+      text: 'Hello',
+      idempotencyKey: 'email-key',
+    })
+
+    expect(result).toEqual({ success: true })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.resend.com/emails',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer resend-key',
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'email-key',
+        }),
+        body: JSON.stringify({
+          from: 'OpenSlot <bookings@example.com>',
+          to: ['test@example.com'],
+          subject: 'Test Subject',
+          html: '<p>Hello</p>',
+          text: 'Hello',
+        }),
+      })
+    )
+  })
+
+  it('returns provider errors without throwing', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ message: 'Domain not verified' }), {
+        status: 422,
+      })
+    )
+    const provider = new ResendEmailProvider(
+      'resend-key',
+      'OpenSlot <bookings@example.com>',
+      fetchImpl as typeof fetch
+    )
+
+    await expect(
+      provider.send({
+        to: 'test@example.com',
+        subject: 'Test Subject',
+        html: '<p>Hello</p>',
+        text: 'Hello',
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: 'Domain not verified',
+    })
+  })
+
+  it('is selected when EMAIL_PROVIDER is resend', () => {
+    process.env.EMAIL_PROVIDER = 'resend'
+    process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
+    process.env.RESEND_API_KEY = 'resend-key'
+
+    expect(getEmailProvider()).toBeInstanceOf(ResendEmailProvider)
+  })
+})
+
 describe('Email Send Functions', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>
 
@@ -193,6 +281,28 @@ describe('Email Send Functions', () => {
       await expect(
         sendBookingConfirmationToGuest(details)
       ).resolves.toBeUndefined()
+    })
+
+    it('uses the configured Resend provider', async () => {
+      process.env.EMAIL_PROVIDER = 'resend'
+      process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
+      process.env.RESEND_API_KEY = 'resend-key'
+      const fetchMock = vi.fn(async () =>
+        new Response(JSON.stringify({ id: 'email-id' }), { status: 200 })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await sendBookingConfirmationToGuest(sampleBookingDetails)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://api.resend.com/emails',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer resend-key',
+          }),
+        })
+      )
     })
   })
 

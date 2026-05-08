@@ -51,11 +51,16 @@ MICROSOFT_CALENDAR_CLIENT_SECRET=...
 MICROSOFT_CALENDAR_TENANT=common
 CALENDAR_TOKEN_ENCRYPTION_SECRET=...
 CALENDAR_SYNC_SECRET=...
+EMAIL_PROVIDER=console
+EMAIL_FROM="OpenSlot <bookings@example.com>"
+RESEND_API_KEY=...
 ```
 
 `NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, and `CALENDAR_SYNC_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
 
 `CALENDAR_TOKEN_ENCRYPTION_SECRET` encrypts stored per-user OAuth access and refresh tokens before persistence. Use a high-entropy server-only value and keep it stable across deploys.
+
+Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking emails through Resend. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
 
 ## Worker Triggers
 
@@ -79,7 +84,6 @@ Vercel sends `CRON_SECRET` as a bearer token when that project environment varia
 These are not present in the current repository:
 
 - CI workflow.
-- Production email provider.
 - Calendar provider webhook/watch renewal handlers.
 - Error monitoring.
 

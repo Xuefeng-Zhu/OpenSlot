@@ -38,6 +38,8 @@ Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. It is used by `src/lib/supabase/ad
 
 Calendar integration development also needs provider OAuth credentials and `CALENDAR_TOKEN_ENCRYPTION_SECRET`. `CALENDAR_SYNC_SECRET` is optional locally unless you want route-specific protection on `/api/calendar/sync`; otherwise `CRON_SECRET` can protect the cron GET path.
 
+Email delivery defaults to the console provider. To exercise real email sends locally, set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY`.
+
 ## Local Database
 
 With Supabase CLI:

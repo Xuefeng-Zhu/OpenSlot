@@ -20,6 +20,9 @@ MICROSOFT_CALENDAR_CLIENT_ID=...
 MICROSOFT_CALENDAR_CLIENT_SECRET=...
 CALENDAR_TOKEN_ENCRYPTION_SECRET=...
 CALENDAR_SYNC_SECRET=...
+EMAIL_PROVIDER=console
+EMAIL_FROM=...
+RESEND_API_KEY=...
 ```
 
 Rules:
@@ -72,11 +75,11 @@ Do not weaken any of these without replacing the protection and updating tests.
 
 ## Email Privacy
 
-The current email provider logs messages to the console. HTML email templates escape interpolated booking values before rendering. Before adding a production provider:
+The default email provider logs messages to the console. `EMAIL_PROVIDER=resend` sends through Resend using server-only `RESEND_API_KEY` and `EMAIL_FROM`. HTML email templates escape interpolated booking values before rendering.
 
 - Avoid logging full email payloads in production.
 - Store provider API keys in server-only environment variables.
-- Update `src/lib/email/send.ts`, `.env.example`, and these docs.
+- Configure a verified sending domain before enabling a production provider.
 
 ## Integration Secrets
 
