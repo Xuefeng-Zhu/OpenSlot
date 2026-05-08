@@ -41,9 +41,11 @@ NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_APP_URL=https://your-production-origin.example
+OUTBOX_PROCESS_SECRET=...
+WEBHOOK_PROCESS_SECRET=...
 ```
 
-`NEXT_PUBLIC_APP_URL` is used when generating cancellation links for booking confirmation emails.
+`NEXT_PUBLIC_APP_URL` is used when generating cancellation and rescheduling links for booking confirmation emails. `OUTBOX_PROCESS_SECRET` and `WEBHOOK_PROCESS_SECRET` protect worker-trigger routes in production.
 
 ## Database Release Notes
 
@@ -59,7 +61,7 @@ These are not present in the current repository:
 - CI workflow.
 - Deployment platform config.
 - Production email provider.
-- Calendar integration credentials or setup.
+- Calendar OAuth credentials, callback handling, or provider sync jobs.
 - Error monitoring.
 
 Document the chosen platform and secrets management before first production deployment.

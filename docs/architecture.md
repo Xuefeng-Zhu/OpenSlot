@@ -24,12 +24,14 @@ Browser UI
 | `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |
 | `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
+| `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, and integration settings. |
 | `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
 | `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Supabase and `/api/event-types`. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
 | `src/app/booking/cancel/[token]/page.tsx` | Public token-backed booking cancellation page. |
-| `src/app/api/*` | Slot, hold, booking, cancellation, event type, and availability APIs. |
+| `src/app/booking/reschedule/[token]/page.tsx` | Public token-backed booking rescheduling page. |
+| `src/app/api/*` | Slot, hold, booking, cancellation, rescheduling, settings, calendar, webhook, event type, and availability APIs. |
 
 ## Data Access Patterns
 
@@ -59,6 +61,8 @@ Public event page
   -> POST /api/outbox/process or external cron
   -> claim_outbox_events()
   -> notification emails through the current console provider
+  -> tenant webhook delivery rows for subscribed endpoints
+  -> POST /api/webhooks/process or external cron
   -> /booking/cancel/[token]
   -> POST /api/bookings/[id]/cancel
   -> request_idempotency check/cache when an idempotency key is supplied
@@ -67,6 +71,12 @@ Public event page
   -> booking_events append
   -> outbox_events enqueue for provider updates, notifications, and future webhooks
   -> POST /api/outbox/process or external cron
+  -> /booking/reschedule/[token]
+  -> POST /api/holds for the replacement slot
+  -> POST /api/bookings/reschedule
+  -> reschedule_booking_with_hold()
+  -> old booking status = rescheduled + new confirmed booking insert
+  -> booking_events append + outbox_events enqueue
 ```
 
 The final anti-double-booking guard for confirmed bookings is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`. Active hold and booking reservation races are guarded by `host_reservations_no_overlap` in `supabase/migrations/20260508062648_add_host_reservations.sql`.
@@ -117,6 +127,10 @@ Migrations are in `supabase/migrations/`:
 - `20260508063319_add_explicit_data_api_grants.sql`: explicit Data API grants and removal of permissive guest-write RLS policies.
 - `20260508064552_add_booking_events.sql`: append-only booking lifecycle event ledger.
 - `20260508065512_add_outbox_claim_function.sql`: atomic outbox leasing RPC for workers.
+- `20260508070314_add_user_settings.sql`: persisted dashboard display and notification settings.
+- `20260508070850_add_booking_reschedule_flow.sql`: reschedule status columns and atomic reschedule RPC.
+- `20260508071400_add_calendar_integration_foundation.sql`: server-only provider connection, calendar, watch, and busy-cache tables.
+- `20260508071723_add_webhook_delivery_system.sql`: webhook endpoint, delivery queue, and atomic delivery leasing RPC.
 
 ## API Routes
 
@@ -126,7 +140,13 @@ Migrations are in `supabase/migrations/`:
 | `POST /api/holds` | Public token/slot operation, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
 | `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
 | `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, service role RPC | `src/lib/booking/reschedule.ts` |
 | `POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
+| `PATCH/DELETE /api/settings` | Authenticated host settings and account deletion | `src/app/api/settings/route.ts` |
+| `GET /api/calendar/connections` | Authenticated host, safe server-side calendar connection summaries | `src/lib/calendar/connections.ts` |
+| `GET/POST /api/webhooks/endpoints` | Authenticated host webhook endpoint management | `src/app/api/webhooks/endpoints/route.ts` |
+| `PATCH/DELETE /api/webhooks/endpoints/[id]` | Authenticated host webhook endpoint management scoped to own profile | `src/app/api/webhooks/endpoints/[id]/route.ts` |
+| `POST /api/webhooks/process` | Bearer-token webhook delivery worker trigger, service role write | `src/lib/webhooks/deliveries.ts` |
 | `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
 | `POST /api/event-types` | Authenticated host | `src/app/api/event-types/route.ts` |
 | `PATCH/DELETE /api/event-types/[id]` | Authenticated host, scoped to own profile | `src/app/api/event-types/[id]/route.ts` |
@@ -134,11 +154,11 @@ Migrations are in `supabase/migrations/`:
 
 ## Current Gaps to Preserve in Docs
 
-- Settings still includes prototype surfaces; event type dashboard pages and the public cancellation page are live-backed.
-- Settings do not persist.
 - Outbox rows are processed by `/api/outbox/process`, but production deployments still need an external cron/worker trigger.
+- Webhook delivery rows are processed by `/api/webhooks/process`, but production deployments still need an external cron/worker trigger.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
-- No realtime sync or calendar integrations are implemented.
+- Calendar OAuth/provider API calls are not implemented yet; the provider connection/watch/cache schema and safe summaries are in place.
+- There is no realtime sync in the UI.
 
 ## Related Docs
 

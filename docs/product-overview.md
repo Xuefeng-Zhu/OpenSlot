@@ -13,23 +13,27 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Guest slot selection with timezone display.
 - Five-minute slot holds before confirmation.
 - Confirmed bookings with database-level anti-double-booking.
-- Idempotent booking confirmation and cancellation retries when clients provide an idempotency key.
+- Idempotent booking confirmation, cancellation, and rescheduling retries when clients provide an idempotency key.
 - Public cancellation links for guests to review booking details and cancel with an optional reason.
+- Public rescheduling links for guests to choose a replacement slot.
 - Host bookings page with upcoming, past, and cancelled groupings.
 - Host availability editor for weekly rules and date overrides.
-- Console-based booking and cancellation email notifications.
+- Host settings persistence for profile basics, display preferences, notification preferences, password update, and account deletion.
+- Server-only calendar connection storage with safe settings/API summaries.
+- Tenant webhook endpoint management, signed deliveries, and retry processing.
+- Console-based booking lifecycle email notifications.
 
 ## Important Implementation Boundaries
 
-These areas are visible in the UI but are not fully production-backed yet:
+These areas have important implementation notes:
 
 | Area | Current state |
 | --- | --- |
-| `/settings` | Client-local settings UI; does not persist account, password, notification, or integration changes. |
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
 | Email delivery | Console provider only by default; no production email provider is configured. |
+| Calendar integrations | Provider connection/watch/cache tables and safe summaries exist; OAuth callbacks and provider API synchronization are not implemented yet. |
 
-Do not document these as complete without first wiring and validating persistence.
+Keep these boundaries explicit when adding user-facing docs or release notes.
 
 ## Primary User Flows
 
@@ -48,8 +52,9 @@ Do not document these as complete without first wiring and validating persistenc
 3. `SlotPicker` fetches slots from `/api/slots`.
 4. Guest clicks a slot, creating a hold through `/api/holds`.
 5. Guest submits booking form to `/api/bookings`.
-6. Booking is inserted with status `confirmed`; emails are logged/sent through the email abstraction.
+6. Booking is inserted with status `confirmed`; outbox processing logs/sends emails and queues tenant webhook deliveries.
 7. Guest can use `/booking/cancel/[token]` from the confirmation email or success screen to cancel the booking.
+8. Guest can use `/booking/reschedule/[token]` to select a new slot; the old booking is marked `rescheduled` and a new confirmed booking is created.
 
 ### Host Booking Management
 

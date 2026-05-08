@@ -6,7 +6,7 @@ Operational guide for coding agents and human contributors working in this repos
 
 OpenSlot is an MVP scheduling app. Hosts can authenticate with Supabase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, booking cancellation APIs, and the public token cancellation page. The settings page is not fully wired to live persistence yet.
+Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, outbox processing, calendar connection storage, and webhook delivery APIs.
 
 ## Tech Stack
 
@@ -92,6 +92,7 @@ There is no committed CI workflow or deployment config in this repository. Treat
    SUPABASE_SERVICE_ROLE_KEY=...
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    OUTBOX_PROCESS_SECRET=...
+   WEBHOOK_PROCESS_SECRET=...
    ```
 
 4. Apply database migrations using Supabase CLI or the SQL editor:
@@ -169,11 +170,13 @@ OpenSlot is server-first for data access and booking integrity:
 - Public slot lookup uses `/api/slots`.
 - Guest hold creation uses `/api/holds` and the `create_slot_hold_with_reservation()` RPC.
 - Booking confirmation uses `/api/bookings`.
-- Booking confirmation and cancellation support optional idempotency keys through request bodies or the `Idempotency-Key` header.
-- Booking confirmation and cancellation enqueue outbox events for provider writes, notifications, and future tenant webhooks.
+- Booking confirmation, cancellation, and rescheduling support optional idempotency keys through request bodies or the `Idempotency-Key` header.
+- Booking confirmation, cancellation, and rescheduling enqueue outbox events for provider writes, notifications, and tenant webhooks.
 - Outbox events are processed through `POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET`.
+- Tenant webhook deliveries are processed through `POST /api/webhooks/process` using `WEBHOOK_PROCESS_SECRET`.
 - Host availability batch save uses `/api/availability`.
 - Booking cancellation logic is in `src/lib/booking/cancel.ts` and the API route `src/app/api/bookings/[id]/cancel/route.ts`.
+- Booking rescheduling logic is in `src/lib/booking/reschedule.ts` and the API route `src/app/api/bookings/reschedule/route.ts`.
 
 Database integrity is part of the architecture:
 
@@ -192,10 +195,13 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/app/api/holds/route.ts`: creates 5-minute slot holds and checks active holds/bookings.
 - `src/lib/booking/confirm.ts`: validates holds, inserts confirmed bookings, marks holds confirmed, and queues side effects.
 - `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and queues side effects.
+- `src/lib/booking/reschedule.ts`: swaps a confirmed booking to a new hold through `reschedule_booking_with_hold()`, then queues side effects.
 - `src/lib/booking/events.ts`: appends ID-based booking lifecycle audit events.
 - `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
 - `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events.
 - `src/lib/outbox/process.ts`: claims outbox rows, runs event handlers, and marks completion/failure.
+- `src/lib/calendar/connections.ts`: returns safe calendar connection summaries without exposing stored token columns.
+- `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; currently console provider by default.
 - `src/lib/supabase/admin.ts`: service role client. Never use this from client components.
@@ -211,9 +217,11 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Availability editing keeps a saved baseline in component state, computes diffs, and posts a batch payload to `/api/availability`.
 - Slot holds, host reservations, and bookings are stored in Supabase; holds expire after 5 minutes and are lazily marked expired during hold creation or confirmation.
 - Confirming a booking converts the hold reservation into a booking reservation; cancelling a booking cancels the booking reservation.
-- Booking confirmation and cancellation forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
+- Rescheduling uses a new hold plus the original `reschedule_token`; the database RPC updates the old booking, inserts the new booking, and updates host reservations in one transaction.
+- Booking confirmation, cancellation, and rescheduling forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
 - Confirmed and cancelled bookings append ID-based rows to `outbox_events`; notification emails are sent by the outbox processor.
-- Confirmed and cancelled bookings append ID-based rows to `booking_events` for audit/replay.
+- Confirmed, cancelled, and rescheduled bookings append ID-based rows to `booking_events` for audit/replay.
+- Tenant webhook outbox events create `webhook_deliveries`; delivery workers sign requests with endpoint secrets and retry non-2xx or network failures.
 
 ## Storage and Sync Behavior
 
@@ -221,6 +229,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Supabase Auth sessions are stored in cookies through `@supabase/ssr`.
 - There is no realtime sync in the current UI.
 - There is no client-side offline persistence.
+- Calendar provider tokens and webhook secrets are stored only in server-only tables without direct anon/authenticated grants.
 - Emails are logged to the console by the current provider unless a real provider is added.
 
 ## Security and Privacy Considerations
@@ -283,7 +292,7 @@ See [docs/release.md](docs/release.md).
 ## Areas That Need Extra Caution
 
 - Slot computation and timezone logic.
-- Booking confirmation and cancellation engines.
+- Booking confirmation, cancellation, and rescheduling engines.
 - Hold expiration and conflict handling.
 - Supabase RLS and service role boundaries.
 - Public profile/event pages and public API endpoints.
