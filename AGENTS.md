@@ -6,7 +6,7 @@ Operational guide for coding agents and human contributors working in this repos
 
 OpenSlot is an MVP scheduling app. Hosts can authenticate with Supabase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, outbox processing, calendar connection storage, and webhook delivery APIs.
+Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, outbox processing, calendar provider sync, webhook endpoint dashboard management, and webhook delivery processing.
 
 ## Tech Stack
 
@@ -215,6 +215,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/calendar/oauth.ts`: builds Google/Microsoft OAuth URLs, exchanges codes, refreshes tokens, and loads provider identities.
 - `src/lib/calendar/provider-sync.ts`: refreshes provider access tokens, syncs calendar metadata, rebuilds busy-cache rows, and adapts provider event APIs.
 - `src/lib/calendar/events.ts`: handles calendar outbox rows by creating/cancelling provider events and storing external references.
+- `src/lib/webhooks/endpoints.ts`: returns safe webhook endpoint summaries without exposing signing secrets.
 - `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend when configured.

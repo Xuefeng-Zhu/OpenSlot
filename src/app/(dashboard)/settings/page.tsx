@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { SettingsClient } from "./settings-client";
 import type { Tables } from "@/lib/types/database";
 import type { SettingsFormValues } from "@/lib/validations/settings";
+import { listWebhookEndpointSummaries } from "@/lib/webhooks/endpoints";
 
 const defaultTimezone = "UTC";
 
@@ -68,11 +69,19 @@ export default async function SettingsPage() {
     console.error("Error loading calendar connections:", error);
     return [];
   });
+  const webhookEndpoints = await listWebhookEndpointSummaries(
+    createAdminClient(),
+    typedProfile.id
+  ).catch((error) => {
+    console.error("Error loading webhook endpoints:", error);
+    return [];
+  });
 
   return (
     <SettingsClient
       initialSettings={initialSettings}
       calendarConnections={calendarConnections}
+      webhookEndpoints={webhookEndpoints}
     />
   );
 }

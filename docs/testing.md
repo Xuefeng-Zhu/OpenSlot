@@ -22,6 +22,7 @@ npm run test -- src/lib/booking/__tests__/events.test.ts
 npm run test -- src/lib/outbox/__tests__/outbox.test.ts
 npm run test -- src/lib/outbox/__tests__/process.test.ts
 npm run test -- src/lib/webhooks/__tests__/deliveries.test.ts
+npm run test -- src/lib/webhooks/__tests__/endpoints.test.ts
 npm run test -- src/lib/calendar/__tests__/connections.test.ts
 npm run test -- src/lib/calendar/__tests__/oauth.test.ts
 npm run test -- src/lib/calendar/__tests__/provider-sync.test.ts
@@ -51,6 +52,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/lib/outbox/__tests__/process.test.ts` covers outbox leasing, notification dispatch, completion, and retry failure marking.
 - `src/app/api/outbox/process/__tests__/` covers the worker trigger authorization and batch options.
 - `src/lib/webhooks/__tests__/deliveries.test.ts` covers webhook delivery enqueueing, signatures, success marking, and retry failure marking.
+- `src/lib/webhooks/__tests__/endpoints.test.ts` covers safe webhook endpoint summaries for dashboard/API use.
 - `src/app/api/webhooks/process/__tests__/` covers webhook worker trigger authorization and batch options.
 - `src/app/api/webhooks/endpoints/__tests__/` covers webhook endpoint creation/listing without exposing secrets.
 - `src/lib/calendar/__tests__/` covers safe calendar connection summaries, OAuth URL/token helpers, and provider event API adapters.

@@ -24,7 +24,7 @@ Browser UI
 | `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |
 | `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
-| `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, and integration settings. |
+| `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, calendar, and webhook integration settings. |
 | `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
 | `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Supabase and `/api/event-types`. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |

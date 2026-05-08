@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { webhookEndpointSchema } from '@/lib/validations/webhooks'
+import {
+  listWebhookEndpointSummaries,
+  toWebhookEndpointSummary,
+} from '@/lib/webhooks/endpoints'
 import type { Tables } from '@/lib/types/database'
 
 async function getAuthenticatedProfileId() {
@@ -39,24 +43,11 @@ export async function GET() {
       )
     }
 
-    const { data, error } = await createAdminClient()
-      .from('webhook_endpoints')
-      .select('id, url, description, subscribed_events, is_active, created_at, updated_at')
-      .eq('profile_id', auth.profileId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error loading webhook endpoints:', error)
-      return NextResponse.json(
-        { success: false, error: 'Failed to load webhook endpoints' },
-        { status: 500 }
-      )
-    }
-
     return NextResponse.json({
       success: true,
-      endpoints: ((data ?? []) as Tables<'webhook_endpoints'>[]).map(
-        safeEndpoint
+      endpoints: await listWebhookEndpointSummaries(
+        createAdminClient(),
+        auth.profileId
       ),
     })
   } catch (error) {
@@ -133,7 +124,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: true,
-        endpoint: safeEndpoint(endpoint),
+        endpoint: toWebhookEndpointSummary(endpoint),
         secretToken: endpoint.secret_token,
       },
       { status: 201 }
@@ -144,26 +135,5 @@ export async function POST(request: NextRequest) {
       { success: false, error: 'Internal server error' },
       { status: 500 }
     )
-  }
-}
-
-function safeEndpoint(endpoint: Pick<
-  Tables<'webhook_endpoints'>,
-  | 'id'
-  | 'url'
-  | 'description'
-  | 'subscribed_events'
-  | 'is_active'
-  | 'created_at'
-  | 'updated_at'
->) {
-  return {
-    id: endpoint.id,
-    url: endpoint.url,
-    description: endpoint.description,
-    subscribedEvents: endpoint.subscribed_events,
-    isActive: endpoint.is_active,
-    createdAt: endpoint.created_at,
-    updatedAt: endpoint.updated_at,
   }
 }

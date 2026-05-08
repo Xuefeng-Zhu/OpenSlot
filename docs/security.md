@@ -85,7 +85,7 @@ The default email provider logs messages to the console. `EMAIL_PROVIDER=resend`
 
 - Calendar provider token columns live in server-only tables without direct `anon` or `authenticated` grants. Application code encrypts OAuth access and refresh tokens before writing them.
 - `CALENDAR_TOKEN_ENCRYPTION_SECRET` must be server-only, high entropy, and stable; rotating it requires decrypting/re-encrypting stored provider tokens or asking hosts to reconnect.
-- Webhook endpoint `secret_token` values are never returned from list APIs; create returns the secret once so the host can configure verification.
+- Webhook endpoint `secret_token` values are never returned from list APIs; create returns the secret once so the settings dashboard can show it to the host for verification setup.
 - Webhook delivery requests are signed with `X-OpenSlot-Signature` using the endpoint secret and timestamped payload.
 - Vercel Cron Jobs should use a random `CRON_SECRET`; manual worker triggers can use route-specific worker secrets.
 

@@ -19,9 +19,9 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Host bookings page with upcoming, past, and cancelled groupings.
 - Host availability editor for weekly rules and date overrides.
 - Host settings persistence for profile basics, display preferences, notification preferences, password update, and account deletion.
-- Server-only calendar connection storage with safe settings/API summaries.
-- Tenant webhook endpoint management, signed deliveries, and retry processing.
-- Console-based booking lifecycle email notifications.
+- Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
+- Tenant webhook endpoint dashboard management, signed deliveries, and retry processing.
+- Console-based booking lifecycle email notifications by default, with Resend available when configured.
 
 ## Important Implementation Boundaries
 
@@ -30,8 +30,9 @@ These areas have important implementation notes:
 | Area | Current state |
 | --- | --- |
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
-| Email delivery | Console provider only by default; no production email provider is configured. |
-| Calendar integrations | Provider connection/watch/cache tables and safe summaries exist; OAuth callbacks and provider API synchronization are not implemented yet. |
+| Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend. |
+| Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, and provider event writes exist. Provider watch/subscription renewal and callback handlers are not implemented yet. |
+| Provider availability | Provider busy-cache rows are synced, but slot computation does not yet consume `external_busy_cache`. |
 
 Keep these boundaries explicit when adding user-facing docs or release notes.
 
