@@ -368,6 +368,57 @@ export interface Database {
         }
         Relationships: []
       }
+      outbox_events: {
+        Row: {
+          id: string
+          org_id: string | null
+          aggregate_type: string
+          aggregate_id: string
+          event_type: string
+          payload: Json
+          dedupe_key: string
+          status: string
+          available_at: string
+          attempts: number
+          last_error: string | null
+          processed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id?: string | null
+          aggregate_type: string
+          aggregate_id: string
+          event_type: string
+          payload?: Json
+          dedupe_key: string
+          status?: string
+          available_at?: string
+          attempts?: number
+          last_error?: string | null
+          processed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string | null
+          aggregate_type?: string
+          aggregate_id?: string
+          event_type?: string
+          payload?: Json
+          dedupe_key?: string
+          status?: string
+          available_at?: string
+          attempts?: number
+          last_error?: string | null
+          processed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -50,11 +50,14 @@ Public event page
   -> POST /api/bookings
   -> request_idempotency check/cache when an idempotency key is supplied
   -> confirmBooking()
-  -> bookings insert + hold status update + email notifications
+  -> bookings insert + hold status update
+  -> outbox_events enqueue for provider writes, notifications, and future webhooks
+  -> email notifications through the current console provider
   -> /booking/cancel/[token]
   -> POST /api/bookings/[id]/cancel
   -> request_idempotency check/cache when an idempotency key is supplied
   -> cancelBooking()
+  -> outbox_events enqueue for provider updates, notifications, and future webhooks
 ```
 
 The final anti-double-booking guard is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`.
@@ -100,6 +103,7 @@ Migrations are in `supabase/migrations/`:
 - `009_create_indexes.sql`: lookup and performance indexes.
 - `010_create_profile_trigger.sql`: profile creation trigger on auth signup.
 - `20260508055906_add_request_idempotency.sql`: request replay ledger for booking mutations.
+- `20260508061910_add_outbox_events.sql`: internal side-effect ledger with unique dedupe keys.
 
 ## API Routes
 
@@ -118,6 +122,7 @@ Migrations are in `supabase/migrations/`:
 
 - Settings still includes prototype surfaces; event type dashboard pages and the public cancellation page are live-backed.
 - Settings do not persist.
+- Outbox rows are written for confirmed/cancelled bookings, but there is no queue worker or webhook delivery processor yet.
 - No realtime sync or calendar integrations are implemented.
 
 ## Related Docs

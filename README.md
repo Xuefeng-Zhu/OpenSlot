@@ -34,7 +34,7 @@ cd openslot
 ### 2. Install dependencies
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 3. Configure environment variables
@@ -116,7 +116,7 @@ OpenSlot follows a **server-first architecture** for critical booking operations
 1. Guest visits a public booking page → Server Component fetches host profile and event types
 2. Guest selects a date → Client fetches available slots from `/api/slots`
 3. Guest picks a slot → Client creates a temporary hold via `/api/holds` (5-minute TTL)
-4. Guest submits booking form → Client confirms via `/api/bookings` (validates hold, inserts booking, sends emails)
+4. Guest submits booking form → Client confirms via `/api/bookings` (validates hold, inserts booking, enqueues side-effect events, sends current console-provider emails)
 
 ## Directory Structure
 
@@ -147,13 +147,15 @@ openslot/
 │   │   ├── availability/        # Slot computation engine
 │   │   ├── booking/             # Booking confirmation and cancellation logic
 │   │   ├── email/               # Email service abstraction
+│   │   ├── idempotency/         # Request replay protection for booking mutations
+│   │   ├── outbox/              # Internal side-effect event enqueue helpers
 │   │   ├── supabase/            # Supabase client utilities
 │   │   ├── types/               # TypeScript type definitions
 │   │   ├── utils/               # Shared utilities (slug, timezone)
 │   │   └── validations/         # Zod validation schemas
 │   └── proxy.ts                 # Auth proxy for protected routes
 ├── supabase/
-│   ├── migrations/              # Database migration files (001-010)
+│   ├── migrations/              # Database migration files
 │   └── seed.sql                 # Sample data for development
 ├── .env.example                 # Environment variable template
 ├── package.json
@@ -172,6 +174,7 @@ openslot/
 - **Slot Holds** — 5-minute temporary holds prevent race conditions during booking
 - **Anti-Double-Booking** — PostgreSQL exclusion constraints guarantee no overlapping confirmed bookings
 - **Idempotent Mutations** — Booking confirmation and cancellation cache idempotency-key responses for safe retries
+- **Outbox Events** — Booking confirmation and cancellation write deduped side-effect events for future workers
 - **Email Notifications** — Confirmation and cancellation email plumbing exists and uses a console provider by default
 - **Cancellation** — Token-based public cancellation page and API for guests and hosts
 - **Timezone Support** — Full IANA timezone handling with correct DST transitions

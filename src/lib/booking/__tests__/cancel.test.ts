@@ -1,10 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { cancelBooking } from '../cancel'
 import type { CancelBookingInput } from '../types'
+import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
   sendCancellationEmail: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/outbox/outbox', () => ({
+  enqueueBookingCancelledOutbox: vi.fn().mockResolvedValue({
+    queued: 4,
+    duplicates: 0,
+    failed: 0,
+  }),
 }))
 
 /**
@@ -51,6 +60,11 @@ describe('cancelBooking', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(enqueueBookingCancelledOutbox).mockResolvedValue({
+      queued: 4,
+      duplicates: 0,
+      failed: 0,
+    })
     mockClient = createMockClient()
   })
 
@@ -134,6 +148,14 @@ describe('cancelBooking', () => {
     const result = await cancelBooking(validInput, mockClient)
 
     expect(result.success).toBe(true)
+    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+      cancelReasonProvided: true,
+    })
   })
 
   it('returns error when booking is not found', async () => {
@@ -197,6 +219,37 @@ describe('cancelBooking', () => {
         cancel_reason: 'Schedule conflict',
       })
     )
+  })
+
+  it('continues cancellation when outbox enqueue fails non-fatally', async () => {
+    vi.mocked(enqueueBookingCancelledOutbox).mockResolvedValueOnce({
+      queued: 3,
+      duplicates: 0,
+      failed: 1,
+    })
+
+    let singleCallCount = 0
+    mockClient.single.mockImplementation(() => {
+      singleCallCount++
+      if (singleCallCount === 1) {
+        return Promise.resolve({ data: confirmedBooking, error: null })
+      }
+      if (singleCallCount === 2) {
+        return Promise.resolve({ data: { title: 'Meeting' }, error: null })
+      }
+      if (singleCallCount === 3) {
+        return Promise.resolve({ data: { name: 'Host', email: 'host@test.com' }, error: null })
+      }
+      return Promise.resolve({ data: null, error: null })
+    })
+
+    mockClient.update.mockImplementation(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
   })
 
   it('handles database update errors gracefully', async () => {

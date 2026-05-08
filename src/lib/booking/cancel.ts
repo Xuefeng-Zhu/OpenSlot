@@ -3,6 +3,7 @@ import type { Database } from '@/lib/types/database'
 import type { CancelBookingInput, CancelBookingResult } from './types'
 import { sendCancellationEmail } from '@/lib/email/send'
 import type { BookingDetails } from '@/lib/email/send'
+import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 
 /**
  * Cancels a confirmed booking using its cancellation token.
@@ -12,9 +13,10 @@ import type { BookingDetails } from '@/lib/email/send'
  * 2. If not found → return error
  * 3. If already cancelled → return "already cancelled" error
  * 4. Update status to 'cancelled' and store cancel_reason
- * 5. Fetch event type and host profile for email details
- * 6. Fire-and-forget cancellation emails to both guest and host
- * 7. Return success
+ * 5. Enqueue outbox side-effect events
+ * 6. Fetch event type and host profile for email details
+ * 7. Fire-and-forget cancellation emails to both guest and host
+ * 8. Return success
  */
 export async function cancelBooking(
   input: CancelBookingInput,
@@ -52,6 +54,15 @@ export async function cancelBooking(
     console.error('Error cancelling booking:', updateError)
     return { success: false, error: 'Failed to cancel booking' }
   }
+
+  await enqueueBookingCancelledOutbox(adminClient, {
+    bookingId: booking.id,
+    eventTypeId: booking.event_type_id,
+    hostUserId: booking.host_user_id,
+    startAt: booking.start_at,
+    endAt: booking.end_at,
+    cancelReasonProvided: Boolean(cancelReason),
+  })
 
   // Step 4: Fetch event type and host profile for email details
   const [eventTypeResult, hostProfileResult] = await Promise.all([

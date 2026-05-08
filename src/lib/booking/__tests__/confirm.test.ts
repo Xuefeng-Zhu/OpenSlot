@@ -1,11 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { confirmBooking } from '../confirm'
 import type { ConfirmBookingInput } from '../types'
+import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
   sendBookingConfirmationToGuest: vi.fn().mockResolvedValue(undefined),
   sendBookingNotificationToHost: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/outbox/outbox', () => ({
+  enqueueBookingConfirmedOutbox: vi.fn().mockResolvedValue({
+    queued: 4,
+    duplicates: 0,
+    failed: 0,
+  }),
 }))
 
 /**
@@ -55,6 +64,11 @@ describe('confirmBooking', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(enqueueBookingConfirmedOutbox).mockResolvedValue({
+      queued: 4,
+      duplicates: 0,
+      failed: 0,
+    })
     mockClient = createMockClient()
   })
 
@@ -97,6 +111,13 @@ describe('confirmBooking', () => {
     expect(result.bookingId).toBe('booking-id-1')
     expect(result.cancellationToken).toBe('cancel-token-1')
     expect(result.rescheduleToken).toBe('reschedule-token-1')
+    expect(enqueueBookingConfirmedOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+    })
   })
 
   it('returns error when hold is not found', async () => {
@@ -173,6 +194,37 @@ describe('confirmBooking', () => {
 
     // Verify update was called with 'confirmed' status
     expect(mockClient.update).toHaveBeenCalledWith({ status: 'confirmed' })
+  })
+
+  it('continues confirmation when outbox enqueue fails non-fatally', async () => {
+    vi.mocked(enqueueBookingConfirmedOutbox).mockResolvedValueOnce({
+      queued: 3,
+      duplicates: 0,
+      failed: 1,
+    })
+
+    let singleCallCount = 0
+    mockClient.single.mockImplementation(() => {
+      singleCallCount++
+      if (singleCallCount === 1) {
+        return Promise.resolve({ data: activeHold, error: null })
+      }
+      if (singleCallCount === 2) {
+        return Promise.resolve({ data: createdBooking, error: null })
+      }
+      if (singleCallCount === 3) {
+        return Promise.resolve({ data: { title: 'Meeting' }, error: null })
+      }
+      if (singleCallCount === 4) {
+        return Promise.resolve({ data: { name: 'Host', email: 'host@test.com' }, error: null })
+      }
+      return Promise.resolve({ data: null, error: null })
+    })
+
+    const result = await confirmBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(result.bookingId).toBe('booking-id-1')
   })
 
   it('handles general database errors gracefully', async () => {

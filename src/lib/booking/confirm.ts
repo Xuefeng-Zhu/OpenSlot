@@ -6,6 +6,7 @@ import {
   sendBookingNotificationToHost,
 } from '@/lib/email/send'
 import type { BookingDetails } from '@/lib/email/send'
+import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
 
 /**
  * Confirms a booking from an active hold.
@@ -17,8 +18,9 @@ import type { BookingDetails } from '@/lib/email/send'
  * 4. Insert booking with status='confirmed' (exclusion constraint provides final guard)
  * 5. If insert fails with code '23P01' → return "slot taken" error
  * 6. Update hold status to 'confirmed'
- * 7. Fire-and-forget email notifications
- * 8. Return success with bookingId, cancellationToken, rescheduleToken
+ * 7. Enqueue outbox side-effect events
+ * 8. Fire-and-forget email notifications
+ * 9. Return success with bookingId, cancellationToken, rescheduleToken
  */
 export async function confirmBooking(
   input: ConfirmBookingInput,
@@ -86,6 +88,14 @@ export async function confirmBooking(
     .from('slot_holds')
     .update({ status: 'confirmed' })
     .eq('id', hold.id)
+
+  await enqueueBookingConfirmedOutbox(adminClient, {
+    bookingId: booking.id,
+    eventTypeId: hold.event_type_id,
+    hostUserId: hold.host_user_id,
+    startAt: hold.start_at,
+    endAt: hold.end_at,
+  })
 
   // Step 5: Fetch event type and host profile for email details
   const [eventTypeResult, hostProfileResult] = await Promise.all([

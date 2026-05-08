@@ -46,6 +46,7 @@ Important safeguards:
 - `confirmBooking()` rejects expired or reused holds.
 - `bookings.no_overlapping_bookings` prevents overlapping confirmed bookings at the database level.
 - Booking confirmation and cancellation accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
+- Booking confirmation and cancellation enqueue ID-based side-effect events in `outbox_events`; workers should fetch sensitive booking details server-side instead of duplicating guest contact data in the payload.
 - Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 
 Do not weaken any of these without replacing the protection and updating tests.

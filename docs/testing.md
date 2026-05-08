@@ -17,6 +17,7 @@ Targeted tests:
 ```bash
 npm run test -- src/lib/availability/__tests__/compute-slots.test.ts
 npm run test -- src/lib/booking/__tests__/confirm.test.ts
+npm run test -- src/lib/outbox/__tests__/outbox.test.ts
 npm run test -- src/lib/idempotency/__tests__/request-idempotency.test.ts
 npm run test -- src/app/api/bookings/__tests__/route.test.ts
 npm run test -- 'src/app/api/bookings/[id]/cancel/__tests__/route.test.ts'
@@ -29,6 +30,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, and booking windows.
 - `src/lib/booking/__tests__/` covers confirmation and cancellation engines with mocked Supabase chains.
 - `src/lib/idempotency/__tests__/` covers request hashing, duplicate replay, and key-conflict behavior.
+- `src/lib/outbox/__tests__/` covers outbox dedupe handling and booking side-effect event sets.
 - `src/lib/validations/__tests__/` covers Zod schemas.
 - `src/components/ui/__tests__/` covers accessibility and focus behavior.
 - Dashboard/public page property tests cover rendering invariants and UI helpers.
@@ -67,7 +69,7 @@ This comes from jsdom when a test triggers browser navigation. It is currently n
 | Change | Recommended validation |
 | --- | --- |
 | Slot computation, buffers, notice windows | Availability unit + property tests, full test suite |
-| Booking confirmation/cancellation | Booking tests, idempotency tests, API-adjacent validation if changed, full test suite |
+| Booking confirmation/cancellation | Booking tests, outbox tests, idempotency tests, API-adjacent validation if changed, full test suite |
 | Forms and validation | Schema tests plus component tests |
 | Dashboard UI polish | Relevant component/page test, accessibility if inputs/actions change |
 | Supabase schema or RLS | Migration review, manual Supabase check, full build/test |
