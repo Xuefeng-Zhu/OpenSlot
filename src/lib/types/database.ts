@@ -53,6 +53,378 @@ export interface Database {
           }
         ]
       }
+      user_settings: {
+        Row: {
+          profile_id: string
+          date_format: string
+          time_format: string
+          notify_new_booking: boolean
+          notify_cancellation: boolean
+          notify_reminder: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          profile_id: string
+          date_format?: string
+          time_format?: string
+          notify_new_booking?: boolean
+          notify_cancellation?: boolean
+          notify_reminder?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          profile_id?: string
+          date_format?: string
+          time_format?: string
+          notify_new_booking?: boolean
+          notify_cancellation?: boolean
+          notify_reminder?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_settings_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      provider_connections: {
+        Row: {
+          id: string
+          profile_id: string
+          provider: string
+          account_email: string
+          scopes: string[]
+          access_token_encrypted: string | null
+          refresh_token_encrypted: string | null
+          token_expires_at: string | null
+          status: string
+          metadata: Json
+          connected_at: string
+          last_synced_at: string | null
+          last_error: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          provider: string
+          account_email: string
+          scopes?: string[]
+          access_token_encrypted?: string | null
+          refresh_token_encrypted?: string | null
+          token_expires_at?: string | null
+          status?: string
+          metadata?: Json
+          connected_at?: string
+          last_synced_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          provider?: string
+          account_email?: string
+          scopes?: string[]
+          access_token_encrypted?: string | null
+          refresh_token_encrypted?: string | null
+          token_expires_at?: string | null
+          status?: string
+          metadata?: Json
+          connected_at?: string
+          last_synced_at?: string | null
+          last_error?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_connections_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      provider_calendars: {
+        Row: {
+          id: string
+          connection_id: string
+          external_calendar_id: string
+          summary: string
+          timezone: string | null
+          is_primary: boolean
+          use_for_availability: boolean
+          use_for_writes: boolean
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          connection_id: string
+          external_calendar_id: string
+          summary?: string
+          timezone?: string | null
+          is_primary?: boolean
+          use_for_availability?: boolean
+          use_for_writes?: boolean
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          connection_id?: string
+          external_calendar_id?: string
+          summary?: string
+          timezone?: string | null
+          is_primary?: boolean
+          use_for_availability?: boolean
+          use_for_writes?: boolean
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_calendars_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      provider_watches: {
+        Row: {
+          id: string
+          connection_id: string
+          provider: string
+          external_calendar_id: string
+          channel_id: string | null
+          resource_id: string | null
+          sync_cursor: string | null
+          expiration_at: string | null
+          status: string
+          last_sync_at: string | null
+          last_error: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          connection_id: string
+          provider: string
+          external_calendar_id: string
+          channel_id?: string | null
+          resource_id?: string | null
+          sync_cursor?: string | null
+          expiration_at?: string | null
+          status?: string
+          last_sync_at?: string | null
+          last_error?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          connection_id?: string
+          provider?: string
+          external_calendar_id?: string
+          channel_id?: string | null
+          resource_id?: string | null
+          sync_cursor?: string | null
+          expiration_at?: string | null
+          status?: string
+          last_sync_at?: string | null
+          last_error?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "provider_watches_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "provider_connections"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      external_busy_cache: {
+        Row: {
+          id: string
+          provider_calendar_id: string
+          source_event_id: string
+          start_at: string
+          end_at: string
+          transparency: string
+          etag: string | null
+          last_synced_at: string
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          provider_calendar_id: string
+          source_event_id: string
+          start_at: string
+          end_at: string
+          transparency?: string
+          etag?: string | null
+          last_synced_at?: string
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          provider_calendar_id?: string
+          source_event_id?: string
+          start_at?: string
+          end_at?: string
+          transparency?: string
+          etag?: string | null
+          last_synced_at?: string
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_busy_cache_provider_calendar_id_fkey"
+            columns: ["provider_calendar_id"]
+            isOneToOne: false
+            referencedRelation: "provider_calendars"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      webhook_endpoints: {
+        Row: {
+          id: string
+          profile_id: string
+          url: string
+          description: string
+          subscribed_events: string[]
+          secret_token: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          url: string
+          description?: string
+          subscribed_events?: string[]
+          secret_token?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          url?: string
+          description?: string
+          subscribed_events?: string[]
+          secret_token?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_endpoints_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      webhook_deliveries: {
+        Row: {
+          id: string
+          endpoint_id: string
+          outbox_event_id: string | null
+          event_type: string
+          payload: Json
+          attempt_no: number
+          status: string
+          next_attempt_at: string
+          response_code: number | null
+          response_body: string | null
+          last_error: string | null
+          delivered_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          endpoint_id: string
+          outbox_event_id?: string | null
+          event_type: string
+          payload?: Json
+          attempt_no?: number
+          status?: string
+          next_attempt_at?: string
+          response_code?: number | null
+          response_body?: string | null
+          last_error?: string | null
+          delivered_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          endpoint_id?: string
+          outbox_event_id?: string | null
+          event_type?: string
+          payload?: Json
+          attempt_no?: number
+          status?: string
+          next_attempt_at?: string
+          response_code?: number | null
+          response_body?: string | null
+          last_error?: string | null
+          delivered_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_deliveries_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "webhook_deliveries_outbox_event_id_fkey"
+            columns: ["outbox_event_id"]
+            isOneToOne: false
+            referencedRelation: "outbox_events"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       event_types: {
         Row: {
           id: string
@@ -322,6 +694,9 @@ export interface Database {
           cancel_reason: string | null
           cancellation_token: string
           reschedule_token: string
+          rescheduled_from_booking_id: string | null
+          rescheduled_to_booking_id: string | null
+          rescheduled_at: string | null
           created_at: string
           updated_at: string
         }
@@ -339,6 +714,9 @@ export interface Database {
           cancel_reason?: string | null
           cancellation_token?: string
           reschedule_token?: string
+          rescheduled_from_booking_id?: string | null
+          rescheduled_to_booking_id?: string | null
+          rescheduled_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -356,6 +734,9 @@ export interface Database {
           cancel_reason?: string | null
           cancellation_token?: string
           reschedule_token?: string
+          rescheduled_from_booking_id?: string | null
+          rescheduled_to_booking_id?: string | null
+          rescheduled_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -372,6 +753,20 @@ export interface Database {
             columns: ["host_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_rescheduled_from_booking_id_fkey"
+            columns: ["rescheduled_from_booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bookings_rescheduled_to_booking_id_fkey"
+            columns: ["rescheduled_to_booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
             referencedColumns: ["id"]
           }
         ]
@@ -530,6 +925,35 @@ export interface Database {
           p_max_attempts?: number
         }
         Returns: Database['public']['Tables']['outbox_events']['Row'][]
+      }
+      claim_webhook_deliveries: {
+        Args: {
+          p_limit?: number
+          p_max_attempts?: number
+        }
+        Returns: Database['public']['Tables']['webhook_deliveries']['Row'][]
+      }
+      reschedule_booking_with_hold: {
+        Args: {
+          p_reschedule_token: string
+          p_hold_token: string
+          p_guest_name: string
+          p_guest_email: string
+          p_guest_timezone: string
+          p_notes?: string
+        }
+        Returns: {
+          old_booking_id: string
+          new_booking_id: string
+          event_type_id: string
+          host_user_id: string
+          start_at: string
+          end_at: string
+          previous_start_at: string
+          previous_end_at: string
+          cancellation_token: string
+          reschedule_token: string
+        }[]
       }
     }
     Enums: {
