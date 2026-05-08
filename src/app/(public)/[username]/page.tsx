@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/types/database";
 import { PublicProfileContent } from "./profile-content";
 
@@ -9,7 +9,7 @@ interface ProfilePageProps {
 
 export default async function PublicProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminClient();
 
   // Fetch profile by username
   const { data: profileData } = await supabase

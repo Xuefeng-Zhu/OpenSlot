@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/types/database";
 import { SlotPicker } from "@/components/booking/slot-picker";
 
@@ -9,7 +9,7 @@ interface BookingPageProps {
 
 export default async function PublicBookingPage({ params }: BookingPageProps) {
   const { username, eventSlug } = await params;
-  const supabase = await createServerSupabaseClient();
+  const supabase = createAdminClient();
 
   // Fetch profile by username
   const { data: profileData } = await supabase

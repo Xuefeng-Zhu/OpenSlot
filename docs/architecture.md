@@ -37,6 +37,7 @@ Browser UI
 - `src/lib/supabase/client.ts` creates the browser client for client components.
 - `src/lib/supabase/admin.ts` creates a service role client for server-only writes that must bypass RLS.
 - `src/proxy.ts` refreshes Supabase sessions. The dashboard route group also enforces auth in `src/app/(dashboard)/layout.tsx`.
+- Direct Data API grants are explicit in migrations. Public booking pages and slot reads go through server-side service-role code; direct anon table access is not required.
 
 ## Booking Flow
 
@@ -108,12 +109,13 @@ Migrations are in `supabase/migrations/`:
 - `20260508055906_add_request_idempotency.sql`: request replay ledger for booking mutations.
 - `20260508061910_add_outbox_events.sql`: internal side-effect ledger with unique dedupe keys.
 - `20260508062648_add_host_reservations.sql`: host reservation ledger, exclusion constraint, and hold-creation RPC.
+- `20260508063319_add_explicit_data_api_grants.sql`: explicit Data API grants and removal of permissive guest-write RLS policies.
 
 ## API Routes
 
 | Route | Auth | Main module |
 | --- | --- | --- |
-| `GET /api/slots` | Public read | `src/lib/availability/compute-slots.ts` |
+| `GET /api/slots` | Public route, service-role read after active host/event validation | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
 | `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
 | `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |

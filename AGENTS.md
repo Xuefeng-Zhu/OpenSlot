@@ -178,6 +178,7 @@ Database integrity is part of the architecture:
 - `bookings.no_overlapping_bookings` is a PostgreSQL exclusion constraint that prevents overlapping confirmed bookings per host.
 - `host_reservations_no_overlap` is a PostgreSQL exclusion constraint that prevents overlapping active holds/bookings per host.
 - RLS is enabled on all app tables.
+- Data API grants are explicit; public pages and slot reads use server-side service-role code instead of direct anon table access.
 - API routes that need guest writes use the service role client and token-based authorization.
 
 See [docs/architecture.md](docs/architecture.md) for more detail.
@@ -222,7 +223,8 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` to client code.
 - Public environment variables must be limited to values safe for browsers.
 - Guest booking and cancellation APIs rely on random tokens (`hold_token`, `cancellation_token`) as authorization.
-- RLS policies allow public reads of profiles with usernames and active event types.
+- Public profile/event pages render through server-side service-role reads and return selected fields only.
+- Public slot computation uses a service-role route after validating the requested event type is active and belongs to the host.
 - Booking data includes guest names, emails, notes, timezones, and cancellation tokens. Do not log or expose these casually.
 - Keep outbox payloads narrow and ID-based unless a worker truly needs denormalized data.
 - Email templates interpolate user-provided values into HTML. Review escaping/sanitization before adding a real email provider.

@@ -30,13 +30,15 @@ Never import the admin client into a Client Component.
 ## RLS and Public Access
 
 RLS policies are in `supabase/migrations/008_create_rls_policies.sql`.
+Explicit Data API grants are in `supabase/migrations/20260508063319_add_explicit_data_api_grants.sql`.
 
-Current public reads:
+Current public access:
 
-- Profiles with usernames are publicly readable.
-- Active event types are publicly readable.
+- Public profile and event pages are rendered server-side with the service role and return only selected fields.
+- Public slot lookup goes through `/api/slots` and returns computed slot times only.
+- App tables are not directly exposed to `anon`.
 
-Service role policies are permissive by design because service role bypasses RLS. Application code must still scope writes by user, hold token, or cancellation token.
+The service role bypasses RLS and is used only in server-side route handlers/libraries. Application code must still scope writes by user, hold token, or cancellation token.
 
 ## Booking Integrity
 
@@ -44,6 +46,7 @@ Important safeguards:
 
 - `/api/holds` checks overlapping active holds and confirmed bookings.
 - `/api/holds` creates the hold through `create_slot_hold_with_reservation()`, which inserts `slot_holds` and `host_reservations` in one database transaction.
+- `/api/slots` validates that the event type is active and belongs to the requested host before using service-role reads to compute availability.
 - `confirmBooking()` rejects expired or reused holds.
 - `bookings.no_overlapping_bookings` prevents overlapping confirmed bookings at the database level.
 - `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings.

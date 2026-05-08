@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { computeAvailableSlots } from '@/lib/availability/compute-slots'
 import type { Tables } from '@/lib/types/database'
 import type {
@@ -49,18 +49,20 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = await createServerSupabaseClient()
+    const supabase = createAdminClient()
 
     // Fetch event type to get duration, buffers, min_notice, max_booking_days
     const { data: eventTypeData, error: eventTypeError } = await supabase
       .from('event_types')
-      .select('duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead')
+      .select('duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, user_id, is_active')
       .eq('id', eventTypeId)
+      .eq('user_id', hostUserId)
+      .eq('is_active', true)
       .single()
 
     const eventType = eventTypeData as Pick<
       Tables<'event_types'>,
-      'duration_minutes' | 'buffer_before_minutes' | 'buffer_after_minutes' | 'min_notice_minutes' | 'max_booking_days_ahead'
+      'duration_minutes' | 'buffer_before_minutes' | 'buffer_after_minutes' | 'min_notice_minutes' | 'max_booking_days_ahead' | 'user_id' | 'is_active'
     > | null
 
     if (eventTypeError || !eventType) {
