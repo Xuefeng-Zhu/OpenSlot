@@ -54,6 +54,7 @@ Public event page
   -> request_idempotency check/cache when an idempotency key is supplied
   -> confirmBooking()
   -> bookings insert + hold status update + host_reservations hold-to-booking conversion
+  -> booking_events append
   -> outbox_events enqueue for provider writes, notifications, and future webhooks
   -> email notifications through the current console provider
   -> /booking/cancel/[token]
@@ -61,6 +62,7 @@ Public event page
   -> request_idempotency check/cache when an idempotency key is supplied
   -> cancelBooking()
   -> host_reservations cancellation
+  -> booking_events append
   -> outbox_events enqueue for provider updates, notifications, and future webhooks
 ```
 
@@ -110,6 +112,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508061910_add_outbox_events.sql`: internal side-effect ledger with unique dedupe keys.
 - `20260508062648_add_host_reservations.sql`: host reservation ledger, exclusion constraint, and hold-creation RPC.
 - `20260508063319_add_explicit_data_api_grants.sql`: explicit Data API grants and removal of permissive guest-write RLS policies.
+- `20260508064552_add_booking_events.sql`: append-only booking lifecycle event ledger.
 
 ## API Routes
 

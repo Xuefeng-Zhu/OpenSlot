@@ -11,6 +11,7 @@ import {
   convertHoldReservationToBooking,
   expireHoldReservation,
 } from '@/lib/reservations/host-reservations'
+import { appendBookingEvent } from './events'
 
 /**
  * Confirms a booking from an active hold.
@@ -97,6 +98,17 @@ export async function confirmBooking(
   await convertHoldReservationToBooking(adminClient, {
     holdId: hold.id,
     bookingId: booking.id,
+  })
+
+  await appendBookingEvent(adminClient, {
+    bookingId: booking.id,
+    eventType: 'booking.confirmed',
+    payload: {
+      eventTypeId: hold.event_type_id,
+      hostUserId: hold.host_user_id,
+      startAt: hold.start_at,
+      endAt: hold.end_at,
+    },
   })
 
   await enqueueBookingConfirmedOutbox(adminClient, {

@@ -5,6 +5,7 @@ import { sendCancellationEmail } from '@/lib/email/send'
 import type { BookingDetails } from '@/lib/email/send'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
+import { appendBookingEvent } from './events'
 
 /**
  * Cancels a confirmed booking using its cancellation token.
@@ -57,6 +58,19 @@ export async function cancelBooking(
   }
 
   await cancelBookingReservation(adminClient, booking.id)
+
+  await appendBookingEvent(adminClient, {
+    bookingId: booking.id,
+    eventType: 'booking.cancelled',
+    actorType: 'guest',
+    payload: {
+      eventTypeId: booking.event_type_id,
+      hostUserId: booking.host_user_id,
+      startAt: booking.start_at,
+      endAt: booking.end_at,
+      cancelReasonProvided: Boolean(cancelReason),
+    },
+  })
 
   await enqueueBookingCancelledOutbox(adminClient, {
     bookingId: booking.id,

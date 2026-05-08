@@ -3,6 +3,7 @@ import { cancelBooking } from '../cancel'
 import type { CancelBookingInput } from '../types'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
+import { appendBookingEvent } from '../events'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
@@ -19,6 +20,10 @@ vi.mock('@/lib/outbox/outbox', () => ({
 
 vi.mock('@/lib/reservations/host-reservations', () => ({
   cancelBookingReservation: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('../events', () => ({
+  appendBookingEvent: vi.fn().mockResolvedValue(true),
 }))
 
 /**
@@ -71,6 +76,7 @@ describe('cancelBooking', () => {
       failed: 0,
     })
     vi.mocked(cancelBookingReservation).mockResolvedValue(true)
+    vi.mocked(appendBookingEvent).mockResolvedValue(true)
     mockClient = createMockClient()
   })
 
@@ -163,6 +169,18 @@ describe('cancelBooking', () => {
       cancelReasonProvided: true,
     })
     expect(cancelBookingReservation).toHaveBeenCalledWith(mockClient, 'booking-id-1')
+    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventType: 'booking.cancelled',
+      actorType: 'guest',
+      payload: {
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+        cancelReasonProvided: true,
+      },
+    })
   })
 
   it('returns error when booking is not found', async () => {

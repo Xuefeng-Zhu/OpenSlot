@@ -190,6 +190,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/app/api/holds/route.ts`: creates 5-minute slot holds and checks active holds/bookings.
 - `src/lib/booking/confirm.ts`: validates holds, inserts confirmed bookings, marks holds confirmed, triggers emails.
 - `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and triggers cancellation emails.
+- `src/lib/booking/events.ts`: appends ID-based booking lifecycle audit events.
 - `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
 - `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events; no worker consumes them yet.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
@@ -209,6 +210,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Confirming a booking converts the hold reservation into a booking reservation; cancelling a booking cancels the booking reservation.
 - Booking confirmation and cancellation forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
 - Confirmed and cancelled bookings append ID-based rows to `outbox_events`; current email sending remains inline until a worker exists.
+- Confirmed and cancelled bookings append ID-based rows to `booking_events` for audit/replay.
 
 ## Storage and Sync Behavior
 

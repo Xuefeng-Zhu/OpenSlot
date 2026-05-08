@@ -376,6 +376,44 @@ export interface Database {
           }
         ]
       }
+      booking_events: {
+        Row: {
+          id: string
+          booking_id: string
+          event_type: string
+          actor_type: string
+          actor_id: string | null
+          payload: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          event_type: string
+          actor_type?: string
+          actor_id?: string | null
+          payload?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          event_type?: string
+          actor_type?: string
+          actor_id?: string | null
+          payload?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "booking_events_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       request_idempotency: {
         Row: {
           id: string

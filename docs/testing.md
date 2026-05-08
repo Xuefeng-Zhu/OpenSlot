@@ -17,6 +17,7 @@ Targeted tests:
 ```bash
 npm run test -- src/lib/availability/__tests__/compute-slots.test.ts
 npm run test -- src/lib/booking/__tests__/confirm.test.ts
+npm run test -- src/lib/booking/__tests__/events.test.ts
 npm run test -- src/lib/outbox/__tests__/outbox.test.ts
 npm run test -- src/lib/idempotency/__tests__/request-idempotency.test.ts
 npm run test -- src/app/api/holds/__tests__/route.test.ts
@@ -31,6 +32,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - Unit and property tests live in `__tests__` directories near source files.
 - `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, and booking windows.
 - `src/lib/booking/__tests__/` covers confirmation and cancellation engines with mocked Supabase chains.
+- `src/lib/booking/__tests__/events.test.ts` covers booking audit event append behavior.
 - `src/lib/idempotency/__tests__/` covers request hashing, duplicate replay, and key-conflict behavior.
 - `src/lib/outbox/__tests__/` covers outbox dedupe handling and booking side-effect event sets.
 - `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC and conflict mapping.

@@ -6,6 +6,7 @@ import {
   convertHoldReservationToBooking,
   expireHoldReservation,
 } from '@/lib/reservations/host-reservations'
+import { appendBookingEvent } from '../events'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
@@ -24,6 +25,10 @@ vi.mock('@/lib/outbox/outbox', () => ({
 vi.mock('@/lib/reservations/host-reservations', () => ({
   convertHoldReservationToBooking: vi.fn().mockResolvedValue(true),
   expireHoldReservation: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('../events', () => ({
+  appendBookingEvent: vi.fn().mockResolvedValue(true),
 }))
 
 /**
@@ -80,6 +85,7 @@ describe('confirmBooking', () => {
     })
     vi.mocked(convertHoldReservationToBooking).mockResolvedValue(true)
     vi.mocked(expireHoldReservation).mockResolvedValue(true)
+    vi.mocked(appendBookingEvent).mockResolvedValue(true)
     mockClient = createMockClient()
   })
 
@@ -132,6 +138,16 @@ describe('confirmBooking', () => {
     expect(convertHoldReservationToBooking).toHaveBeenCalledWith(mockClient, {
       holdId: 'hold-id-1',
       bookingId: 'booking-id-1',
+    })
+    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventType: 'booking.confirmed',
+      payload: {
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+      },
     })
   })
 

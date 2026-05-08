@@ -52,6 +52,7 @@ Important safeguards:
 - `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings.
 - Booking confirmation and cancellation accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
 - Booking confirmation and cancellation enqueue ID-based side-effect events in `outbox_events`; workers should fetch sensitive booking details server-side instead of duplicating guest contact data in the payload.
+- Booking confirmation and cancellation append ID-based audit events in `booking_events`.
 - Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 
 Do not weaken any of these without replacing the protection and updating tests.
