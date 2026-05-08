@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import {
   User,
@@ -10,6 +11,7 @@ import {
   Video,
   CreditCard,
   Mail,
+  RefreshCw,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -473,6 +475,25 @@ export function SettingsClient({
                         {connectionBadgeText(googleConnection)}
                       </Badge>
                     </div>
+                    {googleConnection && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {googleConnection.accountEmail} ·{" "}
+                        {googleConnection.calendars.length} calendars
+                      </p>
+                    )}
+                    <Button
+                      asChild
+                      variant={googleConnection ? "outline" : "default"}
+                      size="sm"
+                      className="mt-4"
+                    >
+                      <Link href="/api/calendar/oauth/google/start" prefetch={false}>
+                        {googleConnection && (
+                          <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {googleConnection ? "Reconnect" : "Connect"}
+                      </Link>
+                    </Button>
                   </div>
 
                   <div className="rounded-md border border-border p-4">
@@ -494,6 +515,25 @@ export function SettingsClient({
                         {connectionBadgeText(microsoftConnection)}
                       </Badge>
                     </div>
+                    {microsoftConnection && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {microsoftConnection.accountEmail} ·{" "}
+                        {microsoftConnection.calendars.length} calendars
+                      </p>
+                    )}
+                    <Button
+                      asChild
+                      variant={microsoftConnection ? "outline" : "default"}
+                      size="sm"
+                      className="mt-4"
+                    >
+                      <Link href="/api/calendar/oauth/microsoft/start" prefetch={false}>
+                        {microsoftConnection && (
+                          <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {microsoftConnection ? "Reconnect" : "Connect"}
+                      </Link>
+                    </Button>
                   </div>
 
                   <div className="rounded-md border border-border p-4">
@@ -541,7 +581,7 @@ export function SettingsClient({
 
 function connectionBadgeText(connection?: CalendarConnectionSummary): string {
   if (!connection) {
-    return "Available soon";
+    return "Not connected";
   }
 
   if (connection.status === "active") {

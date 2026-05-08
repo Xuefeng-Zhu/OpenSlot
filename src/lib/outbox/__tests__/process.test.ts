@@ -4,11 +4,16 @@ import {
   sendBookingConfirmationToGuest,
   sendBookingNotificationToHost,
 } from '@/lib/email/send'
+import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 
 vi.mock('@/lib/email/send', () => ({
   sendBookingConfirmationToGuest: vi.fn().mockResolvedValue(undefined),
   sendBookingNotificationToHost: vi.fn().mockResolvedValue(undefined),
   sendCancellationEmail: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('@/lib/calendar/events', () => ({
+  processCalendarOutboxEvent: vi.fn().mockResolvedValue(undefined),
 }))
 
 const claimedEvent = {
@@ -160,5 +165,26 @@ describe('processOutboxBatch', () => {
       completed: 0,
       failed: 0,
     })
+  })
+
+  it('dispatches calendar provider events to the calendar handler', async () => {
+    const calendarEvent = {
+      ...claimedEvent,
+      id: 'calendar-outbox-id',
+      event_type: 'calendar.write.requested',
+      dedupe_key: 'booking:booking-id-1:calendar-write-requested',
+    }
+    const { client } = createMockClient({ events: [calendarEvent] })
+
+    const result = await processOutboxBatch({
+      adminClient: client as any,
+      maxAttempts: 5,
+    })
+
+    expect(result).toEqual({ claimed: 1, completed: 1, failed: 0 })
+    expect(processCalendarOutboxEvent).toHaveBeenCalledWith(
+      client,
+      calendarEvent
+    )
   })
 })

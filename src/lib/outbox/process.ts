@@ -7,6 +7,7 @@ import {
   sendCancellationEmail,
   type BookingDetails,
 } from '@/lib/email/send'
+import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 import { enqueueWebhookDeliveriesForOutboxEvent } from '@/lib/webhooks/deliveries'
 
 type OutboxEventRow = Tables<'outbox_events'>
@@ -85,12 +86,15 @@ async function defaultHandler(
     case 'notifications.reschedule.requested':
       await sendBookingRescheduledNotifications(event, adminClient)
       return
-    case 'booking.confirmed':
-    case 'booking.cancelled':
-    case 'booking.rescheduled':
     case 'calendar.write.requested':
     case 'calendar.cancel.requested':
     case 'calendar.reschedule.requested':
+      await processCalendarOutboxEvent(adminClient, event)
+      return
+    case 'booking.confirmed':
+    case 'booking.cancelled':
+    case 'booking.rescheduled':
+      return
     case 'tenant.webhooks.requested':
     case 'tenant.webhooks.cancel.requested':
     case 'tenant.webhooks.reschedule.requested':

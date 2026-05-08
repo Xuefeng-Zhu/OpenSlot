@@ -44,9 +44,18 @@ NEXT_PUBLIC_APP_URL=https://your-production-origin.example
 OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
 CRON_SECRET=...
+GOOGLE_CALENDAR_CLIENT_ID=...
+GOOGLE_CALENDAR_CLIENT_SECRET=...
+MICROSOFT_CALENDAR_CLIENT_ID=...
+MICROSOFT_CALENDAR_CLIENT_SECRET=...
+MICROSOFT_CALENDAR_TENANT=common
+CALENDAR_TOKEN_ENCRYPTION_SECRET=...
+CALENDAR_SYNC_SECRET=...
 ```
 
-`NEXT_PUBLIC_APP_URL` is used when generating cancellation and rescheduling links for booking confirmation emails. `OUTBOX_PROCESS_SECRET` and `WEBHOOK_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, and `CALENDAR_SYNC_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+
+`CALENDAR_TOKEN_ENCRYPTION_SECRET` encrypts stored per-user OAuth access and refresh tokens before persistence. Use a high-entropy server-only value and keep it stable across deploys.
 
 ## Worker Triggers
 
@@ -54,6 +63,7 @@ CRON_SECRET=...
 
 - `GET /api/outbox/process`
 - `GET /api/webhooks/process`
+- `GET /api/calendar/sync`
 
 Vercel sends `CRON_SECRET` as a bearer token when that project environment variable is configured. Non-Vercel deployments should configure an equivalent scheduler that calls the same routes with `Authorization: Bearer <secret>`.
 
@@ -70,7 +80,7 @@ These are not present in the current repository:
 
 - CI workflow.
 - Production email provider.
-- Calendar OAuth credentials, callback handling, or provider sync jobs.
+- Calendar provider webhook/watch renewal handlers.
 - Error monitoring.
 
 Document the chosen platform and secrets management before first production deployment.

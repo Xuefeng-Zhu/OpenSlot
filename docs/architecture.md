@@ -60,6 +60,7 @@ Public event page
   -> outbox_events enqueue for provider writes, notifications, and future webhooks
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
+  -> provider calendar event create/delete through Google Calendar or Microsoft Graph
   -> notification emails through the current console provider
   -> tenant webhook delivery rows for subscribed endpoints
   -> GET/POST /api/webhooks/process through Vercel Cron or an equivalent worker trigger
@@ -131,6 +132,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508070850_add_booking_reschedule_flow.sql`: reschedule status columns and atomic reschedule RPC.
 - `20260508071400_add_calendar_integration_foundation.sql`: server-only provider connection, calendar, watch, and busy-cache tables.
 - `20260508071723_add_webhook_delivery_system.sql`: webhook endpoint, delivery queue, and atomic delivery leasing RPC.
+- `20260508074740_add_calendar_event_refs.sql`: external calendar event reference rows for provider write/cancel retries.
 
 ## API Routes
 
@@ -144,6 +146,9 @@ Migrations are in `supabase/migrations/`:
 | `GET/POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
 | `PATCH/DELETE /api/settings` | Authenticated host settings and account deletion | `src/app/api/settings/route.ts` |
 | `GET /api/calendar/connections` | Authenticated host, safe server-side calendar connection summaries | `src/lib/calendar/connections.ts` |
+| `GET /api/calendar/oauth/[provider]/start` | Authenticated host calendar OAuth redirect | `src/lib/calendar/oauth.ts` |
+| `GET /api/calendar/oauth/[provider]/callback` | Authenticated host calendar OAuth callback | `src/lib/calendar/oauth.ts` |
+| `GET/POST /api/calendar/sync` | Bearer-token provider calendar/busy-cache sync worker | `src/lib/calendar/provider-sync.ts` |
 | `GET/POST /api/webhooks/endpoints` | Authenticated host webhook endpoint management | `src/app/api/webhooks/endpoints/route.ts` |
 | `PATCH/DELETE /api/webhooks/endpoints/[id]` | Authenticated host webhook endpoint management scoped to own profile | `src/app/api/webhooks/endpoints/[id]/route.ts` |
 | `GET/POST /api/webhooks/process` | Bearer-token webhook delivery worker trigger, service role write | `src/lib/webhooks/deliveries.ts` |
@@ -156,7 +161,8 @@ Migrations are in `supabase/migrations/`:
 
 - Vercel Cron triggers are configured for outbox and webhook workers; non-Vercel deployments still need equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
-- Calendar OAuth/provider API calls are not implemented yet; the provider connection/watch/cache schema and safe summaries are in place.
+- Calendar OAuth, provider calendar list sync, busy-cache refresh, and provider event writes are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
+- Slot computation does not yet consume `external_busy_cache`; provider busy-cache rows are ready for that next scheduling integration slice.
 - There is no realtime sync in the UI.
 
 ## Related Docs

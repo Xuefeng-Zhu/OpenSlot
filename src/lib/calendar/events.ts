@@ -1,0 +1,375 @@
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { CalendarProvider } from './oauth'
+import type { Database, Json, Tables } from '@/lib/types/database'
+import type { OutboxEventType } from '@/lib/outbox/outbox'
+import {
+  createProviderCalendarEvent,
+  deleteProviderCalendarEvent,
+  getFreshAccessToken,
+  type ProviderCalendarEventInput,
+} from './provider-sync'
+
+type BookingRow = Tables<'bookings'>
+type OutboxEventRow = Tables<'outbox_events'>
+type ProviderConnectionRow = Tables<'provider_connections'>
+type ProviderCalendarRow = Tables<'provider_calendars'>
+type CalendarEventRefRow = Tables<'calendar_event_refs'>
+
+interface CalendarBookingDetails {
+  bookingId: string
+  hostUserId: string
+  eventTypeId: string
+  eventTitle: string
+  startAt: string
+  endAt: string
+  guestName: string
+  guestEmail: string
+  hostName: string
+  hostEmail: string
+}
+
+export async function processCalendarOutboxEvent(
+  adminClient: SupabaseClient<Database>,
+  event: OutboxEventRow
+): Promise<void> {
+  const eventType = event.event_type as OutboxEventType
+
+  if (eventType === 'calendar.write.requested') {
+    await createCalendarEventsForBooking(
+      adminClient,
+      bookingIdFromPayload(event.payload)
+    )
+    return
+  }
+
+  if (eventType === 'calendar.cancel.requested') {
+    await cancelCalendarEventsForBooking(
+      adminClient,
+      bookingIdFromPayload(event.payload)
+    )
+    return
+  }
+
+  if (eventType === 'calendar.reschedule.requested') {
+    const previousBookingId = previousBookingIdFromPayload(event.payload)
+    if (previousBookingId) {
+      await cancelCalendarEventsForBooking(adminClient, previousBookingId)
+    }
+    await createCalendarEventsForBooking(
+      adminClient,
+      bookingIdFromPayload(event.payload)
+    )
+    return
+  }
+
+  throw new Error(`Unsupported calendar outbox event: ${event.event_type}`)
+}
+
+export async function createCalendarEventsForBooking(
+  adminClient: SupabaseClient<Database>,
+  bookingId: string
+): Promise<{ created: number; skipped: number }> {
+  const booking = await loadCalendarBookingDetails(adminClient, bookingId)
+  const writeTargets = await loadCalendarWriteTargets(
+    adminClient,
+    booking.hostUserId
+  )
+  const result = { created: 0, skipped: 0 }
+
+  for (const target of writeTargets) {
+    const existingRef = await loadActiveCalendarRef(
+      adminClient,
+      booking.bookingId,
+      target.calendar.id
+    )
+
+    if (existingRef) {
+      result.skipped += 1
+      continue
+    }
+
+    const accessToken = await getFreshAccessToken(
+      adminClient,
+      target.connection
+    )
+    const providerEvent = await createProviderCalendarEvent({
+      provider: target.connection.provider as CalendarProvider,
+      accessToken,
+      externalCalendarId: target.calendar.external_calendar_id,
+      event: providerEventFromBooking(booking),
+    })
+
+    const { error } = await adminClient
+      .from('calendar_event_refs')
+      .upsert(
+        {
+          booking_id: booking.bookingId,
+          provider_calendar_id: target.calendar.id,
+          external_event_id: providerEvent.externalEventId,
+          provider_event_url: providerEvent.providerEventUrl,
+          status: 'active',
+          last_synced_at: new Date().toISOString(),
+          last_error: null,
+          metadata: {
+            ...jsonObject(providerEvent.metadata),
+            provider: target.connection.provider,
+            connectionId: target.connection.id,
+          },
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'provider_calendar_id,booking_id' }
+      )
+
+    if (error) {
+      throw new Error(`Failed to store calendar event reference: ${error.message}`)
+    }
+
+    result.created += 1
+  }
+
+  return result
+}
+
+export async function cancelCalendarEventsForBooking(
+  adminClient: SupabaseClient<Database>,
+  bookingId: string
+): Promise<{ cancelled: number }> {
+  const { data, error } = await adminClient
+    .from('calendar_event_refs')
+    .select('*')
+    .eq('booking_id', bookingId)
+    .eq('status', 'active')
+
+  if (error) {
+    throw new Error(`Failed to load calendar event references: ${error.message}`)
+  }
+
+  const refs = (data ?? []) as CalendarEventRefRow[]
+  let cancelled = 0
+
+  for (const ref of refs) {
+    const target = await loadCalendarTargetByCalendarId(
+      adminClient,
+      ref.provider_calendar_id
+    )
+    const accessToken = await getFreshAccessToken(adminClient, target.connection)
+
+    try {
+      await deleteProviderCalendarEvent({
+        provider: target.connection.provider as CalendarProvider,
+        accessToken,
+        externalCalendarId: target.calendar.external_calendar_id,
+        externalEventId: ref.external_event_id,
+      })
+      await adminClient
+        .from('calendar_event_refs')
+        .update({
+          status: 'cancelled',
+          last_synced_at: new Date().toISOString(),
+          last_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', ref.id)
+      cancelled += 1
+    } catch (error) {
+      await adminClient
+        .from('calendar_event_refs')
+        .update({
+          last_error: errorMessage(error),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', ref.id)
+      throw error
+    }
+  }
+
+  return { cancelled }
+}
+
+async function loadCalendarBookingDetails(
+  adminClient: SupabaseClient<Database>,
+  bookingId: string
+): Promise<CalendarBookingDetails> {
+  const { data, error } = await adminClient
+    .from('bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .single()
+
+  if (error || !data) {
+    throw new Error(`Booking not found for calendar sync: ${bookingId}`)
+  }
+
+  const booking = data as BookingRow
+  const [eventTypeResult, hostProfileResult] = await Promise.all([
+    adminClient
+      .from('event_types')
+      .select('title')
+      .eq('id', booking.event_type_id)
+      .single(),
+    adminClient
+      .from('profiles')
+      .select('name, email')
+      .eq('id', booking.host_user_id)
+      .single(),
+  ])
+
+  return {
+    bookingId: booking.id,
+    hostUserId: booking.host_user_id,
+    eventTypeId: booking.event_type_id,
+    eventTitle: eventTypeResult.data?.title ?? 'Meeting',
+    startAt: booking.start_at,
+    endAt: booking.end_at,
+    guestName: booking.guest_name,
+    guestEmail: booking.guest_email,
+    hostName: hostProfileResult.data?.name ?? 'Host',
+    hostEmail: hostProfileResult.data?.email ?? '',
+  }
+}
+
+async function loadCalendarWriteTargets(
+  adminClient: SupabaseClient<Database>,
+  profileId: string
+) {
+  const { data: connectionsData, error: connectionsError } = await adminClient
+    .from('provider_connections')
+    .select('*')
+    .eq('profile_id', profileId)
+    .eq('status', 'active')
+
+  if (connectionsError) {
+    throw new Error(`Failed to load calendar connections: ${connectionsError.message}`)
+  }
+
+  const connections = (connectionsData ?? []) as ProviderConnectionRow[]
+  const targets: Array<{
+    connection: ProviderConnectionRow
+    calendar: ProviderCalendarRow
+  }> = []
+
+  for (const connection of connections) {
+    const { data: calendarsData, error: calendarsError } = await adminClient
+      .from('provider_calendars')
+      .select('*')
+      .eq('connection_id', connection.id)
+      .eq('use_for_writes', true)
+
+    if (calendarsError) {
+      throw new Error(`Failed to load writable calendars: ${calendarsError.message}`)
+    }
+
+    for (const calendar of (calendarsData ?? []) as ProviderCalendarRow[]) {
+      targets.push({ connection, calendar })
+    }
+  }
+
+  return targets
+}
+
+async function loadCalendarTargetByCalendarId(
+  adminClient: SupabaseClient<Database>,
+  providerCalendarId: string
+) {
+  const { data: calendarData, error: calendarError } = await adminClient
+    .from('provider_calendars')
+    .select('*')
+    .eq('id', providerCalendarId)
+    .single()
+
+  if (calendarError || !calendarData) {
+    throw new Error(`Provider calendar not found: ${providerCalendarId}`)
+  }
+
+  const calendar = calendarData as ProviderCalendarRow
+  const { data: connectionData, error: connectionError } = await adminClient
+    .from('provider_connections')
+    .select('*')
+    .eq('id', calendar.connection_id)
+    .single()
+
+  if (connectionError || !connectionData) {
+    throw new Error(`Provider connection not found: ${calendar.connection_id}`)
+  }
+
+  return {
+    calendar,
+    connection: connectionData as ProviderConnectionRow,
+  }
+}
+
+async function loadActiveCalendarRef(
+  adminClient: SupabaseClient<Database>,
+  bookingId: string,
+  providerCalendarId: string
+): Promise<CalendarEventRefRow | null> {
+  const { data, error } = await adminClient
+    .from('calendar_event_refs')
+    .select('*')
+    .eq('booking_id', bookingId)
+    .eq('provider_calendar_id', providerCalendarId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to load calendar event reference: ${error.message}`)
+  }
+
+  return (data as CalendarEventRefRow | null) ?? null
+}
+
+function providerEventFromBooking(
+  booking: CalendarBookingDetails
+): ProviderCalendarEventInput {
+  return {
+    bookingId: booking.bookingId,
+    title: booking.eventTitle,
+    description: [
+      `Booked through OpenSlot.`,
+      `Guest: ${booking.guestName} <${booking.guestEmail}>`,
+      booking.hostEmail
+        ? `Host: ${booking.hostName} <${booking.hostEmail}>`
+        : `Host: ${booking.hostName}`,
+    ].join('\n'),
+    startAt: booking.startAt,
+    endAt: booking.endAt,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+  }
+}
+
+function bookingIdFromPayload(payload: Json): string {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    typeof payload.bookingId === 'string'
+  ) {
+    return payload.bookingId
+  }
+
+  throw new Error('Calendar outbox payload is missing bookingId')
+}
+
+function previousBookingIdFromPayload(payload: Json): string | null {
+  if (
+    payload &&
+    typeof payload === 'object' &&
+    !Array.isArray(payload) &&
+    typeof payload.previousBookingId === 'string'
+  ) {
+    return payload.previousBookingId
+  }
+
+  return null
+}
+
+function jsonObject(value: Json): { [key: string]: Json | undefined } {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value
+    : {}
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}

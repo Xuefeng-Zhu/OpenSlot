@@ -94,6 +94,12 @@ There is no committed CI workflow. Vercel worker cron config exists in `vercel.j
    OUTBOX_PROCESS_SECRET=...
    WEBHOOK_PROCESS_SECRET=...
    CRON_SECRET=...
+   GOOGLE_CALENDAR_CLIENT_ID=...
+   GOOGLE_CALENDAR_CLIENT_SECRET=...
+   MICROSOFT_CALENDAR_CLIENT_ID=...
+   MICROSOFT_CALENDAR_CLIENT_SECRET=...
+   CALENDAR_TOKEN_ENCRYPTION_SECRET=...
+   CALENDAR_SYNC_SECRET=...
    ```
 
 4. Apply database migrations using Supabase CLI or the SQL editor:
@@ -174,6 +180,7 @@ OpenSlot is server-first for data access and booking integrity:
 - Booking confirmation, cancellation, and rescheduling support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Booking confirmation, cancellation, and rescheduling enqueue outbox events for provider writes, notifications, and tenant webhooks.
 - Outbox events are processed through `GET/POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET` or `CRON_SECRET`.
+- Calendar provider metadata and busy cache are refreshed through `GET/POST /api/calendar/sync` using `CALENDAR_SYNC_SECRET` or `CRON_SECRET`.
 - Tenant webhook deliveries are processed through `GET/POST /api/webhooks/process` using `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET`.
 - Host availability batch save uses `/api/availability`.
 - Booking cancellation logic is in `src/lib/booking/cancel.ts` and the API route `src/app/api/bookings/[id]/cancel/route.ts`.
@@ -202,6 +209,9 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events.
 - `src/lib/outbox/process.ts`: claims outbox rows, runs event handlers, and marks completion/failure.
 - `src/lib/calendar/connections.ts`: returns safe calendar connection summaries without exposing stored token columns.
+- `src/lib/calendar/oauth.ts`: builds Google/Microsoft OAuth URLs, exchanges codes, refreshes tokens, and loads provider identities.
+- `src/lib/calendar/provider-sync.ts`: refreshes provider access tokens, syncs calendar metadata, rebuilds busy-cache rows, and adapts provider event APIs.
+- `src/lib/calendar/events.ts`: handles calendar outbox rows by creating/cancelling provider events and storing external references.
 - `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; currently console provider by default.
@@ -231,6 +241,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - There is no realtime sync in the current UI.
 - There is no client-side offline persistence.
 - Calendar provider tokens and webhook secrets are stored only in server-only tables without direct anon/authenticated grants.
+- Calendar OAuth tokens are encrypted before storage with `CALENDAR_TOKEN_ENCRYPTION_SECRET`.
 - Emails are logged to the console by the current provider unless a real provider is added.
 
 ## Security and Privacy Considerations

@@ -315,6 +315,63 @@ export interface Database {
           }
         ]
       }
+      calendar_event_refs: {
+        Row: {
+          id: string
+          booking_id: string
+          provider_calendar_id: string
+          external_event_id: string
+          provider_event_url: string | null
+          status: string
+          last_synced_at: string
+          last_error: string | null
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          booking_id: string
+          provider_calendar_id: string
+          external_event_id: string
+          provider_event_url?: string | null
+          status?: string
+          last_synced_at?: string
+          last_error?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          booking_id?: string
+          provider_calendar_id?: string
+          external_event_id?: string
+          provider_event_url?: string | null
+          status?: string
+          last_synced_at?: string
+          last_error?: string | null
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "calendar_event_refs_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_event_refs_provider_calendar_id_fkey"
+            columns: ["provider_calendar_id"]
+            isOneToOne: false
+            referencedRelation: "provider_calendars"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       webhook_endpoints: {
         Row: {
           id: string
