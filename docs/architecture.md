@@ -48,10 +48,12 @@ Public event page
   -> POST /api/holds
   -> BookingForm
   -> POST /api/bookings
+  -> request_idempotency check/cache when an idempotency key is supplied
   -> confirmBooking()
   -> bookings insert + hold status update + email notifications
   -> /booking/cancel/[token]
   -> POST /api/bookings/[id]/cancel
+  -> request_idempotency check/cache when an idempotency key is supplied
   -> cancelBooking()
 ```
 
@@ -97,6 +99,7 @@ Migrations are in `supabase/migrations/`:
 - `008_create_rls_policies.sql`: RLS policies.
 - `009_create_indexes.sql`: lookup and performance indexes.
 - `010_create_profile_trigger.sql`: profile creation trigger on auth signup.
+- `20260508055906_add_request_idempotency.sql`: request replay ledger for booking mutations.
 
 ## API Routes
 
@@ -104,8 +107,8 @@ Migrations are in `supabase/migrations/`:
 | --- | --- | --- |
 | `GET /api/slots` | Public read | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, service role write | `src/app/api/holds/route.ts` |
-| `POST /api/bookings` | Hold token operation, service role write | `src/lib/booking/confirm.ts` |
-| `POST /api/bookings/[id]/cancel` | Cancellation token operation, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
+| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |
 | `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
 | `POST /api/event-types` | Authenticated host | `src/app/api/event-types/route.ts` |
 | `PATCH/DELETE /api/event-types/[id]` | Authenticated host, scoped to own profile | `src/app/api/event-types/[id]/route.ts` |

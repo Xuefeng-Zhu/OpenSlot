@@ -32,6 +32,7 @@ src/components/ui/               Local shadcn-style primitives
 src/lib/availability/            Slot computation engine and types
 src/lib/booking/                 Booking confirmation/cancellation engines
 src/lib/email/                   Email templates and console provider
+src/lib/idempotency/             Request idempotency helpers for retry-safe mutations
 src/lib/supabase/                Browser, server, and admin Supabase clients
 src/lib/validations/             Zod schemas
 src/lib/utils/                   Slug and timezone helpers
@@ -165,6 +166,7 @@ OpenSlot is server-first for data access and booking integrity:
 - Public slot lookup uses `/api/slots`.
 - Guest hold creation uses `/api/holds`.
 - Booking confirmation uses `/api/bookings`.
+- Booking confirmation and cancellation support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Host availability batch save uses `/api/availability`.
 - Booking cancellation logic is in `src/lib/booking/cancel.ts` and the API route `src/app/api/bookings/[id]/cancel/route.ts`.
 
@@ -183,6 +185,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/app/api/holds/route.ts`: creates 5-minute slot holds and checks active holds/bookings.
 - `src/lib/booking/confirm.ts`: validates holds, inserts confirmed bookings, marks holds confirmed, triggers emails.
 - `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and triggers cancellation emails.
+- `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
 - `src/lib/email/send.ts`: email composition and provider selection; currently console provider by default.
 - `src/lib/supabase/admin.ts`: service role client. Never use this from client components.
 - `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
@@ -196,6 +199,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Dashboard event type creation, updates, and deletion go through `/api/event-types`.
 - Availability editing keeps a saved baseline in component state, computes diffs, and posts a batch payload to `/api/availability`.
 - Slot holds and bookings are stored in Supabase; holds expire after 5 minutes and are lazily marked expired during confirmation.
+- Booking confirmation and cancellation forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
 
 ## Storage and Sync Behavior
 

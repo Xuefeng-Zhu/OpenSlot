@@ -100,6 +100,7 @@ export function BookingForm({
 }: BookingFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [idempotencyKey] = useState(() => createIdempotencyKey());
   const [timeRemaining, setTimeRemaining] = useState<number>(
     Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
   );
@@ -153,13 +154,17 @@ export function BookingForm({
     try {
       const response = await fetch("/api/bookings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           holdToken,
           guestName: data.guestName,
           guestEmail: data.guestEmail,
           guestTimezone: data.guestTimezone,
           notes: data.notes || undefined,
+          idempotencyKey,
         }),
       });
 
@@ -358,4 +363,12 @@ export function BookingForm({
       </CardContent>
     </Card>
   );
+}
+
+function createIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

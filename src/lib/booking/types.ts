@@ -27,6 +27,7 @@ export interface ConfirmBookingInput {
   guestEmail: string
   guestTimezone: string
   notes?: string
+  idempotencyKey?: string
 }
 
 export interface ConfirmBookingResult {
@@ -40,6 +41,7 @@ export interface ConfirmBookingResult {
 export interface CancelBookingInput {
   cancellationToken: string
   cancelReason?: string
+  idempotencyKey?: string
 }
 
 export interface CancelBookingResult {

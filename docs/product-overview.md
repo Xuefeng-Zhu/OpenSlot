@@ -13,6 +13,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Guest slot selection with timezone display.
 - Five-minute slot holds before confirmation.
 - Confirmed bookings with database-level anti-double-booking.
+- Idempotent booking confirmation and cancellation retries when clients provide an idempotency key.
 - Public cancellation links for guests to review booking details and cancel with an optional reason.
 - Host bookings page with upcoming, past, and cancelled groupings.
 - Host availability editor for weekly rules and date overrides.

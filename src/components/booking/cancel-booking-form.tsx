@@ -45,6 +45,7 @@ export function CancelBookingForm({
   const [state, setState] = useState<CancelState>("confirm");
   const [cancelReason, setCancelReason] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [idempotencyKey] = useState(() => createIdempotencyKey());
 
   function formatDateTime(isoString: string): string {
     const date = new Date(isoString);
@@ -73,10 +74,14 @@ export function CancelBookingForm({
     try {
       const response = await fetch(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           cancellationToken,
           cancelReason: cancelReason.trim() || undefined,
+          idempotencyKey,
         }),
       });
 
@@ -244,4 +249,12 @@ export function CancelBookingForm({
       </CardContent>
     </Card>
   );
+}
+
+function createIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

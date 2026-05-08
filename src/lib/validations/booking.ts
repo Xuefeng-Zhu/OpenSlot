@@ -1,6 +1,13 @@
 import { z } from 'zod'
 import { isValidTimezone } from '@/lib/validations/profile'
 
+const idempotencyKeySchema = z
+  .string()
+  .min(1, 'Idempotency key is required when provided')
+  .max(128, 'Idempotency key must be 128 characters or less')
+  .regex(/^[A-Za-z0-9._:-]+$/, 'Idempotency key contains unsupported characters')
+  .optional()
+
 /**
  * Schema for creating a slot hold.
  * Used by POST /api/holds to validate the request body.
@@ -25,6 +32,7 @@ export const confirmBookingSchema = z.object({
   guestEmail: z.string().email('Must be a valid email address'),
   guestTimezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }),
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
+  idempotencyKey: idempotencyKeySchema,
 })
 
 export type ConfirmBookingInput = z.infer<typeof confirmBookingSchema>
@@ -36,6 +44,7 @@ export type ConfirmBookingInput = z.infer<typeof confirmBookingSchema>
 export const cancelBookingSchema = z.object({
   cancellationToken: z.string().uuid('Cancellation token must be a valid UUID'),
   cancelReason: z.string().max(500, 'Cancel reason must be 500 characters or less').optional(),
+  idempotencyKey: idempotencyKeySchema,
 })
 
 export type CancelBookingSchemaInput = z.infer<typeof cancelBookingSchema>

@@ -329,6 +329,45 @@ export interface Database {
           }
         ]
       }
+      request_idempotency: {
+        Row: {
+          id: string
+          scope: string
+          idempotency_key: string
+          request_hash: string
+          status: string
+          response_json: Json | null
+          response_status: number | null
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          scope: string
+          idempotency_key: string
+          request_hash: string
+          status?: string
+          response_json?: Json | null
+          response_status?: number | null
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          scope?: string
+          idempotency_key?: string
+          request_hash?: string
+          status?: string
+          response_json?: Json | null
+          response_status?: number | null
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

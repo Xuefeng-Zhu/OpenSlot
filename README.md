@@ -171,6 +171,7 @@ openslot/
 - **Public Booking Pages** — Shareable URLs (`/username/event-slug`) for guests to book
 - **Slot Holds** — 5-minute temporary holds prevent race conditions during booking
 - **Anti-Double-Booking** — PostgreSQL exclusion constraints guarantee no overlapping confirmed bookings
+- **Idempotent Mutations** — Booking confirmation and cancellation cache idempotency-key responses for safe retries
 - **Email Notifications** — Confirmation and cancellation email plumbing exists and uses a console provider by default
 - **Cancellation** — Token-based public cancellation page and API for guests and hosts
 - **Timezone Support** — Full IANA timezone handling with correct DST transitions
