@@ -5,7 +5,6 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { eventTypeSchema, type EventTypeFormValues } from '@/lib/validations/event-type'
-import { generateSlug } from '@/lib/utils/slug'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +38,7 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
     resolver: zodResolver(eventTypeSchema),
     defaultValues: initialData ?? {
       title: '',
+      slug: '',
       description: '',
       duration_minutes: 30,
       buffer_before_minutes: 0,
@@ -82,12 +82,10 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
       }
 
       if (mode === 'create') {
-        const slug = generateSlug(data.title)
-
         const { error } = await (supabase.from('event_types') as any).insert({
           user_id: profile.id,
           title: data.title,
-          slug,
+          slug: data.slug,
           description: data.description ?? '',
           duration_minutes: data.duration_minutes,
           buffer_before_minutes: data.buffer_before_minutes,
@@ -113,6 +111,7 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
           .from('event_types') as any)
           .update({
             title: data.title,
+            slug: data.slug,
             description: data.description ?? '',
             duration_minutes: data.duration_minutes,
             buffer_before_minutes: data.buffer_before_minutes,
@@ -155,6 +154,22 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
         {errors.title && (
           <p id="title-error" className="text-sm text-destructive">
             {errors.title.message}
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="slug">URL Slug</Label>
+        <Input
+          id="slug"
+          placeholder="e.g. 30-minute-meeting"
+          {...register('slug')}
+          aria-invalid={!!errors.slug}
+          aria-describedby={errors.slug ? 'slug-error' : undefined}
+        />
+        {errors.slug && (
+          <p id="slug-error" className="text-sm text-destructive">
+            {errors.slug.message}
           </p>
         )}
       </div>

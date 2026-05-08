@@ -165,7 +165,7 @@ openslot/
 
 - **Authentication** — Email/password sign up and login via Supabase Auth
 - **Onboarding** — Persist profile setup, initial weekly availability, and the first active event type
-- **Event Types** — Database schema, public event reads, and onboarding creation exist; dashboard event type management currently includes mock/prototype UI
+- **Event Types** — Hosts can create, edit, delete, pause, and share Supabase-backed event types from the dashboard
 - **Weekly Availability** — Set recurring availability windows per weekday with timezone support
 - **Date Overrides** — Mark specific dates as unavailable or set custom hours
 - **Public Booking Pages** — Shareable URLs (`/username/event-slug`) for guests to book

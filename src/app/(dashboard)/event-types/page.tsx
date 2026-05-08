@@ -1,166 +1,79 @@
-"use client";
-
-import { useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Plus, Calendar, Search } from "lucide-react";
-import { EventTypeCard } from "@/components/dashboard/event-type-card";
-import { EmptyState } from "@/components/shared/empty-state";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { useToast } from "@/components/ui/use-toast";
+import { redirect } from "next/navigation";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { Tables } from "@/lib/types/database";
 import {
-  MOCK_HOST_USERNAME,
-  mockEventTypes,
-  type MockEventType,
-} from "./mock-event-types";
+  EventTypesClient,
+  type DashboardEventType,
+} from "./event-types-client";
 
-type FilterTab = "all" | "active" | "paused";
+const locationLabels: Record<string, string> = {
+  online: "Online meeting",
+  phone: "Phone call",
+  in_person: "In person",
+  custom: "Custom location",
+};
 
-export default function EventTypesPage() {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [eventTypes] = useState<MockEventType[]>(mockEventTypes);
-  const [activeFilter, setActiveFilter] = useState<FilterTab>("all");
-  const [searchQuery, setSearchQuery] = useState("");
+function buildBookingUrl(username: string, slug: string) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+  return `${appUrl}/${username}/${slug}`;
+}
 
-  const filteredEventTypes = eventTypes.filter((et) => {
-    // Filter by status
-    if (activeFilter === "active" && !et.isActive) return false;
-    if (activeFilter === "paused" && et.isActive) return false;
-    // Filter by search
-    if (searchQuery && !et.title.toLowerCase().includes(searchQuery.toLowerCase())) return false;
-    return true;
-  });
+export default async function EventTypesPage() {
+  const supabase = await createServerSupabaseClient();
 
-  const handleCopyLink = (bookingUrl: string) => {
-    navigator.clipboard.writeText(bookingUrl).then(() => {
-      toast({
-        title: "Link copied!",
-        description: "Booking URL has been copied to your clipboard.",
-      });
-    });
-  };
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  const handlePreview = (slug: string) => {
-    window.open(`/${MOCK_HOST_USERNAME}/${slug}`, "_blank");
-  };
+  if (!user) {
+    redirect("/login");
+  }
 
-  const handleEdit = (id: string) => {
-    router.push(`/event-types/${id}/edit`);
-  };
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("id, username")
+    .eq("auth_user_id", user.id)
+    .single();
 
-  const handleDelete = (id: string) => {
-    toast({
-      title: "Event type deleted",
-      description: "The event type has been removed.",
-      variant: "destructive",
-    });
-  };
+  const profile = profileData as Pick<
+    Tables<"profiles">,
+    "id" | "username"
+  > | null;
 
-  return (
-    <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Event Types</h1>
-          <p className="text-muted-foreground">
-            Create and manage the types of events people can book with you.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/event-types/new">
-            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-            New event type
-          </Link>
-        </Button>
-      </div>
+  if (!profile?.username) {
+    redirect("/onboarding");
+  }
 
-      {/* Filter tabs and search */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={activeFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveFilter("all")}
-            className="rounded-full"
-          >
-            All
-          </Button>
-          <Button
-            variant={activeFilter === "active" ? "outline" : "ghost"}
-            size="sm"
-            onClick={() => setActiveFilter("active")}
-            className={`rounded-full ${activeFilter === "active" ? "border-success/50 text-success" : ""}`}
-          >
-            <span className="mr-1.5 h-2 w-2 rounded-full bg-success" aria-hidden="true" />
-            Active
-          </Button>
-          <Button
-            variant={activeFilter === "paused" ? "outline" : "ghost"}
-            size="sm"
-            onClick={() => setActiveFilter("paused")}
-            className={`rounded-full ${activeFilter === "paused" ? "border-warning/50 text-warning" : ""}`}
-          >
-            <span className="mr-1.5 h-2 w-2 rounded-full bg-warning" aria-hidden="true" />
-            Paused
-          </Button>
-        </div>
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <Input
-            placeholder="Search event types..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            aria-label="Search event types"
-          />
-        </div>
-      </div>
+  const username = profile.username;
 
-      {/* Event type list */}
-      {filteredEventTypes.length === 0 && eventTypes.length === 0 ? (
-        <EmptyState
-          icon={<Calendar className="h-6 w-6" />}
-          heading="No event types yet"
-          description="Create your first event type to start accepting bookings from guests."
-          action={{
-            label: "Create your first event type",
-            onClick: () => router.push("/event-types/new"),
-          }}
-        />
-      ) : filteredEventTypes.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No event types match your filters.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredEventTypes.map((eventType) => (
-            <EventTypeCard
-              key={eventType.id}
-              id={eventType.id}
-              title={eventType.title}
-              description={eventType.description}
-              durationMinutes={eventType.durationMinutes}
-              locationType={eventType.locationType}
-              slug={eventType.slug}
-              isActive={eventType.isActive}
-              bookingUrl={eventType.bookingUrl}
-              onCopyLink={() => handleCopyLink(eventType.bookingUrl)}
-              onPreview={() => handlePreview(eventType.slug)}
-              onEdit={() => handleEdit(eventType.id)}
-              onDelete={() => handleDelete(eventType.id)}
-            />
-          ))}
-        </div>
-      )}
+  const { data: eventTypesData } = await supabase
+    .from("event_types")
+    .select(
+      "id, title, slug, description, duration_minutes, location_type, is_active, created_at"
+    )
+    .eq("user_id", profile.id)
+    .order("created_at", { ascending: false });
 
-      {/* Pagination info */}
-      {filteredEventTypes.length > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <p>Showing 1 to {filteredEventTypes.length} of {filteredEventTypes.length} event types</p>
-        </div>
-      )}
-    </div>
-  );
+  const eventTypes = ((eventTypesData as Array<Pick<
+    Tables<"event_types">,
+    | "id"
+    | "title"
+    | "slug"
+    | "description"
+    | "duration_minutes"
+    | "location_type"
+    | "is_active"
+  >>) ?? []).map<DashboardEventType>((eventType) => ({
+    id: eventType.id,
+    title: eventType.title,
+    description: eventType.description,
+    durationMinutes: eventType.duration_minutes,
+    locationType:
+      locationLabels[eventType.location_type] ?? eventType.location_type,
+    slug: eventType.slug,
+    isActive: eventType.is_active,
+    bookingUrl: buildBookingUrl(username, eventType.slug),
+  }));
+
+  return <EventTypesClient initialEventTypes={eventTypes} />;
 }

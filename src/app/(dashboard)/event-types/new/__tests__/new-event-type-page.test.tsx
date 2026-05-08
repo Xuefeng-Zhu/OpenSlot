@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import NewEventTypePage from "../page";
+import { EventTypeEditor } from "../../event-type-editor";
 
 const push = vi.fn();
 
@@ -8,13 +8,13 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
-describe("NewEventTypePage", () => {
+describe("NewEventTypePage editor", () => {
   beforeEach(() => {
     push.mockClear();
   });
 
   it("clears field-level validation errors when corrected", () => {
-    render(<NewEventTypePage />);
+    render(<EventTypeEditor mode="create" hostName="Sarah Chen" />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

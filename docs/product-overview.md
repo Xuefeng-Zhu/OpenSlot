@@ -41,7 +41,7 @@ Do not document these as complete without first wiring and validating persistenc
 2. Supabase trigger creates a profile shell.
 3. User completes `/onboarding`, which saves profile, availability, and an initial event type.
 4. User can later update profile at `/profile` and availability at `/availability`.
-5. Event type dashboard management is partially implemented; public pages read active event types from Supabase when present.
+5. Event type dashboard management reads and writes Supabase event types; public pages read active event types from Supabase.
 
 ### Guest Booking
 

@@ -59,6 +59,7 @@ describe('profileSchema', () => {
 describe('eventTypeSchema', () => {
   const validEventType = {
     title: 'Meeting',
+    slug: 'meeting',
     duration_minutes: 30,
     buffer_before_minutes: 0,
     buffer_after_minutes: 0,
@@ -104,6 +105,18 @@ describe('eventTypeSchema', () => {
     it('accepts buffer_after_minutes of 0', () => {
       const result = eventTypeSchema.safeParse({ ...validEventType, buffer_after_minutes: 0 })
       expect(result.success).toBe(true)
+    })
+  })
+
+  describe('slug validation', () => {
+    it('accepts lowercase URL-safe slugs', () => {
+      const result = eventTypeSchema.safeParse({ ...validEventType, slug: 'intro-call-30' })
+      expect(result.success).toBe(true)
+    })
+
+    it('rejects slugs with uppercase letters or spaces', () => {
+      const result = eventTypeSchema.safeParse({ ...validEventType, slug: 'Intro Call' })
+      expect(result.success).toBe(false)
     })
   })
 })

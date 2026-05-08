@@ -45,6 +45,16 @@ const iconColors = [
   "bg-amber-50 text-amber-600",
 ];
 
+function getIconColorIndex(id: string) {
+  let hash = 0;
+
+  for (let index = 0; index < id.length; index += 1) {
+    hash = (hash + id.charCodeAt(index)) % iconColors.length;
+  }
+
+  return hash;
+}
+
 export function EventTypeCard({
   id,
   title,
@@ -58,9 +68,7 @@ export function EventTypeCard({
   onEdit,
   onDelete,
 }: EventTypeCardProps) {
-  // Deterministic color based on id
-  const colorIndex = parseInt(id, 10) % iconColors.length || 0;
-  const iconColor = iconColors[colorIndex];
+  const iconColor = iconColors[getIconColorIndex(id)];
 
   return (
     <Card className="p-5">

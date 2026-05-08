@@ -1,23 +1,44 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import EditEventTypePage from "../page";
+import {
+  EventTypeEditor,
+  type EditableEventType,
+} from "../../../event-type-editor";
 
 const push = vi.fn();
-let routeParams: { id?: string | string[] } = { id: "2" };
 
 vi.mock("next/navigation", () => ({
-  useParams: () => routeParams,
   useRouter: () => ({ push }),
 }));
 
-describe("EditEventTypePage", () => {
+const strategySession: EditableEventType = {
+  id: "event-type-2",
+  title: "Strategy session",
+  slug: "strategy-session",
+  description: "A deeper session to discuss goals and next steps.",
+  duration_minutes: 60,
+  buffer_before_minutes: 5,
+  buffer_after_minutes: 5,
+  min_notice_minutes: 60,
+  max_booking_days_ahead: 60,
+  location_type: "online",
+  location_value: "https://zoom.us/j/987654",
+  is_active: true,
+};
+
+describe("EditEventTypePage editor", () => {
   beforeEach(() => {
     push.mockClear();
-    routeParams = { id: "2" };
   });
 
   it("loads the event type selected from the event types list", () => {
-    render(<EditEventTypePage />);
+    render(
+      <EventTypeEditor
+        mode="edit"
+        hostName="Sarah Chen"
+        initialEventType={strategySession}
+      />
+    );
 
     expect(
       screen.getByText('Update the settings for "Strategy session".')
@@ -35,24 +56,14 @@ describe("EditEventTypePage", () => {
     ).toBe("A deeper session to discuss goals and next steps.");
   });
 
-  it("shows a recoverable empty state for an unknown event type id", () => {
-    routeParams = { id: "missing" };
-
-    render(<EditEventTypePage />);
-
-    expect(screen.getByText("Event type not found")).toBeDefined();
-    expect(
-      screen.getByText(
-        "We couldn't find that event type. It may have been deleted."
-      )
-    ).toBeDefined();
-
-    fireEvent.click(screen.getByRole("button", { name: "Back to event types" }));
-    expect(push).toHaveBeenCalledWith("/event-types");
-  });
-
   it("clears field-level validation errors when corrected", () => {
-    render(<EditEventTypePage />);
+    render(
+      <EventTypeEditor
+        mode="edit"
+        hostName="Sarah Chen"
+        initialEventType={strategySession}
+      />
+    );
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "" },

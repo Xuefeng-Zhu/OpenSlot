@@ -25,10 +25,10 @@ Browser UI
 | `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
 | `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
-| `src/app/(dashboard)/event-types/*` | Current event type UI, mostly mock/prototype. |
+| `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Supabase and `/api/event-types`. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
-| `src/app/api/*` | Slot, hold, booking, cancellation, and availability APIs. |
+| `src/app/api/*` | Slot, hold, booking, cancellation, event type, and availability APIs. |
 
 ## Data Access Patterns
 
@@ -103,11 +103,13 @@ Migrations are in `supabase/migrations/`:
 | `POST /api/bookings` | Hold token operation, service role write | `src/lib/booking/confirm.ts` |
 | `POST /api/bookings/[id]/cancel` | Cancellation token operation, service role write | `src/lib/booking/cancel.ts` |
 | `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
+| `POST /api/event-types` | Authenticated host | `src/app/api/event-types/route.ts` |
+| `PATCH/DELETE /api/event-types/[id]` | Authenticated host, scoped to own profile | `src/app/api/event-types/[id]/route.ts` |
 | `POST /api/availability` | Authenticated host | `src/app/api/availability/route.ts` |
 
 ## Current Gaps to Preserve in Docs
 
-- Event type dashboard pages are mock/prototype despite database tables and an unused `EventTypeForm`.
+- Settings and the public cancellation page still include prototype surfaces; event type dashboard pages are live-backed.
 - The public cancellation page is a mock UI shell.
 - Settings do not persist.
 - No realtime sync or calendar integrations are implemented.

@@ -1,7 +1,17 @@
 import { z } from 'zod'
 
+export const eventTypeSlugSchema = z
+  .string()
+  .min(1, 'URL slug is required')
+  .max(100, 'URL slug must be 100 characters or less')
+  .regex(
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    'Use lowercase letters, numbers, and hyphens'
+  )
+
 export const eventTypeSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
+  slug: eventTypeSlugSchema,
   description: z.string().max(500, 'Description must be 500 characters or less').optional(),
   duration_minutes: z.number().int('Duration must be a whole number').positive('Duration must be positive'),
   buffer_before_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
