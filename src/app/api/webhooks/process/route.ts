@@ -1,26 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { processWebhookDeliveriesBatch } from '@/lib/webhooks/deliveries'
+import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
 export async function POST(request: NextRequest) {
-  const configuredSecret = process.env.WEBHOOK_PROCESS_SECRET
-  const authorization = request.headers.get('authorization')
-
-  if (configuredSecret && authorization !== `Bearer ${configuredSecret}`) {
-    return NextResponse.json(
-      { success: false, error: 'Unauthorized' },
-      { status: 401 }
-    )
-  }
-
-  if (!configuredSecret && process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      { success: false, error: 'Webhook processor is not configured' },
-      { status: 503 }
-    )
-  }
-
   const body = await request.json().catch(() => ({}))
+  return runWebhookProcessor(request, body)
+}
+
+export async function GET(request: NextRequest) {
+  const searchParams = new URL(request.url).searchParams
+
+  return runWebhookProcessor(request, {
+    limit: numberFromParam(searchParams.get('limit')),
+    maxAttempts: numberFromParam(searchParams.get('maxAttempts')),
+  })
+}
+
+async function runWebhookProcessor(
+  request: NextRequest,
+  body: Record<string, unknown>
+) {
+  const auth = authorizeWorkerRequest(request, 'WEBHOOK_PROCESS_SECRET')
+
+  if (!auth.ok) {
+    return NextResponse.json(
+      { success: false, error: auth.error },
+      { status: auth.status }
+    )
+  }
+
   const limit = normalizeInteger(body?.limit, 10, 1, 50)
   const maxAttempts = normalizeInteger(body?.maxAttempts, 5, 1, 20)
 
@@ -34,6 +43,10 @@ export async function POST(request: NextRequest) {
     success: true,
     ...result,
   })
+}
+
+function numberFromParam(value: string | null): number | undefined {
+  return value ? Number(value) : undefined
 }
 
 function normalizeInteger(

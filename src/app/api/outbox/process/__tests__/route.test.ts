@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { POST } from '../route'
+import { GET, POST } from '../route'
 
 const mocks = vi.hoisted(() => ({
   adminClient: {},
@@ -33,10 +33,12 @@ function request({
 
 describe('POST /api/outbox/process', () => {
   const originalSecret = process.env.OUTBOX_PROCESS_SECRET
+  const originalCronSecret = process.env.CRON_SECRET
 
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.OUTBOX_PROCESS_SECRET = 'secret'
+    process.env.CRON_SECRET = undefined
     mocks.processOutboxBatch.mockResolvedValue({
       claimed: 2,
       completed: 2,
@@ -46,6 +48,7 @@ describe('POST /api/outbox/process', () => {
 
   afterEach(() => {
     process.env.OUTBOX_PROCESS_SECRET = originalSecret
+    process.env.CRON_SECRET = originalCronSecret
   })
 
   it('rejects requests without the configured bearer token', async () => {
@@ -90,6 +93,34 @@ describe('POST /api/outbox/process', () => {
       adminClient: mocks.adminClient,
       limit: 50,
       maxAttempts: 5,
+    })
+  })
+
+  it('accepts Vercel cron GET requests authenticated by CRON_SECRET', async () => {
+    process.env.OUTBOX_PROCESS_SECRET = undefined
+    process.env.CRON_SECRET = 'cron-secret'
+
+    const response = await GET(
+      new Request(
+        'http://localhost/api/outbox/process?limit=7&maxAttempts=4',
+        {
+          headers: { Authorization: 'Bearer cron-secret' },
+        }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toEqual({
+      success: true,
+      claimed: 2,
+      completed: 2,
+      failed: 0,
+    })
+    expect(mocks.processOutboxBatch).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      limit: 7,
+      maxAttempts: 4,
     })
   })
 })

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { POST } from '../route'
+import { GET, POST } from '../route'
 import { processWebhookDeliveriesBatch } from '@/lib/webhooks/deliveries'
 
 const mocks = vi.hoisted(() => ({
@@ -27,10 +27,12 @@ function requestWithJson(body: unknown, token = 'secret') {
 
 describe('POST /api/webhooks/process', () => {
   const originalSecret = process.env.WEBHOOK_PROCESS_SECRET
+  const originalCronSecret = process.env.CRON_SECRET
 
   beforeEach(() => {
     vi.clearAllMocks()
     process.env.WEBHOOK_PROCESS_SECRET = 'secret'
+    process.env.CRON_SECRET = undefined
     vi.mocked(processWebhookDeliveriesBatch).mockResolvedValue({
       claimed: 1,
       delivered: 1,
@@ -40,6 +42,7 @@ describe('POST /api/webhooks/process', () => {
 
   afterEach(() => {
     process.env.WEBHOOK_PROCESS_SECRET = originalSecret
+    process.env.CRON_SECRET = originalCronSecret
   })
 
   it('requires the configured bearer token', async () => {
@@ -68,6 +71,34 @@ describe('POST /api/webhooks/process', () => {
       adminClient: mocks.adminClient,
       limit: 50,
       maxAttempts: 1,
+    })
+  })
+
+  it('accepts Vercel cron GET requests authenticated by CRON_SECRET', async () => {
+    process.env.WEBHOOK_PROCESS_SECRET = undefined
+    process.env.CRON_SECRET = 'cron-secret'
+
+    const response = await GET(
+      new Request(
+        'http://localhost/api/webhooks/process?limit=8&maxAttempts=4',
+        {
+          headers: { Authorization: 'Bearer cron-secret' },
+        }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toEqual({
+      success: true,
+      claimed: 1,
+      delivered: 1,
+      failed: 0,
+    })
+    expect(processWebhookDeliveriesBatch).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      limit: 8,
+      maxAttempts: 4,
     })
   })
 })

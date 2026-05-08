@@ -1,6 +1,6 @@
 # Release and Build Notes
 
-There is no committed deployment platform config or GitHub Actions workflow in this repository. Use the local validation gate below before shipping.
+There is no committed GitHub Actions workflow in this repository. The repository includes Vercel cron configuration for worker routes, but any production deploy still needs the required environment variables and database migrations applied out of band.
 
 ## Release Gate
 
@@ -43,9 +43,19 @@ SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_APP_URL=https://your-production-origin.example
 OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
+CRON_SECRET=...
 ```
 
-`NEXT_PUBLIC_APP_URL` is used when generating cancellation and rescheduling links for booking confirmation emails. `OUTBOX_PROCESS_SECRET` and `WEBHOOK_PROCESS_SECRET` protect worker-trigger routes in production.
+`NEXT_PUBLIC_APP_URL` is used when generating cancellation and rescheduling links for booking confirmation emails. `OUTBOX_PROCESS_SECRET` and `WEBHOOK_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+
+## Worker Triggers
+
+`vercel.json` configures Vercel Cron Jobs for:
+
+- `GET /api/outbox/process`
+- `GET /api/webhooks/process`
+
+Vercel sends `CRON_SECRET` as a bearer token when that project environment variable is configured. Non-Vercel deployments should configure an equivalent scheduler that calls the same routes with `Authorization: Bearer <secret>`.
 
 ## Database Release Notes
 
@@ -59,7 +69,6 @@ WEBHOOK_PROCESS_SECRET=...
 These are not present in the current repository:
 
 - CI workflow.
-- Deployment platform config.
 - Production email provider.
 - Calendar OAuth credentials, callback handling, or provider sync jobs.
 - Error monitoring.

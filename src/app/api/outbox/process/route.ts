@@ -1,26 +1,37 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { processOutboxBatch } from '@/lib/outbox/process'
+import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
 export async function POST(request: NextRequest) {
-  const configuredSecret = process.env.OUTBOX_PROCESS_SECRET
-  const authorization = request.headers.get('authorization')
+  const body = await safeJson(request)
+  return runOutboxProcessor(request, body)
+}
 
-  if (configuredSecret) {
-    if (authorization !== `Bearer ${configuredSecret}`) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-  } else if (process.env.NODE_ENV === 'production') {
+export async function GET(request: NextRequest) {
+  const searchParams = new URL(request.url).searchParams
+  const limitParam = searchParams.get('limit')
+  const maxAttemptsParam = searchParams.get('maxAttempts')
+
+  return runOutboxProcessor(request, {
+    limit: limitParam ? Number(limitParam) : undefined,
+    maxAttempts: maxAttemptsParam ? Number(maxAttemptsParam) : undefined,
+  })
+}
+
+async function runOutboxProcessor(
+  request: NextRequest,
+  body: Record<string, unknown> | null
+) {
+  const auth = authorizeWorkerRequest(request, 'OUTBOX_PROCESS_SECRET')
+
+  if (!auth.ok) {
     return NextResponse.json(
-      { success: false, error: 'Outbox processor is not configured' },
-      { status: 503 }
+      { success: false, error: auth.error },
+      { status: auth.status }
     )
   }
 
-  const body = await safeJson(request)
   const limit = normalizeLimit(body?.limit)
   const maxAttempts = normalizeMaxAttempts(body?.maxAttempts)
   const result = await processOutboxBatch({

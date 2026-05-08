@@ -13,6 +13,7 @@ SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_APP_URL=...
 OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
+CRON_SECRET=...
 ```
 
 Rules:
@@ -54,8 +55,8 @@ Important safeguards:
 - `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings.
 - Booking confirmation, cancellation, and rescheduling accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
 - Booking confirmation, cancellation, and rescheduling enqueue ID-based side-effect events in `outbox_events`; workers should fetch sensitive booking details server-side instead of duplicating guest contact data in the payload.
-- `/api/outbox/process` requires `OUTBOX_PROCESS_SECRET` in production and uses service-role code to process leased outbox rows.
-- `/api/webhooks/process` requires `WEBHOOK_PROCESS_SECRET` in production and uses service-role code to process leased webhook delivery rows.
+- `/api/outbox/process` requires `OUTBOX_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to process leased outbox rows.
+- `/api/webhooks/process` requires `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to process leased webhook delivery rows.
 - Booking confirmation, cancellation, and rescheduling append ID-based audit events in `booking_events`.
 - Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 - Rescheduling page lookup and writes use `reschedule_token` plus a fresh hold token; `reschedule_booking_with_hold()` performs the old/new booking transition and reservation updates in one database transaction.
@@ -75,6 +76,7 @@ The current email provider logs messages to the console. HTML email templates es
 - Calendar provider token columns live in server-only tables without direct `anon` or `authenticated` grants.
 - Webhook endpoint `secret_token` values are never returned from list APIs; create returns the secret once so the host can configure verification.
 - Webhook delivery requests are signed with `X-OpenSlot-Signature` using the endpoint secret and timestamped payload.
+- Vercel Cron Jobs should use a random `CRON_SECRET`; manual worker triggers can use route-specific worker secrets.
 
 ## Security Review Checklist
 

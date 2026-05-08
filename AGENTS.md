@@ -68,7 +68,7 @@ supabase db reset
 supabase db seed
 ```
 
-There is no committed CI workflow or deployment config in this repository. Treat `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` as the release gate.
+There is no committed CI workflow. Vercel worker cron config exists in `vercel.json`. Treat `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` as the release gate.
 
 ## Setup Instructions
 
@@ -93,6 +93,7 @@ There is no committed CI workflow or deployment config in this repository. Treat
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    OUTBOX_PROCESS_SECRET=...
    WEBHOOK_PROCESS_SECRET=...
+   CRON_SECRET=...
    ```
 
 4. Apply database migrations using Supabase CLI or the SQL editor:
@@ -172,8 +173,8 @@ OpenSlot is server-first for data access and booking integrity:
 - Booking confirmation uses `/api/bookings`.
 - Booking confirmation, cancellation, and rescheduling support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Booking confirmation, cancellation, and rescheduling enqueue outbox events for provider writes, notifications, and tenant webhooks.
-- Outbox events are processed through `POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET`.
-- Tenant webhook deliveries are processed through `POST /api/webhooks/process` using `WEBHOOK_PROCESS_SECRET`.
+- Outbox events are processed through `GET/POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET` or `CRON_SECRET`.
+- Tenant webhook deliveries are processed through `GET/POST /api/webhooks/process` using `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET`.
 - Host availability batch save uses `/api/availability`.
 - Booking cancellation logic is in `src/lib/booking/cancel.ts` and the API route `src/app/api/bookings/[id]/cancel/route.ts`.
 - Booking rescheduling logic is in `src/lib/booking/reschedule.ts` and the API route `src/app/api/bookings/reschedule/route.ts`.
@@ -254,7 +255,7 @@ See [docs/security.md](docs/security.md).
 - If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.
 - Do not remove the booking exclusion constraint or weaken hold conflict checks without a replacement concurrency guard.
 - Do not bypass `create_slot_hold_with_reservation()` for guest holds; direct `slot_holds` inserts miss the reservation exclusion constraint.
-- Do not treat `outbox_events` as delivered work; it is currently a durable ledger without a processor.
+- Do not treat `outbox_events` as delivered work until the processor has successfully completed the row.
 - Timezone changes need DST-aware tests.
 
 ## Safe-Change Guidelines
