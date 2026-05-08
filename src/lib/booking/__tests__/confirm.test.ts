@@ -2,6 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { confirmBooking } from '../confirm'
 import type { ConfirmBookingInput } from '../types'
 import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
+import {
+  convertHoldReservationToBooking,
+  expireHoldReservation,
+} from '@/lib/reservations/host-reservations'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
@@ -15,6 +19,11 @@ vi.mock('@/lib/outbox/outbox', () => ({
     duplicates: 0,
     failed: 0,
   }),
+}))
+
+vi.mock('@/lib/reservations/host-reservations', () => ({
+  convertHoldReservationToBooking: vi.fn().mockResolvedValue(true),
+  expireHoldReservation: vi.fn().mockResolvedValue(true),
 }))
 
 /**
@@ -69,6 +78,8 @@ describe('confirmBooking', () => {
       duplicates: 0,
       failed: 0,
     })
+    vi.mocked(convertHoldReservationToBooking).mockResolvedValue(true)
+    vi.mocked(expireHoldReservation).mockResolvedValue(true)
     mockClient = createMockClient()
   })
 
@@ -118,6 +129,10 @@ describe('confirmBooking', () => {
       startAt: '2025-01-15T14:00:00Z',
       endAt: '2025-01-15T14:30:00Z',
     })
+    expect(convertHoldReservationToBooking).toHaveBeenCalledWith(mockClient, {
+      holdId: 'hold-id-1',
+      bookingId: 'booking-id-1',
+    })
   })
 
   it('returns error when hold is not found', async () => {
@@ -150,6 +165,7 @@ describe('confirmBooking', () => {
     // Verify that update was called to mark hold as expired
     expect(mockClient.from).toHaveBeenCalledWith('slot_holds')
     expect(mockClient.update).toHaveBeenCalledWith({ status: 'expired' })
+    expect(expireHoldReservation).toHaveBeenCalledWith(mockClient, 'hold-id-1')
   })
 
   it('returns "slot taken" error when exclusion constraint is violated (code 23P01)', async () => {

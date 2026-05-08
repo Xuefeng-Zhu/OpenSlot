@@ -34,6 +34,7 @@ src/lib/booking/                 Booking confirmation/cancellation engines
 src/lib/email/                   Email templates and console provider
 src/lib/idempotency/             Request idempotency helpers for retry-safe mutations
 src/lib/outbox/                  Internal side-effect event enqueue helpers
+src/lib/reservations/            Host reservation mirror helpers
 src/lib/supabase/                Browser, server, and admin Supabase clients
 src/lib/validations/             Zod schemas
 src/lib/utils/                   Slug and timezone helpers
@@ -165,7 +166,7 @@ OpenSlot is server-first for data access and booking integrity:
 - Server Components fetch profile, event type, availability, and bookings data through `createServerSupabaseClient()`.
 - Client Components manage form and interaction state, then call route handlers for mutations.
 - Public slot lookup uses `/api/slots`.
-- Guest hold creation uses `/api/holds`.
+- Guest hold creation uses `/api/holds` and the `create_slot_hold_with_reservation()` RPC.
 - Booking confirmation uses `/api/bookings`.
 - Booking confirmation and cancellation support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Booking confirmation and cancellation enqueue outbox events for provider writes, notifications, and future tenant webhooks.
@@ -175,6 +176,7 @@ OpenSlot is server-first for data access and booking integrity:
 Database integrity is part of the architecture:
 
 - `bookings.no_overlapping_bookings` is a PostgreSQL exclusion constraint that prevents overlapping confirmed bookings per host.
+- `host_reservations_no_overlap` is a PostgreSQL exclusion constraint that prevents overlapping active holds/bookings per host.
 - RLS is enabled on all app tables.
 - API routes that need guest writes use the service role client and token-based authorization.
 
@@ -189,6 +191,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and triggers cancellation emails.
 - `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
 - `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events; no worker consumes them yet.
+- `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; currently console provider by default.
 - `src/lib/supabase/admin.ts`: service role client. Never use this from client components.
 - `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
@@ -201,7 +204,8 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Mutations typically go through API routes, except some dashboard prototype pages that use local state or mock data.
 - Dashboard event type creation, updates, and deletion go through `/api/event-types`.
 - Availability editing keeps a saved baseline in component state, computes diffs, and posts a batch payload to `/api/availability`.
-- Slot holds and bookings are stored in Supabase; holds expire after 5 minutes and are lazily marked expired during confirmation.
+- Slot holds, host reservations, and bookings are stored in Supabase; holds expire after 5 minutes and are lazily marked expired during hold creation or confirmation.
+- Confirming a booking converts the hold reservation into a booking reservation; cancelling a booking cancels the booking reservation.
 - Booking confirmation and cancellation forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
 - Confirmed and cancelled bookings append ID-based rows to `outbox_events`; current email sending remains inline until a worker exists.
 
@@ -233,6 +237,7 @@ See [docs/security.md](docs/security.md).
 - `src/app/booking/cancel/[token]/page.tsx` uses the cancellation token to load safe booking details server-side before rendering `src/components/booking/cancel-booking-form.tsx`.
 - If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.
 - Do not remove the booking exclusion constraint or weaken hold conflict checks without a replacement concurrency guard.
+- Do not bypass `create_slot_hold_with_reservation()` for guest holds; direct `slot_holds` inserts miss the reservation exclusion constraint.
 - Do not treat `outbox_events` as delivered work; it is currently a durable ledger without a processor.
 - Timezone changes need DST-aware tests.
 

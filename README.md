@@ -115,7 +115,7 @@ OpenSlot follows a **server-first architecture** for critical booking operations
 
 1. Guest visits a public booking page → Server Component fetches host profile and event types
 2. Guest selects a date → Client fetches available slots from `/api/slots`
-3. Guest picks a slot → Client creates a temporary hold via `/api/holds` (5-minute TTL)
+3. Guest picks a slot → Client creates a temporary hold and host reservation via `/api/holds` (5-minute TTL)
 4. Guest submits booking form → Client confirms via `/api/bookings` (validates hold, inserts booking, enqueues side-effect events, sends current console-provider emails)
 
 ## Directory Structure
@@ -149,6 +149,7 @@ openslot/
 │   │   ├── email/               # Email service abstraction
 │   │   ├── idempotency/         # Request replay protection for booking mutations
 │   │   ├── outbox/              # Internal side-effect event enqueue helpers
+│   │   ├── reservations/        # Host reservation lifecycle helpers
 │   │   ├── supabase/            # Supabase client utilities
 │   │   ├── types/               # TypeScript type definitions
 │   │   ├── utils/               # Shared utilities (slug, timezone)
@@ -172,6 +173,7 @@ openslot/
 - **Date Overrides** — Mark specific dates as unavailable or set custom hours
 - **Public Booking Pages** — Shareable URLs (`/username/event-slug`) for guests to book
 - **Slot Holds** — 5-minute temporary holds prevent race conditions during booking
+- **Host Reservations** — Active holds and bookings are mirrored into an exclusion-constrained reservation ledger
 - **Anti-Double-Booking** — PostgreSQL exclusion constraints guarantee no overlapping confirmed bookings
 - **Idempotent Mutations** — Booking confirmation and cancellation cache idempotency-key responses for safe retries
 - **Outbox Events** — Booking confirmation and cancellation write deduped side-effect events for future workers

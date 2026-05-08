@@ -4,6 +4,7 @@ import type { CancelBookingInput, CancelBookingResult } from './types'
 import { sendCancellationEmail } from '@/lib/email/send'
 import type { BookingDetails } from '@/lib/email/send'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
+import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
 
 /**
  * Cancels a confirmed booking using its cancellation token.
@@ -54,6 +55,8 @@ export async function cancelBooking(
     console.error('Error cancelling booking:', updateError)
     return { success: false, error: 'Failed to cancel booking' }
   }
+
+  await cancelBookingReservation(adminClient, booking.id)
 
   await enqueueBookingCancelledOutbox(adminClient, {
     bookingId: booking.id,

@@ -260,6 +260,53 @@ export interface Database {
           }
         ]
       }
+      host_reservations: {
+        Row: {
+          id: string
+          host_user_id: string
+          source: string
+          source_id: string
+          start_at: string
+          end_at: string
+          status: string
+          expires_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          host_user_id: string
+          source: string
+          source_id: string
+          start_at: string
+          end_at: string
+          status?: string
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          host_user_id?: string
+          source?: string
+          source_id?: string
+          start_at?: string
+          end_at?: string
+          status?: string
+          expires_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "host_reservations_host_user_id_fkey"
+            columns: ["host_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       bookings: {
         Row: {
           id: string
@@ -424,7 +471,21 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_slot_hold_with_reservation: {
+        Args: {
+          p_event_type_id: string
+          p_host_user_id: string
+          p_start_at: string
+          p_end_at: string
+          p_guest_email: string
+          p_expires_at: string
+        }
+        Returns: {
+          hold_id: string
+          hold_token: string
+          expires_at: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

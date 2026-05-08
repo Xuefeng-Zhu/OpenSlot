@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { cancelBooking } from '../cancel'
 import type { CancelBookingInput } from '../types'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
+import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
@@ -14,6 +15,10 @@ vi.mock('@/lib/outbox/outbox', () => ({
     duplicates: 0,
     failed: 0,
   }),
+}))
+
+vi.mock('@/lib/reservations/host-reservations', () => ({
+  cancelBookingReservation: vi.fn().mockResolvedValue(true),
 }))
 
 /**
@@ -65,6 +70,7 @@ describe('cancelBooking', () => {
       duplicates: 0,
       failed: 0,
     })
+    vi.mocked(cancelBookingReservation).mockResolvedValue(true)
     mockClient = createMockClient()
   })
 
@@ -156,6 +162,7 @@ describe('cancelBooking', () => {
       endAt: '2025-01-15T14:30:00Z',
       cancelReasonProvided: true,
     })
+    expect(cancelBookingReservation).toHaveBeenCalledWith(mockClient, 'booking-id-1')
   })
 
   it('returns error when booking is not found', async () => {

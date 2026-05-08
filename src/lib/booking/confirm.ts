@@ -7,6 +7,10 @@ import {
 } from '@/lib/email/send'
 import type { BookingDetails } from '@/lib/email/send'
 import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
+import {
+  convertHoldReservationToBooking,
+  expireHoldReservation,
+} from '@/lib/reservations/host-reservations'
 
 /**
  * Confirms a booking from an active hold.
@@ -47,6 +51,7 @@ export async function confirmBooking(
       .from('slot_holds')
       .update({ status: 'expired' })
       .eq('id', hold.id)
+    await expireHoldReservation(adminClient, hold.id)
 
     return {
       success: false,
@@ -88,6 +93,11 @@ export async function confirmBooking(
     .from('slot_holds')
     .update({ status: 'confirmed' })
     .eq('id', hold.id)
+
+  await convertHoldReservationToBooking(adminClient, {
+    holdId: hold.id,
+    bookingId: booking.id,
+  })
 
   await enqueueBookingConfirmedOutbox(adminClient, {
     bookingId: booking.id,

@@ -11,7 +11,7 @@ import { createHoldSchema } from '@/lib/validations/booking'
  * Request body: { eventTypeId, hostUserId, startAt, endAt, guestEmail }
  * Response: { holdId, holdToken, expiresAt } or error
  *
- * Uses the service role client to bypass RLS for slot_holds table.
+ * Uses a service-role RPC to create the hold and host reservation atomically.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -93,24 +93,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create the hold with 5-minute expiration
+    // Create the hold with 5-minute expiration. The RPC also inserts the
+    // host_reservations row, whose exclusion constraint is the final race guard.
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
     const { data: hold, error: insertError } = await adminClient
-      .from('slot_holds')
-      .insert({
-        event_type_id: eventTypeId,
-        host_user_id: hostUserId,
-        start_at: startAt,
-        end_at: endAt,
-        guest_email: guestEmail,
-        expires_at: expiresAt,
-        status: 'active',
+      .rpc('create_slot_hold_with_reservation', {
+        p_event_type_id: eventTypeId,
+        p_host_user_id: hostUserId,
+        p_start_at: startAt,
+        p_end_at: endAt,
+        p_guest_email: guestEmail,
+        p_expires_at: expiresAt,
       })
-      .select('id, hold_token, expires_at')
       .single()
 
     if (insertError) {
+      if (insertError.code === '23P01' || insertError.code === '23505') {
+        return NextResponse.json(
+          { error: 'This time slot is currently held by another guest. Please select a different time.' },
+          { status: 409 }
+        )
+      }
+
       console.error('Error creating hold:', insertError)
       return NextResponse.json(
         { error: 'Failed to create hold' },
@@ -120,7 +125,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        holdId: hold.id,
+        holdId: hold.hold_id,
         holdToken: hold.hold_token,
         expiresAt: hold.expires_at,
       },
