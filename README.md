@@ -172,7 +172,7 @@ openslot/
 - **Slot Holds** — 5-minute temporary holds prevent race conditions during booking
 - **Anti-Double-Booking** — PostgreSQL exclusion constraints guarantee no overlapping confirmed bookings
 - **Email Notifications** — Confirmation and cancellation email plumbing exists and uses a console provider by default
-- **Cancellation** — Token-based cancellation API exists; the public cancellation page is currently a mock UI shell
+- **Cancellation** — Token-based public cancellation page and API for guests and hosts
 - **Timezone Support** — Full IANA timezone handling with correct DST transitions
 
 ## Additional Documentation

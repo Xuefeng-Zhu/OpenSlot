@@ -6,7 +6,7 @@ Operational guide for coding agents and human contributors working in this repos
 
 OpenSlot is an MVP scheduling app. Hosts can authenticate with Supabase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, and booking cancellation APIs. The settings page and `/booking/cancel/[token]` UI are not fully wired to live persistence yet.
+Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, booking cancellation APIs, and the public token cancellation page. The settings page is not fully wired to live persistence yet.
 
 ## Tech Stack
 
@@ -219,9 +219,9 @@ See [docs/security.md](docs/security.md).
 ## Common Pitfalls for Coding Agents
 
 - Quote paths containing route groups or dynamic segments in shell commands, for example `'src/app/(dashboard)/dashboard/page.tsx'`.
-- Do not assume every visible dashboard surface is live. Settings and the public cancellation page have prototype/mock portions.
+- Do not assume every visible dashboard surface is live. Settings still has prototype/mock portions.
 - Dashboard event type list/new/edit pages are backed by Supabase through server-loaded data and `/api/event-types` mutations.
-- `src/components/booking/cancel-booking-form.tsx` is not currently wired into `src/app/booking/cancel/[token]/page.tsx`.
+- `src/app/booking/cancel/[token]/page.tsx` uses the cancellation token to load safe booking details server-side before rendering `src/components/booking/cancel-booking-form.tsx`.
 - If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.
 - Do not remove the booking exclusion constraint or weaken hold conflict checks without a replacement concurrency guard.
 - Timezone changes need DST-aware tests.

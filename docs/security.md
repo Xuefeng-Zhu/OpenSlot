@@ -45,7 +45,7 @@ Important safeguards:
 - `/api/holds` checks overlapping active holds and confirmed bookings.
 - `confirmBooking()` rejects expired or reused holds.
 - `bookings.no_overlapping_bookings` prevents overlapping confirmed bookings at the database level.
-- Cancellation uses `cancellation_token` rather than only a booking ID.
+- Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 
 Do not weaken any of these without replacing the protection and updating tests.
 

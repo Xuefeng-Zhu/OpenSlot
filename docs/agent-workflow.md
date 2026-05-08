@@ -65,8 +65,6 @@ This guide is for autonomous coding agents working in OpenSlot.
 
 Use a follow-up when a useful improvement is outside your safe scope:
 
-- `TODO: wire /event-types to Supabase-backed CRUD.`
-- `TODO: replace mock /booking/cancel/[token] page with server-fetched cancellation details.`
 - `TODO: add CI workflow once deployment target is chosen.`
 
 ## Related Docs

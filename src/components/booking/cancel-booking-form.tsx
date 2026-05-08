@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AlertTriangle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -10,6 +11,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 interface CancelBookingFormProps {
   bookingId: string;
@@ -22,7 +25,12 @@ interface CancelBookingFormProps {
   guestTimezone: string;
 }
 
-type CancelState = "confirm" | "cancelling" | "cancelled" | "error";
+type CancelState =
+  | "confirm"
+  | "cancelling"
+  | "cancelled"
+  | "already-cancelled"
+  | "error";
 
 export function CancelBookingForm({
   bookingId,
@@ -76,6 +84,8 @@ export function CancelBookingForm({
 
       if (result.success) {
         setState("cancelled");
+      } else if (result.error?.includes("already been cancelled")) {
+        setState("already-cancelled");
       } else {
         setErrorMessage(result.error || "Failed to cancel booking");
         setState("error");
@@ -86,29 +96,25 @@ export function CancelBookingForm({
     }
   }
 
-  if (state === "cancelled") {
+  if (state === "cancelled" || state === "already-cancelled") {
     return (
       <Card className="max-w-lg mx-auto">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-            <svg
-              className="h-6 w-6 text-green-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
+            <CheckCircle
+              className="h-6 w-6 text-success"
               aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4.5 12.75l6 6 9-13.5"
-              />
-            </svg>
+            />
           </div>
-          <CardTitle className="text-xl">Booking Cancelled</CardTitle>
+          <CardTitle className="text-xl">
+            {state === "already-cancelled"
+              ? "Booking Already Cancelled"
+              : "Booking Cancelled"}
+          </CardTitle>
           <CardDescription>
-            Your booking has been successfully cancelled.
+            {state === "already-cancelled"
+              ? "This booking was already cancelled."
+              : "Your booking has been successfully cancelled."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -132,9 +138,11 @@ export function CancelBookingForm({
               <Badge variant="danger">Cancelled</Badge>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground text-center">
-            A cancellation confirmation email has been sent.
-          </p>
+          {state === "cancelled" && (
+            <p className="text-sm text-muted-foreground text-center">
+              A cancellation confirmation email has been sent.
+            </p>
+          )}
         </CardContent>
       </Card>
     );
@@ -143,21 +151,11 @@ export function CancelBookingForm({
   return (
     <Card className="max-w-lg mx-auto">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100">
-          <svg
-            className="h-6 w-6 text-yellow-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-warning/10">
+          <AlertTriangle
+            className="h-6 w-6 text-warning"
             aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
-            />
-          </svg>
+          />
         </div>
         <CardTitle className="text-xl">Cancel Booking</CardTitle>
         <CardDescription>
@@ -199,15 +197,14 @@ export function CancelBookingForm({
 
         {/* Cancel reason textarea */}
         <div className="space-y-2">
-          <label
+          <Label
             htmlFor="cancel-reason"
             className="text-sm font-medium text-muted-foreground"
           >
             Reason for cancellation (optional)
-          </label>
-          <textarea
+          </Label>
+          <Textarea
             id="cancel-reason"
-            className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
             placeholder="Let the host know why you're cancelling..."
             value={cancelReason}
             onChange={(e) => setCancelReason(e.target.value)}
@@ -226,6 +223,7 @@ export function CancelBookingForm({
         {/* Action buttons */}
         <div className="flex gap-3 pt-2">
           <Button
+            type="button"
             variant="destructive"
             className="flex-1"
             onClick={handleCancel}
@@ -234,6 +232,7 @@ export function CancelBookingForm({
             {state === "cancelling" ? "Cancelling..." : "Yes, Cancel Booking"}
           </Button>
           <Button
+            type="button"
             variant="outline"
             className="flex-1"
             onClick={() => window.history.back()}

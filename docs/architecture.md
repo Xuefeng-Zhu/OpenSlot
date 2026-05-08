@@ -28,6 +28,7 @@ Browser UI
 | `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Supabase and `/api/event-types`. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
+| `src/app/booking/cancel/[token]/page.tsx` | Public token-backed booking cancellation page. |
 | `src/app/api/*` | Slot, hold, booking, cancellation, event type, and availability APIs. |
 
 ## Data Access Patterns
@@ -49,6 +50,9 @@ Public event page
   -> POST /api/bookings
   -> confirmBooking()
   -> bookings insert + hold status update + email notifications
+  -> /booking/cancel/[token]
+  -> POST /api/bookings/[id]/cancel
+  -> cancelBooking()
 ```
 
 The final anti-double-booking guard is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`.
@@ -109,8 +113,7 @@ Migrations are in `supabase/migrations/`:
 
 ## Current Gaps to Preserve in Docs
 
-- Settings and the public cancellation page still include prototype surfaces; event type dashboard pages are live-backed.
-- The public cancellation page is a mock UI shell.
+- Settings still includes prototype surfaces; event type dashboard pages and the public cancellation page are live-backed.
 - Settings do not persist.
 - No realtime sync or calendar integrations are implemented.
 
