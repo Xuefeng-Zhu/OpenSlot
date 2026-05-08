@@ -1,0 +1,47 @@
+import { NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { listCalendarConnectionSummaries } from '@/lib/calendar/connections'
+
+export async function GET() {
+  try {
+    const supabase = await createServerSupabaseClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    if (profileError || !profile) {
+      return NextResponse.json(
+        { success: false, error: 'Profile not found' },
+        { status: 404 }
+      )
+    }
+
+    const connections = await listCalendarConnectionSummaries(
+      createAdminClient(),
+      (profile as { id: string }).id
+    )
+
+    return NextResponse.json({ success: true, connections })
+  } catch (error) {
+    console.error('Error in GET /api/calendar/connections:', error)
+    return NextResponse.json(
+      { success: false, error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
