@@ -2,32 +2,32 @@
 
 ## Executive summary
 
-A Supabase-first architecture is a credible foundation for a Calendly- or Cal.com-like product if you treat Postgres as the authoritative source of booking state, Row Level Security as the tenant boundary, and Edge Functions as the only public write path for unauthenticated booking operations, third-party callbacks, and payment/calendar webhooks. Supabase natively covers authentication, authorization, database access, realtime subscriptions, file storage, queues, cron jobs, secrets, logs, metrics, backups, regional deployment, custom API domains, and enterprise SSO primitives. citeturn15view0turn15view1turn15view3turn15view5turn15view6turn15view7turn15view10turn15view12turn15view16turn15view17turn26view0
+A Supabase-first architecture is a credible foundation for a Calendly- or Cal.com-like product if you treat Postgres as the authoritative source of booking state, Row Level Security as the tenant boundary, and Edge Functions as the only public write path for unauthenticated booking operations, third-party callbacks, and payment/calendar webhooks. Supabase natively covers authentication, authorization, database access, realtime subscriptions, file storage, queues, cron jobs, secrets, logs, metrics, backups, regional deployment, custom API domains, and enterprise SSO primitives.
 
-The hard part of a scheduling system is not page rendering or CRUD; it is concurrency control. The safest design is to prevent double-booking in the database, not in the UI. For one-on-one, collective, and round-robin bookings, use transaction-scoped selection plus an exclusion constraint on active host reservations. For group bookings, use explicit slot-inventory rows with `SELECT ... FOR UPDATE` or equivalent retry-safe update semantics, because exclusion constraints alone do not express “up to N seats.” Use idempotency keys on every mutating endpoint, and push side effects such as provider event creation, email, reminders, and outbound webhooks into an outbox plus queue so the booking commit stays short and recoverable. PostgreSQL’s exclusion constraints, `btree_gist`, advisory locks, and serializable/retry-safe transaction patterns are the right primitives for this problem. citeturn14search0turn14search1turn14search2turn14search7turn35view0
+The hard part of a scheduling system is not page rendering or CRUD; it is concurrency control. The safest design is to prevent double-booking in the database, not in the UI. For one-on-one, collective, and round-robin bookings, use transaction-scoped selection plus an exclusion constraint on active host reservations. For group bookings, use explicit slot-inventory rows with `SELECT ... FOR UPDATE` or equivalent retry-safe update semantics, because exclusion constraints alone do not express “up to N seats.” Use idempotency keys on every mutating endpoint, and push side effects such as provider event creation, email, reminders, and outbound webhooks into an outbox plus queue so the booking commit stays short and recoverable. PostgreSQL’s exclusion constraints, `btree_gist`, advisory locks, and serializable/retry-safe transaction patterns are the right primitives for this problem.
 
-Supabase should not be asked to be everything. Calendar truth still belongs to provider APIs, and payments should be fully outsourced. For provider availability and sync, use the primary APIs from entity["company","Google","internet company"] and entity["company","Microsoft","software company"]. For paid bookings, use entity["company","Stripe","payments company"] Checkout/Connect rather than collecting card data yourself. The resulting architecture is Supabase-native in its control plane and transactional core, but intentionally hybrid at integration boundaries. citeturn18view0turn18view1turn18view2turn18view5turn18view7turn18view9turn21view3turn21view4turn21view5
+Supabase should not be asked to be everything. Calendar truth still belongs to provider APIs, and payments should be fully outsourced. For provider availability and sync, use the primary APIs from Google and Microsoft. For paid bookings, use Stripe Checkout/Connect rather than collecting card data yourself. The resulting architecture is Supabase-native in its control plane and transactional core, but intentionally hybrid at integration boundaries.
 
 My bottom-line recommendation is:
 
 - Use one Supabase project per deployment region/environment, not one giant globally shared project if strict per-customer residency is a day-one requirement.
 - Keep public booking mutations behind Edge Functions with `verify_jwt = false`, strict validation, rate limiting, CAPTCHA, and idempotency; do **not** let anonymous clients insert directly into booking tables.
 - Make the booking transaction authoritative and short; queue every external side effect after commit.
-- Treat live provider checks as a final verification layer when sync cache freshness is poor or watch/subscription health is degraded. citeturn16view3turn15view19turn25view0turn23view1
+- Treat live provider checks as a final verification layer when sync cache freshness is poor or watch/subscription health is degraded.
 
 ## Assumptions
 
-This report assumes a single logical SaaS application serving many organizations from one codebase, with `org_id`-scoped tenancy in the database; guests can book without first creating accounts; paid bookings are implemented through hosted payment pages rather than direct card capture; and the primary calendar providers are Google and Microsoft ecosystems. Those assumptions keep the design aligned with the strongest native capabilities of Supabase and the primary provider APIs. citeturn15view0turn18view0turn18view5turn21view5
+This report assumes a single logical SaaS application serving many organizations from one codebase, with `org_id`-scoped tenancy in the database; guests can book without first creating accounts; paid bookings are implemented through hosted payment pages rather than direct card capture; and the primary calendar providers are Google and Microsoft ecosystems. Those assumptions keep the design aligned with the strongest native capabilities of Supabase and the primary provider APIs.
 
-It also assumes that “data residency” means choosing the right hosting region and keeping tenant data in-region unless you intentionally replicate or export it elsewhere. Supabase projects are bound to a chosen region at the infrastructure level, and changing region requires creating a new project and migrating. If you need hard residency per tenant from day one, the architecture should evolve from a single multi-tenant project to region-specific projects or shards. citeturn15view12turn16view12
+It also assumes that “data residency” means choosing the right hosting region and keeping tenant data in-region unless you intentionally replicate or export it elsewhere. Supabase projects are bound to a chosen region at the infrastructure level, and changing region requires creating a new project and migrating. If you need hard residency per tenant from day one, the architecture should evolve from a single multi-tenant project to region-specific projects or shards.
 
-Finally, it assumes generic personal data for scheduling. If you will store regulated healthcare data or similar high-sensitivity data, the compliance design changes materially: Supabase documents HIPAA support only with a signed BAA and the HIPAA add-on, under a shared-responsibility model. citeturn11search6turn12search11
+Finally, it assumes generic personal data for scheduling. If you will store regulated healthcare data or similar high-sensitivity data, the compliance design changes materially: Supabase documents HIPAA support only with a signed BAA and the HIPAA add-on, under a shared-responsibility model.
 
 ## Goals and platform fit
 
 ### System goals and the clean system boundary
 
-The core product goals are all achievable on Supabase, but not always with Supabase alone. Multi-tenancy, public booking pages, one-on-one scheduling, group scheduling, round-robin/collective assignment, webhooks, enterprise SSO, and tenant-scoped authorization fit well with Postgres plus RLS and Auth. Public booking pages and tenant admin UI still need a separately hosted frontend. Payment acceptance, calendar sync, outbound email/SMS, and some enterprise identity/customer-domain concerns are naturally external integrations orchestrated from Edge Functions. Supabase docs explicitly support Auth methods including SSO, Edge Functions for third-party integrations and webhooks, Realtime for live updates, Storage with fine-grained access control, database webhooks, queues, cron, vault, and custom domains for project APIs. citeturn15view0turn15view3turn16view0turn16view2turn15view5turn15view6turn15view7turn15view16turn26view6
+The core product goals are all achievable on Supabase, but not always with Supabase alone. Multi-tenancy, public booking pages, one-on-one scheduling, group scheduling, round-robin/collective assignment, webhooks, enterprise SSO, and tenant-scoped authorization fit well with Postgres plus RLS and Auth. Public booking pages and tenant admin UI still need a separately hosted frontend. Payment acceptance, calendar sync, outbound email/SMS, and some enterprise identity/customer-domain concerns are naturally external integrations orchestrated from Edge Functions. Supabase docs explicitly support Auth methods including SSO, Edge Functions for third-party integrations and webhooks, Realtime for live updates, Storage with fine-grained access control, database webhooks, queues, cron, vault, and custom domains for project APIs.
 
 ### What Supabase should own and what external services should own
 
@@ -47,7 +47,7 @@ The core product goals are all achievable on Supabase, but not always with Supab
 | Realtime host/admin UX | Yes | No | Use Realtime for dashboard freshness, not core booking correctness. |
 | Observability | Basic/strong enough | Recommended external stack | Use Metrics API, logs, log drains, Sentry/Datadog/Grafana. |
 
-Source basis for the table: Supabase Auth, SSO, custom OIDC providers, third-party auth, Edge Functions, Realtime, Storage, Queues, Cron, Vault, custom domains, database webhooks, and provider/payment docs. citeturn15view0turn15view3turn16view0turn16view2turn15view5turn15view6turn15view7turn15view16turn15view17turn26view0turn26view1turn18view0turn18view5turn21view4
+Source basis for the table: Supabase Auth, SSO, custom OIDC providers, third-party auth, Edge Functions, Realtime, Storage, Queues, Cron, Vault, custom domains, database webhooks, and provider/payment docs.
 
 ### Supabase feature and limit notes that materially affect design
 
@@ -63,15 +63,15 @@ Source basis for the table: Supabase Auth, SSO, custom OIDC providers, third-par
 | Custom Domains | Branded project API/auth endpoints | Only subdomains are supported. |
 | Read Replicas | Global read scaling and geo-routing for GETs | Useful later; writes still go to the primary, and product support across services is mixed. |
 
-These are direct product behaviors or documented limits from the official docs. citeturn32view3turn15view4turn33view0turn16view8turn16view15turn26view5turn35view0turn15view6turn15view7turn15view16turn37search0
+These are direct product behaviors or documented limits from the official docs.
 
 ## Architecture and data model
 
 ### Recommended architecture
 
-The recommended shape is a write-through core and an event-driven edge. Clients talk to a separately hosted web app. Authenticated app traffic can use the Supabase client directly for safe reads under RLS. Public booking traffic and all risky writes go to Edge Functions. Edge Functions use the service role only on the server, wrap booking mutations in database transactions, and enqueue post-commit work to queues. Postgres is the source of truth for organizations, event types, schedules, holds, bookings, payment state, sync cursors, and delivery state. Realtime is used to keep host/admin UIs fresh. Storage holds assets. Cron handles recurring work such as expiring holds and renewing provider watches. Provider sync and outbound deliveries run through queues rather than inline request/response paths. citeturn15view1turn15view3turn15view5turn15view6turn16view6turn15view8
+The recommended shape is a write-through core and an event-driven edge. Clients talk to a separately hosted web app. Authenticated app traffic can use the Supabase client directly for safe reads under RLS. Public booking traffic and all risky writes go to Edge Functions. Edge Functions use the service role only on the server, wrap booking mutations in database transactions, and enqueue post-commit work to queues. Postgres is the source of truth for organizations, event types, schedules, holds, bookings, payment state, sync cursors, and delivery state. Realtime is used to keep host/admin UIs fresh. Storage holds assets. Cron handles recurring work such as expiring holds and renewing provider watches. Provider sync and outbound deliveries run through queues rather than inline request/response paths.
 
-Keep your domain schema in `public` and treat extension-owned schemas as infrastructure: `auth`, `storage`, `realtime`, `cron`, `pgmq`, `vault`, and `net` already have their own semantics. Cron stores jobs in `cron.job` and history in `cron.job_run_details`; queues create queue tables in `pgmq`; broadcast messages sit in `realtime.messages`; database webhooks are trigger-based wrappers around `pg_net`. citeturn15view6turn35view1turn26view4turn34view2
+Keep your domain schema in `public` and treat extension-owned schemas as infrastructure: `auth`, `storage`, `realtime`, `cron`, `pgmq`, `vault`, and `net` already have their own semantics. Cron stores jobs in `cron.job` and history in `cron.job_run_details`; queues create queue tables in `pgmq`; broadcast messages sit in `realtime.messages`; database webhooks are trigger-based wrappers around `pg_net`.
 
 ### Concise ER diagram
 
@@ -204,7 +204,7 @@ create index idx_slot_holds_active_expiry
   where status = 'active';
 ```
 
-PostgreSQL exclusion constraints are the right mechanism for host/resource interval conflicts, and `btree_gist` is what lets scalar equality and range overlap participate together in a GiST-backed constraint. Use `[)` intervals so adjacent bookings such as 10:00–10:30 and 10:30–11:00 do not collide. Group capacity is a separate invariant and should be enforced with locked inventory rows, not with interval overlap alone. citeturn14search0turn14search1turn14search7
+PostgreSQL exclusion constraints are the right mechanism for host/resource interval conflicts, and `btree_gist` is what lets scalar equality and range overlap participate together in a GiST-backed constraint. Use `[)` intervals so adjacent bookings such as 10:00–10:30 and 10:30–11:00 do not collide. Group capacity is a separate invariant and should be enforced with locked inventory rows, not with interval overlap alone.
 
 ### Sample RLS policies and service-role boundary
 
@@ -256,7 +256,7 @@ create policy bookings_member_read
 revoke insert, update, delete on public.bookings from anon, authenticated;
 ```
 
-The key RLS decision is to **not** let anonymous or even normal authenticated users mutate booking truth directly. Public booking creation should go through Edge Functions using backend-only secrets because the service role bypasses RLS and must never be exposed in the client. Supabase’s security docs are explicit that service-role and secret keys bypass RLS and belong only on the backend. Use custom access token hooks only for performance-oriented claims, not as the sole authority for membership or billing state. citeturn15view1turn15view8turn15view19turn16view5
+The key RLS decision is to **not** let anonymous or even normal authenticated users mutate booking truth directly. Public booking creation should go through Edge Functions using backend-only secrets because the service role bypasses RLS and must never be exposed in the client. Supabase’s security docs are explicit that service-role and secret keys bypass RLS and belong only on the backend. Use custom access token hooks only for performance-oriented claims, not as the sole authority for membership or billing state.
 
 ## Booking flows and integrations
 
@@ -279,7 +279,7 @@ The key RLS decision is to **not** let anonymous or even normal authenticated us
 | `process-outbox` | backend worker | queue message batch | none | outbox dedupe key | no |
 | `renew-provider-watches` | cron/worker | due watch rows | renewal result | watch row id | small DB update |
 
-Edge Functions are the correct place for these boundaries because Supabase explicitly positions them for third-party integrations and webhook handling, and function-level config allows JWT verification to be disabled for webhooks or other controlled public endpoints. Keep every public or provider-facing function thin and defer heavy or network-variable work to queues. citeturn15view3turn16view3turn15view4turn15view15
+Edge Functions are the correct place for these boundaries because Supabase explicitly positions them for third-party integrations and webhook handling, and function-level config allows JWT verification to be disabled for webhooks or other controlled public endpoints. Keep every public or provider-facing function thin and defer heavy or network-variable work to queues.
 
 ### Pseudocode for `hold-slot`
 
@@ -349,7 +349,7 @@ async function holdSlot(req): Promise<HoldSlotResponse> {
 }
 ```
 
-This flow uses advisory locking to reduce thundering-herd contention on the same slot, and the exclusion constraint remains the final correctness guard. It also allows a cache-first, provider-aware approach without putting slow provider calls at the center of every request. PostgreSQL advisory locks and serializable isolation both require retry-aware application code. citeturn14search2turn14search7turn18view0turn18view5turn25view0
+This flow uses advisory locking to reduce thundering-herd contention on the same slot, and the exclusion constraint remains the final correctness guard. It also allows a cache-first, provider-aware approach without putting slow provider calls at the center of every request. PostgreSQL advisory locks and serializable isolation both require retry-aware application code.
 
 ### Pseudocode for `confirm-booking`
 
@@ -427,19 +427,19 @@ async function confirmBooking(req): Promise<ConfirmBookingResponse> {
 }
 ```
 
-The architectural point is that the **database commit confirms the booking**. Calendar writes, email, reminder scheduling, and tenant webhooks begin only after that commit through outbox/queue processing. This avoids turning provider latency, partial outages, or webhook failures into ambiguous booking state. Edge Functions, queues, and Stripe’s checkout/webhook model are all well aligned with this split. citeturn15view3turn15view5turn21view1turn21view2turn21view3
+The architectural point is that the **database commit confirms the booking**. Calendar writes, email, reminder scheduling, and tenant webhooks begin only after that commit through outbox/queue processing. This avoids turning provider latency, partial outages, or webhook failures into ambiguous booking state. Edge Functions, queues, and Stripe’s checkout/webhook model are all well aligned with this split.
 
 ### Lifecycle design for hold, confirm, cancel, and reschedule
 
-A hold should be short-lived, typically three to five minutes. It exists to serialize user intent while the guest fills forms or completes payment. Holds should reserve either host time or group seats, never both as inferred side effects later. Expiry must be automated and idempotent. On expiry, release active host reservations and decrement held seat counts. Store the hold result under an idempotency scope so browser retries or mobile reconnects are safe. Supabase Cron is appropriate for expiry sweeps, and queues are appropriate for any cleanup that might fan out. citeturn15view6turn15view5
+A hold should be short-lived, typically three to five minutes. It exists to serialize user intent while the guest fills forms or completes payment. Holds should reserve either host time or group seats, never both as inferred side effects later. Expiry must be automated and idempotent. On expiry, release active host reservations and decrement held seat counts. Store the hold result under an idempotency scope so browser retries or mobile reconnects are safe. Supabase Cron is appropriate for expiry sweeps, and queues are appropriate for any cleanup that might fan out.
 
-Confirmation should be the only path that creates the canonical booking row. For free events, confirm immediately after form validation. For paid events, either return “requires payment” with a Checkout Session or reserve a hold first and only confirm once the Stripe webhook says the session completed. Stripe documents Checkout Sessions as a per-attempt payment session and webhooks as the push mechanism for asynchronous payment outcomes; Stripe also retries undelivered webhook events for up to three days. citeturn21view3turn21view1turn21view2
+Confirmation should be the only path that creates the canonical booking row. For free events, confirm immediately after form validation. For paid events, either return “requires payment” with a Checkout Session or reserve a hold first and only confirm once the Stripe webhook says the session completed. Stripe documents Checkout Sessions as a per-attempt payment session and webhooks as the push mechanism for asynchronous payment outcomes; Stripe also retries undelivered webhook events for up to three days.
 
 Cancellation should be a transactional reversal: booking status changes, any future time reservations are released if applicable, domain events are appended, and outbox entries are queued for provider event updates, email, and tenant webhooks. Rescheduling should not mutate the old booking beyond status linkage; create a new hold and new booking, mark the old booking `rescheduled`, and link `rescheduled_from_booking_id` / `rescheduled_to_booking_id`. That preserves auditability and webhook clarity.
 
 ### Calendar integrations
 
-The simplest reliable strategy is a hybrid of cached availability plus provider-backed repair. Compute candidate slots from your own schedule rules and cached busy windows. Maintain the cache through push notifications and incremental sync. When the watch/subscription is stale, the token is broken, or the final booking is high-value, do a final live check before committing the booking. This design reduces quota usage while still respecting provider truth. citeturn18view2turn18view4turn18view5turn23view1turn25view0
+The simplest reliable strategy is a hybrid of cached availability plus provider-backed repair. Compute candidate slots from your own schedule rules and cached busy windows. Maintain the cache through push notifications and incremental sync. When the watch/subscription is stale, the token is broken, or the final booking is high-value, do a final live check before committing the booking. This design reduces quota usage while still respecting provider truth.
 
 | Concern | Google Calendar design | Microsoft Graph design | Practical implication |
 |---|---|---|---|
@@ -452,7 +452,7 @@ The simplest reliable strategy is a hybrid of cached availability plus provider-
 | Notification validation | Validate Google channel headers/tokens | Respond with Microsoft validation token in plain text during subscription setup | Webhook handlers need provider-specific handshake logic. |
 | Subscription scale caveat | Channel TTL defaults to 604800 seconds on `events.watch` | 1000 active Outlook subscriptions per mailbox; event subscriptions max under 7 days | Store expiration and health centrally. |
 
-These values and behaviors come directly from the primary provider documentation. citeturn38view0turn38view1turn18view1turn22view0turn18view3turn22view4turn22view5turn18view5turn18view6turn18view7turn18view8turn18view9turn18view10turn19view2turn19view4turn25view0turn23view3
+These values and behaviors come directly from the primary provider documentation.
 
 For writes, use provider-specific writer components behind a shared interface. A booking commit should enqueue “calendar write requested,” and the worker should create or update provider events, then save external identifiers back to `booking_hosts.provider_event_ref`. If the write fails, the booking is still real; mark provider sync status separately and retry.
 
@@ -472,31 +472,31 @@ For writes, use provider-specific writer components behind a shared interface. A
 | Refresh provider tokens | just-in-time + nightly repair job | on demand + nightly | provider-specific retry/backoff | do not refresh inline on every request |
 | Cleanup archive/prune caches | `pg_cron` | daily | idempotent | prune old busy cache, webhook bodies, expired idempotency rows |
 
-Supabase Cron is built on `pg_cron`, and queues are Postgres-native via `pgmq`. That is a powerful combination for a scheduling platform because the same database that owns business state also owns the durable background-work ledger. Stripe webhook redelivery behavior makes reconciliation jobs worth having even when your webhook path is solid. citeturn15view6turn35view0turn35view1turn21view2
+Supabase Cron is built on `pg_cron`, and queues are Postgres-native via `pgmq`. That is a powerful combination for a scheduling platform because the same database that owns business state also owns the durable background-work ledger. Stripe webhook redelivery behavior makes reconciliation jobs worth having even when your webhook path is solid.
 
 ### Scaling and operational concerns
 
-Start with vertical scaling and disciplined connection usage before reaching for architectural fragmentation. Supabase documents compute-bound connection limits and pooled connection counts by compute size, and recommends using connections resourcefully. For read-heavy dashboards and public GET endpoints at larger scale, read replicas are the next lever: they are asynchronous, add their own endpoints, support geo-routed GET handling through the load balancer, and reduce load on the primary. They do not change the fact that bookings are write-heavy consistency-critical operations that belong on the primary. citeturn16view8turn16view15turn37search0turn37search2turn37search6
+Start with vertical scaling and disciplined connection usage before reaching for architectural fragmentation. Supabase documents compute-bound connection limits and pooled connection counts by compute size, and recommends using connections resourcefully. For read-heavy dashboards and public GET endpoints at larger scale, read replicas are the next lever: they are asynchronous, add their own endpoints, support geo-routed GET handling through the load balancer, and reduce load on the primary. They do not change the fact that bookings are write-heavy consistency-critical operations that belong on the primary.
 
-Edge Functions scale horizontally, but their runtime limits are not a fit for long orchestration, high-fanout webhook retries, or “wait for many third parties and then decide” request paths. Use regional invocation close to the database for DB-heavy functions, and keep request handlers thin. If you need outbound IP allow-listing, Supabase documents that hosted Edge Functions do not provide stable static egress IPs; the recommended workaround is an outbound proxy or self-hosted runtime for that traffic. citeturn15view4turn15view15turn36view0
+Edge Functions scale horizontally, but their runtime limits are not a fit for long orchestration, high-fanout webhook retries, or “wait for many third parties and then decide” request paths. Use regional invocation close to the database for DB-heavy functions, and keep request handlers thin. If you need outbound IP allow-listing, Supabase documents that hosted Edge Functions do not provide stable static egress IPs; the recommended workaround is an outbound proxy or self-hosted runtime for that traffic.
 
-On resilience, Supabase provides daily backups and optional PITR, along with logs and a Prometheus-compatible Metrics API. For production, I would scrape the Metrics API into your monitoring stack, export logs with log drains, and alert on p95 `hold-slot`/`confirm-booking` latency, booking conflict rate, queue lag, watch renewal failures, provider 429 rate, token refresh failures, and dead-lettered tenant webhooks. citeturn15view10turn15view11turn15view13turn15view14turn27search0turn27search10turn28search0
+On resilience, Supabase provides daily backups and optional PITR, along with logs and a Prometheus-compatible Metrics API. For production, I would scrape the Metrics API into your monitoring stack, export logs with log drains, and alert on p95 `hold-slot`/`confirm-booking` latency, booking conflict rate, queue lag, watch renewal failures, provider 429 rate, token refresh failures, and dead-lettered tenant webhooks.
 
 ### Secrets management
 
-Use Supabase project secrets and Vault for long-lived application secrets such as provider OAuth client secrets, webhook signing secrets, HMAC keys for tenant outbound webhooks, payment secrets, and internal service tokens. Vault is explicitly designed to store encrypted secrets safely in Postgres, and Edge Functions can read secrets from their environment. citeturn15view7turn16view3
+Use Supabase project secrets and Vault for long-lived application secrets such as provider OAuth client secrets, webhook signing secrets, HMAC keys for tenant outbound webhooks, payment secrets, and internal service tokens. Vault is explicitly designed to store encrypted secrets safely in Postgres, and Edge Functions can read secrets from their environment.
 
 I would **not** use Vault as the primary operational database for all per-user OAuth tokens at scale. The better pattern is to store provider refresh tokens in a restricted application table, encrypted before persistence with envelope encryption, rotate access tokens aggressively, and reserve Vault for the tenant-agnostic keys that support that encryption. That is a design recommendation rather than a Supabase rule, but it produces healthier rotation and query patterns.
 
 ### Security and compliance
 
-Security posture should be layered. The inner layer is Postgres plus RLS; the outer layer is service-boundary control in Edge Functions. Supabase’s docs are unequivocal that service-role and secret keys bypass RLS and must never be exposed client-side. Network restrictions can also be applied at the database layer if you need tighter infrastructure control. For public booking endpoints, add bot protection, request quotas, idempotency, and signed guest-management tokens. citeturn15view8turn15view19turn16view1turn16view9
+Security posture should be layered. The inner layer is Postgres plus RLS; the outer layer is service-boundary control in Edge Functions. Supabase’s docs are unequivocal that service-role and secret keys bypass RLS and must never be exposed client-side. Network restrictions can also be applied at the database layer if you need tighter infrastructure control. For public booking endpoints, add bot protection, request quotas, idempotency, and signed guest-management tokens.
 
-For data residency and GDPR, the practical pattern is: choose the correct region at project creation, keep processing localized, sign the Supabase DPA, sign the Stripe DPA if using payments, and implement your own controller obligations such as retention, deletion, lawful basis, subject access/export, and vendor inventory. Supabase provides region selection and a DPA; Stripe provides a DPA and explains processor/controller roles in its privacy/legal materials. citeturn15view12turn16view12turn16view11turn21view6turn21view7
+For data residency and GDPR, the practical pattern is: choose the correct region at project creation, keep processing localized, sign the Supabase DPA, sign the Stripe DPA if using payments, and implement your own controller obligations such as retention, deletion, lawful basis, subject access/export, and vendor inventory. Supabase provides region selection and a DPA; Stripe provides a DPA and explains processor/controller roles in its privacy/legal materials.
 
-For PCI scope, the cleanest path is hosted payment pages. Stripe Checkout explicitly positions itself as a secure hosted checkout experience and says it can qualify merchants for the simplest PCI validation route with SAQ A; PCI SSC’s SAQ A eligibility is for card-not-present environments where all account-data processing is outsourced to PCI DSS-compliant third parties and the payment page itself is delivered directly by the third-party payment provider. In other words: if you keep card capture entirely off your stack, your architecture is dramatically simpler. You should still validate scope with your acquirer/QSA against the current PCI DSS SAQ guidance. citeturn21view5turn21view0turn31search1turn30view2
+For PCI scope, the cleanest path is hosted payment pages. Stripe Checkout explicitly positions itself as a secure hosted checkout experience and says it can qualify merchants for the simplest PCI validation route with SAQ A; PCI SSC’s SAQ A eligibility is for card-not-present environments where all account-data processing is outsourced to PCI DSS-compliant third parties and the payment page itself is delivered directly by the third-party payment provider. In other words: if you keep card capture entirely off your stack, your architecture is dramatically simpler. You should still validate scope with your acquirer/QSA against the current PCI DSS SAQ guidance.
 
-Enterprise SSO is well supported on Supabase through SAML, and custom OIDC providers are now also available for standards-compliant IdPs. That covers a meaningful share of B2B scheduling requirements without forcing an external auth migration. If a customer already has an external auth stack, Supabase also documents trusted third-party JWT integrations. citeturn15view17turn15view18turn26view0turn26view1turn26view2
+Enterprise SSO is well supported on Supabase through SAML, and custom OIDC providers are now also available for standards-compliant IdPs. That covers a meaningful share of B2B scheduling requirements without forcing an external auth migration. If a customer already has an external auth stack, Supabase also documents trusted third-party JWT integrations.
 
 ### Recommended observability and testing plan
 
@@ -513,7 +513,7 @@ Enterprise SSO is well supported on Supabase through SAML, and custom OIDC provi
 | Contract tests | Google webhook headers, sync-token invalidation paths, Microsoft validation token handshake, Stripe webhook signatures | no provider integration drift after upgrades |
 | Load tests | availability reads, hold-slot write bursts, confirm-booking under webhook backlog | graceful degradation with visible queue lag, not correctness loss |
 
-Use the Supabase logs explorer and Metrics API as the base layer, add log drains for centralized retention, and instrument Edge Functions with an error/performance tool such as Sentry. For CI, run integration tests against the local Supabase stack so you can exercise actual RLS, SQL constraints, and function behavior together. citeturn15view13turn15view14turn27search0turn28search13turn28search10
+Use the Supabase logs explorer and Metrics API as the base layer, add log drains for centralized retention, and instrument Edge Functions with an error/performance tool such as Sentry. For CI, run integration tests against the local Supabase stack so you can exercise actual RLS, SQL constraints, and function behavior together.
 
 ## Roadmap and open questions
 
@@ -534,9 +534,9 @@ Under these assumptions, a **narrow MVP** with multi-tenant one-on-one booking, 
 The architecture above is high confidence, but several product decisions materially change scope:
 
 - If “paid bookings” means marketplace payouts to individual hosts, you are in platform/KYC territory and Stripe Connect onboarding becomes much more central than standard checkout.
-- If you require strict per-customer regional isolation from day one, a single shared Supabase project is the wrong starting point because a project is region-bound and region moves require migration. citeturn16view12
+- If you require strict per-customer regional isolation from day one, a single shared Supabase project is the wrong starting point because a project is region-bound and region moves require migration.
 - If calendar write failure must invalidate a booking rather than queue a repair, the booking transaction becomes much slower and more failure-prone.
-- If enterprise requirements include SCIM, advanced audit export, customer-managed encryption, or static egress IPs, additional infrastructure beyond managed Supabase will likely be needed. Supabase explicitly documents the static-egress limitation for hosted Edge Functions. citeturn36view0
-- Provider quotas and throttling policies can change. Google’s quota page and Microsoft Graph throttling docs both warn that clients should implement backoff and not assume static behavior forever. citeturn25view0turn23view3
+- If enterprise requirements include SCIM, advanced audit export, customer-managed encryption, or static egress IPs, additional infrastructure beyond managed Supabase will likely be needed. Supabase explicitly documents the static-egress limitation for hosted Edge Functions.
+- Provider quotas and throttling policies can change. Google’s quota page and Microsoft Graph throttling docs both warn that clients should implement backoff and not assume static behavior forever.
 
 The core conclusion does not change: Supabase is a strong transactional and authorization backbone for this class of product, provided you keep scheduling correctness in Postgres, keep public writes in backend functions, and treat calendars/payments as integrated systems of record rather than as DIY subsystems.
