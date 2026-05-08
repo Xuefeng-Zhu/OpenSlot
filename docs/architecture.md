@@ -56,7 +56,9 @@ Public event page
   -> bookings insert + hold status update + host_reservations hold-to-booking conversion
   -> booking_events append
   -> outbox_events enqueue for provider writes, notifications, and future webhooks
-  -> email notifications through the current console provider
+  -> POST /api/outbox/process or external cron
+  -> claim_outbox_events()
+  -> notification emails through the current console provider
   -> /booking/cancel/[token]
   -> POST /api/bookings/[id]/cancel
   -> request_idempotency check/cache when an idempotency key is supplied
@@ -64,6 +66,7 @@ Public event page
   -> host_reservations cancellation
   -> booking_events append
   -> outbox_events enqueue for provider updates, notifications, and future webhooks
+  -> POST /api/outbox/process or external cron
 ```
 
 The final anti-double-booking guard for confirmed bookings is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`. Active hold and booking reservation races are guarded by `host_reservations_no_overlap` in `supabase/migrations/20260508062648_add_host_reservations.sql`.
@@ -113,6 +116,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508062648_add_host_reservations.sql`: host reservation ledger, exclusion constraint, and hold-creation RPC.
 - `20260508063319_add_explicit_data_api_grants.sql`: explicit Data API grants and removal of permissive guest-write RLS policies.
 - `20260508064552_add_booking_events.sql`: append-only booking lifecycle event ledger.
+- `20260508065512_add_outbox_claim_function.sql`: atomic outbox leasing RPC for workers.
 
 ## API Routes
 
@@ -122,6 +126,7 @@ Migrations are in `supabase/migrations/`:
 | `POST /api/holds` | Public token/slot operation, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
 | `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
 | `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
 | `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
 | `POST /api/event-types` | Authenticated host | `src/app/api/event-types/route.ts` |
 | `PATCH/DELETE /api/event-types/[id]` | Authenticated host, scoped to own profile | `src/app/api/event-types/[id]/route.ts` |
@@ -131,7 +136,7 @@ Migrations are in `supabase/migrations/`:
 
 - Settings still includes prototype surfaces; event type dashboard pages and the public cancellation page are live-backed.
 - Settings do not persist.
-- Outbox rows are written for confirmed/cancelled bookings, but there is no queue worker or webhook delivery processor yet.
+- Outbox rows are processed by `/api/outbox/process`, but production deployments still need an external cron/worker trigger.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
 - No realtime sync or calendar integrations are implemented.
 

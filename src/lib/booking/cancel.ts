@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import type { CancelBookingInput, CancelBookingResult } from './types'
-import { sendCancellationEmail } from '@/lib/email/send'
-import type { BookingDetails } from '@/lib/email/send'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
 import { appendBookingEvent } from './events'
@@ -16,8 +14,7 @@ import { appendBookingEvent } from './events'
  * 3. If already cancelled → return "already cancelled" error
  * 4. Update status to 'cancelled' and store cancel_reason
  * 5. Enqueue outbox side-effect events
- * 6. Fetch event type and host profile for email details
- * 7. Fire-and-forget cancellation emails to both guest and host
+ * 6. Emails and external side effects are processed from the outbox
  * 8. Return success
  */
 export async function cancelBooking(
@@ -80,40 +77,6 @@ export async function cancelBooking(
     endAt: booking.end_at,
     cancelReasonProvided: Boolean(cancelReason),
   })
-
-  // Step 4: Fetch event type and host profile for email details
-  const [eventTypeResult, hostProfileResult] = await Promise.all([
-    adminClient
-      .from('event_types')
-      .select('title')
-      .eq('id', booking.event_type_id)
-      .single(),
-    adminClient
-      .from('profiles')
-      .select('name, email')
-      .eq('id', booking.host_user_id)
-      .single(),
-  ])
-
-  const eventTitle = eventTypeResult.data?.title ?? 'Meeting'
-  const hostName = hostProfileResult.data?.name ?? 'Host'
-  const hostEmail = hostProfileResult.data?.email ?? ''
-
-  // Step 5: Send cancellation emails (fire-and-forget)
-  const bookingDetails: BookingDetails = {
-    bookingId: booking.id,
-    eventTitle,
-    startAt: booking.start_at,
-    endAt: booking.end_at,
-    guestName: booking.guest_name,
-    guestEmail: booking.guest_email,
-    guestTimezone: booking.guest_timezone,
-    hostName,
-    hostEmail,
-  }
-
-  sendCancellationEmail(bookingDetails, 'guest').catch(console.error)
-  sendCancellationEmail(bookingDetails, 'host').catch(console.error)
 
   return { success: true }
 }

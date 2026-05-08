@@ -524,6 +524,13 @@ export interface Database {
           expires_at: string
         }[]
       }
+      claim_outbox_events: {
+        Args: {
+          p_limit?: number
+          p_max_attempts?: number
+        }
+        Returns: Database['public']['Tables']['outbox_events']['Row'][]
+      }
     }
     Enums: {
       [_ in never]: never

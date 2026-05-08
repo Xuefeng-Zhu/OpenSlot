@@ -91,6 +91,7 @@ There is no committed CI workflow or deployment config in this repository. Treat
    NEXT_PUBLIC_SUPABASE_ANON_KEY=...
    SUPABASE_SERVICE_ROLE_KEY=...
    NEXT_PUBLIC_APP_URL=http://localhost:3000
+   OUTBOX_PROCESS_SECRET=...
    ```
 
 4. Apply database migrations using Supabase CLI or the SQL editor:
@@ -170,6 +171,7 @@ OpenSlot is server-first for data access and booking integrity:
 - Booking confirmation uses `/api/bookings`.
 - Booking confirmation and cancellation support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Booking confirmation and cancellation enqueue outbox events for provider writes, notifications, and future tenant webhooks.
+- Outbox events are processed through `POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET`.
 - Host availability batch save uses `/api/availability`.
 - Booking cancellation logic is in `src/lib/booking/cancel.ts` and the API route `src/app/api/bookings/[id]/cancel/route.ts`.
 
@@ -188,11 +190,12 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/availability/compute-slots.ts`: core slot generation and filtering, including rules, overrides, bookings, holds, buffers, min notice, and max booking window.
 - `src/app/api/slots/route.ts`: public slot computation endpoint.
 - `src/app/api/holds/route.ts`: creates 5-minute slot holds and checks active holds/bookings.
-- `src/lib/booking/confirm.ts`: validates holds, inserts confirmed bookings, marks holds confirmed, triggers emails.
-- `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and triggers cancellation emails.
+- `src/lib/booking/confirm.ts`: validates holds, inserts confirmed bookings, marks holds confirmed, and queues side effects.
+- `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and queues side effects.
 - `src/lib/booking/events.ts`: appends ID-based booking lifecycle audit events.
 - `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
-- `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events; no worker consumes them yet.
+- `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events.
+- `src/lib/outbox/process.ts`: claims outbox rows, runs event handlers, and marks completion/failure.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; currently console provider by default.
 - `src/lib/supabase/admin.ts`: service role client. Never use this from client components.
@@ -209,7 +212,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Slot holds, host reservations, and bookings are stored in Supabase; holds expire after 5 minutes and are lazily marked expired during hold creation or confirmation.
 - Confirming a booking converts the hold reservation into a booking reservation; cancelling a booking cancels the booking reservation.
 - Booking confirmation and cancellation forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
-- Confirmed and cancelled bookings append ID-based rows to `outbox_events`; current email sending remains inline until a worker exists.
+- Confirmed and cancelled bookings append ID-based rows to `outbox_events`; notification emails are sent by the outbox processor.
 - Confirmed and cancelled bookings append ID-based rows to `booking_events` for audit/replay.
 
 ## Storage and Sync Behavior

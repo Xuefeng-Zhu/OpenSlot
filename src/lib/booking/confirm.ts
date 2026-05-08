@@ -1,11 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import type { ConfirmBookingInput, ConfirmBookingResult } from './types'
-import {
-  sendBookingConfirmationToGuest,
-  sendBookingNotificationToHost,
-} from '@/lib/email/send'
-import type { BookingDetails } from '@/lib/email/send'
 import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
 import {
   convertHoldReservationToBooking,
@@ -24,7 +19,7 @@ import { appendBookingEvent } from './events'
  * 5. If insert fails with code '23P01' → return "slot taken" error
  * 6. Update hold status to 'confirmed'
  * 7. Enqueue outbox side-effect events
- * 8. Fire-and-forget email notifications
+ * 8. Emails and external side effects are processed from the outbox
  * 9. Return success with bookingId, cancellationToken, rescheduleToken
  */
 export async function confirmBooking(
@@ -118,41 +113,6 @@ export async function confirmBooking(
     startAt: hold.start_at,
     endAt: hold.end_at,
   })
-
-  // Step 5: Fetch event type and host profile for email details
-  const [eventTypeResult, hostProfileResult] = await Promise.all([
-    adminClient
-      .from('event_types')
-      .select('title')
-      .eq('id', hold.event_type_id)
-      .single(),
-    adminClient
-      .from('profiles')
-      .select('name, email')
-      .eq('id', hold.host_user_id)
-      .single(),
-  ])
-
-  const eventTitle = eventTypeResult.data?.title ?? 'Meeting'
-  const hostName = hostProfileResult.data?.name ?? 'Host'
-  const hostEmail = hostProfileResult.data?.email ?? ''
-
-  // Step 6: Send email notifications (fire-and-forget)
-  const bookingDetails: BookingDetails = {
-    bookingId: booking.id,
-    eventTitle,
-    startAt: hold.start_at,
-    endAt: hold.end_at,
-    guestName,
-    guestEmail,
-    guestTimezone,
-    hostName,
-    hostEmail,
-    cancellationToken: booking.cancellation_token,
-  }
-
-  sendBookingConfirmationToGuest(bookingDetails).catch(console.error)
-  sendBookingNotificationToHost(bookingDetails).catch(console.error)
 
   return {
     success: true,
