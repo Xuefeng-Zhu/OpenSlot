@@ -7,6 +7,7 @@ import {
   sendCancellationEmail,
   type BookingDetails,
 } from '@/lib/email/send'
+import { enqueueWebhookDeliveriesForOutboxEvent } from '@/lib/webhooks/deliveries'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type BookingRow = Tables<'bookings'>
@@ -81,12 +82,19 @@ async function defaultHandler(
     case 'notifications.cancel.requested':
       await sendBookingCancelledNotifications(event, adminClient)
       return
+    case 'notifications.reschedule.requested':
+      await sendBookingRescheduledNotifications(event, adminClient)
+      return
     case 'booking.confirmed':
     case 'booking.cancelled':
+    case 'booking.rescheduled':
     case 'calendar.write.requested':
     case 'calendar.cancel.requested':
+    case 'calendar.reschedule.requested':
     case 'tenant.webhooks.requested':
     case 'tenant.webhooks.cancel.requested':
+    case 'tenant.webhooks.reschedule.requested':
+      await enqueueWebhookDeliveriesForOutboxEvent(adminClient, event)
       return
     default:
       throw new Error(`Unsupported outbox event type: ${event.event_type}`)
@@ -117,6 +125,19 @@ async function sendBookingCancelledNotifications(
 
   await sendCancellationEmail(bookingDetails, 'guest')
   await sendCancellationEmail(bookingDetails, 'host')
+}
+
+async function sendBookingRescheduledNotifications(
+  event: OutboxEventRow,
+  adminClient: SupabaseClient<Database>
+) {
+  const bookingDetails = await loadBookingDetails(
+    adminClient,
+    bookingIdFromPayload(event.payload)
+  )
+
+  await sendBookingConfirmationToGuest(bookingDetails)
+  await sendBookingNotificationToHost(bookingDetails)
 }
 
 async function loadBookingDetails(
@@ -158,6 +179,7 @@ async function loadBookingDetails(
     hostName: hostProfileResult.data?.name ?? 'Host',
     hostEmail: hostProfileResult.data?.email ?? '',
     cancellationToken: booking.cancellation_token,
+    rescheduleToken: booking.reschedule_token,
   }
 }
 
