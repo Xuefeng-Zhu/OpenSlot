@@ -36,6 +36,11 @@ export interface ProcessWebhookDeliveriesResult {
 const DEFAULT_LIMIT = 10
 const DEFAULT_MAX_ATTEMPTS = 5
 
+/**
+ * Expands a tenant webhook outbox event into endpoint-specific delivery rows.
+ * Only active endpoints owned by the booking host and subscribed to the derived
+ * domain event are queued; duplicate rows are counted as harmless retries.
+ */
 export async function enqueueWebhookDeliveriesForOutboxEvent(
   adminClient: SupabaseClient<Database>,
   event: OutboxEventRow
@@ -114,6 +119,11 @@ export async function enqueueWebhookDeliveriesForOutboxEvent(
   return result
 }
 
+/**
+ * Claims pending webhook deliveries, signs and POSTs each payload, and records
+ * either the endpoint response or retry metadata. A custom fetch implementation
+ * keeps this worker testable without real network calls.
+ */
 export async function processWebhookDeliveriesBatch({
   adminClient,
   limit = DEFAULT_LIMIT,
@@ -191,6 +201,11 @@ async function loadWebhookEndpoint(
   return data as WebhookEndpointRow
 }
 
+/**
+ * Sends one webhook delivery using OpenSlot's HMAC signature headers.
+ * Non-2xx responses are treated as retryable failures and keep a bounded copy
+ * of the endpoint body for dashboard diagnostics.
+ */
 async function deliverWebhook({
   delivery,
   endpoint,
@@ -309,6 +324,11 @@ function webhookPayload(event: OutboxEventRow, eventType: string): Json {
   }
 }
 
+/**
+ * Maps internal outbox event names to tenant-facing webhook event names.
+ * Returning null lets callers skip infrastructure events that have no public
+ * webhook contract.
+ */
 function tenantWebhookDomainEvent(eventType: string): string | null {
   switch (eventType) {
     case 'tenant.webhooks.requested':

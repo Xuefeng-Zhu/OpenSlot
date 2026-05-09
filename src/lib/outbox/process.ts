@@ -34,6 +34,11 @@ export type OutboxEventHandler = (
 const DEFAULT_LIMIT = 10
 const DEFAULT_MAX_ATTEMPTS = 5
 
+/**
+ * Claims and processes a batch of due outbox events.
+ * The claiming RPC is responsible for concurrency control; this worker runs each
+ * event handler, records completion, and schedules retry metadata for failures.
+ */
 export async function processOutboxBatch({
   adminClient,
   limit = DEFAULT_LIMIT,
@@ -72,6 +77,11 @@ export async function processOutboxBatch({
   return result
 }
 
+/**
+ * Routes outbox events to their side-effect handlers.
+ * Domain lifecycle events are intentionally no-ops here because their role is to
+ * act as durable facts for downstream consumers, not to trigger direct work.
+ */
 async function defaultHandler(
   event: OutboxEventRow,
   adminClient: SupabaseClient<Database>
@@ -231,6 +241,10 @@ async function markOutboxEventFailed(
   }
 }
 
+/**
+ * Computes exponential retry delays in minutes and backs off terminal failures
+ * to a daily retry cadence so persistent provider issues do not hot-loop.
+ */
 function retryDelayForAttempt(attempts: number, maxAttempts: number): number {
   if (attempts >= maxAttempts) {
     return 24 * 60 * 60 * 1000

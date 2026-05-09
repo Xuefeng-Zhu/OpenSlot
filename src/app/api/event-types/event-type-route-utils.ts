@@ -67,6 +67,11 @@ export function eventTypeFieldErrors(
   return error.flatten().fieldErrors
 }
 
+/**
+ * Converts validated event type form values into the database write shape.
+ * Optional text fields are normalized to empty strings to match existing table
+ * defaults and keep PATCH/POST route behavior consistent.
+ */
 export function eventTypeWritePayload(
   data: EventTypeFormValues,
   userId: string

@@ -106,6 +106,11 @@ interface MicrosoftEventResponse {
 
 const TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000
 
+/**
+ * Syncs a bounded set of active or previously errored calendar connections.
+ * Each connection is isolated so one provider failure increments the failure
+ * count without preventing later connections from syncing.
+ */
 export async function syncActiveCalendarConnections(
   adminClient: SupabaseClient<Database>,
   limit = 25
@@ -139,6 +144,11 @@ export async function syncActiveCalendarConnections(
   return result
 }
 
+/**
+ * Refreshes one provider connection from the upstream calendar API.
+ * This updates the calendar list, rebuilds the configured busy-cache window,
+ * and marks the connection active or errored based on the provider outcome.
+ */
 export async function syncCalendarsForConnection(
   adminClient: SupabaseClient<Database>,
   connectionId: string,
@@ -193,6 +203,11 @@ export async function syncCalendarsForConnection(
   }
 }
 
+/**
+ * Returns a usable access token for a provider connection.
+ * Tokens are decrypted only server-side; expiring tokens are refreshed and the
+ * replacement credentials are encrypted back into storage.
+ */
 export async function getFreshAccessToken(
   adminClient: SupabaseClient<Database>,
   connection: ProviderConnectionRow,
@@ -233,6 +248,11 @@ export async function getFreshAccessToken(
   return tokens.accessToken
 }
 
+/**
+ * Creates an external calendar event for a confirmed booking.
+ * Normalizes Google and Microsoft response shapes into the small reference
+ * record OpenSlot stores for later cancellation or diagnostics.
+ */
 export async function createProviderCalendarEvent({
   provider,
   accessToken,
@@ -329,6 +349,11 @@ export async function createProviderCalendarEvent({
   }
 }
 
+/**
+ * Deletes an external provider event if it still exists.
+ * Missing events are treated as already reconciled because cancellation workers
+ * may be retried after a provider-side delete succeeds.
+ */
 export async function deleteProviderCalendarEvent({
   provider,
   accessToken,
@@ -542,6 +567,11 @@ async function loadAvailabilityCalendars(
   return (data ?? []) as ProviderCalendarRow[]
 }
 
+/**
+ * Rebuilds cached busy windows for calendars used in availability calculations.
+ * The cache is replaced inside the requested sync window so deleted or changed
+ * provider events stop blocking slots after the next successful sync.
+ */
 async function syncBusyCache({
   adminClient,
   connection,
@@ -797,6 +827,11 @@ function googleEventTime(value?: {
   return rawValue ? new Date(rawValue).toISOString() : null
 }
 
+/**
+ * Normalizes Microsoft Graph calendarView timestamps to UTC ISO strings.
+ * Graph may omit an offset while separately labeling the timeZone; this app
+ * requests UTC windows, so offset-less values are interpreted as UTC.
+ */
 function microsoftEventTime(value?: {
   dateTime?: string
   timeZone?: string

@@ -57,6 +57,11 @@ interface BookingOutboxPayload {
   endAt: string
 }
 
+/**
+ * Queues every side effect that should follow a confirmed booking.
+ * Each event uses a deterministic dedupe key so retries can safely enqueue the
+ * same logical work without sending duplicate emails, calendar writes, or webhooks.
+ */
 export async function enqueueBookingConfirmedOutbox(
   adminClient: SupabaseClient<Database>,
   booking: BookingOutboxInput
@@ -95,6 +100,11 @@ export async function enqueueBookingConfirmedOutbox(
   ])
 }
 
+/**
+ * Queues side effects for a booking cancellation.
+ * Payloads intentionally stay ID-focused and avoid storing guest PII beyond what
+ * later processors can load from server-side tables.
+ */
 export async function enqueueBookingCancelledOutbox(
   adminClient: SupabaseClient<Database>,
   booking: BookingCancellationOutboxInput
@@ -136,6 +146,10 @@ export async function enqueueBookingCancelledOutbox(
   ])
 }
 
+/**
+ * Queues side effects for a reschedule, preserving both the old and new booking
+ * identifiers so processors can cancel stale external events before creating replacements.
+ */
 export async function enqueueBookingRescheduledOutbox(
   adminClient: SupabaseClient<Database>,
   booking: BookingRescheduleOutboxInput
@@ -179,6 +193,11 @@ export async function enqueueBookingRescheduledOutbox(
   ])
 }
 
+/**
+ * Inserts outbox rows one at a time and treats unique-key conflicts as duplicates.
+ * Returns counts instead of throwing so booking flows can finish even when optional
+ * side-effect work has already been queued by a retry.
+ */
 export async function enqueueOutboxEvents(
   adminClient: SupabaseClient<Database>,
   events: EnqueueOutboxEventInput[]

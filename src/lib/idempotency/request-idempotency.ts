@@ -24,6 +24,11 @@ export type BeginIdempotencyResult =
 
 type IdempotencyRow = Tables<'request_idempotency'>
 
+/**
+ * Resolves the caller's idempotency key from the request body and header.
+ * Accepts either source, but rejects malformed values or conflicting duplicates
+ * so downstream mutation handlers can use one canonical key.
+ */
 export function resolveIdempotencyKey(
   bodyKey: string | undefined,
   headerKey: string | null
@@ -55,12 +60,23 @@ export function resolveIdempotencyKey(
   return { ok: true, key: normalizedHeaderKey ?? normalizedBodyKey ?? null }
 }
 
+/**
+ * Hashes a validated request payload into a stable value for idempotency checks.
+ * Object keys are canonicalized so semantically identical JSON bodies hash the
+ * same even when clients send properties in a different order.
+ */
 export function hashRequestPayload(payload: unknown): string {
   return createHash('sha256')
     .update(stableStringify(payload))
     .digest('hex')
 }
 
+/**
+ * Starts an idempotent mutation by inserting a request marker.
+ * Returns a replayed response for completed duplicate requests, a conflict for
+ * in-flight or payload-mismatched requests, and a marker the caller must complete
+ * after producing the mutation response.
+ */
 export async function beginIdempotentRequest({
   adminClient,
   scope,
@@ -113,6 +129,11 @@ export async function beginIdempotentRequest({
   return resolveExistingRequest(existing as IdempotencyRow, requestHash)
 }
 
+/**
+ * Stores the final response for a started idempotent request.
+ * This write is best-effort: failures are logged because the primary mutation
+ * has already happened, and callers should not roll it back from here.
+ */
 export async function completeIdempotentRequest({
   adminClient,
   entry,
