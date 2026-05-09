@@ -1,4 +1,6 @@
 -- Tenant webhook endpoints and retryable delivery attempts.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TABLE webhook_endpoints (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   profile_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
