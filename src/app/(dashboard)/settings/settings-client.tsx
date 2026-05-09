@@ -351,6 +351,7 @@ export function SettingsClient({
       setWebhookEndpoints((current) =>
         current.filter((item) => item.id !== endpoint.id)
       );
+      setNewWebhookSecret(null);
     } catch (error) {
       toast({
         title: "Webhook not deleted",

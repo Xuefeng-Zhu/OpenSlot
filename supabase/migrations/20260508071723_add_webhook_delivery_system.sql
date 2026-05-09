@@ -1,5 +1,6 @@
 -- Tenant webhook endpoints and retryable delivery attempts.
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+SET search_path = public, extensions;
 
 CREATE TABLE webhook_endpoints (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
