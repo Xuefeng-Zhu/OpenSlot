@@ -1,7 +1,13 @@
 import { NextRequest } from 'next/server'
 import type { CalendarProvider } from './oauth'
 
+/**
+ * HTTP-only cookie used to bind calendar OAuth callbacks to the initiating user.
+ */
 export const CALENDAR_OAUTH_STATE_COOKIE = 'openslot_calendar_oauth'
+/**
+ * Short lifetime for OAuth state to limit replay windows.
+ */
 export const CALENDAR_OAUTH_STATE_TTL_SECONDS = 10 * 60
 
 /**

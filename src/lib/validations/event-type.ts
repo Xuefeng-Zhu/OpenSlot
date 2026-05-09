@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+/**
+ * URL-safe slug contract for event type public booking links.
+ */
 export const eventTypeSlugSchema = z
   .string()
   .min(1, 'URL slug is required')
@@ -9,6 +12,10 @@ export const eventTypeSlugSchema = z
     'Use lowercase letters, numbers, and hyphens'
   )
 
+/**
+ * Shared create/edit schema for dashboard event type forms and API routes.
+ * Defaults mirror the database-backed MVP scheduling constraints.
+ */
 export const eventTypeSchema = z.object({
   title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
   slug: eventTypeSlugSchema,

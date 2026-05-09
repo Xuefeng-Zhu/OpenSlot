@@ -25,6 +25,11 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+/**
+ * Builds the guest-facing confirmation email for a confirmed booking.
+ * User-provided values are escaped for HTML while the plain-text fallback keeps
+ * the same cancellation/reschedule links.
+ */
 export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails): {
   subject: string
   html: string
@@ -90,6 +95,11 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
   return { subject, html, text }
 }
 
+/**
+ * Builds the host-facing notification email for a new booking.
+ * Includes guest contact details and escapes interpolated values before placing
+ * them in the HTML template.
+ */
 export function bookingNotificationHostTemplate(details: BookingTemplateDetails): {
   subject: string
   html: string
@@ -136,6 +146,11 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
   return { subject, html, text }
 }
 
+/**
+ * Builds a cancellation notice for either party.
+ * The recipient controls which person is described as the counterparty while
+ * preserving one shared template shape for guest and host emails.
+ */
 export function cancellationTemplate(
   details: BookingTemplateDetails,
   recipient: 'guest' | 'host'

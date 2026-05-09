@@ -1,5 +1,8 @@
 import { z } from 'zod'
 
+/**
+ * Tenant-facing webhook event names supported by endpoint subscriptions.
+ */
 export const webhookEventTypes = [
   '*',
   'booking.confirmed',
@@ -7,6 +10,11 @@ export const webhookEventTypes = [
   'booking.rescheduled',
 ] as const
 
+/**
+ * Create schema for webhook endpoints managed from settings.
+ * The endpoint secret is generated server-side and is intentionally not accepted
+ * from the client payload.
+ */
 export const webhookEndpointSchema = z.object({
   url: z
     .string()
@@ -21,6 +29,11 @@ export const webhookEndpointSchema = z.object({
     .max(20, 'Too many webhook events'),
 })
 
+/**
+ * Partial update schema for webhook endpoints.
+ * Requires at least one field so empty PATCH requests cannot be treated as
+ * successful no-op writes.
+ */
 export const updateWebhookEndpointSchema = webhookEndpointSchema
   .partial()
   .extend({

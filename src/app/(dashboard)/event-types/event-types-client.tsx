@@ -35,6 +35,11 @@ interface EventTypesClientProps {
   initialEventTypes: DashboardEventType[];
 }
 
+/**
+ * Dashboard event type list with client-side filtering and delete confirmation.
+ * Successful deletes update local state immediately, then refresh server data so
+ * related dashboard surfaces stay in sync.
+ */
 export function EventTypesClient({
   initialEventTypes,
 }: EventTypesClientProps) {

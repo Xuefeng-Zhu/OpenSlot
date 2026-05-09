@@ -11,6 +11,11 @@ import {
 } from '@/lib/idempotency/request-idempotency'
 import type { Json } from '@/lib/types/database'
 
+/**
+ * Reschedules a booking from a new hold and the original reschedule token.
+ * Supports idempotency so browser retries do not create duplicate replacement
+ * bookings or replay side effects with a different request body.
+ */
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null

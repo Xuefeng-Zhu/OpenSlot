@@ -119,6 +119,10 @@ export async function PATCH(
   }
 }
 
+/**
+ * Deletes a webhook endpoint only when it belongs to the authenticated profile.
+ * The route does not return whether a missing id belonged to another user.
+ */
 export async function DELETE(
   _request: NextRequest,
   { params }: WebhookEndpointRouteProps

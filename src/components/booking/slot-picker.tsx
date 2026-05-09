@@ -116,6 +116,11 @@ function getBrowserTimezone(): string {
   }
 }
 
+/**
+ * Public booking flow for choosing a date/time, creating a short-lived hold, and
+ * rendering the booking or reschedule form. Slot and hold failures refresh the
+ * available-slot list so guests do not continue from stale availability.
+ */
 export function SlotPicker({
   eventType,
   hostProfile,

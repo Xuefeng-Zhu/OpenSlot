@@ -94,6 +94,11 @@ function firstFieldErrors(
   return nextErrors;
 }
 
+/**
+ * Create/edit form for event types with local preview state and shared API schema
+ * validation. Server field errors are mapped back onto the same form fields used
+ * for client-side validation.
+ */
 export function EventTypeEditor({
   mode,
   hostName,

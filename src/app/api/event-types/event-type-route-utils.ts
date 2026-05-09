@@ -62,10 +62,16 @@ export async function getAuthenticatedProfile(
   return { ok: true, profile }
 }
 
+/**
+ * Parses unknown JSON using the shared event type schema.
+ */
 export function parseEventTypeBody(body: unknown) {
   return eventTypeSchema.safeParse(body)
 }
 
+/**
+ * Converts Zod event type errors into the field-error shape returned by routes.
+ */
 export function eventTypeFieldErrors(
   error: z.ZodError<EventTypeFormValues>
 ) {

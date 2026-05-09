@@ -1,6 +1,11 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+/**
+ * Refreshes Supabase auth cookies and protects dashboard routes at the edge.
+ * When Supabase env vars are missing, public pages still render but dashboard
+ * requests are sent to login instead of failing during client creation.
+ */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -58,6 +63,10 @@ export async function proxy(request: NextRequest) {
   return response
 }
 
+/**
+ * Applies session refresh and dashboard protection to app routes while skipping
+ * static assets and optimized image requests.
+ */
 export const config = {
   matcher: [
     /*

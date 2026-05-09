@@ -2,6 +2,11 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/lib/types/database'
 
+/**
+ * Creates a request-scoped Supabase client for Server Components and routes.
+ * Cookie writes can be ignored in pure Server Components because the proxy also
+ * refreshes sessions for navigations.
+ */
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies()
 

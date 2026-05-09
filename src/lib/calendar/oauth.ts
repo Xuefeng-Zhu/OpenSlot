@@ -1,3 +1,6 @@
+/**
+ * Calendar providers supported by OpenSlot OAuth and sync flows.
+ */
 export const calendarProviders = ['google', 'microsoft'] as const
 
 export type CalendarProvider = (typeof calendarProviders)[number]

@@ -37,6 +37,10 @@ async function getAuthenticatedProfileId() {
   return { ok: true as const, profileId: (profile as { id: string }).id }
 }
 
+/**
+ * Returns safe webhook endpoint summaries for the authenticated profile.
+ * Signing secrets are deliberately omitted after creation.
+ */
 export async function GET() {
   try {
     const auth = await getAuthenticatedProfileId()
