@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Menu, X } from 'lucide-react'
+import { AppIcon } from '@/components/shared/app-icon'
 import { Button } from '@/components/ui/button'
 
 const navLinks = [
@@ -25,22 +26,7 @@ export function Navbar() {
           href="/"
           className="flex items-center text-xl font-bold text-foreground"
         >
-          <svg
-            className="mr-2 h-7 w-7"
-            viewBox="0 0 28 28"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <rect width="28" height="28" rx="6" className="fill-primary" />
-            <path
-              d="M8 14.5L12 18.5L20 10.5"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <AppIcon className="mr-2 h-7 w-7" />
           OpenSlot
         </Link>
 

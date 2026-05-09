@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { AppIcon } from '@/components/shared/app-icon'
 import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
 
@@ -64,22 +65,7 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
           href="/dashboard"
           className="flex items-center text-xl font-bold text-foreground"
         >
-          <svg
-            className="mr-2 h-7 w-7"
-            viewBox="0 0 28 28"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            aria-hidden="true"
-          >
-            <rect width="28" height="28" rx="6" className="fill-primary" />
-            <path
-              d="M8 14.5L12 18.5L20 10.5"
-              stroke="white"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          <AppIcon className="mr-2 h-7 w-7" />
           OpenSlot
         </Link>
       </div>
