@@ -7,6 +7,11 @@ interface WebhookEndpointRouteProps {
   params: Promise<{ id: string }>
 }
 
+/**
+ * Resolves the current session to a profile id for endpoint ownership checks.
+ * Route handlers pair this with service-role writes so callers cannot update or
+ * delete another profile's webhook endpoint by guessing an id.
+ */
 async function getAuthenticatedProfileId() {
   const supabase = await createServerSupabaseClient()
   const {
@@ -31,6 +36,11 @@ async function getAuthenticatedProfileId() {
   return { ok: true as const, profileId: (profile as { id: string }).id }
 }
 
+/**
+ * Applies a partial webhook endpoint update scoped to the current profile.
+ * Undefined fields are ignored, while nullable description values normalize to
+ * the empty string used by the database/UI contract.
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: WebhookEndpointRouteProps

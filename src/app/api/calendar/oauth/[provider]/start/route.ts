@@ -16,6 +16,11 @@ interface CalendarOAuthRouteContext {
   params: Promise<{ provider: string }>
 }
 
+/**
+ * Starts the calendar OAuth flow for the signed-in host.
+ * Stores provider, profile, and random state in an HTTP-only cookie so the
+ * callback can reject cross-profile or replayed authorization responses.
+ */
 export async function GET(
   request: NextRequest,
   { params }: CalendarOAuthRouteContext
