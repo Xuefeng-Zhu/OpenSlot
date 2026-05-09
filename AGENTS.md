@@ -320,6 +320,7 @@ See [docs/release.md](docs/release.md).
 
 - [docs/product-overview.md](docs/product-overview.md)
 - [docs/architecture.md](docs/architecture.md)
+- [docs/system-design-gaps.md](docs/system-design-gaps.md)
 - [docs/development.md](docs/development.md)
 - [docs/testing.md](docs/testing.md)
 - [docs/security.md](docs/security.md)
