@@ -19,7 +19,7 @@ export function TopBar({ title, onMenuToggle, user }: TopBarProps) {
   const displayName = user?.name || 'User'
 
   return (
-    <header className={cn('flex items-center justify-between border-b border-border bg-card px-6 py-3')}>
+    <header className={cn('flex shrink-0 items-center justify-between border-b border-border bg-card px-6 py-3')}>
       <div className="flex items-center gap-3">
         {onMenuToggle && (
           <Button

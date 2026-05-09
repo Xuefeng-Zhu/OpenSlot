@@ -57,7 +57,7 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
   }
 
   return (
-    <aside className="flex h-full w-64 flex-col border-r bg-card">
+    <aside className="flex h-full min-h-0 w-64 flex-col overflow-y-auto border-r bg-card">
       {/* Logo */}
       <div className="p-6 pb-4">
         <Link
