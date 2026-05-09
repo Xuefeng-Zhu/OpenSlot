@@ -44,7 +44,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 ## Test Organization
 
 - Unit and property tests live in `__tests__` directories near source files.
-- `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, and booking windows.
+- `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, booking windows, and external busy windows.
 - `src/lib/booking/__tests__/` covers confirmation, cancellation, and rescheduling engines with mocked Supabase chains.
 - `src/lib/booking/__tests__/events.test.ts` covers booking audit event append behavior.
 - `src/lib/idempotency/__tests__/` covers request hashing, duplicate replay, and key-conflict behavior.
@@ -61,7 +61,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/app/api/calendar/sync/__tests__/` covers calendar sync worker trigger authorization and batch options.
 - `src/app/api/settings/__tests__/` covers authenticated settings persistence and account deletion.
 - `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC and conflict mapping.
-- `src/app/api/slots/__tests__/` covers service-role slot reads and active host/event scoping.
+- `src/app/api/slots/__tests__/` covers service-role slot reads, active host/event scoping, and external busy-cache filtering.
 - `src/lib/validations/__tests__/` covers Zod schemas.
 - `src/components/ui/__tests__/` covers accessibility and focus behavior.
 - Dashboard/public page property tests cover rendering invariants and UI helpers.

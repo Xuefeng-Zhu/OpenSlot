@@ -72,6 +72,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const conflictLookupRange = paddedConflictLookupRange(
+      date,
+      eventType.buffer_before_minutes,
+      eventType.buffer_after_minutes
+    )
+
     // Fetch active availability rules for the host
     const { data: rulesData, error: rulesError } = await supabase
       .from('availability_rules')
@@ -101,18 +107,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch confirmed bookings for the host that overlap with the requested date.
-    // We query bookings whose time range intersects the day (date 00:00 to date+1 00:00 UTC).
-    // Using a generous range to account for timezone differences and buffers.
-    const dayStart = `${date}T00:00:00Z`
-    const dayEnd = `${date}T23:59:59Z`
-
+    // The lookup range is padded for timezone boundaries and event buffers.
     const { data: bookingsData, error: bookingsError } = await supabase
       .from('bookings')
       .select('start_at, end_at')
       .eq('host_user_id', hostUserId)
       .eq('status', 'confirmed')
-      .lte('start_at', dayEnd)
-      .gte('end_at', dayStart)
+      .lte('start_at', conflictLookupRange.end)
+      .gte('end_at', conflictLookupRange.start)
 
     if (bookingsError) {
       return NextResponse.json(
@@ -131,12 +133,28 @@ export async function GET(request: NextRequest) {
       .eq('host_user_id', hostUserId)
       .eq('status', 'active')
       .gt('expires_at', nowISO)
-      .lte('start_at', dayEnd)
-      .gte('end_at', dayStart)
+      .lte('start_at', conflictLookupRange.end)
+      .gte('end_at', conflictLookupRange.start)
 
     if (holdsError) {
       return NextResponse.json(
         { error: 'Failed to fetch slot holds' },
+        { status: 500 }
+      )
+    }
+
+    // Fetch synced provider busy windows for the same conflict lookup range.
+    const { slots: externalBusySlots, error: externalBusyError } =
+      await fetchExternalBusySlots({
+        supabase,
+        hostUserId,
+        rangeStart: conflictLookupRange.start,
+        rangeEnd: conflictLookupRange.end,
+      })
+
+    if (externalBusyError) {
+      return NextResponse.json(
+        { error: externalBusyError },
         { status: 500 }
       )
     }
@@ -198,7 +216,8 @@ export async function GET(request: NextRequest) {
       availabilityRules,
       availabilityOverrides,
       existingBookings,
-      activeHolds
+      activeHolds,
+      externalBusySlots
     )
 
     return NextResponse.json({ slots })
@@ -208,5 +227,100 @@ export async function GET(request: NextRequest) {
       { error: 'Internal server error' },
       { status: 500 }
     )
+  }
+}
+
+async function fetchExternalBusySlots({
+  supabase,
+  hostUserId,
+  rangeStart,
+  rangeEnd,
+}: {
+  supabase: ReturnType<typeof createAdminClient>
+  hostUserId: string
+  rangeStart: string
+  rangeEnd: string
+}): Promise<{ slots: TimeSlot[]; error: string | null }> {
+  const { data: connectionsData, error: connectionsError } = await supabase
+    .from('provider_connections')
+    .select('id')
+    .eq('profile_id', hostUserId)
+    .eq('status', 'active')
+
+  if (connectionsError) {
+    return { slots: [], error: 'Failed to fetch calendar connections' }
+  }
+
+  const connectionIds = (
+    (connectionsData ?? []) as Pick<Tables<'provider_connections'>, 'id'>[]
+  ).map((connection) => connection.id)
+
+  if (connectionIds.length === 0) {
+    return { slots: [], error: null }
+  }
+
+  const { data: calendarsData, error: calendarsError } = await supabase
+    .from('provider_calendars')
+    .select('id')
+    .in('connection_id', connectionIds)
+    .eq('use_for_availability', true)
+
+  if (calendarsError) {
+    return { slots: [], error: 'Failed to fetch availability calendars' }
+  }
+
+  const calendarIds = (
+    (calendarsData ?? []) as Pick<Tables<'provider_calendars'>, 'id'>[]
+  ).map((calendar) => calendar.id)
+
+  if (calendarIds.length === 0) {
+    return { slots: [], error: null }
+  }
+
+  const { data: busyData, error: busyError } = await supabase
+    .from('external_busy_cache')
+    .select('start_at, end_at')
+    .in('provider_calendar_id', calendarIds)
+    .lte('start_at', rangeEnd)
+    .gte('end_at', rangeStart)
+
+  if (busyError) {
+    return { slots: [], error: 'Failed to fetch external calendar busy times' }
+  }
+
+  const busyRows = (busyData ?? []) as Pick<
+    Tables<'external_busy_cache'>,
+    'start_at' | 'end_at'
+  >[]
+
+  return {
+    slots: busyRows.map((busy) => ({
+      start: busy.start_at,
+      end: busy.end_at,
+    })),
+    error: null,
+  }
+}
+
+function paddedConflictLookupRange(
+  date: string,
+  bufferBeforeMinutes: number,
+  bufferAfterMinutes: number
+): { start: string; end: string } {
+  const dayStart = new Date(`${date}T00:00:00.000Z`)
+  const dayEnd = new Date(`${date}T23:59:59.999Z`)
+  const timezonePaddingMs = 24 * 60 * 60 * 1000
+
+  return {
+    start: new Date(
+      dayStart.getTime() -
+        timezonePaddingMs -
+        bufferBeforeMinutes * 60 * 1000
+    ).toISOString(),
+    end: new Date(
+      dayEnd.getTime() +
+        timezonePaddingMs +
+        bufferAfterMinutes * 60 * 1000
+    ).toISOString(),
   }
 }

@@ -10,7 +10,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Profile settings with public username and default timezone.
 - Public host profile page at `/<username>`.
 - Public event booking page at `/<username>/<eventSlug>`.
-- Guest slot selection with timezone display.
+- Guest slot selection with timezone display and connected-calendar conflict checks.
 - Five-minute slot holds before confirmation.
 - Confirmed bookings with database-level anti-double-booking.
 - Idempotent booking confirmation, cancellation, and rescheduling retries when clients provide an idempotency key.
@@ -31,8 +31,8 @@ These areas have important implementation notes:
 | --- | --- |
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
 | Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo. |
-| Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, and provider event writes exist. Provider watch/subscription renewal and callback handlers are not implemented yet. |
-| Provider availability | Provider busy-cache rows are synced, but slot computation does not yet consume `external_busy_cache`. |
+| Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, provider availability conflict checks, and provider event writes exist. Provider watch/subscription renewal and callback handlers are not implemented yet. |
+| Provider availability | Synced `external_busy_cache` rows are consumed by public slot computation for calendars marked `use_for_availability`. |
 
 Keep these boundaries explicit when adding user-facing docs or release notes.
 
