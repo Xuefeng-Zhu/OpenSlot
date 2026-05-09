@@ -12,18 +12,20 @@ import {
   sendCancellationEmail,
 } from '../send'
 import type { BookingDetails } from '../send'
-import { ConsoleEmailProvider, ResendEmailProvider } from '../provider'
+import { ConsoleEmailProvider, MailerooEmailProvider, ResendEmailProvider } from '../provider'
 
 const originalEmailEnv = {
   EMAIL_PROVIDER: process.env.EMAIL_PROVIDER,
   EMAIL_FROM: process.env.EMAIL_FROM,
   RESEND_API_KEY: process.env.RESEND_API_KEY,
+  MAILEROO_API_KEY: process.env.MAILEROO_API_KEY,
 }
 
 afterEach(() => {
   process.env.EMAIL_PROVIDER = originalEmailEnv.EMAIL_PROVIDER
   process.env.EMAIL_FROM = originalEmailEnv.EMAIL_FROM
   process.env.RESEND_API_KEY = originalEmailEnv.RESEND_API_KEY
+  process.env.MAILEROO_API_KEY = originalEmailEnv.MAILEROO_API_KEY
   vi.unstubAllGlobals()
 })
 
@@ -253,6 +255,94 @@ describe('ResendEmailProvider', () => {
   })
 })
 
+describe('MailerooEmailProvider', () => {
+  it('sends email through the Maileroo API', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          success: true,
+          message: 'The email has been scheduled for delivery.',
+          data: { reference_id: 'c843204e3af03193bd14f339' },
+        }),
+        { status: 200 }
+      )
+    )
+    const provider = new MailerooEmailProvider(
+      'maileroo-key',
+      'OpenSlot <bookings@example.com>',
+      fetchImpl as typeof fetch
+    )
+
+    const result = await provider.send({
+      to: 'test@example.com',
+      subject: 'Test Subject',
+      html: '<p>Hello</p>',
+      text: 'Hello',
+      idempotencyKey: 'email-key',
+    })
+
+    expect(result).toEqual({ success: true })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://smtp.maileroo.com/api/v2/emails',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          Authorization: 'Bearer maileroo-key',
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          from: {
+            address: 'bookings@example.com',
+            display_name: 'OpenSlot',
+          },
+          to: [{ address: 'test@example.com' }],
+          subject: 'Test Subject',
+          html: '<p>Hello</p>',
+          plain: 'Hello',
+          reference_id: 'c247c9a162a54b48a44d1be6',
+        }),
+      })
+    )
+  })
+
+  it('returns provider errors without throwing', async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          success: false,
+          message: 'The sender domain is not verified.',
+        }),
+        { status: 422 }
+      )
+    )
+    const provider = new MailerooEmailProvider(
+      'maileroo-key',
+      'bookings@example.com',
+      fetchImpl as typeof fetch
+    )
+
+    await expect(
+      provider.send({
+        to: 'test@example.com',
+        subject: 'Test Subject',
+        html: '<p>Hello</p>',
+        text: 'Hello',
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: 'The sender domain is not verified.',
+    })
+  })
+
+  it('is selected when EMAIL_PROVIDER is maileroo', () => {
+    process.env.EMAIL_PROVIDER = 'maileroo'
+    process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
+    process.env.MAILEROO_API_KEY = 'maileroo-key'
+
+    expect(getEmailProvider()).toBeInstanceOf(MailerooEmailProvider)
+  })
+})
+
 describe('Email Send Functions', () => {
   let consoleSpy: ReturnType<typeof vi.spyOn>
 
@@ -300,6 +390,28 @@ describe('Email Send Functions', () => {
           method: 'POST',
           headers: expect.objectContaining({
             Authorization: 'Bearer resend-key',
+          }),
+        })
+      )
+    })
+
+    it('uses the configured Maileroo provider', async () => {
+      process.env.EMAIL_PROVIDER = 'maileroo'
+      process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
+      process.env.MAILEROO_API_KEY = 'maileroo-key'
+      const fetchMock = vi.fn(async () =>
+        new Response(JSON.stringify({ success: true }), { status: 200 })
+      )
+      vi.stubGlobal('fetch', fetchMock)
+
+      await sendBookingConfirmationToGuest(sampleBookingDetails)
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://smtp.maileroo.com/api/v2/emails',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            Authorization: 'Bearer maileroo-key',
           }),
         })
       )

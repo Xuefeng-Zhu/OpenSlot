@@ -7,7 +7,7 @@
  */
 
 import type { EmailProvider, EmailPayload } from './provider'
-import { ConsoleEmailProvider, ResendEmailProvider } from './provider'
+import { ConsoleEmailProvider, MailerooEmailProvider, ResendEmailProvider } from './provider'
 import {
   bookingConfirmationGuestTemplate,
   bookingNotificationHostTemplate,
@@ -51,6 +51,21 @@ export function getEmailProvider(): EmailProvider {
     }
 
     return new ResendEmailProvider(apiKey, from)
+  }
+
+  if (process.env.EMAIL_PROVIDER === 'maileroo') {
+    const apiKey = process.env.MAILEROO_API_KEY
+    const from = process.env.EMAIL_FROM
+
+    if (!apiKey) {
+      throw new Error('MAILEROO_API_KEY is not configured')
+    }
+
+    if (!from) {
+      throw new Error('EMAIL_FROM is not configured')
+    }
+
+    return new MailerooEmailProvider(apiKey, from)
   }
 
   return new ConsoleEmailProvider()

@@ -103,6 +103,7 @@ There is no committed CI workflow. Vercel worker cron config exists in `vercel.j
    EMAIL_PROVIDER=console
    EMAIL_FROM="OpenSlot <bookings@example.com>"
    RESEND_API_KEY=...
+   MAILEROO_API_KEY=...
    ```
 
 4. Apply database migrations using Supabase CLI or the SQL editor:
@@ -218,7 +219,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/webhooks/endpoints.ts`: returns safe webhook endpoint summaries without exposing signing secrets.
 - `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
-- `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend when configured.
+- `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend or Maileroo when configured.
 - `src/lib/supabase/admin.ts`: service role client. Never use this from client components.
 - `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
 
@@ -246,7 +247,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - There is no client-side offline persistence.
 - Calendar provider tokens and webhook secrets are stored only in server-only tables without direct anon/authenticated grants.
 - Calendar OAuth tokens are encrypted before storage with `CALENDAR_TOKEN_ENCRYPTION_SECRET`.
-- Emails are logged to the console by default; `EMAIL_PROVIDER=resend` enables production sends through Resend.
+- Emails are logged to the console by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo.
 
 ## Security and Privacy Considerations
 
