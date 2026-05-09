@@ -114,6 +114,7 @@ This comes from jsdom when a test triggers browser navigation. It is currently n
 
 ## Related Docs
 
+- [Manual E2E Testing](e2e-testing.md)
 - [Development](development.md)
 - [Architecture](architecture.md)
 - [Troubleshooting](troubleshooting.md)
