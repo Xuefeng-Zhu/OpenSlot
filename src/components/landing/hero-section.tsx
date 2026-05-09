@@ -62,7 +62,7 @@ export function HeroSection() {
         </div>
 
         {/* Right column - Product preview */}
-        <div className="relative">
+        <div id="demo" className="relative scroll-mt-24" aria-label="OpenSlot booking page preview">
           {/* No double-booking badge */}
           <div className="absolute -top-3 -right-3 z-10 flex items-center gap-1.5 rounded-full bg-card border border-border px-3 py-1.5 shadow-md">
             <svg className="h-4 w-4 text-success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
