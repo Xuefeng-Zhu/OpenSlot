@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Check, Eye, EyeOff } from "lucide-react";
+import { ArrowRight, Check, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { AppIcon } from "@/components/shared/app-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,26 +62,34 @@ export default function SignupPage() {
     setErrors({});
     setLoading(true);
 
-    const supabase = createClient();
+    try {
+      const supabase = createClient();
 
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
+      const { error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
         },
-      },
-    });
+      });
 
-    if (signUpError) {
-      setErrors({ general: "Unable to create account. Please try again." });
+      if (signUpError) {
+        setErrors({ general: "Unable to create account. Please try again." });
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setErrors({
+        general:
+          "Account creation is unavailable. Check the app configuration and try again.",
+      });
+    } finally {
       setLoading(false);
-      return;
     }
-
-    router.push("/dashboard");
-    router.refresh();
   }
 
   return (
@@ -121,7 +130,10 @@ export default function SignupPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             {errors.general && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
                 {errors.general}
               </div>
             )}
@@ -129,11 +141,10 @@ export default function SignupPage() {
             <div className="space-y-2">
               <Label htmlFor="fullName">Full name</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14a6 6 0 0112 0H2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
+                <User
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <Input
                   id="fullName"
                   type="text"
@@ -156,11 +167,10 @@ export default function SignupPage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email address</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path d="M2 4l6 4 6-4M2 4v8h12V4H2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                </span>
+                <Mail
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <Input
                   id="email"
                   type="email"
@@ -183,12 +193,10 @@ export default function SignupPage() {
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
-                    <path d="M5 7V5a3 3 0 016 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </span>
+                <Lock
+                  className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden="true"
+                />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
@@ -232,7 +240,14 @@ export default function SignupPage() {
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Creating account..." : "Create account →"}
+              {loading ? (
+                "Creating account..."
+              ) : (
+                <>
+                  Create account
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </>
+              )}
             </Button>
 
             <p className="text-center text-xs text-muted-foreground">
@@ -260,117 +275,7 @@ export default function SignupPage() {
         </div>
       </div>
 
-      {/* Right column - Brand panel (hidden on mobile) */}
-      <div className="hidden lg:flex flex-1 flex-col items-center justify-center bg-accent p-12 relative overflow-hidden">
-        <div className="flex max-w-lg flex-col items-center text-center space-y-6">
-          {/* Tagline */}
-          <p className="text-sm font-medium text-primary flex items-center gap-1.5">
-            <span aria-hidden="true">✨</span> The open way to schedule
-          </p>
-
-          {/* Headline */}
-          <h2 className="text-4xl font-bold text-foreground leading-tight">
-            Scheduling that stays{" "}
-            <span className="text-primary">open.</span>
-          </h2>
-
-          <p className="text-muted-foreground">
-            Share your availability. Prevent double-booking.
-            Let others book time that works for everyone—
-            automatically, across time zones.
-          </p>
-
-          {/* Mock booking preview */}
-          <div className="w-full rounded-xl border border-border bg-card p-5 shadow-sm">
-            <div className="grid grid-cols-3 gap-4">
-              {/* Host info */}
-              <div className="space-y-2">
-                <div className="h-10 w-10 rounded-full bg-muted" aria-hidden="true" />
-                <div className="text-xs font-medium text-foreground">Sarah Chen</div>
-                <div className="text-[10px] text-muted-foreground">Product Designer</div>
-                <div className="mt-2 space-y-1">
-                  <div className="text-[10px] text-muted-foreground">⏱ 30 min</div>
-                  <div className="text-[10px] text-muted-foreground">One-on-one meeting</div>
-                  <div className="text-[10px] text-muted-foreground">🌐 Timezone</div>
-                  <div className="text-[10px] text-muted-foreground">America/Los Angeles (PDT)</div>
-                </div>
-              </div>
-
-              {/* Calendar */}
-              <div>
-                <div className="text-[10px] font-medium mb-1">May 2026</div>
-                <div className="grid grid-cols-7 gap-px text-[8px]">
-                  {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                    <div key={i} className="h-4 flex items-center justify-center text-muted-foreground">{d}</div>
-                  ))}
-                  {Array.from({ length: 28 }, (_, i) => (
-                    <div
-                      key={i}
-                      className={`h-4 flex items-center justify-center rounded-full ${
-                        i === 12 ? 'bg-primary text-primary-foreground' :
-                        i === 10 || i === 11 ? 'text-primary font-medium' :
-                        'text-foreground'
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {i + 1}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Time slots */}
-              <div>
-                <div className="text-[10px] font-medium mb-1">Available times</div>
-                <div className="space-y-1">
-                  {['9:00 AM', '10:00 AM', '11:00 AM', '1:00 PM', '2:00 PM', '3:00 PM'].map((time, i) => (
-                    <div
-                      key={time}
-                      className={`h-5 flex items-center justify-center rounded text-[9px] ${
-                        i === 0 ? 'bg-primary text-primary-foreground' : 'border border-border text-foreground'
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {time}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Feature badges */}
-          <div className="grid grid-cols-3 gap-3 w-full">
-            <div className="text-center">
-              <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-13a.75.75 0 00-1.5 0v5c0 .414.336.75.75.75h4a.75.75 0 000-1.5h-3.25V5z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-medium text-foreground">Timezone aware</p>
-              <p className="text-[9px] text-muted-foreground">We detect timezones automatically</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
-                <svg className="h-4 w-4 text-success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.06l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-medium text-foreground">Prevent double-booking</p>
-              <p className="text-[9px] text-muted-foreground">Keep your schedule conflict-free</p>
-            </div>
-            <div className="text-center">
-              <div className="mx-auto mb-1.5 flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
-                <svg className="h-4 w-4 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path d="M10 2a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 2zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15z" />
-                </svg>
-              </div>
-              <p className="text-[10px] font-medium text-foreground">Share your availability</p>
-              <p className="text-[9px] text-muted-foreground">Create your OpenSlot in seconds</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AuthBrandPanel />
     </div>
   );
 }
