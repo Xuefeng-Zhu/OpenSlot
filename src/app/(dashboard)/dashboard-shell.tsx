@@ -20,7 +20,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
     <div className="flex h-screen overflow-hidden">
       {/* Desktop sidebar - hidden on mobile/tablet */}
       <div className="hidden min-h-0 lg:flex">
-        <SidebarNav user={{ name: user.name, email: user.email }} />
+        <SidebarNav />
       </div>
 
       {/* Mobile drawer - visible only on mobile/tablet */}
@@ -35,7 +35,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
         <TopBar
           title="Dashboard"
           onMenuToggle={() => setDrawerOpen(true)}
-          user={{ name: user.name }}
+          user={{ name: user.name, email: user.email }}
         />
         <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
       </div>

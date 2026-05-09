@@ -7,6 +7,7 @@ import {
   Clock,
   Globe,
   FileText,
+  X,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,6 +79,14 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
   const [eventTypeFilter, setEventTypeFilter] = useState("");
 
   const categorized = useMemo(() => categorizeBookings(bookings), [bookings]);
+
+  const eventTypeOptions = useMemo(() => {
+    const titles = bookings
+      .map((booking) => booking.event_type_title)
+      .filter(Boolean);
+
+    return Array.from(new Set(titles)).sort((a, b) => a.localeCompare(b));
+  }, [bookings]);
 
   const filteredBookings = useMemo(() => {
     const categoryBookings = categorized[activeTab];
@@ -176,19 +185,45 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
         </TabsList>
 
         {/* Filter bar */}
-        <div className="flex flex-col sm:flex-row gap-3 mt-4">
-          <div className="flex-1">
-            <Label htmlFor="event-type-filter" className="sr-only">
+        <div className="mt-4 flex flex-wrap items-end gap-2">
+          <div className="w-full max-w-xs sm:w-72">
+            <Label
+              htmlFor="event-type-filter"
+              className="mb-1 block text-xs font-medium text-muted-foreground"
+            >
               Event type
             </Label>
             <Input
               id="event-type-filter"
+              list="event-type-filter-options"
               value={eventTypeFilter}
               onChange={(e) => setEventTypeFilter(e.target.value)}
-              placeholder="Filter by event type..."
+              placeholder={
+                eventTypeOptions.length > 0
+                  ? "Search event types..."
+                  : "No event types to filter"
+              }
               aria-label="Filter by event type"
+              autoComplete="off"
+              disabled={eventTypeOptions.length === 0}
             />
+            <datalist id="event-type-filter-options">
+              {eventTypeOptions.map((title) => (
+                <option key={title} value={title} />
+              ))}
+            </datalist>
           </div>
+          {eventTypeFilter && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear event type filter"
+              onClick={() => setEventTypeFilter("")}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
         </div>
 
         <TabsContent value="upcoming">

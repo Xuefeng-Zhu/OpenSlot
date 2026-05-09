@@ -11,9 +11,9 @@ vi.mock('next/navigation', () => ({
 }))
 
 describe('SidebarNav', () => {
-  it('keeps desktop sidebar content reachable on short viewports', () => {
+  it('keeps desktop sidebar navigation reachable on short viewports without duplicating account identity', () => {
     const { container } = render(
-      <SidebarNav user={{ name: 'Jane Doe', email: 'jane@example.com' }} />
+      <SidebarNav />
     )
 
     const sidebar = container.querySelector('aside')
@@ -21,6 +21,7 @@ describe('SidebarNav', () => {
     expect(sidebar?.classList.contains('min-h-0')).toBe(true)
     expect(sidebar?.classList.contains('overflow-y-auto')).toBe(true)
     expect(screen.getByRole('navigation', { name: 'Dashboard navigation' })).toBeDefined()
-    expect(screen.getByText('Jane Doe')).toBeDefined()
+    expect(screen.queryByText('Jane Doe')).toBeNull()
+    expect(screen.queryByText('jane@example.com')).toBeNull()
   })
 })
