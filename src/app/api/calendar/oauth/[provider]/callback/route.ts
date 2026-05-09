@@ -27,6 +27,12 @@ interface OAuthStateCookie {
 
 type ProviderConnectionRow = Tables<'provider_connections'>
 
+/**
+ * Handles the OAuth provider callback for a calendar connection.
+ * Validates the signed-in profile against the short-lived state cookie, stores
+ * encrypted provider tokens, and immediately syncs calendars before redirecting
+ * back to settings with a compact status marker.
+ */
 export async function GET(
   request: NextRequest,
   { params }: CalendarOAuthRouteContext
@@ -106,6 +112,11 @@ export async function GET(
   }
 }
 
+/**
+ * Creates or refreshes a calendar provider connection for one external account.
+ * Providers may omit refresh_token on subsequent grants, so existing refresh
+ * credentials are preserved unless a new token is explicitly returned.
+ */
 async function upsertProviderConnection({
   adminClient,
   provider,
@@ -179,6 +190,11 @@ async function upsertProviderConnection({
   return data as ProviderConnectionRow
 }
 
+/**
+ * Redirects back to settings and clears the one-time OAuth state cookie.
+ * The detail value is bounded before it reaches the URL so provider errors do
+ * not create oversized redirects.
+ */
 function redirectToSettings(
   request: NextRequest,
   calendar: string,
@@ -199,6 +215,11 @@ function redirectToSettings(
   return response
 }
 
+/**
+ * Decodes and validates the OAuth state cookie payload.
+ * Invalid JSON, unsupported providers, or incomplete state values all collapse
+ * to null so the callback can use one invalid-state response path.
+ */
 function parseStateCookie(value?: string): OAuthStateCookie | null {
   if (!value) return null
 

@@ -3,11 +3,20 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { processOutboxBatch } from '@/lib/outbox/process'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
+/**
+ * Processes queued outbox events from a worker POST body.
+ * The route is secret-protected because handlers can send email, write calendar
+ * events, and enqueue tenant webhook deliveries.
+ */
 export async function POST(request: NextRequest) {
   const body = await safeJson(request)
   return runOutboxProcessor(request, body)
 }
 
+/**
+ * Processes queued outbox events from cron/query-string parameters.
+ * Provides the same worker behavior as POST for hosts that can only schedule GETs.
+ */
 export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams
   const limitParam = searchParams.get('limit')

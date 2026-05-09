@@ -22,6 +22,11 @@ type SafeWebhookEndpointRow = Pick<
   | 'updated_at'
 >
 
+/**
+ * Lists webhook endpoints for dashboard management.
+ * Only safe presentation fields are selected; signing secrets stay server-only
+ * and are never included in the returned summaries.
+ */
 export async function listWebhookEndpointSummaries(
   adminClient: SupabaseClient<Database>,
   profileId: string
@@ -41,6 +46,10 @@ export async function listWebhookEndpointSummaries(
   )
 }
 
+/**
+ * Converts a safe webhook endpoint row from database naming to API/UI naming.
+ * Expects the caller to pass a row that has already excluded secret_token.
+ */
 export function toWebhookEndpointSummary(
   endpoint: SafeWebhookEndpointRow
 ): WebhookEndpointSummary {

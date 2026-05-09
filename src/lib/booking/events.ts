@@ -15,6 +15,11 @@ export interface AppendBookingEventInput {
   payload?: Json
 }
 
+/**
+ * Appends a durable audit event for a booking lifecycle transition.
+ * This is intentionally best-effort and returns false on write failure so the
+ * primary booking mutation does not roll back after it has already succeeded.
+ */
 export async function appendBookingEvent(
   adminClient: SupabaseClient<Database>,
   event: AppendBookingEventInput

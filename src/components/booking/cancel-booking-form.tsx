@@ -32,6 +32,11 @@ type CancelState =
   | "already-cancelled"
   | "error";
 
+/**
+ * Guest-facing cancellation form authorized by a cancellation token.
+ * Uses one idempotency key for the mounted form so repeated submits or browser
+ * retries resolve to the same cancellation result.
+ */
 export function CancelBookingForm({
   bookingId,
   cancellationToken,

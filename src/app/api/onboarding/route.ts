@@ -11,6 +11,11 @@ type OnboardingWriteClient = {
   from: (table: 'profiles' | 'event_types' | 'availability_rules') => any
 }
 
+/**
+ * Persists the MVP onboarding bundle for a newly signed-in host.
+ * The flow upserts the profile and starter event type, then replaces onboarding
+ * availability rules so repeated submissions produce the same baseline setup.
+ */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
@@ -40,6 +45,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Prefer service-role writes because onboarding may create the first profile
+    // before authenticated RLS policies can resolve profile ownership.
     const writeClient = (
       process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : supabase
     ) as OnboardingWriteClient

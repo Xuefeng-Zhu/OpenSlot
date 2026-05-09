@@ -8,6 +8,11 @@ import {
   parseEventTypeBody,
 } from './event-type-route-utils'
 
+/**
+ * Creates an event type owned by the authenticated profile.
+ * Slug conflicts are mapped to field-level validation errors so the editor can
+ * keep the rest of the submitted form state intact.
+ */
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

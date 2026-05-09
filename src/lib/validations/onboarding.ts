@@ -36,6 +36,11 @@ const availabilitySchema = z.object({
   sunday: dayAvailabilitySchema,
 })
 
+/**
+ * Validates the first-run setup bundle submitted by the onboarding wizard.
+ * Ensures the host has a public profile, at least one available interval, a
+ * starter event type, and a valid default timezone before any rows are written.
+ */
 export const onboardingSchema = z
   .object({
     profile: z.object({
@@ -105,6 +110,11 @@ const WEEKDAY_BY_DAY: Record<keyof OnboardingData['availability'], number> = {
   saturday: 6,
 }
 
+/**
+ * Converts the onboarding availability form into availability rule insert rows.
+ * Disabled days are omitted and enabled days may produce multiple intervals for
+ * the same weekday.
+ */
 export function buildOnboardingAvailabilityRules(
   availability: OnboardingData['availability']
 ) {
@@ -120,6 +130,9 @@ export function buildOnboardingAvailabilityRules(
   })
 }
 
+/**
+ * Generates the default event type slug created during onboarding.
+ */
 export function buildOnboardingEventSlug(title: string) {
   return generateSlug(title)
 }

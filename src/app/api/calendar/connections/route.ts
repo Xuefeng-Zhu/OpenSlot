@@ -3,6 +3,11 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { listCalendarConnectionSummaries } from '@/lib/calendar/connections'
 
+/**
+ * Returns safe calendar connection summaries for the authenticated profile.
+ * The response is dashboard-facing metadata only; encrypted OAuth credentials
+ * remain hidden in server-only tables.
+ */
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient()

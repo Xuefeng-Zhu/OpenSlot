@@ -47,6 +47,11 @@ const webhookEventOptions = [
   { value: "*", label: "All" },
 ] as const;
 
+/**
+ * Dashboard settings surface for account details, preferences, calendar status,
+ * and webhook endpoint management. Calendar connections are redirected through
+ * OAuth routes, while webhook changes are kept in local state after API writes.
+ */
 export function SettingsClient({
   initialSettings,
   calendarConnections,

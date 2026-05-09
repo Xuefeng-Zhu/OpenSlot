@@ -8,6 +8,11 @@ import {
 } from '@/lib/webhooks/endpoints'
 import type { Tables } from '@/lib/types/database'
 
+/**
+ * Resolves the current session to a profile id for webhook endpoint ownership.
+ * Mutations still use the service-role client, so every write must scope by this
+ * profile id instead of trusting client-provided ownership.
+ */
 async function getAuthenticatedProfileId() {
   const supabase = await createServerSupabaseClient()
   const {
@@ -32,6 +37,10 @@ async function getAuthenticatedProfileId() {
   return { ok: true as const, profileId: (profile as { id: string }).id }
 }
 
+/**
+ * Returns safe webhook endpoint summaries for the authenticated profile.
+ * Signing secrets are deliberately omitted after creation.
+ */
 export async function GET() {
   try {
     const auth = await getAuthenticatedProfileId()
@@ -59,6 +68,11 @@ export async function GET() {
   }
 }
 
+/**
+ * Creates a webhook endpoint for the current profile.
+ * The signing secret is returned only in this creation response; list/update
+ * endpoints intentionally expose only safe endpoint metadata.
+ */
 export async function POST(request: NextRequest) {
   try {
     const auth = await getAuthenticatedProfileId()

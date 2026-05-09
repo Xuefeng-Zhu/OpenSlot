@@ -3,11 +3,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { processWebhookDeliveriesBatch } from '@/lib/webhooks/deliveries'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
+/**
+ * Processes webhook deliveries from a worker POST body.
+ * Auth accepts WEBHOOK_PROCESS_SECRET or CRON_SECRET before claiming delivery rows.
+ */
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   return runWebhookProcessor(request, body)
 }
 
+/**
+ * Processes webhook deliveries from cron/query-string parameters.
+ * This mirrors POST so scheduled jobs can trigger delivery retries without a body.
+ */
 export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams
 

@@ -12,6 +12,11 @@ interface EventTypeRouteContext {
   params: Promise<{ id: string }>
 }
 
+/**
+ * Updates an event type only when it belongs to the authenticated profile.
+ * The route reuses the creation schema so create/edit forms share validation and
+ * duplicate slug handling.
+ */
 export async function PATCH(
   request: NextRequest,
   { params }: EventTypeRouteContext
@@ -105,6 +110,11 @@ export async function PATCH(
   }
 }
 
+/**
+ * Deletes an event type scoped to the authenticated profile.
+ * maybeSingle lets the route distinguish a missing/foreign id from a database
+ * failure without exposing ownership details.
+ */
 export async function DELETE(
   _request: NextRequest,
   { params }: EventTypeRouteContext

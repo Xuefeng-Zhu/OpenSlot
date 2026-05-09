@@ -94,6 +94,11 @@ interface BookingFormProps {
   onSlotTaken: () => void;
 }
 
+/**
+ * Collects guest details and confirms either a new booking or a reschedule.
+ * A stable idempotency key is generated per mounted form so retries caused by
+ * network errors do not duplicate the booking mutation.
+ */
 export function BookingForm({
   holdToken,
   expiresAt,

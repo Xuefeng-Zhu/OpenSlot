@@ -35,6 +35,11 @@ type CancellationBookingRow = Pick<
   | 'updated_at'
 >
 
+/**
+ * Checks cancellation tokens before doing a service-role lookup.
+ * Invalid token shapes are rejected early so public pages do not query by
+ * arbitrary strings.
+ */
 export function isValidCancellationToken(token: string): boolean {
   return cancellationTokenSchema.safeParse(token).success
 }

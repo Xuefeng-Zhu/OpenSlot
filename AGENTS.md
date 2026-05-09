@@ -170,6 +170,10 @@ The full test suite may print `Not implemented: navigation to another Document` 
 - Prefer Zod schemas in `src/lib/validations/` for request and form validation.
 - Keep critical booking logic in pure or service-like modules under `src/lib/booking/` and `src/lib/availability/`.
 - Use `date-fns-tz` helpers for timezone-sensitive scheduling logic.
+- Document important behavior with concise comments:
+  - Use JSDoc/TSDoc above exported TypeScript functions in `src/lib/`, `src/app/api/`, and `src/proxy.ts`, especially when they cross module boundaries or perform side effects.
+  - Add comments for complex business logic, non-obvious data transforms, retry/idempotency behavior, security boundaries, provider integrations, and stateful client workflows.
+  - Avoid comments that restate obvious code or annotate simple presentational components.
 - Preserve existing style in touched files. The codebase currently mixes semicolon and no-semicolon styles by area.
 
 ## Architecture Overview

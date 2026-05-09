@@ -42,6 +42,11 @@ export interface DashboardClientProps {
   bookingLink: string;
 }
 
+/**
+ * Authenticated dashboard overview for metrics, booking link actions, and the
+ * next visible bookings. Server data is rendered once and lightweight clipboard
+ * state is kept client-side.
+ */
 export function DashboardClient({
   profile,
   upcomingBookings,

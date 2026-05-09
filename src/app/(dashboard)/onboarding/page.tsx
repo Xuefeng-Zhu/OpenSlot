@@ -207,6 +207,10 @@ function getBrowserTimezone(): string {
   }
 }
 
+/**
+ * Multi-step onboarding flow that collects the first profile, availability, and
+ * event type in one client-side wizard before submitting a single setup payload.
+ */
 export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(0);

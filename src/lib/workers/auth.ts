@@ -4,6 +4,11 @@ export type WorkerAuthResult =
   | { ok: true }
   | { ok: false; status: 401 | 503; error: string }
 
+/**
+ * Authorizes cron/worker routes using either the worker-specific secret or CRON_SECRET.
+ * Local development may run without configured secrets, but production returns a
+ * 503 when no secret exists so workers are not accidentally public.
+ */
 export function authorizeWorkerRequest(
   request: NextRequest,
   specificSecretName: 'OUTBOX_PROCESS_SECRET' | 'WEBHOOK_PROCESS_SECRET' | 'CALENDAR_SYNC_SECRET'

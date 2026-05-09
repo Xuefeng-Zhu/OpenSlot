@@ -74,6 +74,11 @@ interface DayState {
   intervals: Array<{ id?: string; start: string; end: string }>
 }
 
+/**
+ * Converts database availability rules into the Monday-first editor state.
+ * Rule ids are preserved so later saves can distinguish updates/deletes from
+ * newly added intervals.
+ */
 function buildDayStates(rules: AvailabilityRule[]): Record<string, DayState> {
   const states: Record<string, DayState> = {}
   for (const day of DAYS) {
@@ -110,6 +115,11 @@ function tempId(): string {
 
 // --- Component ---
 
+/**
+ * Client-side availability editor for weekly rules and date overrides.
+ * Keeps a saved baseline in state so the save request can send changed rows and
+ * deletion ids without refetching after every edit.
+ */
 export function AvailabilityClient({
   initialRules,
   initialOverrides,
@@ -666,6 +676,11 @@ export function AvailabilityClient({
 
 // --- Utility: flatten day states back to rule-like objects for diff ---
 
+/**
+ * Converts the editor's Monday-first day state back to database-shaped rules.
+ * Disabled days still emit their intervals with is_active=false so existing rows
+ * can be updated rather than silently dropped.
+ */
 function flattenDayStatesToRules(
   dayStates: Record<string, DayState>
 ): Array<{

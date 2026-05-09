@@ -26,6 +26,11 @@ type AuthenticatedProfileResult =
       status: number
     }
 
+/**
+ * Resolves the current auth session to the profile id used by event type routes.
+ * Returning status-bearing results keeps route handlers responsible for HTTP
+ * responses while sharing the session/profile lookup.
+ */
 export async function getAuthenticatedProfile(
   supabase: ProfileLookupClient
 ): Promise<AuthenticatedProfileResult> {
@@ -57,10 +62,16 @@ export async function getAuthenticatedProfile(
   return { ok: true, profile }
 }
 
+/**
+ * Parses unknown JSON using the shared event type schema.
+ */
 export function parseEventTypeBody(body: unknown) {
   return eventTypeSchema.safeParse(body)
 }
 
+/**
+ * Converts Zod event type errors into the field-error shape returned by routes.
+ */
 export function eventTypeFieldErrors(
   error: z.ZodError<EventTypeFormValues>
 ) {
@@ -92,6 +103,11 @@ export function eventTypeWritePayload(
   }
 }
 
+/**
+ * Detects unique-slug constraint failures across Supabase/Postgres error shapes.
+ * Route handlers use this to return a field-level 409 instead of a generic write
+ * failure when hosts reuse an event type URL slug.
+ */
 export function isDuplicateSlugError(error: { code?: string; message?: string }) {
   return (
     error.code === '23505' &&

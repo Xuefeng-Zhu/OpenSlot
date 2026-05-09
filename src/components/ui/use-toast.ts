@@ -70,6 +70,11 @@ const addToRemoveQueue = (toastId: string) => {
   toastTimeouts.set(toastId, timeout);
 };
 
+/**
+ * Small in-memory toast reducer shared by the toast API and hook subscribers.
+ * Dismiss marks toasts closed first, then queues removal so exit animations can
+ * complete before the toast leaves state.
+ */
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
     case "ADD_TOAST":

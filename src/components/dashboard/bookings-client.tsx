@@ -66,6 +66,11 @@ function formatDateTime(isoString: string): { date: string; time: string } {
   return { date, time };
 }
 
+/**
+ * Dashboard booking manager with local categorization, filtering, detail drawer,
+ * and guest-token cancellation. Local state is updated after cancellation so the
+ * dashboard reflects the change before the next server refresh.
+ */
 export default function BookingsClient({ bookings: initialBookings }: BookingsClientProps) {
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>(initialBookings);
