@@ -21,7 +21,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Host settings persistence for profile basics, display preferences, notification preferences, password update, and account deletion.
 - Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
 - Tenant webhook endpoint dashboard management, signed deliveries, and retry processing.
-- Console-based booking lifecycle email notifications by default, with Resend available when configured.
+- Console-based booking lifecycle email notifications by default, with Resend or Maileroo available when configured.
 
 ## Important Implementation Boundaries
 
@@ -30,7 +30,7 @@ These areas have important implementation notes:
 | Area | Current state |
 | --- | --- |
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
-| Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend. |
+| Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo. |
 | Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, and provider event writes exist. Provider watch/subscription renewal and callback handlers are not implemented yet. |
 | Provider availability | Provider busy-cache rows are synced, but slot computation does not yet consume `external_busy_cache`. |
 

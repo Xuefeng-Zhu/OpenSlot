@@ -57,7 +57,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/app/api/webhooks/endpoints/__tests__/` covers webhook endpoint creation/listing without exposing secrets.
 - `src/lib/calendar/__tests__/` covers safe calendar connection summaries, OAuth URL/token helpers, and provider event API adapters.
 - `src/lib/security/__tests__/token-encryption.test.ts` covers OAuth token encryption round trips.
-- `src/lib/email/__tests__/email.test.ts` covers templates, console delivery, and the Resend provider adapter.
+- `src/lib/email/__tests__/email.test.ts` covers templates, console delivery, and the Resend/Maileroo provider adapters.
 - `src/app/api/calendar/sync/__tests__/` covers calendar sync worker trigger authorization and batch options.
 - `src/app/api/settings/__tests__/` covers authenticated settings persistence and account deletion.
 - `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC and conflict mapping.

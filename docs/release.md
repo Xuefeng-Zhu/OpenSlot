@@ -54,13 +54,14 @@ CALENDAR_SYNC_SECRET=...
 EMAIL_PROVIDER=console
 EMAIL_FROM="OpenSlot <bookings@example.com>"
 RESEND_API_KEY=...
+MAILEROO_API_KEY=...
 ```
 
 `NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, and `CALENDAR_SYNC_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
 
 `CALENDAR_TOKEN_ENCRYPTION_SECRET` encrypts stored per-user OAuth access and refresh tokens before persistence. Use a high-entropy server-only value and keep it stable across deploys.
 
-Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking emails through Resend. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
+Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking emails through Resend. Set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY` to send through Maileroo. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
 
 ## Worker Triggers
 

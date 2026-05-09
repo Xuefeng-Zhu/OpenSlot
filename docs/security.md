@@ -23,6 +23,7 @@ CALENDAR_SYNC_SECRET=...
 EMAIL_PROVIDER=console
 EMAIL_FROM=...
 RESEND_API_KEY=...
+MAILEROO_API_KEY=...
 ```
 
 Rules:
@@ -75,7 +76,7 @@ Do not weaken any of these without replacing the protection and updating tests.
 
 ## Email Privacy
 
-The default email provider logs messages to the console. `EMAIL_PROVIDER=resend` sends through Resend using server-only `RESEND_API_KEY` and `EMAIL_FROM`. HTML email templates escape interpolated booking values before rendering.
+The default email provider logs messages to the console. `EMAIL_PROVIDER=resend` sends through Resend using server-only `RESEND_API_KEY` and `EMAIL_FROM`. `EMAIL_PROVIDER=maileroo` sends through Maileroo using server-only `MAILEROO_API_KEY` and `EMAIL_FROM`. HTML email templates escape interpolated booking values before rendering.
 
 - Avoid logging full email payloads in production.
 - Store provider API keys in server-only environment variables.

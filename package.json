@@ -9,7 +9,10 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest --run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "oauth:calendar": "node scripts/configure-calendar-oauth.mjs",
+    "oauth:google": "node scripts/configure-google-calendar-oauth.mjs",
+    "oauth:microsoft": "node scripts/configure-microsoft-calendar-oauth.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

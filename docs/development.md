@@ -38,7 +38,24 @@ Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. It is used by `src/lib/supabase/ad
 
 Calendar integration development also needs provider OAuth credentials and `CALENDAR_TOKEN_ENCRYPTION_SECRET`. `CALENDAR_SYNC_SECRET` is optional locally unless you want route-specific protection on `/api/calendar/sync`; otherwise `CRON_SECRET` can protect the cron GET path.
 
-Email delivery defaults to the console provider. To exercise real email sends locally, set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY`.
+To configure calendar OAuth credentials locally:
+
+```bash
+npm run oauth:calendar
+```
+
+Provider-specific scripts are also available:
+
+```bash
+npm run oauth:google
+npm run oauth:microsoft
+```
+
+The Google script enables the Calendar API when `gcloud` is installed, opens the Google Auth Platform client page, then securely prompts for the one-time client ID and secret. Google does not expose a general CLI/API flow for creating Calendar-capable web OAuth clients, so the client creation step remains a console action.
+
+The Microsoft script uses Azure CLI to create a fresh Entra app registration, configure the OpenSlot redirect URI, add delegated Microsoft Graph `User.Read` and `Calendars.ReadWrite` permissions, create a client secret, and write the resulting values to `.env.local`. Install Azure CLI and run `az login` before using it.
+
+Email delivery defaults to the console provider. To exercise real email sends locally, set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY`, or set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY`.
 
 ## Local Database
 

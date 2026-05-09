@@ -30,6 +30,25 @@ SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
+## Calendar OAuth Scripts Fail
+
+Run the provider-specific setup scripts from the repo root:
+
+```bash
+npm run oauth:google
+npm run oauth:microsoft
+```
+
+For Google, install `gcloud` if you want the script to enable the Calendar API automatically. The web OAuth client still has to be created in Google Auth Platform because Google only displays the client secret once in the console flow.
+
+For Microsoft, install Azure CLI and run:
+
+```bash
+az login
+```
+
+If the Microsoft script fails with an app-registration permission error, the signed-in tenant probably blocks users from creating app registrations. Ask a tenant admin to create the app registration or grant permission, then rerun the script.
+
 ## Authenticated Dashboard Redirects to Login
 
 Check:
