@@ -76,6 +76,41 @@ describe("ResetPasswordPage", () => {
     expect(screen.getByText("Your password has been updated.")).toBeDefined();
   });
 
+  it("uses an existing recovery session when code exchange already failed", async () => {
+    window.history.pushState({}, "", "/reset-password?code=recovery-code");
+    exchangeCodeForSession.mockResolvedValue({
+      error: new Error("auth code already used"),
+    });
+    getSession.mockResolvedValue({
+      data: {
+        session: { user: { id: "user-1" } },
+      },
+    });
+    updateUser.mockResolvedValue({ error: null });
+
+    render(<ResetPasswordPage />);
+
+    await screen.findByLabelText("New password");
+
+    expect(exchangeCodeForSession).toHaveBeenCalledWith("recovery-code");
+    expect(getSession).toHaveBeenCalled();
+    expect(
+      screen.queryByText("This password reset link is invalid or has expired.")
+    ).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "correct-horse" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "correct-horse" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+
+    await waitFor(() => {
+      expect(updateUser).toHaveBeenCalledWith({ password: "correct-horse" });
+    });
+  });
+
   it("validates password length and confirmation before updating", async () => {
     window.history.pushState({}, "", "/reset-password?code=recovery-code");
     exchangeCodeForSession.mockResolvedValue({ error: null });

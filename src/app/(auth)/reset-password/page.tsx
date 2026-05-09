@@ -43,16 +43,16 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      let exchangeFailed = false;
+
       if (code) {
         const { error: exchangeError } =
           await supabase.auth.exchangeCodeForSession(code);
 
         if (exchangeError) {
-          if (active) {
-            setError("This password reset link is invalid or has expired.");
-            setCheckingSession(false);
-          }
-          return;
+          // Recovery codes are single-use, so a refresh can fail here after
+          // the first load already established a valid recovery session.
+          exchangeFailed = true;
         }
       }
 
@@ -63,7 +63,11 @@ export default function ResetPasswordPage() {
       if (active) {
         setCanUpdatePassword(!!session);
         if (!session) {
-          setError("Open the password reset link from your email to continue.");
+          setError(
+            exchangeFailed
+              ? "This password reset link is invalid or has expired."
+              : "Open the password reset link from your email to continue."
+          );
         }
         setCheckingSession(false);
       }
