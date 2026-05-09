@@ -10,6 +10,11 @@ const IV_LENGTH = 12
 const AUTH_TAG_LENGTH = 16
 const DEVELOPMENT_SECRET = 'openslot-development-calendar-token-secret'
 
+/**
+ * Encrypts a provider OAuth token for server-side storage.
+ * Uses AES-256-GCM with a random IV and prefixes the ciphertext format so future
+ * migrations can distinguish new encryption versions.
+ */
 export function encryptToken(token: string): string {
   const iv = randomBytes(IV_LENGTH)
   const key = tokenEncryptionKey()
@@ -30,6 +35,11 @@ export function encryptToken(token: string): string {
   ].join(':')
 }
 
+/**
+ * Decrypts a token produced by encryptToken.
+ * Throws when the version marker is unsupported or authentication fails, which
+ * prevents callers from silently using corrupted provider credentials.
+ */
 export function decryptToken(encryptedToken: string): string {
   const [version, ivValue, authTagValue, encryptedValue] =
     encryptedToken.split(':')

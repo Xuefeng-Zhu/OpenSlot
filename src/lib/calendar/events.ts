@@ -28,6 +28,11 @@ interface CalendarBookingDetails {
   hostEmail: string
 }
 
+/**
+ * Dispatches calendar-related outbox events for a booking lifecycle change.
+ * Reschedules are handled as cancel-old-then-create-new so external calendars do
+ * not retain stale event references when a booking moves.
+ */
 export async function processCalendarOutboxEvent(
   adminClient: SupabaseClient<Database>,
   event: OutboxEventRow
@@ -65,6 +70,11 @@ export async function processCalendarOutboxEvent(
   throw new Error(`Unsupported calendar outbox event: ${event.event_type}`)
 }
 
+/**
+ * Creates provider events for every calendar the host has enabled for writes.
+ * Existing active refs are skipped to make retries idempotent after a successful
+ * provider write has already been recorded.
+ */
 export async function createCalendarEventsForBooking(
   adminClient: SupabaseClient<Database>,
   bookingId: string
@@ -130,6 +140,11 @@ export async function createCalendarEventsForBooking(
   return result
 }
 
+/**
+ * Cancels all active provider event references for a booking.
+ * Each ref is marked cancelled only after the provider delete succeeds or the
+ * provider reports the event is already gone.
+ */
 export async function cancelCalendarEventsForBooking(
   adminClient: SupabaseClient<Database>,
   bookingId: string

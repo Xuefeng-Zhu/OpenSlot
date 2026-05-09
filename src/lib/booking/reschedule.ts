@@ -17,6 +17,11 @@ interface RescheduleRpcRow {
   reschedule_token: string
 }
 
+/**
+ * Reschedules an existing confirmed booking by consuming a newly created hold.
+ * The database RPC performs the booking swap and reservation updates atomically;
+ * this function records audit/outbox side effects after the transaction succeeds.
+ */
 export async function rescheduleBooking(
   input: RescheduleBookingInput,
   adminClient: SupabaseClient<Database>

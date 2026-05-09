@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 
+/**
+ * Marks the reservation mirror for an expired hold.
+ * This is a best-effort companion write used after lazy hold expiration so the
+ * host reservation exclusion constraint no longer blocks the old time range.
+ */
 export async function expireHoldReservation(
   adminClient: SupabaseClient<Database>,
   holdId: string
@@ -12,6 +17,11 @@ export async function expireHoldReservation(
   })
 }
 
+/**
+ * Repoints the reservation mirror from a hold to the confirmed booking.
+ * The time range stays the same, but the source becomes durable so cancellation
+ * and later reconciliation can release the correct reservation row.
+ */
 export async function convertHoldReservationToBooking(
   adminClient: SupabaseClient<Database>,
   {
@@ -46,6 +56,11 @@ export async function convertHoldReservationToBooking(
   return true
 }
 
+/**
+ * Releases the reservation mirror for a cancelled booking.
+ * Booking cancellation should not fail solely because this mirror update fails;
+ * callers get a boolean and errors are logged with reservation context.
+ */
 export async function cancelBookingReservation(
   adminClient: SupabaseClient<Database>,
   bookingId: string
