@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   Calendar,
@@ -12,10 +12,8 @@ import {
   ExternalLink,
   User,
 } from 'lucide-react'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Avatar, getInitials } from '@/components/ui/avatar'
 
 const navItems = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -26,35 +24,8 @@ const navItems = [
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
-interface SidebarNavUser {
-  name?: string
-  email?: string
-  avatarUrl?: string | null
-}
-
-interface SidebarNavProps {
-  user?: SidebarNavUser
-  /** @deprecated Use `user` prop instead */
-  userName?: string
-  /** @deprecated Use `user` prop instead */
-  userEmail?: string
-}
-
-export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
+export function SidebarNav() {
   const pathname = usePathname()
-  const router = useRouter()
-
-  // Support both new `user` prop and legacy individual props
-  const displayName = user?.name || userName || ''
-  const displayEmail = user?.email || userEmail || ''
-  const avatarUrl = user?.avatarUrl || null
-
-  async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    router.push('/')
-    router.refresh()
-  }
 
   return (
     <aside className="flex h-full min-h-0 w-64 flex-col overflow-y-auto border-r bg-card">
@@ -130,26 +101,6 @@ export function SidebarNav({ user, userName, userEmail }: SidebarNavProps) {
             <ExternalLink className="h-3 w-3 ml-1.5" aria-hidden="true" />
           </Link>
         </Button>
-      </div>
-
-      {/* User Profile Section */}
-      <div className="border-t p-4">
-        <div className="flex items-center gap-3">
-          <Avatar
-            src={avatarUrl}
-            alt={displayName || 'User avatar'}
-            fallback={getInitials(displayName || 'U')}
-            size="sm"
-          />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">
-              {displayName || 'User'}
-            </p>
-            <p className="truncate text-xs text-muted-foreground">
-              {displayEmail}
-            </p>
-          </div>
-        </div>
       </div>
     </aside>
   )
