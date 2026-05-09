@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Check, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { AppIcon } from "@/components/shared/app-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,22 +90,7 @@ export default function SignupPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Logo */}
           <div className="flex items-center gap-2">
-            <svg
-              className="h-7 w-7"
-              viewBox="0 0 28 28"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-            >
-              <rect width="28" height="28" rx="6" className="fill-primary" />
-              <path
-                d="M8 14.5L12 18.5L20 10.5"
-                stroke="white"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <AppIcon className="h-7 w-7" />
             <span className="text-xl font-bold text-foreground">OpenSlot</span>
           </div>
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Clock, MapPin, Globe, Shield } from "lucide-react";
+import { AppIcon } from "@/components/shared/app-icon";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
@@ -154,10 +155,7 @@ export function PublicProfileContent({ profile, activeEventTypes }: PublicProfil
       {/* Footer */}
       <div className="mt-12 pt-6 border-t border-border text-center">
         <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-          <svg className="h-4 w-4 text-primary" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-            <rect width="28" height="28" rx="6" className="fill-primary" />
-            <path d="M8 14.5L12 18.5L20 10.5" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <AppIcon className="h-4 w-4" />
           Scheduling that stays <span className="text-primary font-medium">open.</span>
         </p>
       </div>
