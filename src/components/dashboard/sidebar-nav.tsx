@@ -29,7 +29,7 @@ export function SidebarNav() {
   const pathname = usePathname()
 
   return (
-    <aside className="flex h-full min-h-0 w-64 flex-col overflow-y-auto border-r bg-card">
+    <aside className="flex h-full min-h-0 w-64 flex-col overflow-y-auto border-r bg-card/95">
       {/* Logo */}
       <div className="p-6 pb-4">
         <Link
@@ -44,14 +44,16 @@ export function SidebarNav() {
       {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-3" aria-label="Dashboard navigation">
         {navItems.map((item) => {
-          const isActive = pathname === item.href
+          const isActive =
+            pathname === item.href ||
+            (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`))
           const Icon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                'flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                 isActive
                   ? 'bg-accent text-accent-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -76,14 +78,14 @@ export function SidebarNav() {
       </div>
 
       {/* Share your link CTA */}
-      <div className="mx-3 mb-4 rounded-lg bg-accent/50 p-4">
+      <div className="mx-3 mb-4 rounded-lg border border-border bg-accent/40 p-4">
         <p className="text-sm font-medium text-foreground">Share your link</p>
         <p className="mt-1 text-xs text-muted-foreground">
-          Invite clients to book time with you in just a few clicks.
+          Copy and preview your public booking page from the overview.
         </p>
         <Button variant="outline" size="sm" className="mt-3 w-full" asChild>
           <Link href="/dashboard">
-            View booking page
+            Open overview
             <ExternalLink className="h-3 w-3 ml-1.5" aria-hidden="true" />
           </Link>
         </Button>

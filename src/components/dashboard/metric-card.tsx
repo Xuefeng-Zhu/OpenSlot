@@ -40,17 +40,22 @@ export function MetricCard({
   className,
 }: MetricCardProps) {
   return (
-    <Card className={cn("p-5", className)}>
+    <Card className={cn("p-5 transition-colors hover:border-primary/30", className)}>
       <div className="flex items-start gap-3">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground shrink-0"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground"
           aria-hidden="true"
         >
           {icon}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm text-muted-foreground">{title}</p>
-          <p className={cn("text-xl font-semibold text-foreground mt-0.5 truncate", valueClassName)}>
+          <p
+            className={cn(
+              "mt-0.5 truncate text-xl font-semibold text-foreground",
+              valueClassName
+            )}
+          >
             {value}
           </p>
           {subtitle && (

@@ -6,17 +6,14 @@ import {
   Calendar,
   CalendarCheck,
   Link2,
-  CheckCircle2,
   Activity,
   ExternalLink,
-  Circle,
-  Copy,
-  Clock,
-  MapPin,
   ArrowRight,
   Plus,
 } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,15 +103,18 @@ export function DashboardClient({
 
   return (
     <div className="space-y-6">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back, {profile.name.split(" ")[0]} 👋
-        </h1>
-        <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening with your schedule.
-        </p>
-      </div>
+      <PageHeader
+        title={`Welcome back, ${profile.name.split(" ")[0] || "there"}`}
+        description="Track bookings, manage availability, and share your public booking page from one calm workspace."
+        actions={
+          <Button asChild>
+            <Link href="/event-types/new">
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              New event type
+            </Link>
+          </Button>
+        }
+      />
 
       {/* Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -172,10 +172,22 @@ export function DashboardClient({
           </CardHeader>
           <CardContent>
             {displayedBookings.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">
-                No upcoming bookings. Share your booking link to start receiving
-                bookings.
-              </p>
+              <EmptyState
+                icon={<Calendar className="h-6 w-6" aria-hidden="true" />}
+                heading="No upcoming bookings"
+                description="Share your booking link or create a new event type to give guests a clear path to your calendar."
+                action={{
+                  label: copied ? "Link copied" : "Copy booking link",
+                  onClick: handleCopyLink,
+                }}
+                secondaryAction={{
+                  label: "Create event type",
+                  onClick: () => {
+                    window.location.href = "/event-types/new";
+                  },
+                }}
+                className="border-0 bg-muted/30 py-10"
+              />
             ) : (
               <ul className="space-y-1" aria-label="Upcoming bookings">
                 {displayedBookings.map((booking) => (
@@ -282,12 +294,12 @@ export function DashboardClient({
       </div>
 
       {/* Bottom CTA bar */}
-      <div className="rounded-lg border border-border bg-muted/30 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center">
+        <div>
           <p className="text-sm font-medium text-foreground">
             Your schedule. Your way.
           </p>
-          <p className="text-sm text-muted-foreground hidden sm:block">
+          <p className="mt-1 text-sm text-muted-foreground">
             Add more event types to give people more ways to connect with you.
           </p>
         </div>

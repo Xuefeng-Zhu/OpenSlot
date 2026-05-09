@@ -18,6 +18,8 @@ import {
   Trash2,
   Webhook,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -389,15 +391,13 @@ export function SettingsClient({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences.
-        </p>
-      </div>
+      <PageHeader
+        title="Settings"
+        description="Keep account details, display preferences, notifications, calendars, and webhook endpoints in sync."
+      />
 
       <Tabs defaultValue="account">
-        <TabsList>
+        <TabsList aria-label="Settings sections">
           <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger value="preferences">Preferences</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -410,7 +410,7 @@ export function SettingsClient({
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <User className="h-4 w-4" aria-hidden="true" />
-                  Profile Information
+                  Profile information
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -442,7 +442,7 @@ export function SettingsClient({
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Change Password</CardTitle>
+                <CardTitle className="text-base">Change password</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
@@ -474,7 +474,7 @@ export function SettingsClient({
             <Card className="border-destructive/50">
               <CardHeader>
                 <CardTitle className="text-base text-destructive">
-                  Danger Zone
+                  Danger zone
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -746,7 +746,7 @@ export function SettingsClient({
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
                   <Webhook className="h-4 w-4" aria-hidden="true" />
-                  Webhook Endpoints
+                  Webhook endpoints
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -834,9 +834,12 @@ export function SettingsClient({
 
                 <div className="space-y-3">
                   {webhookEndpoints.length === 0 ? (
-                    <div className="rounded-md border border-dashed border-border p-4 text-sm text-muted-foreground">
-                      No webhook endpoints configured.
-                    </div>
+                    <EmptyState
+                      icon={<Webhook className="h-6 w-6" aria-hidden="true" />}
+                      heading="No webhook endpoints"
+                      description="Add an endpoint to receive signed booking lifecycle events in your own systems."
+                      className="bg-muted/30 py-10"
+                    />
                   ) : (
                     webhookEndpoints.map((endpoint) => (
                       <div

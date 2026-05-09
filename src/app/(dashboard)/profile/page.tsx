@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { PageHeader } from '@/components/dashboard/page-header'
 import { ProfileForm } from './profile-form'
 import type { Tables } from '@/lib/types/database'
 
@@ -27,8 +28,11 @@ export default async function ProfilePage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Profile Settings</h1>
+    <div className="mx-auto max-w-2xl space-y-6">
+      <PageHeader
+        title="Profile"
+        description="Control the public name, booking URL, and default timezone guests see when they book."
+      />
       <ProfileForm
         initialData={{
           name: typedProfile.name || '',

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Calendar, Plus, Search } from "lucide-react";
 import { EventTypeCard } from "@/components/dashboard/event-type-card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +71,9 @@ export function EventTypesClient({
     });
   }, [activeFilter, eventTypes, searchQuery]);
 
+  const activeCount = eventTypes.filter((eventType) => eventType.isActive).length;
+  const pausedCount = eventTypes.length - activeCount;
+
   const handleCopyLink = async (bookingUrl: string) => {
     try {
       await navigator.clipboard.writeText(bookingUrl);
@@ -134,54 +138,55 @@ export function EventTypesClient({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Event Types</h1>
-          <p className="text-muted-foreground">
-            Create and manage the types of events people can book with you.
-          </p>
-        </div>
-        <Button asChild>
-          <Link href="/event-types/new">
-            <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
-            New event type
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Event types"
+        description="Create focused booking options with the right duration, location, and public link."
+        actions={
+          <Button asChild>
+            <Link href="/event-types/new">
+              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+              New event type
+            </Link>
+          </Button>
+        }
+      />
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2" aria-label="Filter event types">
           <Button
             variant={activeFilter === "all" ? "default" : "outline"}
             size="sm"
             onClick={() => setActiveFilter("all")}
             className="rounded-full"
+            aria-pressed={activeFilter === "all"}
           >
-            All
+            All ({eventTypes.length})
           </Button>
           <Button
             variant={activeFilter === "active" ? "outline" : "ghost"}
             size="sm"
             onClick={() => setActiveFilter("active")}
             className={`rounded-full ${activeFilter === "active" ? "border-success/50 text-success" : ""}`}
+            aria-pressed={activeFilter === "active"}
           >
             <span
               className="mr-1.5 h-2 w-2 rounded-full bg-success"
               aria-hidden="true"
             />
-            Active
+            Active ({activeCount})
           </Button>
           <Button
             variant={activeFilter === "paused" ? "outline" : "ghost"}
             size="sm"
             onClick={() => setActiveFilter("paused")}
             className={`rounded-full ${activeFilter === "paused" ? "border-warning/50 text-warning" : ""}`}
+            aria-pressed={activeFilter === "paused"}
           >
             <span
               className="mr-1.5 h-2 w-2 rounded-full bg-warning"
               aria-hidden="true"
             />
-            Paused
+            Paused ({pausedCount})
           </Button>
         </div>
         <div className="relative w-full sm:w-64">
@@ -210,11 +215,19 @@ export function EventTypesClient({
           }}
         />
       ) : filteredEventTypes.length === 0 ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">
-            No event types match your filters.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Search className="h-6 w-6" aria-hidden="true" />}
+          heading="No matching event types"
+          description="Try a different search term or clear the status filter to see more booking options."
+          action={{
+            label: "Clear filters",
+            onClick: () => {
+              setSearchQuery("");
+              setActiveFilter("all");
+            },
+            variant: "outline",
+          }}
+        />
       ) : (
         <div className="space-y-4">
           {filteredEventTypes.map((eventType) => (
@@ -276,7 +289,10 @@ export function EventTypesClient({
       </Dialog>
 
       {filteredEventTypes.length > 0 && (
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <div
+          className="flex items-center justify-between text-sm text-muted-foreground"
+          aria-live="polite"
+        >
           <p>
             Showing 1 to {filteredEventTypes.length} of {eventTypes.length} event
             types

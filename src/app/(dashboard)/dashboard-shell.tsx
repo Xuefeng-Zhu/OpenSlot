@@ -17,7 +17,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar - hidden on mobile/tablet */}
       <div className="hidden min-h-0 lg:flex">
         <SidebarNav />
@@ -37,7 +37,9 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
           onMenuToggle={() => setDrawerOpen(true)}
           user={{ name: user.name, email: user.email }}
         />
-        <main className="min-h-0 flex-1 overflow-y-auto p-6">{children}</main>
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   )
