@@ -139,6 +139,28 @@ describe('computeAvailableSlots', () => {
     expect(slots[0].start).toBe('2025-01-06T14:30:00.000Z')
   })
 
+  it('excludes slots that conflict with synced external calendar busy windows', () => {
+    const rules = [makeRule({ start_time: '09:00', end_time: '10:00' })]
+    const input = makeInput({ durationMinutes: 30 })
+
+    const externalBusy: TimeSlot = {
+      start: '2025-01-06T14:30:00.000Z',
+      end: '2025-01-06T15:00:00.000Z',
+    }
+
+    const slots = computeAvailableSlots(
+      input,
+      rules,
+      [],
+      [],
+      [],
+      [externalBusy]
+    )
+
+    expect(slots).toHaveLength(1)
+    expect(slots[0].start).toBe('2025-01-06T14:00:00.000Z')
+  })
+
   it('accounts for buffer_before when checking conflicts', () => {
     const rules = [makeRule({ start_time: '09:00', end_time: '11:00' })]
     const input = makeInput({

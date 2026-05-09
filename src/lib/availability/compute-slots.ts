@@ -5,7 +5,8 @@
  * It computes available time slots for a given date based on:
  * - Weekly availability rules
  * - Date-specific overrides
- * - Existing bookings and active holds (with buffer consideration)
+ * - Existing bookings, active holds, and synced calendar busy windows
+ *   (with buffer consideration)
  * - Minimum notice and maximum booking window constraints
  *
  * All returned slots are in ISO 8601 UTC format.
@@ -71,8 +72,9 @@ function rangesOverlap(
  * 6. Filter out candidates where:
  *    a. Blocked range overlaps any confirmed booking
  *    b. Blocked range overlaps any active (non-expired) hold
- *    c. Start time is within min_notice_minutes of now
- *    d. Start time is beyond max_booking_days_ahead from today
+ *    c. Blocked range overlaps any synced external calendar busy window
+ *    d. Start time is within min_notice_minutes of now
+ *    e. Start time is beyond max_booking_days_ahead from today
  * 7. Return sorted array of available slots (UTC ISO strings)
  */
 export function computeAvailableSlots(
@@ -80,7 +82,8 @@ export function computeAvailableSlots(
   rules: AvailabilityRule[],
   overrides: AvailabilityOverride[],
   existingBookings: TimeSlot[],
-  activeHolds: TimeSlot[]
+  activeHolds: TimeSlot[],
+  externalBusySlots: TimeSlot[] = []
 ): TimeSlot[] {
   const {
     date,
@@ -161,23 +164,27 @@ export function computeAvailableSlots(
   }
 
   // Step 5 & 6: Filter candidates
-  const blockedRanges = [...existingBookings, ...activeHolds]
+  const blockedRanges = [
+    ...existingBookings,
+    ...activeHolds,
+    ...externalBusySlots,
+  ]
 
   const availableSlots = candidates.filter((slot) => {
     const slotStart = parseISO(slot.start)
     const slotEnd = parseISO(slot.end)
 
-    // 6c: Min notice check — slot must start after earliest allowed time
+    // 6d: Min notice check — slot must start after earliest allowed time
     if (isBefore(slotStart, earliestStart)) return false
 
-    // 6d: Max days ahead check — slot must start before the latest allowed date
+    // 6e: Max days ahead check — slot must start before the latest allowed date
     if (isAfter(slotStart, latestStart)) return false
 
-    // 6a & 6b: Compute the buffered range for overlap detection
+    // 6a, 6b & 6c: Compute the buffered range for overlap detection
     const blockedStart = addMinutes(slotStart, -bufferBeforeMinutes)
     const blockedEnd = addMinutes(slotEnd, bufferAfterMinutes)
 
-    // Check for conflicts with existing bookings and active holds
+    // Check for conflicts with existing bookings, active holds, and provider busy windows
     const hasConflict = blockedRanges.some((existing) => {
       const existingStart = parseISO(existing.start)
       const existingEnd = parseISO(existing.end)

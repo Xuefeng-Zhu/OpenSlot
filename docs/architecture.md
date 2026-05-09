@@ -47,6 +47,7 @@ Browser UI
 Public event page
   -> SlotPicker
   -> GET /api/slots
+  -> load host availability, confirmed bookings, active holds, and provider busy cache
   -> computeAvailableSlots()
   -> POST /api/holds
   -> create_slot_hold_with_reservation()
@@ -161,8 +162,7 @@ Migrations are in `supabase/migrations/`:
 
 - Vercel Cron triggers are configured for outbox and webhook workers; non-Vercel deployments still need equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
-- Calendar OAuth, provider calendar list sync, busy-cache refresh, and provider event writes are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
-- Slot computation does not yet consume `external_busy_cache`; provider busy-cache rows are ready for that next scheduling integration slice.
+- Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, and provider event writes are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
 - There is no realtime sync in the UI.
 
 ## Related Docs
