@@ -45,6 +45,11 @@ export interface CalendarSummary {
   useForWrites: boolean
 }
 
+/**
+ * Lists calendar connections and their calendars for dashboard display.
+ * The query intentionally selects only safe metadata and never returns encrypted
+ * OAuth tokens or provider refresh credentials.
+ */
 export async function listCalendarConnectionSummaries(
   adminClient: SupabaseClient<Database>,
   profileId: string

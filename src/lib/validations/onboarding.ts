@@ -105,6 +105,11 @@ const WEEKDAY_BY_DAY: Record<keyof OnboardingData['availability'], number> = {
   saturday: 6,
 }
 
+/**
+ * Converts the onboarding availability form into availability rule insert rows.
+ * Disabled days are omitted and enabled days may produce multiple intervals for
+ * the same weekday.
+ */
 export function buildOnboardingAvailabilityRules(
   availability: OnboardingData['availability']
 ) {

@@ -230,6 +230,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
+/**
+ * Loads synced external calendar busy windows that can block public availability.
+ * Missing connections or no calendars are treated as an empty busy list; provider
+ * sync failures surface earlier when rebuilding the cache, not during slot reads.
+ */
 async function fetchExternalBusySlots({
   supabase,
   hostUserId,
@@ -302,6 +307,11 @@ async function fetchExternalBusySlots({
   }
 }
 
+/**
+ * Expands the database conflict lookup around the requested date.
+ * The extra day on both sides covers host/guest timezone boundaries, while the
+ * buffer padding catches adjacent events that overlap only after buffers apply.
+ */
 function paddedConflictLookupRange(
   date: string,
   bufferBeforeMinutes: number,

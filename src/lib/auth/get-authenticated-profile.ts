@@ -4,6 +4,11 @@ export type AuthenticatedProfileResult =
   | { ok: true; profileId: string; userId: string; email: string | null }
   | { ok: false; status: 401 | 404; error: string }
 
+/**
+ * Resolves the current Supabase auth user to the app profile record.
+ * Returns typed error states instead of throwing so route handlers can map auth
+ * and onboarding failures to stable HTTP responses.
+ */
 export async function getAuthenticatedProfile(): Promise<AuthenticatedProfileResult> {
   const supabase = await createServerSupabaseClient()
   const {

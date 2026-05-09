@@ -49,12 +49,22 @@ interface MicrosoftIdentityResponse {
   displayName?: string | null
 }
 
+/**
+ * Parses a route or query-string provider value into a supported calendar provider.
+ * Returns null instead of throwing so API routes can turn unknown providers into
+ * controlled 404/400 responses.
+ */
 export function parseCalendarProvider(value: string): CalendarProvider | null {
   return calendarProviders.includes(value as CalendarProvider)
     ? (value as CalendarProvider)
     : null
 }
 
+/**
+ * Builds the OAuth endpoint, credential, and scope configuration for a provider.
+ * Reads secrets from the server environment and throws if a required client
+ * credential is missing.
+ */
 export function getCalendarOAuthConfig(
   provider: CalendarProvider
 ): CalendarOAuthConfig {
@@ -102,6 +112,11 @@ export function getCalendarOAuthConfig(
   }
 }
 
+/**
+ * Builds the provider authorization URL for the calendar connection flow.
+ * The caller supplies the redirect URI and opaque state value so routes can bind
+ * the callback to the current profile/session.
+ */
 export function buildCalendarAuthorizationUrl({
   provider,
   redirectUri,
@@ -128,6 +143,11 @@ export function buildCalendarAuthorizationUrl({
   return url
 }
 
+/**
+ * Exchanges a provider authorization code for OAuth tokens.
+ * Normalizes Google and Microsoft token responses into the storage shape used by
+ * provider connections.
+ */
 export async function exchangeCalendarAuthorizationCode({
   provider,
   code,
@@ -164,6 +184,11 @@ export async function exchangeCalendarAuthorizationCode({
   return normalizeTokenResponse(data, config.scopes)
 }
 
+/**
+ * Refreshes an access token using a stored provider refresh token.
+ * Some providers rotate refresh tokens while others omit them, so callers must
+ * preserve the previous refresh token when the returned value is null.
+ */
 export async function refreshCalendarAccessToken({
   provider,
   refreshToken,
@@ -198,6 +223,11 @@ export async function refreshCalendarAccessToken({
   return normalizeTokenResponse(data, config.scopes)
 }
 
+/**
+ * Loads the connected calendar account identity from the provider.
+ * Returns only stable account metadata needed to show the connection and detect
+ * which external account was linked.
+ */
 export async function fetchCalendarProviderIdentity({
   provider,
   accessToken,
