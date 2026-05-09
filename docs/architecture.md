@@ -160,6 +160,9 @@ Migrations are in `supabase/migrations/`:
 
 ## Current Gaps to Preserve in Docs
 
+Detailed target/current gaps are tracked in [System Design Gap Analysis](system-design-gaps.md).
+
+- `docs/system-design.md` describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` for those surfaces. This is acceptable for the MVP because it maximizes local code reuse and keeps deployment simple, but it couples high-risk public/provider endpoints to the web app runtime instead of isolating them in the Supabase function runtime with separate secrets and lifecycle.
 - Vercel Cron triggers are configured for outbox and webhook workers; non-Vercel deployments still need equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
 - Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, and provider event writes are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
@@ -170,3 +173,4 @@ Migrations are in `supabase/migrations/`:
 - [Product Overview](product-overview.md)
 - [Security](security.md)
 - [Testing](testing.md)
+- [System Design Gap Analysis](system-design-gaps.md)

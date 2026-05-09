@@ -281,6 +281,8 @@ The key RLS decision is to **not** let anonymous or even normal authenticated us
 
 Edge Functions are the correct place for these boundaries because Supabase explicitly positions them for third-party integrations and webhook handling, and function-level config allows JWT verification to be disabled for webhooks or other controlled public endpoints. Keep every public or provider-facing function thin and defer heavy or network-variable work to queues.
 
+Implementation status note: the current MVP implements these boundaries as Next.js route handlers under `src/app/api/*`, not as Supabase Edge Functions. That is a pragmatic code-sharing choice for the MVP because route handlers can import the existing validation, booking, outbox, calendar, and webhook modules directly and deploy with the web app. The architectural gap is operational rather than purely security-related: public writes and provider callbacks currently depend on the Next.js deployment boundary, while the target design isolates those high-risk integration surfaces in Supabase Edge Functions with their own secrets, runtime configuration, and provider-facing deployment lifecycle. Keep dashboard and authenticated app APIs in Next routes unless there is a clear reason to move them; prioritize Edge Functions for public booking writes, payment webhooks, and calendar provider webhooks when those surfaces need stronger isolation or independent operation. See [system-design-gaps.md](system-design-gaps.md) for the full target/current gap matrix.
+
 ### Pseudocode for `hold-slot`
 
 ```ts
