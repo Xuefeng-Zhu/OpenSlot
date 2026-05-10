@@ -21,7 +21,7 @@ export default async function CancelBookingPage({
   if (!isValidCancellationToken(token)) {
     return (
       <CancellationStatusCard
-        title="Invalid Cancellation Link"
+        title="Invalid cancellation link"
         description="This cancellation link is no longer valid. It may have expired or already been used."
       />
     );
@@ -32,7 +32,7 @@ export default async function CancelBookingPage({
   if (result.status === "invalid") {
     return (
       <CancellationStatusCard
-        title="Invalid Cancellation Link"
+        title="Invalid cancellation link"
         description="This cancellation link is no longer valid. It may have expired or already been used."
       />
     );
@@ -74,7 +74,7 @@ function AlreadyCancelledCard({
             />
           </div>
           <h1 className="text-xl font-bold text-foreground">
-            Already Cancelled
+            Already cancelled
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             This booking has already been cancelled.
@@ -126,7 +126,7 @@ function BookingDetailsSummary({
 }) {
   return (
     <div className={className}>
-      <div className="rounded-md border border-border p-4 text-left">
+      <div className="rounded-lg border border-border bg-muted/20 p-4 text-left">
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2">
             <Calendar

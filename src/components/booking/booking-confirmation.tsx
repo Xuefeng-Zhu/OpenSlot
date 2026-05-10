@@ -1,5 +1,6 @@
 "use client";
 
+import { CalendarCheck, CheckCircle2, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -61,26 +62,13 @@ export function BookingConfirmation({
   const isReschedule = variant === "reschedule";
 
   return (
-    <Card className="mt-6 max-w-lg mx-auto">
+    <Card className="mx-auto mt-6 max-w-xl">
       <CardHeader className="text-center">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
-          <svg
-            className="h-6 w-6 text-green-600"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            aria-hidden="true"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M4.5 12.75l6 6 9-13.5"
-            />
-          </svg>
+        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
+          <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
         </div>
         <CardTitle className="text-xl">
-          {isReschedule ? "Booking Rescheduled!" : "Booking Confirmed!"}
+          {isReschedule ? "Booking rescheduled" : "Booking confirmed"}
         </CardTitle>
         <CardDescription>
           {isReschedule
@@ -90,34 +78,46 @@ export function BookingConfirmation({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Booking details */}
-        <div className="rounded-md border p-4 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Event</span>
-            <span className="font-medium">{eventTitle}</span>
+            <span className="text-right font-medium">{eventTitle}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Host</span>
-            <span className="font-medium">{hostName}</span>
+            <span className="text-right font-medium">{hostName}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Guest</span>
-            <span className="font-medium">{guestName}</span>
+            <span className="text-right font-medium">{guestName}</span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Date</span>
-            <span className="font-medium">{formatDateTime(startAt)}</span>
+          <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
+            <div className="flex items-start gap-3">
+              <CalendarCheck className="mt-0.5 h-4 w-4 text-primary" aria-hidden="true" />
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Date
+                </p>
+                <p className="font-medium">{formatDateTime(startAt)}</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Clock3 className="mt-0.5 h-4 w-4 text-primary" aria-hidden="true" />
+              <div>
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Time
+                </p>
+                <p className="font-medium">
+                  {formatTime(startAt)} - {formatTime(endAt)}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Time</span>
-            <span className="font-medium">
-              {formatTime(startAt)} – {formatTime(endAt)}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Timezone</span>
             <Badge variant="secondary">{timezone.replace(/_/g, " ")}</Badge>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Status</span>
             <Badge variant="default">Confirmed</Badge>
           </div>
@@ -128,7 +128,7 @@ export function BookingConfirmation({
           A confirmation email has been sent with the booking details.
         </p>
 
-        <div className="flex justify-center gap-2 pt-2">
+        <div className="flex flex-col justify-center gap-2 pt-2 sm:flex-row">
           {rescheduleUrl && (
             <Button variant="outline" size="sm" asChild>
               <a href={rescheduleUrl}>Need to reschedule?</a>
