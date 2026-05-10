@@ -118,8 +118,8 @@ export function CancelBookingForm({
           </div>
           <CardTitle className="text-xl">
             {state === "already-cancelled"
-              ? "Booking already cancelled"
-              : "Booking cancelled"}
+              ? "Booking Already Cancelled"
+              : "Booking Cancelled"}
           </CardTitle>
           <CardDescription>
             {state === "already-cancelled"
@@ -167,7 +167,7 @@ export function CancelBookingForm({
             aria-hidden="true"
           />
         </div>
-        <CardTitle className="text-xl">Cancel booking</CardTitle>
+        <CardTitle className="text-xl">Cancel Booking</CardTitle>
         <CardDescription>
           Are you sure you want to cancel this booking?
         </CardDescription>

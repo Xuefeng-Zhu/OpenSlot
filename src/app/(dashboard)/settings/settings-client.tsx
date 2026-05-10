@@ -836,7 +836,7 @@ export function SettingsClient({
                   {webhookEndpoints.length === 0 ? (
                     <EmptyState
                       icon={<Webhook className="h-6 w-6" aria-hidden="true" />}
-                      heading="No webhook endpoints"
+                      heading="No webhook endpoints configured."
                       description="Add an endpoint to receive signed booking lifecycle events in your own systems."
                       className="bg-muted/30 py-10"
                     />

@@ -119,7 +119,13 @@ export function PublicProfileContent({ profile, activeEventTypes }: PublicProfil
                               <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                               <span>{eventType.duration_minutes} min</span>
                               <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>{formatLocationType(eventType.location_type)}</span>
+                              <span>
+                                {formatLocationType(eventType.location_type)}
+                                <span className="sr-only">
+                                  {" "}
+                                  {eventType.location_type}
+                                </span>
+                              </span>
                             </div>
                           </div>
                           <div className="shrink-0">

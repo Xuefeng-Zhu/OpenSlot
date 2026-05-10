@@ -561,7 +561,7 @@ export function EventTypeEditor({
           Cancel
         </Button>
         <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : mode === "create" ? "Create" : "Save"}
+          {isSubmitting ? "Saving..." : "Save"}
         </Button>
       </div>
     </form>
