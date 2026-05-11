@@ -115,8 +115,8 @@ export function DashboardClient({
         description="Track bookings, manage availability, and share your public booking page from one calm workspace."
       />
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Top overview cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           title="Upcoming bookings"
           value={upcomingBookings.length}
@@ -143,12 +143,43 @@ export function DashboardClient({
           action={{ label: "Manage availability", href: "/availability" }}
           subtitle="You're available to be booked"
         />
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col p-5">
+            <p className="text-sm font-medium text-muted-foreground">
+              Public profile preview
+            </p>
+            <div className="mt-4 flex items-center gap-3">
+              <Avatar
+                src={null}
+                alt={profile.name}
+                fallback={getInitials(profile.name)}
+                size="md"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-foreground">
+                  {profile.name}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">
+                  /{profile.username}
+                </p>
+              </div>
+            </div>
+            <Button size="sm" className="mt-5 w-full" asChild>
+              <Link
+                href={`/${profile.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Preview booking page
+                <ExternalLink className="ml-1 h-3 w-3" aria-hidden="true" />
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Next Bookings - takes 2 columns on desktop */}
-        <Card className="lg:col-span-2">
+      <div>
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Next bookings</CardTitle>
             <Button variant="ghost" size="sm" asChild>
@@ -234,47 +265,6 @@ export function DashboardClient({
             </div>
           </CardContent>
         </Card>
-
-        {/* Right column */}
-        <div className="space-y-6">
-          {/* Public Profile Preview */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Public profile preview</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <Avatar
-                  src={null}
-                  alt={profile.name}
-                  fallback={getInitials(profile.name)}
-                  size="md"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">{profile.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    /{profile.username}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5">
-                <Button size="sm" className="w-full" asChild>
-                  <Link
-                    href={`/${profile.username}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Preview booking page
-                    <ExternalLink
-                      className="h-3 w-3 ml-1"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );
