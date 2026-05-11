@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   Calendar,
   CalendarCheck,
-  Link2,
   Activity,
   ExternalLink,
   ArrowRight,
@@ -20,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, getInitials } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { getDisplayedBookings } from "@/lib/dashboard-utils";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 
 export interface DashboardBooking {
   id: string;
@@ -56,14 +56,22 @@ export function DashboardClient({
   const displayedBookings = getDisplayedBookings(upcomingBookings);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(bookingLink).then(() => {
-      setCopied(true);
-      toast({
-        title: "Link copied!",
-        description: "Your booking link has been copied to clipboard.",
+    copyTextToClipboard(bookingLink)
+      .then(() => {
+        setCopied(true);
+        toast({
+          title: "Link copied!",
+          description: "Your booking link has been copied to clipboard.",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        toast({
+          title: "Could not copy link",
+          description: "Please copy the URL from your public preview instead.",
+          variant: "destructive",
+        });
       });
-      setTimeout(() => setCopied(false), 2000);
-    });
   };
 
   function formatBookingDate(startAt: string): string {
@@ -109,7 +117,7 @@ export function DashboardClient({
       />
 
       {/* Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           title="Upcoming bookings"
           value={upcomingBookings.length}
@@ -127,15 +135,6 @@ export function DashboardClient({
           icon={<CalendarCheck className="h-5 w-5" />}
           action={{ label: "Manage event types", href: "/event-types" }}
           subtitle="All systems go"
-        />
-        <MetricCard
-          title="Booking link"
-          value={`/${profile.username}`}
-          icon={<Link2 className="h-5 w-5" />}
-          action={{
-            label: copied ? "Copied!" : "Copy link",
-            onClick: handleCopyLink,
-          }}
         />
         <MetricCard
           title="Availability status"
@@ -241,14 +240,8 @@ export function DashboardClient({
         <div className="space-y-6">
           {/* Public Profile Preview */}
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
+            <CardHeader className="pb-3">
               <CardTitle className="text-lg">Public profile preview</CardTitle>
-              <Button variant="ghost" size="sm" asChild className="text-primary">
-                <Link href={`/${profile.username}`}>
-                  View full page
-                  <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
-                </Link>
-              </Button>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-3">
@@ -265,8 +258,8 @@ export function DashboardClient({
                   </p>
                 </div>
               </div>
-              <div className="mt-4">
-                <Button variant="outline" size="sm" className="w-full" asChild>
+              <div className="mt-5">
+                <Button size="sm" className="w-full" asChild>
                   <Link
                     href={`/${profile.username}`}
                     target="_blank"

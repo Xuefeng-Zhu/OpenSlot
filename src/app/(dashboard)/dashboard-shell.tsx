@@ -10,6 +10,7 @@ interface DashboardShellProps {
   user: {
     name: string
     email: string
+    username?: string
   }
 }
 
@@ -20,7 +21,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop sidebar - hidden on mobile/tablet */}
       <div className="hidden min-h-0 lg:flex">
-        <SidebarNav />
+        <SidebarNav username={user.username} />
       </div>
 
       {/* Mobile drawer - visible only on mobile/tablet */}

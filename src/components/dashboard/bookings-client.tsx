@@ -7,6 +7,7 @@ import {
   Clock,
   Globe,
   FileText,
+  Search,
   X,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -197,58 +198,72 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
       />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BookingCategory)}>
-        <TabsList aria-label="Booking status">
-          <TabsTrigger value="upcoming">
-            Upcoming ({categorized.upcoming.length})
-          </TabsTrigger>
-          <TabsTrigger value="past">Past ({categorized.past.length})</TabsTrigger>
-          <TabsTrigger value="cancelled">
-            Cancelled ({categorized.cancelled.length})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <TabsList
+            aria-label="Booking status"
+            className="gap-2 border-0 bg-transparent p-0 text-foreground"
+          >
+            <TabsTrigger
+              value="upcoming"
+              className="rounded-full border border-border bg-background px-3 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              Upcoming ({categorized.upcoming.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="past"
+              className="rounded-full border border-transparent px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-card data-[state=active]:text-foreground"
+            >
+              Past ({categorized.past.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="cancelled"
+              className="rounded-full border border-transparent px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-card data-[state=active]:text-foreground"
+            >
+              Cancelled ({categorized.cancelled.length})
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Filter bar */}
-        <div className="mt-4 flex flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="w-full max-w-xs sm:w-72">
-            <Label
-              htmlFor="event-type-filter"
-              className="mb-1 block text-xs font-medium text-muted-foreground"
-            >
-              Event type
-            </Label>
-            <Input
-              id="event-type-filter"
-              list="event-type-filter-options"
-              value={eventTypeFilter}
-              onChange={(e) => setEventTypeFilter(e.target.value)}
-              placeholder={
-                eventTypeOptions.length > 0
-                  ? "Search event types..."
-                  : "No event types to filter"
-              }
-              aria-label="Filter by event type"
-              autoComplete="off"
-              disabled={eventTypeOptions.length === 0}
-            />
-            <datalist id="event-type-filter-options">
-              {eventTypeOptions.map((title) => (
-                <option key={title} value={title} />
-              ))}
-            </datalist>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative w-full sm:w-72">
+              <Search
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="event-type-filter"
+                list="event-type-filter-options"
+                value={eventTypeFilter}
+                onChange={(e) => setEventTypeFilter(e.target.value)}
+                placeholder={
+                  eventTypeOptions.length > 0
+                    ? "Search event types..."
+                    : "No event types to filter"
+                }
+                aria-label="Filter by event type"
+                autoComplete="off"
+                disabled={eventTypeOptions.length === 0}
+                className="pl-9"
+              />
+              <datalist id="event-type-filter-options">
+                {eventTypeOptions.map((title) => (
+                  <option key={title} value={title} />
+                ))}
+              </datalist>
+            </div>
+            {eventTypeFilter && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Clear event type filter"
+                onClick={() => setEventTypeFilter("")}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
           </div>
-          {eventTypeFilter && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Clear event type filter"
-              onClick={() => setEventTypeFilter("")}
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          )}
-          <p className="ml-auto text-sm text-muted-foreground" aria-live="polite">
-            {filteredBookings.length} shown
+          <p className="sr-only" aria-live="polite">
+            {filteredBookings.length} bookings shown
           </p>
         </div>
 

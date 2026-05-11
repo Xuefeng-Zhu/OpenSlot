@@ -64,8 +64,11 @@ export default async function DashboardPage() {
     .eq("user_id", profile.id)
     .eq("is_active", true);
 
-  // Build booking link from profile username
-  const bookingLink = `/${profile.username}`;
+  // Build a shareable booking link while keeping a relative fallback for local setup.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+  const bookingLink = appUrl
+    ? `${appUrl}/${profile.username}`
+    : `/${profile.username}`;
 
   return (
     <DashboardClient
