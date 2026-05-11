@@ -116,18 +116,7 @@ export function DashboardClient({
       />
 
       {/* Top overview cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <MetricCard
-          title="Upcoming bookings"
-          value={upcomingBookings.length}
-          icon={<Calendar className="h-5 w-5" />}
-          action={{ label: "View bookings", href: "/bookings" }}
-          subtitle={
-            upcomingBookings.length > 0
-              ? `Next: ${formatBookingDate(upcomingBookings[0].start_at)}`
-              : "No upcoming bookings"
-          }
-        />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           title="Active event types"
           value={activeEventTypeCount}
