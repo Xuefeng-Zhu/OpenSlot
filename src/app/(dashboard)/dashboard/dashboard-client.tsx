@@ -106,14 +106,6 @@ export function DashboardClient({
       <PageHeader
         title={`Welcome back, ${profile.name.split(" ")[0] || "there"}`}
         description="Track bookings, manage availability, and share your public booking page from one calm workspace."
-        actions={
-          <Button asChild>
-            <Link href="/event-types/new">
-              <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
-              New event type
-            </Link>
-          </Button>
-        }
       />
 
       {/* Metric Cards */}
