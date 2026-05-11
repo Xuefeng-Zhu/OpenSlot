@@ -8,7 +8,6 @@ import {
   Activity,
   ExternalLink,
   ArrowRight,
-  Plus,
 } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -276,24 +275,6 @@ export function DashboardClient({
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* Bottom CTA bar */}
-      <div className="flex flex-col items-start justify-between gap-3 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center">
-        <div>
-          <p className="text-sm font-medium text-foreground">
-            Your schedule. Your way.
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add more event types to give people more ways to connect with you.
-          </p>
-        </div>
-        <Button size="sm" asChild>
-          <Link href="/event-types/new">
-            <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
-            New event type
-          </Link>
-        </Button>
       </div>
     </div>
   );
