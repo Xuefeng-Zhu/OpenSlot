@@ -180,16 +180,8 @@ export function DashboardClient({
 
       <div>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle className="text-lg">Next bookings</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
-              <Link
-                href="/bookings"
-                className="flex items-center gap-1 text-primary"
-              >
-                View all bookings
-              </Link>
-            </Button>
           </CardHeader>
           <CardContent>
             {displayedBookings.length === 0 ? (
@@ -258,7 +250,7 @@ export function DashboardClient({
               >
                 <Link href="/bookings" className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" aria-hidden="true" />
-                  View full calendar
+                  View all bookings
                   <ArrowRight className="h-3 w-3" aria-hidden="true" />
                 </Link>
               </Button>
