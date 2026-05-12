@@ -8,6 +8,7 @@ import {
   Clock,
   BookOpen,
   Settings,
+  User,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AppIcon } from '@/components/shared/app-icon'
@@ -19,6 +20,7 @@ const navItems = [
   { label: 'Event Types', href: '/event-types', icon: Calendar },
   { label: 'Availability', href: '/availability', icon: Clock },
   { label: 'Bookings', href: '/bookings', icon: BookOpen },
+  { label: 'Profile', href: '/profile', icon: User },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
@@ -59,7 +61,9 @@ export function MobileDrawer({ open, onClose, user }: MobileDrawerProps) {
         {/* Navigation Links */}
         <nav className="flex-1 space-y-1 px-3" aria-label="Mobile navigation">
           {navItems.map((item) => {
-            const isActive = pathname === item.href
+            const isActive =
+              pathname === item.href ||
+              (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`))
             const Icon = item.icon
             return (
               <Link
@@ -67,7 +71,7 @@ export function MobileDrawer({ open, onClose, user }: MobileDrawerProps) {
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  'flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   isActive
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'

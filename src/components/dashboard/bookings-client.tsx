@@ -8,8 +8,10 @@ import {
   Globe,
   FileText,
   Video,
+  Search,
   X,
 } from "lucide-react";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -150,10 +152,14 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
   };
 
   const renderEmptyState = (tab: BookingCategory) => {
-    const messages: Record<BookingCategory, { heading: string; description: string }> = {
+    const messages: Record<
+      BookingCategory,
+      { heading: string; description: string }
+    > = {
       upcoming: {
         heading: "No upcoming bookings",
-        description: "Share your booking link to start receiving bookings.",
+        description:
+          "Share your booking link or create another event type to make it easy for guests to book.",
       },
       past: {
         heading: "No past bookings yet",
@@ -170,66 +176,96 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
         icon={<Calendar className="h-6 w-6" />}
         heading={messages[tab].heading}
         description={messages[tab].description}
+        action={
+          tab === "upcoming"
+            ? {
+                label: "Open overview",
+                onClick: () => {
+                  window.location.href = "/dashboard";
+                },
+                variant: "outline",
+              }
+            : undefined
+        }
       />
     );
   };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Bookings</h1>
-        <p className="text-muted-foreground">
-          View and manage all your bookings.
-        </p>
-      </div>
+      <PageHeader
+        title="Bookings"
+        description="Review upcoming, completed, and cancelled meetings with guest details close at hand."
+      />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as BookingCategory)}>
-        <TabsList>
-          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-          <TabsTrigger value="past">Past</TabsTrigger>
-          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <TabsList
+            aria-label="Booking status"
+            className="gap-2 border-0 bg-transparent p-0 text-foreground"
+          >
+            <TabsTrigger
+              value="upcoming"
+              className="rounded-full border border-border bg-background px-3 data-[state=active]:border-primary data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              Upcoming ({categorized.upcoming.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="past"
+              className="rounded-full border border-transparent px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-card data-[state=active]:text-foreground"
+            >
+              Past ({categorized.past.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="cancelled"
+              className="rounded-full border border-transparent px-3 data-[state=active]:border-primary/40 data-[state=active]:bg-card data-[state=active]:text-foreground"
+            >
+              Cancelled ({categorized.cancelled.length})
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Filter bar */}
-        <div className="mt-4 flex flex-wrap items-end gap-2">
-          <div className="w-full max-w-xs sm:w-72">
-            <Label
-              htmlFor="event-type-filter"
-              className="mb-1 block text-xs font-medium text-muted-foreground"
-            >
-              Event type
-            </Label>
-            <Input
-              id="event-type-filter"
-              list="event-type-filter-options"
-              value={eventTypeFilter}
-              onChange={(e) => setEventTypeFilter(e.target.value)}
-              placeholder={
-                eventTypeOptions.length > 0
-                  ? "Search event types..."
-                  : "No event types to filter"
-              }
-              aria-label="Filter by event type"
-              autoComplete="off"
-              disabled={eventTypeOptions.length === 0}
-            />
-            <datalist id="event-type-filter-options">
-              {eventTypeOptions.map((title) => (
-                <option key={title} value={title} />
-              ))}
-            </datalist>
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div className="relative w-full sm:w-72">
+              <Search
+                className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                id="event-type-filter"
+                list="event-type-filter-options"
+                value={eventTypeFilter}
+                onChange={(e) => setEventTypeFilter(e.target.value)}
+                placeholder={
+                  eventTypeOptions.length > 0
+                    ? "Search event types..."
+                    : "No event types to filter"
+                }
+                aria-label="Filter by event type"
+                autoComplete="off"
+                disabled={eventTypeOptions.length === 0}
+                className="pl-9"
+              />
+              <datalist id="event-type-filter-options">
+                {eventTypeOptions.map((title) => (
+                  <option key={title} value={title} />
+                ))}
+              </datalist>
+            </div>
+            {eventTypeFilter && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Clear event type filter"
+                onClick={() => setEventTypeFilter("")}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
           </div>
-          {eventTypeFilter && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label="Clear event type filter"
-              onClick={() => setEventTypeFilter("")}
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          )}
+          <p className="sr-only" aria-live="polite">
+            {filteredBookings.length} bookings shown
+          </p>
         </div>
 
         <TabsContent value="upcoming">
@@ -498,7 +534,7 @@ function BookingsTable({
                 return (
                   <tr
                     key={booking.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
+                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30 focus:outline-none focus-visible:bg-accent/70"
                     onClick={() => onBookingClick(booking)}
                     role="button"
                     tabIndex={0}

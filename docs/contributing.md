@@ -2,6 +2,8 @@
 
 This repository is private. Keep changes small, tested, and clear.
 
+For a short GitHub-facing checklist, see [../CONTRIBUTING.md](../CONTRIBUTING.md).
+
 ## Before You Start
 
 1. Read [AGENTS.md](../AGENTS.md).

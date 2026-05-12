@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { CalendarCheck, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -256,17 +257,17 @@ export function BookingForm({
   return (
     <Card className="mt-6">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <CardTitle className="text-lg">
-              {rescheduleToken ? "Confirm New Time" : "Confirm Your Booking"}
+              {rescheduleToken ? "Confirm new time" : "Confirm your booking"}
             </CardTitle>
             <CardDescription>
               {eventTitle} with {hostName}
             </CardDescription>
           </div>
           <div
-            className={`text-sm font-medium px-3 py-1 rounded-full ${
+            className={`w-fit rounded-full px-3 py-1 text-sm font-medium ${
               timeRemaining <= 60
                 ? "bg-destructive/10 text-destructive"
                 : "bg-muted text-muted-foreground"
@@ -280,12 +281,28 @@ export function BookingForm({
       </CardHeader>
       <CardContent>
         {/* Slot summary */}
-        <div className="mb-6 p-3 bg-muted rounded-md">
-          <p className="font-medium">{formatSlotDate(selectedSlot.start)}</p>
-          <p className="text-sm text-muted-foreground">
-            {formatSlotTime(selectedSlot.start)} –{" "}
-            {formatSlotTime(selectedSlot.end)}
-          </p>
+        <div className="mb-6 grid gap-3 rounded-lg border border-border bg-muted/30 p-4 sm:grid-cols-2">
+          <div className="flex items-start gap-3">
+            <CalendarCheck className="mt-0.5 h-4 w-4 text-primary" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Date
+              </p>
+              <p className="font-medium">{formatSlotDate(selectedSlot.start)}</p>
+            </div>
+          </div>
+          <div className="flex items-start gap-3">
+            <Clock3 className="mt-0.5 h-4 w-4 text-primary" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium uppercase text-muted-foreground">
+                Time
+              </p>
+              <p className="font-medium">
+                {formatSlotTime(selectedSlot.start)} -{" "}
+                {formatSlotTime(selectedSlot.end)}
+              </p>
+            </div>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -354,9 +371,8 @@ export function BookingForm({
           {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
-            <textarea
+            <Textarea
               id="notes"
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               placeholder="Anything you'd like the host to know..."
               {...register("notes")}
               aria-invalid={!!errors.notes}
@@ -371,7 +387,7 @@ export function BookingForm({
 
           {/* Error message */}
           {error && (
-            <div className="p-3 bg-destructive/10 text-destructive text-sm rounded-md">
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
               {error}
             </div>
           )}

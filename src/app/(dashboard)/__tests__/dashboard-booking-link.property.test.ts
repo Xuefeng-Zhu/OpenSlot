@@ -51,7 +51,7 @@ describe('Feature: ui-backend-integration, Property 2: Dashboard booking link co
     )
   })
 
-  it('renders dashboard metric shortcuts as navigable links', () => {
+  it('renders dashboard shortcuts as navigable links', () => {
     const props: DashboardClientProps = {
       profile: {
         username: 'test-user',
@@ -64,7 +64,9 @@ describe('Feature: ui-backend-integration, Property 2: Dashboard booking link co
 
     render(createElement(DashboardClient, props))
 
-    const bookingsLink = screen.getByRole('link', { name: 'View bookings' })
+    const bookingsLink = screen.getByRole('link', {
+      name: 'View all bookings',
+    })
     const eventTypesLink = screen.getByRole('link', {
       name: 'Manage event types',
     })

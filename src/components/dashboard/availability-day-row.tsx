@@ -67,8 +67,13 @@ export function AvailabilityDayRow({
   };
 
   return (
-    <div className={cn("space-y-2 rounded-md border p-3", !enabled && "opacity-60")}>
-      <div className="flex items-center justify-between">
+    <div
+      className={cn(
+        "space-y-3 rounded-md border border-border bg-card p-3",
+        !enabled && "opacity-70"
+      )}
+    >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Switch
             checked={enabled}
@@ -92,7 +97,7 @@ export function AvailabilityDayRow({
       </div>
 
       {enabled && (
-        <div className="space-y-2 pl-14">
+        <div className="space-y-2 sm:pl-14">
           {intervals.map((interval, index) => {
             const validationError = validateTimeInterval(
               interval.start,
@@ -100,14 +105,14 @@ export function AvailabilityDayRow({
             );
             return (
               <div key={index} className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="time"
                     value={interval.start}
                     onChange={(e) =>
                       handleIntervalChange(index, "start", e.target.value)
                     }
-                    className="w-32"
+                    className="w-[8.5rem]"
                     aria-label={`Start time for ${day} interval ${index + 1}`}
                   />
                   <span className="text-sm text-muted-foreground">to</span>
@@ -117,7 +122,7 @@ export function AvailabilityDayRow({
                     onChange={(e) =>
                       handleIntervalChange(index, "end", e.target.value)
                     }
-                    className="w-32"
+                    className="w-[8.5rem]"
                     aria-label={`End time for ${day} interval ${index + 1}`}
                   />
                   <Button

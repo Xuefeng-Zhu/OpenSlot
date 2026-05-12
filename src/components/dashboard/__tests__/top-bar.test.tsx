@@ -21,7 +21,7 @@ describe('TopBar', () => {
     expect(screen.queryByText('Product Designer')).toBeNull()
   })
 
-  it('opens help and notification menus from header controls', async () => {
+  it('opens the notification menu from the header controls', async () => {
     render(
       <TopBar
         title="Dashboard"
@@ -29,15 +29,8 @@ describe('TopBar', () => {
       />
     )
 
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Help' }), {
-      button: 0,
-      ctrlKey: false,
-    })
+    expect(screen.queryByRole('button', { name: 'Help' })).toBeNull()
 
-    expect(await screen.findByRole('menuitem', { name: 'Set availability' })).toBeDefined()
-    expect(screen.getByRole('menuitem', { name: 'Create event type' })).toBeDefined()
-
-    fireEvent.keyDown(document.activeElement || document.body, { key: 'Escape' })
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Notifications' }), {
       button: 0,
       ctrlKey: false,

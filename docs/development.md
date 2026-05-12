@@ -2,8 +2,9 @@
 
 ## Prerequisites
 
-- Node.js 20.9 or newer.
-- npm.
+- Node.js 22 LTS or newer is recommended. Next.js requires Node.js 20.9 or
+  newer.
+- npm. Use the npm version recorded in `package.json` when possible.
 - Supabase project or Supabase CLI for local development.
 
 ## Install
@@ -83,7 +84,11 @@ npm run lint
 npm run typecheck
 npm run test
 npm run build
+npm run verify
 ```
+
+`npm run verify` runs lint, typecheck, tests, and the production build. Use the
+individual commands while iterating and the combined command before handoff.
 
 ## Coding Patterns
 
@@ -115,6 +120,7 @@ npm run test -- 'src/app/(dashboard)/__tests__/dashboard-booking-link.property.t
 
 ## Related Docs
 
+- [Repository Structure](repository-structure.md)
 - [Testing](testing.md)
 - [Troubleshooting](troubleshooting.md)
 - [Agent Workflow](agent-workflow.md)

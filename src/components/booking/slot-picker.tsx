@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { format } from "date-fns";
+import { AlertCircle, CalendarDays, Clock3 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, getInitials } from "@/components/ui/avatar";
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
+import { TimeSlotButton } from "@/components/booking/time-slot-button";
+import { EmptyState } from "@/components/shared/empty-state";
 
 interface TimeSlot {
   start: string;
@@ -332,9 +335,9 @@ export function SlotPicker({
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="mx-auto max-w-4xl">
       {/* Event type header */}
-      <div className="flex flex-col items-center text-center mb-8">
+      <div className="mb-8 flex flex-col items-center text-center">
         <Avatar
           src={hostProfile.avatar_url}
           alt={`${hostProfile.name}'s avatar`}
@@ -343,30 +346,32 @@ export function SlotPicker({
           className="mb-3"
         />
         <p className="text-muted-foreground text-sm">{hostProfile.name}</p>
-        <h1 className="text-2xl font-bold mt-1">{eventType.title}</h1>
-        <div className="flex items-center gap-2 mt-2">
+        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
+          {eventType.title}
+        </h1>
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           <Badge variant="secondary">{eventType.duration_minutes} min</Badge>
           <Badge variant="outline">
             {formatEventLocation(eventType)}
           </Badge>
         </div>
         {eventType.description && (
-          <p className="text-muted-foreground mt-3 max-w-md">
+          <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
             {eventType.description}
           </p>
         )}
       </div>
 
       {/* Timezone selector */}
-      <div className="mb-6 flex items-center justify-center gap-2">
+      <div className="mb-6 flex flex-col items-stretch gap-2 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-center">
         <label
           htmlFor="timezone-select"
-          className="text-sm text-muted-foreground"
+          className="text-sm font-medium text-foreground"
         >
-          Timezone:
+          Timezone
         </label>
         <Select value={timezone} onValueChange={handleTimezoneChange}>
-          <SelectTrigger className="w-[280px]" id="timezone-select">
+          <SelectTrigger className="w-full sm:w-[280px]" id="timezone-select">
             <SelectValue placeholder="Select timezone" />
           </SelectTrigger>
           <SelectContent>
@@ -380,11 +385,11 @@ export function SlotPicker({
       </div>
 
       {/* Date picker and slots */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         {/* Calendar */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Select a Date</CardTitle>
+            <CardTitle className="text-lg">Select a date</CardTitle>
             <CardDescription>
               Choose a date to see available times
             </CardDescription>
@@ -404,23 +409,26 @@ export function SlotPicker({
         {/* Available slots */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Available Times</CardTitle>
+            <CardTitle className="text-lg">Available times</CardTitle>
             <CardDescription>
               {selectedDate
                 ? format(selectedDate, "EEEE, MMMM d, yyyy")
                 : "Select a date to view available times"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent aria-live="polite">
             {!selectedDate && (
-              <p className="text-muted-foreground text-sm text-center py-8">
-                Please select a date from the calendar.
-              </p>
+              <EmptyState
+                icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
+                heading="Choose a date"
+                description="Pick an available date from the calendar to see times in your timezone."
+                className="border-0 bg-muted/30 py-10"
+              />
             )}
 
             {selectedDate && loading && (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+              <div className="flex items-center justify-center rounded-lg bg-muted/30 py-10" role="status">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
                 <span className="ml-2 text-sm text-muted-foreground">
                   Loading available slots...
                 </span>
@@ -428,8 +436,9 @@ export function SlotPicker({
             )}
 
             {selectedDate && !loading && error && (
-              <div className="text-center py-8">
-                <p className="text-sm text-destructive">{error}</p>
+              <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-8 text-center" role="alert">
+                <AlertCircle className="mx-auto h-6 w-6 text-destructive" aria-hidden="true" />
+                <p className="mt-2 text-sm text-destructive">{error}</p>
                 <Button
                   variant="outline"
                   size="sm"
@@ -445,28 +454,25 @@ export function SlotPicker({
             )}
 
             {selectedDate && !loading && !error && slots.length === 0 && (
-              <p className="text-muted-foreground text-sm text-center py-8">
-                No available slots for this date. Please try another date.
-              </p>
+              <EmptyState
+                icon={<Clock3 className="h-6 w-6" aria-hidden="true" />}
+                heading="No slots on this date"
+                description="Try another date on the calendar to find a time that works."
+                className="border-0 bg-muted/30 py-10"
+              />
             )}
 
             {selectedDate && !loading && !error && slots.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
+              <div className="grid max-h-[400px] grid-cols-2 gap-2 overflow-y-auto pr-1">
                 {slots.map((slot) => (
-                  <Button
+                  <TimeSlotButton
                     key={slot.start}
-                    variant={
-                      selectedSlot?.start === slot.start ? "default" : "outline"
-                    }
-                    size="sm"
-                    className="w-full"
+                    time={formatSlotTime(slot.start)}
+                    selected={selectedSlot?.start === slot.start}
                     onClick={() => handleSlotSelect(slot)}
                     disabled={holdLoading}
-                  >
-                    {holdLoading && selectedSlot?.start === slot.start
-                      ? "Holding..."
-                      : formatSlotTime(slot.start)}
-                  </Button>
+                    loading={holdLoading && selectedSlot?.start === slot.start}
+                  />
                 ))}
               </div>
             )}

@@ -15,6 +15,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { BookingSummaryCard } from "@/components/booking/booking-summary-card";
+import { PageHeader } from "@/components/dashboard/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -251,16 +252,29 @@ export function EventTypeEditor({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          {mode === "create" ? "Create Event Type" : "Edit Event Type"}
-        </h1>
-        <p className="text-muted-foreground">
-          {mode === "create"
-            ? "Set up a new event type that guests can book."
-            : `Update the settings for "${title || source.title}".`}
-        </p>
-      </div>
+      <PageHeader
+        title={mode === "create" ? "Create event type" : "Edit event type"}
+        description={
+          mode === "create"
+            ? "Set up a focused booking option guests can understand at a glance."
+            : `Update the settings for "${title || source.title}".`
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setShowPreview(!showPreview)}
+          >
+            {showPreview ? (
+              <EyeOff className="mr-2 h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Eye className="mr-2 h-4 w-4" aria-hidden="true" />
+            )}
+            {showPreview ? "Hide" : "Show"} preview
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-4">
@@ -563,30 +577,16 @@ export function EventTypeEditor({
 
         <div className="lg:col-span-2">
           <div className="sticky top-6">
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-medium text-muted-foreground">
-                Live Preview
+                Live preview
               </h2>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowPreview(!showPreview)}
-                className="lg:hidden"
-              >
-                {showPreview ? (
-                  <EyeOff className="h-4 w-4 mr-1" aria-hidden="true" />
-                ) : (
-                  <Eye className="h-4 w-4 mr-1" aria-hidden="true" />
-                )}
-                {showPreview ? "Hide" : "Show"} preview
-              </Button>
             </div>
             {showPreview && (
               <BookingSummaryCard
                 hostName={hostName}
                 eventTitle={title || "Event Title"}
-                date="Mon, Jan 20, 2025"
+                date="Fri, May 15, 2026"
                 time="10:00 AM"
                 duration={duration}
                 timezone={Intl.DateTimeFormat().resolvedOptions().timeZone}
@@ -598,14 +598,14 @@ export function EventTypeEditor({
 
       {serverError && (
         <div
-          className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+          className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive"
           role="alert"
         >
           {serverError}
         </div>
       )}
 
-      <div className="sticky bottom-0 bg-background border-t border-border py-4 -mx-6 px-6 flex items-center justify-end gap-3">
+      <div className="sticky bottom-0 flex items-center justify-end gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-lg">
         <Button type="button" variant="outline" onClick={handleCancel}>
           Cancel
         </Button>

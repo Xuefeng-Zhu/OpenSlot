@@ -86,7 +86,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Edit Profile</CardTitle>
+        <CardTitle>Edit profile</CardTitle>
         <CardDescription>
           Update your public profile information. Your username will be used in your public booking URL.
         </CardDescription>
@@ -133,7 +133,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
             <Label htmlFor="default_timezone">Default Timezone</Label>
             <select
               id="default_timezone"
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-background transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70"
               value={currentTimezone}
               onChange={(e) => setValue('default_timezone', e.target.value, { shouldValidate: true })}
               aria-invalid={!!errors.default_timezone}
@@ -153,19 +153,19 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
           </div>
 
           {serverError && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+            <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
               {serverError}
             </div>
           )}
 
           {successMessage && (
-            <div className="rounded-md bg-green-50 p-3 text-sm text-green-700" role="status">
+            <div className="rounded-md border border-success/20 bg-success/10 p-3 text-sm text-success" role="status">
               {successMessage}
             </div>
           )}
 
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
+            {isSubmitting ? 'Saving...' : 'Save changes'}
           </Button>
         </form>
       </CardContent>

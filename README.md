@@ -1,199 +1,242 @@
 # OpenSlot
 
-**Share availability. Book time. Stay in sync.**
+OpenSlot is a private MVP scheduling app for hosts who want to publish
+availability, share event-specific booking pages, and keep bookings in sync
+with calendar and notification side effects.
 
-OpenSlot is an MVP scheduling platform that enables hosts to define weekly availability, create event types, and share public booking pages. Guests can view available slots, temporarily hold a slot, and confirm bookings — all with database-level anti-double-booking guarantees via PostgreSQL exclusion constraints.
+The strongest production-shaped paths today are onboarding, profile/settings
+persistence, availability, event type management, public booking pages, slot
+computation, holds, confirmed bookings, cancellation/rescheduling tokens,
+outbox processing, calendar provider sync, and tenant webhook delivery
+processing. Some dashboard surfaces are still prototype or mock-backed; check
+[docs/product-overview.md](docs/product-overview.md) before extending a flow.
+
+## Screenshots
+
+Screenshots are not committed yet. Suggested first additions:
+
+- Public profile and event booking page.
+- Host dashboard overview.
+- Availability editor.
+- Event type editor.
+
+## Features
+
+- Supabase email/password authentication.
+- Host onboarding with profile, availability, and first event type setup.
+- Supabase-backed event type create, edit, pause, delete, and share flows.
+- Weekly availability and date overrides with timezone-aware slot generation.
+- Public booking pages at `/{username}` and `/{username}/{eventSlug}`.
+- Five-minute slot holds backed by a host reservation ledger.
+- Confirmed booking, cancellation, and rescheduling flows with idempotency keys.
+- PostgreSQL exclusion constraints to prevent overlapping active reservations.
+- Outbox events for email, calendar, and tenant webhook side effects.
+- Console email provider by default, with Resend and Maileroo provider support.
+- Google and Microsoft calendar OAuth foundation and busy-cache sync.
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript (strict mode) |
-| Database & Auth | Supabase (Auth, Postgres, RLS) |
-| Styling | Tailwind CSS + shadcn/ui |
-| Forms & Validation | React Hook Form + Zod |
-| Date/Time | date-fns + date-fns-tz |
-| Testing | Vitest + fast-check (property-based) |
-
-## Prerequisites
-
-- [Node.js](https://nodejs.org/) 20.9+ and npm
-- A [Supabase](https://supabase.com/) project (free tier works)
-- [Supabase CLI](https://supabase.com/docs/guides/cli) (optional, for local development and running migrations)
-
-## Getting Started
-
-### 1. Clone the repository
-
-```bash
-git clone <repository-url>
-cd openslot
-```
-
-### 2. Install dependencies
-
-```bash
-npm ci
-```
-
-### 3. Configure environment variables
-
-Copy the example environment file and fill in your Supabase credentials:
-
-```bash
-cp .env.example .env.local
-```
-
-Edit `.env.local` with your values:
-
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-```
-
-You can find these values in your Supabase project dashboard under **Settings → API**.
-
-The public landing page can render without Supabase credentials for local UI work, but authentication, dashboard, booking, and API routes require these environment variables.
-
-### 4. Run database migrations
-
-Apply the migrations to your Supabase project using the Supabase CLI:
-
-```bash
-supabase db push
-```
-
-Or run them manually via the Supabase SQL Editor by executing each file in `supabase/migrations/` in order.
-
-### 5. Seed the database (optional)
-
-Load sample data for development:
-
-```bash
-supabase db seed
-```
-
-Or run `supabase/seed.sql` manually in the SQL Editor. This creates a demo user with event types, availability rules, and a sample booking.
-
-### 6. Start the development server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) to view the application.
-
-## Available Scripts
-
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Create a production build using the webpack builder |
-| `npm run start` | Start the production server |
-| `npm run lint` | Run ESLint |
-| `npm run typecheck` | Run TypeScript type checking |
-| `npm run test` | Run tests with Vitest |
-| `npm run test:watch` | Run tests in watch mode |
-
-For deterministic installs, prefer `npm ci` when working from the committed lockfile.
+| Area | Stack |
+| --- | --- |
+| App framework | Next.js 16 App Router, React 18 |
+| Language | TypeScript strict mode |
+| Database and auth | Supabase Auth, Postgres, RLS, service-role route handlers |
+| Styling | Tailwind CSS and local shadcn-style primitives |
+| Forms and validation | React Hook Form and Zod |
+| Dates and timezones | `date-fns` and `date-fns-tz` |
+| Tests | Vitest, jsdom, Testing Library, `fast-check`, `jest-axe` |
+| Deployment shape | Next build with Vercel cron config in `vercel.json` |
 
 ## Architecture Overview
 
-OpenSlot follows a **server-first architecture** for critical booking operations:
+OpenSlot is server-first around booking integrity:
 
-- **Server Components** render public booking pages and dashboard views with data fetched directly from Supabase.
-- **API Routes** (`/api/*`) handle all write operations for bookings and holds using the Supabase service role client, ensuring data integrity and security.
-- **Client Components** handle interactive UI (forms, date pickers, slot selection) and communicate with API routes for mutations.
-- **Proxy** (`src/proxy.ts`) refreshes Supabase sessions and redirects unauthenticated dashboard requests.
-- **Row-Level Security (RLS)** enforces data access at the database level — hosts can only access their own data, while guests can read public profiles and event types.
-- **PostgreSQL Exclusion Constraints** provide database-level anti-double-booking guarantees, preventing overlapping confirmed bookings even under concurrent requests.
+- Server Components fetch profiles, event types, availability, bookings, and
+  public booking data through Supabase server clients.
+- Client Components manage form state and call API routes for mutations.
+- Public slot lookup uses `/api/slots`.
+- Guest holds use `/api/holds` and the `create_slot_hold_with_reservation()`
+  database RPC.
+- Booking confirmation, cancellation, and rescheduling enqueue outbox events
+  for provider writes, emails, and tenant webhooks.
+- Worker routes under `/api/outbox/process`, `/api/calendar/sync`, and
+  `/api/webhooks/process` are protected by route secrets or `CRON_SECRET`.
+- Supabase RLS and explicit grants keep browser access narrow. Service-role
+  reads/writes stay in server-only modules and route handlers.
 
-### Request Flow
+See [docs/architecture.md](docs/architecture.md) for the deeper system map.
 
-1. Guest visits a public booking page → Server Component fetches host profile and event types
-2. Guest selects a date → Client fetches available slots from `/api/slots`
-3. Guest picks a slot → Client creates a temporary hold and host reservation via `/api/holds` (5-minute TTL)
-4. Guest submits booking form → Client confirms via `/api/bookings` (validates hold, inserts booking, enqueues side-effect events, sends current console-provider emails)
+## Repository Structure
 
-## Directory Structure
-
-```
-openslot/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/              # Auth pages (login, signup)
-│   │   ├── (dashboard)/         # Protected dashboard pages
-│   │   │   ├── availability/    # Weekly availability management
-│   │   │   ├── bookings/        # Booking list and management
-│   │   │   ├── dashboard/       # Overview page
-│   │   │   ├── event-types/     # Event type CRUD
-│   │   │   └── profile/         # Profile settings
-│   │   ├── (public)/            # Public booking pages
-│   │   │   └── [username]/      # Host profile and event pages
-│   │   ├── api/                 # API routes
-│   │   │   ├── bookings/        # Booking confirmation and cancellation
-│   │   │   ├── holds/           # Slot hold creation
-│   │   │   └── slots/           # Available slot computation
-│   │   ├── booking/             # Cancellation pages
-│   │   └── page.tsx             # Landing page
-│   ├── components/
-│   │   ├── booking/             # Booking flow components
-│   │   ├── dashboard/           # Dashboard-specific components
-│   │   └── ui/                  # shadcn/ui components
-│   ├── lib/
-│   │   ├── availability/        # Slot computation engine
-│   │   ├── booking/             # Booking confirmation and cancellation logic
-│   │   ├── email/               # Email service abstraction
-│   │   ├── idempotency/         # Request replay protection for booking mutations
-│   │   ├── outbox/              # Internal side-effect event enqueue helpers
-│   │   ├── reservations/        # Host reservation lifecycle helpers
-│   │   ├── supabase/            # Supabase client utilities
-│   │   ├── types/               # TypeScript type definitions
-│   │   ├── utils/               # Shared utilities (slug, timezone)
-│   │   └── validations/         # Zod validation schemas
-│   └── proxy.ts                 # Auth proxy for protected routes
-├── supabase/
-│   ├── migrations/              # Database migration files
-│   └── seed.sql                 # Sample data for development
-├── .env.example                 # Environment variable template
-├── package.json
-├── tsconfig.json
-└── tailwind.config.ts
+```text
+src/app/                         Next.js App Router routes and API handlers
+src/app/(auth)/                  Login and signup routes
+src/app/(dashboard)/             Authenticated host dashboard routes
+src/app/(public)/[username]/     Public host profile and event booking pages
+src/components/booking/          Guest booking flow components
+src/components/dashboard/        Dashboard views and dashboard UI
+src/components/ui/               Local shadcn-style primitives
+src/lib/availability/            Slot computation engine
+src/lib/booking/                 Booking confirmation, cancellation, reschedule logic
+src/lib/calendar/                Calendar OAuth, sync, and provider event helpers
+src/lib/email/                   Email composition and provider selection
+src/lib/idempotency/             Retry-safe mutation helpers
+src/lib/outbox/                  Internal side-effect queue processing
+src/lib/reservations/            Host reservation mirror helpers
+src/lib/supabase/                Browser, server, and admin Supabase clients
+src/lib/validations/             Zod schemas
+supabase/migrations/             Database schema, indexes, RLS, and RPC migrations
+supabase/seed.sql                Local/demo seed data
+docs/                            Architecture, development, testing, release docs
 ```
 
-## Key Features
+See [docs/repository-structure.md](docs/repository-structure.md) for ownership
+notes and naming conventions.
 
-- **Authentication** — Email/password sign up and login via Supabase Auth
-- **Onboarding** — Persist profile setup, initial weekly availability, and the first active event type
-- **Event Types** — Hosts can create, edit, delete, pause, and share Supabase-backed event types from the dashboard
-- **Weekly Availability** — Set recurring availability windows per weekday with timezone support
-- **Date Overrides** — Mark specific dates as unavailable or set custom hours
-- **Public Booking Pages** — Shareable URLs (`/username/event-slug`) for guests to book
-- **Slot Holds** — 5-minute temporary holds prevent race conditions during booking
-- **Host Reservations** — Active holds and bookings are mirrored into an exclusion-constrained reservation ledger
-- **Anti-Double-Booking** — PostgreSQL exclusion constraints guarantee no overlapping confirmed bookings
-- **Idempotent Mutations** — Booking confirmation and cancellation cache idempotency-key responses for safe retries
-- **Outbox Events** — Booking confirmation and cancellation write deduped side-effect events for future workers
-- **Email Notifications** — Confirmation and cancellation email plumbing exists and uses a console provider by default
-- **Cancellation** — Token-based public cancellation page and API for guests and hosts
-- **Timezone Support** — Full IANA timezone handling with correct DST transitions
+## Prerequisites
+
+- Node.js 22 LTS or newer recommended. Next.js requires Node.js 20.9 or newer.
+- npm. Use `npm ci` for deterministic installs from `package-lock.json`.
+- A Supabase project or the Supabase CLI for local database development.
+
+## Local Setup
+
+1. Install dependencies:
+
+   ```bash
+   npm ci
+   ```
+
+2. Create a local environment file:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+3. Fill in the required Supabase and app values in `.env.local`.
+
+4. Apply database migrations:
+
+   ```bash
+   supabase db push
+   ```
+
+5. Optional: seed local/demo data:
+
+   ```bash
+   supabase db seed
+   ```
+
+6. Start the app:
+
+   ```bash
+   npm run dev
+   ```
+
+7. Open [http://localhost:3000](http://localhost:3000).
+
+The landing page can render without Supabase credentials. Authenticated
+dashboard routes, public booking data, API routes, and booking writes require
+valid Supabase configuration.
+
+## Environment Variables
+
+| Variable | Required | Notes |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Browser-visible Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser-visible Supabase anon key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only key for privileged route handlers. Never expose to client code. |
+| `NEXT_PUBLIC_APP_URL` | Yes | Public app origin for links and OAuth callbacks. Use `http://localhost:3000` locally. |
+| `OUTBOX_PROCESS_SECRET` | Production | Protects manual `/api/outbox/process` calls. |
+| `WEBHOOK_PROCESS_SECRET` | Production | Protects manual `/api/webhooks/process` calls. |
+| `CALENDAR_SYNC_SECRET` | Production | Protects manual `/api/calendar/sync` calls. |
+| `CRON_SECRET` | Production | Shared Vercel Cron bearer token. |
+| `GOOGLE_CALENDAR_CLIENT_ID` | Calendar integration | Google OAuth client ID. |
+| `GOOGLE_CALENDAR_CLIENT_SECRET` | Calendar integration | Google OAuth client secret. |
+| `MICROSOFT_CALENDAR_CLIENT_ID` | Calendar integration | Microsoft OAuth app client ID. |
+| `MICROSOFT_CALENDAR_CLIENT_SECRET` | Calendar integration | Microsoft OAuth client secret. |
+| `MICROSOFT_CALENDAR_TENANT` | Calendar integration | Defaults to `common`. |
+| `CALENDAR_TOKEN_ENCRYPTION_SECRET` | Calendar integration | Stable high-entropy server-only encryption secret. |
+| `EMAIL_PROVIDER` | Optional | `console`, `resend`, or `maileroo`. Defaults to console behavior. |
+| `EMAIL_FROM` | Email provider | Required for real provider sends. |
+| `RESEND_API_KEY` | Resend | Required when `EMAIL_PROVIDER=resend`. |
+| `MAILEROO_API_KEY` | Maileroo | Required when `EMAIL_PROVIDER=maileroo`. |
+
+Use `.env.example` as the source of truth for local keys.
+
+## Scripts
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Next.js development server. |
+| `npm run build` | Create a production build with `next build --webpack`. |
+| `npm run start` | Start the production server after a build. |
+| `npm run lint` | Run ESLint. |
+| `npm run typecheck` | Run TypeScript without emitting files. |
+| `npm run test` | Run the Vitest suite once. |
+| `npm run test:watch` | Run Vitest in watch mode. |
+| `npm run verify` | Run lint, typecheck, tests, and build. |
+| `npm run oauth:calendar` | Configure calendar OAuth credentials interactively. |
+
+## Testing
+
+Run the normal local gate before opening a PR:
+
+```bash
+npm run lint
+npm run typecheck
+npm run test
+```
+
+Run `npm run build` for route, environment, Next.js, or production-sensitive
+changes. The full test suite may print `Not implemented: navigation to another
+Document` from jsdom while still passing.
+
+See [docs/testing.md](docs/testing.md) for targeted test examples and coverage
+guidance.
+
+## Deployment
+
+Production deploys need the environment variables above and database migrations
+applied out of band. `vercel.json` defines cron schedules for outbox, webhook,
+and calendar sync worker routes. Non-Vercel deployments should configure
+equivalent scheduled requests with bearer-token authentication.
+
+See [docs/release.md](docs/release.md) for release and deployment notes.
+
+## Contributing
+
+This repository is private. Keep changes focused, tested, and explicit about
+whether a touched surface is live, prototype, or mock-backed.
+
+- Read [CONTRIBUTING.md](CONTRIBUTING.md) before starting.
+- Use the PR template in `.github/pull_request_template.md`.
+- Update docs when behavior, setup, architecture, commands, or environment
+  variables change.
+
+## Security
+
+OpenSlot handles guest names, emails, notes, timezones, booking times, and
+cancellation/rescheduling tokens. Treat that data as sensitive.
+
+- Never commit `.env.local` or real credentials.
+- Never expose `SUPABASE_SERVICE_ROLE_KEY` or provider secrets to client code.
+- Review [SECURITY.md](SECURITY.md) before changing public APIs, RLS,
+  service-role code, booking integrity logic, or provider integrations.
 
 ## Additional Documentation
 
-- [Agent and contributor guide](AGENTS.md)
 - [Product overview](docs/product-overview.md)
 - [Architecture](docs/architecture.md)
+- [Repository structure](docs/repository-structure.md)
 - [Development](docs/development.md)
 - [Testing](docs/testing.md)
+- [Release and deployment](docs/release.md)
 - [Security](docs/security.md)
-- [Release notes](docs/release.md)
 - [Troubleshooting](docs/troubleshooting.md)
-- [Contributing](docs/contributing.md)
 - [Agent workflow](docs/agent-workflow.md)
+- [Agent instructions](AGENTS.md)
 
 ## License
 
-Private — All rights reserved.
+Private and proprietary. See [LICENSE](LICENSE).

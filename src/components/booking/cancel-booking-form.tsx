@@ -128,22 +128,22 @@ export function CancelBookingForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="rounded-md border p-4 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-muted-foreground">Event</span>
-              <span className="font-medium">{eventTitle}</span>
+              <span className="text-right font-medium">{eventTitle}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-muted-foreground">Date</span>
-              <span className="font-medium">{formatDateTime(startAt)}</span>
+              <span className="text-right font-medium">{formatDateTime(startAt)}</span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-muted-foreground">Time</span>
-              <span className="font-medium">
-                {formatTime(startAt)} – {formatTime(endAt)}
+              <span className="text-right font-medium">
+                {formatTime(startAt)} - {formatTime(endAt)}
               </span>
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-muted-foreground">Status</span>
               <Badge variant="danger">Cancelled</Badge>
             </div>
@@ -174,30 +174,30 @@ export function CancelBookingForm({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Booking details */}
-        <div className="rounded-md border p-4 space-y-3">
-          <div className="flex items-center justify-between">
+        <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Event</span>
-            <span className="font-medium">{eventTitle}</span>
+            <span className="text-right font-medium">{eventTitle}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Host</span>
-            <span className="font-medium">{hostName}</span>
+            <span className="text-right font-medium">{hostName}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Guest</span>
-            <span className="font-medium">{guestName}</span>
+            <span className="text-right font-medium">{guestName}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Date</span>
-            <span className="font-medium">{formatDateTime(startAt)}</span>
+            <span className="text-right font-medium">{formatDateTime(startAt)}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Time</span>
-            <span className="font-medium">
-              {formatTime(startAt)} – {formatTime(endAt)}
+            <span className="text-right font-medium">
+              {formatTime(startAt)} - {formatTime(endAt)}
             </span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Timezone</span>
             <Badge variant="secondary">
               {guestTimezone.replace(/_/g, " ")}
@@ -225,13 +225,13 @@ export function CancelBookingForm({
 
         {/* Error message */}
         {state === "error" && errorMessage && (
-          <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
             {errorMessage}
           </div>
         )}
 
         {/* Action buttons */}
-        <div className="flex gap-3 pt-2">
+        <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row">
           <Button
             type="button"
             variant="destructive"
@@ -239,7 +239,7 @@ export function CancelBookingForm({
             onClick={handleCancel}
             disabled={state === "cancelling"}
           >
-            {state === "cancelling" ? "Cancelling..." : "Yes, Cancel Booking"}
+            {state === "cancelling" ? "Cancelling..." : "Yes, cancel booking"}
           </Button>
           <Button
             type="button"
@@ -248,7 +248,7 @@ export function CancelBookingForm({
             onClick={() => window.history.back()}
             disabled={state === "cancelling"}
           >
-            Go Back
+            Go back
           </Button>
         </div>
       </CardContent>

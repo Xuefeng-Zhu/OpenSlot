@@ -20,17 +20,21 @@ export default async function DashboardLayout({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('name, email')
+    .select('name, email, username')
     .eq('auth_user_id', user.id)
     .single()
 
-  const typedProfile = profile as Pick<Tables<'profiles'>, 'name' | 'email'> | null
+  const typedProfile = profile as Pick<
+    Tables<'profiles'>,
+    'name' | 'email' | 'username'
+  > | null
 
   return (
     <DashboardShell
       user={{
         name: typedProfile?.name || '',
         email: typedProfile?.email || user.email || '',
+        username: typedProfile?.username || '',
       }}
     >
       {children}
