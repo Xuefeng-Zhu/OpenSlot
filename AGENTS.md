@@ -68,7 +68,7 @@ supabase db reset
 supabase db seed
 ```
 
-There is no committed CI workflow. Vercel worker cron config exists in `vercel.json`. Treat `npm run lint`, `npm run typecheck`, `npm run test`, and `npm run build` as the release gate.
+GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to `main` and pull requests targeting `main`. It runs `npm ci`, `npm audit --audit-level=moderate`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and Supabase migration validation with `supabase db start`, `supabase db reset --local --no-seed`, and `supabase db lint --local --fail-on error`. Vercel worker cron config exists in `vercel.json`.
 
 ## Setup Instructions
 
@@ -289,9 +289,10 @@ See [docs/security.md](docs/security.md).
 
 ## Release and Build Notes
 
+- GitHub Actions release gate: `.github/workflows/ci.yml`.
 - Production build command: `npm run build`.
 - Production start command after build: `npm run start`.
-- No deployment target is committed. Any deploy must provide the required env vars and run migrations out of band.
+- Vercel cron schedules are committed in `vercel.json`, but a production deploy must still provide the required env vars and run migrations out of band.
 - The build uses `next build --webpack`.
 - `NEXT_PUBLIC_APP_URL` is used for cancellation links in booking confirmation emails.
 

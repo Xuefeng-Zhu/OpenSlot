@@ -197,10 +197,13 @@ guidance.
 
 ## Deployment
 
-Production deploys need the environment variables above and database migrations
-applied out of band. `vercel.json` defines cron schedules for outbox, webhook,
-and calendar sync worker routes. Non-Vercel deployments should configure
-equivalent scheduled requests with bearer-token authentication.
+GitHub Actions runs the app release gate, npm dependency audit, and local
+Supabase migration validation for pushes and pull requests targeting `main`.
+Production deploys still need the environment variables above and database
+migrations applied out of band. `vercel.json` defines cron schedules for
+outbox, webhook, and calendar sync worker routes. Non-Vercel deployments
+should configure equivalent scheduled requests with bearer-token
+authentication.
 
 See [docs/release.md](docs/release.md) for release and deployment notes.
 
