@@ -34,7 +34,7 @@ jobs:
       MICROSOFT_CALENDAR_TENANT: common
       CALENDAR_TOKEN_ENCRYPTION_SECRET: ci-calendar-token-encryption-secret-32-bytes
       EMAIL_PROVIDER: console
-      EMAIL_FROM: OpenSlot <bookings@example.com>
+      EMAIL_FROM: "OpenSlot <bookings@example.com>"
 
     steps:
       - name: Check out repository
