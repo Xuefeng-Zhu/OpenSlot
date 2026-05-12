@@ -85,6 +85,8 @@ interface BookingFormProps {
     bookingId: string;
     cancellationToken: string;
     rescheduleToken?: string;
+    conferenceStatus?: string;
+    conferenceUrl?: string | null;
     startAt: string;
     endAt: string;
     guestName: string;
@@ -209,6 +211,8 @@ export function BookingForm({
           bookingId: result.bookingId,
           cancellationToken: result.cancellationToken,
           rescheduleToken: result.rescheduleToken,
+          conferenceStatus: result.conferenceStatus,
+          conferenceUrl: result.conferenceUrl,
           startAt: selectedSlot.start,
           endAt: selectedSlot.end,
           guestName: data.guestName,

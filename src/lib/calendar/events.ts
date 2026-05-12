@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import type { OutboxEventType } from '@/lib/outbox/outbox'
+import type { VideoProvider } from '@/lib/validations/event-type'
 import {
   createProviderCalendarEvent,
   deleteProviderCalendarEvent,
@@ -26,6 +27,11 @@ interface CalendarBookingDetails {
   guestEmail: string
   hostName: string
   hostEmail: string
+  locationType: string
+  locationValue: string
+  conferenceProvider: VideoProvider | null
+  conferenceStatus: string
+  conferenceUrl: string | null
 }
 
 /**
@@ -84,9 +90,21 @@ export async function createCalendarEventsForBooking(
     adminClient,
     booking.hostUserId
   )
+  const targets = calendarTargetsForBooking(booking, writeTargets)
   const result = { created: 0, skipped: 0 }
 
-  for (const target of writeTargets) {
+  if (booking.conferenceProvider && targets.length === 0) {
+    const message = `No writable ${videoProviderLabel(
+      booking.conferenceProvider
+    )} calendar connection is available`
+    await updateBookingConference(adminClient, booking.bookingId, {
+      status: 'setup_required',
+      error: message,
+    })
+    throw new Error(message)
+  }
+
+  for (const target of targets) {
     const existingRef = await loadActiveCalendarRef(
       adminClient,
       booking.bookingId,
@@ -94,6 +112,16 @@ export async function createCalendarEventsForBooking(
     )
 
     if (existingRef) {
+      if (booking.conferenceProvider) {
+        const conferenceUrl = conferenceUrlFromMetadata(existingRef.metadata)
+        if (conferenceUrl) {
+          await updateBookingConference(adminClient, booking.bookingId, {
+            status: 'ready',
+            url: conferenceUrl,
+            error: null,
+          })
+        }
+      }
       result.skipped += 1
       continue
     }
@@ -102,12 +130,35 @@ export async function createCalendarEventsForBooking(
       adminClient,
       target.connection
     )
-    const providerEvent = await createProviderCalendarEvent({
-      provider: target.connection.provider as CalendarProvider,
-      accessToken,
-      externalCalendarId: target.calendar.external_calendar_id,
-      event: providerEventFromBooking(booking),
-    })
+    let providerEvent: Awaited<ReturnType<typeof createProviderCalendarEvent>>
+
+    try {
+      providerEvent = await createProviderCalendarEvent({
+        provider: target.connection.provider as CalendarProvider,
+        accessToken,
+        externalCalendarId: target.calendar.external_calendar_id,
+        event: providerEventFromBooking(booking),
+      })
+    } catch (error) {
+      if (booking.conferenceProvider) {
+        await updateBookingConference(adminClient, booking.bookingId, {
+          status: 'failed',
+          error: errorMessage(error),
+        })
+      }
+      throw error
+    }
+
+    if (booking.conferenceProvider && !providerEvent.conferenceUrl) {
+      const message = `${videoProviderLabel(
+        booking.conferenceProvider
+      )} did not return a conference link`
+      await updateBookingConference(adminClient, booking.bookingId, {
+        status: 'failed',
+        error: message,
+      })
+      throw new Error(message)
+    }
 
     const { error } = await adminClient
       .from('calendar_event_refs')
@@ -124,6 +175,8 @@ export async function createCalendarEventsForBooking(
             ...jsonObject(providerEvent.metadata),
             provider: target.connection.provider,
             connectionId: target.connection.id,
+            conferenceProvider: booking.conferenceProvider,
+            conferenceUrl: providerEvent.conferenceUrl,
           },
           updated_at: new Date().toISOString(),
         },
@@ -132,6 +185,14 @@ export async function createCalendarEventsForBooking(
 
     if (error) {
       throw new Error(`Failed to store calendar event reference: ${error.message}`)
+    }
+
+    if (booking.conferenceProvider && providerEvent.conferenceUrl) {
+      await updateBookingConference(adminClient, booking.bookingId, {
+        status: 'ready',
+        url: providerEvent.conferenceUrl,
+        error: null,
+      })
     }
 
     result.created += 1
@@ -240,6 +301,11 @@ async function loadCalendarBookingDetails(
     guestEmail: booking.guest_email,
     hostName: hostProfileResult.data?.name ?? 'Host',
     hostEmail: hostProfileResult.data?.email ?? '',
+    locationType: booking.location_type,
+    locationValue: booking.location_value,
+    conferenceProvider: parseVideoProvider(booking.conference_provider),
+    conferenceStatus: booking.conference_status,
+    conferenceUrl: booking.conference_url,
   }
 }
 
@@ -350,7 +416,73 @@ function providerEventFromBooking(
     endAt: booking.endAt,
     guestName: booking.guestName,
     guestEmail: booking.guestEmail,
+    conferenceProvider: booking.conferenceProvider,
   }
+}
+
+function calendarTargetsForBooking(
+  booking: CalendarBookingDetails,
+  writeTargets: Array<{
+    connection: ProviderConnectionRow
+    calendar: ProviderCalendarRow
+  }>
+) {
+  if (!booking.conferenceProvider) {
+    return writeTargets
+  }
+
+  const provider = calendarProviderForVideoProvider(booking.conferenceProvider)
+  return writeTargets
+    .filter((target) => target.connection.provider === provider)
+    .slice(0, 1)
+}
+
+function calendarProviderForVideoProvider(
+  provider: VideoProvider
+): CalendarProvider {
+  return provider === 'google_meet' ? 'google' : 'microsoft'
+}
+
+function parseVideoProvider(value: string | null): VideoProvider | null {
+  return value === 'google_meet' || value === 'microsoft_teams' ? value : null
+}
+
+async function updateBookingConference(
+  adminClient: SupabaseClient<Database>,
+  bookingId: string,
+  update: {
+    status: 'ready' | 'setup_required' | 'failed'
+    url?: string | null
+    error?: string | null
+  }
+): Promise<void> {
+  const { error } = await adminClient
+    .from('bookings')
+    .update({
+      conference_status: update.status,
+      conference_url: update.url ?? null,
+      conference_error: update.error ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', bookingId)
+
+  if (error) {
+    throw new Error(`Failed to update booking conference status: ${error.message}`)
+  }
+}
+
+function conferenceUrlFromMetadata(metadata: Json): string | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null
+  }
+
+  return typeof metadata.conferenceUrl === 'string'
+    ? metadata.conferenceUrl
+    : null
+}
+
+function videoProviderLabel(provider: VideoProvider): string {
+  return provider === 'google_meet' ? 'Google Meet' : 'Microsoft Teams'
 }
 
 function bookingIdFromPayload(payload: Json): string {

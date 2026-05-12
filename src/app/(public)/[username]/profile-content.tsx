@@ -19,6 +19,7 @@ export interface EventTypeData {
   description: string | null;
   duration_minutes: number;
   location_type: string;
+  video_provider?: string | null;
 }
 
 interface PublicProfileContentProps {
@@ -117,7 +118,7 @@ export function PublicProfileContent({ profile, activeEventTypes }: PublicProfil
                               <span>{eventType.duration_minutes} min</span>
                               <span className="mx-1">·</span>
                               <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>{eventType.location_type}</span>
+                              <span>{eventLocationLabel(eventType)}</span>
                             </div>
                           </div>
                           <div className="shrink-0">
@@ -161,4 +162,24 @@ export function PublicProfileContent({ profile, activeEventTypes }: PublicProfil
       </div>
     </div>
   );
+}
+
+function eventLocationLabel(eventType: EventTypeData): string {
+  if (eventType.video_provider === "google_meet") return "Google Meet";
+  if (eventType.video_provider === "microsoft_teams") return "Microsoft Teams";
+
+  switch (eventType.location_type) {
+    case "online":
+      return "Online";
+    case "phone":
+      return "Phone";
+    case "in_person":
+      return "In person";
+    case "custom":
+      return "Custom";
+    case "video_provider":
+      return "Video";
+    default:
+      return eventType.location_type;
+  }
 }

@@ -89,4 +89,45 @@ describe("EditEventTypePage editor", () => {
 
     expect(screen.queryByText("URL slug is required")).toBeNull();
   });
+
+  it("shows video provider readiness from calendar connections", () => {
+    render(
+      <EventTypeEditor
+        mode="edit"
+        hostName="Sarah Chen"
+        initialEventType={strategySession}
+        calendarConnections={[
+          {
+            id: "connection-1",
+            provider: "google",
+            accountEmail: "sarah@example.com",
+            status: "active",
+            connectedAt: "2026-05-08T00:00:00.000Z",
+            lastSyncedAt: null,
+            lastError: null,
+            calendars: [
+              {
+                id: "calendar-1",
+                externalCalendarId: "primary",
+                summary: "Primary",
+                timezone: "America/Los_Angeles",
+                isPrimary: true,
+                useForAvailability: true,
+                useForWrites: true,
+              },
+            ],
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Location/ }));
+    fireEvent.change(screen.getByLabelText("Location type"), {
+      target: { value: "google_meet" },
+    });
+
+    expect(
+      screen.getByText("Google Meet is ready to generate links for new bookings.")
+    ).toBeDefined();
+  });
 });

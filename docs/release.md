@@ -61,6 +61,8 @@ MAILEROO_API_KEY=...
 
 `CALENDAR_TOKEN_ENCRYPTION_SECRET` encrypts stored per-user OAuth access and refresh tokens before persistence. Use a high-entropy server-only value and keep it stable across deploys.
 
+Generated Google Meet and Microsoft Teams links depend on the existing Google/Microsoft calendar OAuth credentials and writable provider calendars. No separate Zoom or video-provider secret is required for the v1 video integration.
+
 Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking emails through Resend. Set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY` to send through Maileroo. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
 
 ## Worker Triggers
@@ -72,6 +74,8 @@ Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send producti
 - `GET /api/calendar/sync`
 
 Vercel sends `CRON_SECRET` as a bearer token when that project environment variable is configured. Non-Vercel deployments should configure an equivalent scheduler that calls the same routes with `Authorization: Bearer <secret>`.
+
+The outbox worker must run for generated conference links and booking notification emails to complete. Video-provider bookings remain confirmed while conference link creation is pending or retrying.
 
 ## Database Release Notes
 

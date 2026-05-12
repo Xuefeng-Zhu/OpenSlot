@@ -1,5 +1,18 @@
 import { z } from 'zod'
 
+export const eventLocationTypes = [
+  'online',
+  'phone',
+  'in_person',
+  'custom',
+  'video_provider',
+] as const
+
+export const videoProviders = ['google_meet', 'microsoft_teams'] as const
+
+export type EventLocationType = (typeof eventLocationTypes)[number]
+export type VideoProvider = (typeof videoProviders)[number]
+
 /**
  * URL-safe slug contract for event type public booking links.
  */
@@ -16,18 +29,52 @@ export const eventTypeSlugSchema = z
  * Shared create/edit schema for dashboard event type forms and API routes.
  * Defaults mirror the database-backed MVP scheduling constraints.
  */
-export const eventTypeSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
-  slug: eventTypeSlugSchema,
-  description: z.string().max(500, 'Description must be 500 characters or less').optional(),
-  duration_minutes: z.number().int('Duration must be a whole number').positive('Duration must be positive'),
-  buffer_before_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
-  buffer_after_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
-  min_notice_minutes: z.number().int('Notice must be a whole number').nonnegative('Notice cannot be negative').default(60),
-  max_booking_days_ahead: z.number().int('Max days must be a whole number').positive('Max days must be positive').default(60),
-  location_type: z.enum(['online', 'phone', 'in_person', 'custom']),
-  location_value: z.string().optional(),
-  is_active: z.boolean().default(true),
-})
+export const eventTypeFieldsSchema = z.object({
+    title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
+    slug: eventTypeSlugSchema,
+    description: z.string().max(500, 'Description must be 500 characters or less').optional(),
+    duration_minutes: z.number().int('Duration must be a whole number').positive('Duration must be positive'),
+    buffer_before_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
+    buffer_after_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
+    min_notice_minutes: z.number().int('Notice must be a whole number').nonnegative('Notice cannot be negative').default(60),
+    max_booking_days_ahead: z.number().int('Max days must be a whole number').positive('Max days must be positive').default(60),
+    location_type: z.enum(eventLocationTypes),
+    location_value: z.string().max(500, 'Location details must be 500 characters or less').optional(),
+    video_provider: z.enum(videoProviders).nullable().optional(),
+    is_active: z.boolean().default(true),
+  })
+
+export const eventTypeSchema = eventTypeFieldsSchema
+  .superRefine((data, ctx) => {
+    if (data.location_type === 'video_provider') {
+      if (!data.video_provider) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Choose a video provider',
+          path: ['video_provider'],
+        })
+      }
+      return
+    }
+
+    if (data.video_provider) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Video provider is only available for generated video locations',
+        path: ['video_provider'],
+      })
+    }
+
+    if (
+      ['phone', 'in_person', 'custom'].includes(data.location_type) &&
+      !data.location_value?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Location details are required',
+        path: ['location_value'],
+      })
+    }
+  })
 
 export type EventTypeFormValues = z.infer<typeof eventTypeSchema>

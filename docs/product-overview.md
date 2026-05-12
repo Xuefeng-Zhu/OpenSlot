@@ -20,6 +20,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Host availability editor for weekly rules and date overrides.
 - Host settings persistence for profile basics, display preferences, notification preferences, password update, and account deletion.
 - Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
+- Generated Google Meet and Microsoft Teams links for event types configured with a video provider.
 - Tenant webhook endpoint dashboard management, signed deliveries, and retry processing.
 - Console-based booking lifecycle email notifications by default, with Resend or Maileroo available when configured.
 
@@ -32,6 +33,7 @@ These areas have important implementation notes:
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
 | Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo. |
 | Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, provider availability conflict checks, and provider event writes exist. Provider watch/subscription renewal and callback handlers are not implemented yet. |
+| Video links | Google Meet and Microsoft Teams links are generated asynchronously by the calendar outbox worker after booking confirmation. Bookings remain confirmed if provider setup or provider calls fail, and the failure is surfaced for retry/repair. |
 | Provider availability | Synced `external_busy_cache` rows are consumed by public slot computation for calendars marked `use_for_availability`. |
 
 Keep these boundaries explicit when adding user-facing docs or release notes.
@@ -53,9 +55,10 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 3. `SlotPicker` fetches slots from `/api/slots`.
 4. Guest clicks a slot, creating a hold through `/api/holds`.
 5. Guest submits booking form to `/api/bookings`.
-6. Booking is inserted with status `confirmed`; outbox processing logs/sends emails and queues tenant webhook deliveries.
-7. Guest can use `/booking/cancel/[token]` from the confirmation email or success screen to cancel the booking.
-8. Guest can use `/booking/reschedule/[token]` to select a new slot; the old booking is marked `rescheduled` and a new confirmed booking is created.
+6. Booking is inserted with status `confirmed`; generated video locations start as pending until the calendar outbox worker stores the join link.
+7. Outbox processing creates provider calendar events, stores generated Meet/Teams links, sends emails after required links are ready, and queues tenant webhook deliveries.
+8. Guest can use `/booking/cancel/[token]` from the confirmation email or success screen to cancel the booking.
+9. Guest can use `/booking/reschedule/[token]` to select a new slot; the old booking is marked `rescheduled` and a new confirmed booking is created.
 
 ### Host Booking Management
 

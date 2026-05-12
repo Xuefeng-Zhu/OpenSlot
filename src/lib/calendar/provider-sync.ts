@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
+import type { VideoProvider } from '@/lib/validations/event-type'
 import { decryptToken, encryptToken } from '@/lib/security/token-encryption'
 import { refreshCalendarAccessToken } from './oauth'
 
@@ -21,11 +22,13 @@ export interface ProviderCalendarEventInput {
   endAt: string
   guestName: string
   guestEmail: string
+  conferenceProvider?: VideoProvider | null
 }
 
 export interface ProviderCalendarEventResult {
   externalEventId: string
   providerEventUrl: string | null
+  conferenceUrl: string | null
   metadata: Json
 }
 
@@ -74,7 +77,19 @@ interface GoogleEventsResponse {
 interface GoogleEventResponse {
   id?: string
   htmlLink?: string
+  hangoutLink?: string
   etag?: string
+  conferenceData?: {
+    entryPoints?: Array<{
+      entryPointType?: string
+      uri?: string
+    }>
+    createRequest?: {
+      status?: {
+        statusCode?: string
+      }
+    }
+  }
 }
 
 interface MicrosoftCalendarViewResponse {
@@ -102,6 +117,9 @@ interface MicrosoftEventResponse {
   id?: string
   webLink?: string
   changeKey?: string
+  onlineMeeting?: {
+    joinUrl?: string
+  }
 }
 
 const TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000
@@ -267,27 +285,44 @@ export async function createProviderCalendarEvent({
   fetchImpl?: typeof fetch
 }): Promise<ProviderCalendarEventResult> {
   if (provider === 'google') {
+    const shouldCreateMeet = event.conferenceProvider === 'google_meet'
     const url = new URL(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(
         externalCalendarId
       )}/events`
     )
     url.searchParams.set('sendUpdates', 'none')
+    if (shouldCreateMeet) {
+      url.searchParams.set('conferenceDataVersion', '1')
+    }
+
+    const body = {
+      summary: event.title,
+      description: event.description,
+      start: { dateTime: event.startAt },
+      end: { dateTime: event.endAt },
+      attendees: [
+        {
+          email: event.guestEmail,
+          displayName: event.guestName,
+        },
+      ],
+      ...(shouldCreateMeet
+        ? {
+            conferenceData: {
+              createRequest: {
+                requestId: `openslot-${event.bookingId}`,
+                conferenceSolutionKey: { type: 'hangoutsMeet' },
+              },
+            },
+          }
+        : {}),
+    }
+
     const response = await fetchImpl(url, {
       method: 'POST',
       headers: providerHeaders(accessToken),
-      body: JSON.stringify({
-        summary: event.title,
-        description: event.description,
-        start: { dateTime: event.startAt },
-        end: { dateTime: event.endAt },
-        attendees: [
-          {
-            email: event.guestEmail,
-            displayName: event.guestName,
-          },
-        ],
-      }),
+      body: JSON.stringify(body),
     })
     const data = await parseProviderJson<GoogleEventResponse>(response)
 
@@ -295,13 +330,26 @@ export async function createProviderCalendarEvent({
       throw new Error('Google Calendar did not return an event id')
     }
 
+    const conferenceUrl = shouldCreateMeet ? googleConferenceUrl(data) : null
+
+    if (shouldCreateMeet && !conferenceUrl) {
+      throw new Error('Google Calendar did not return a Meet link')
+    }
+
     return {
       externalEventId: data.id,
       providerEventUrl: data.htmlLink ?? null,
-      metadata: { etag: data.etag ?? null },
+      conferenceUrl,
+      metadata: {
+        etag: data.etag ?? null,
+        conferenceProvider: shouldCreateMeet ? 'google_meet' : null,
+        conferenceUrl,
+        conferenceStatus: data.conferenceData?.createRequest?.status?.statusCode ?? null,
+      },
     }
   }
 
+  const shouldCreateTeams = event.conferenceProvider === 'microsoft_teams'
   const response = await fetchImpl(
     `https://graph.microsoft.com/v1.0/me/calendars/${encodeURIComponent(
       externalCalendarId
@@ -333,6 +381,12 @@ export async function createProviderCalendarEvent({
           },
         ],
         transactionId: event.bookingId,
+        ...(shouldCreateTeams
+          ? {
+              isOnlineMeeting: true,
+              onlineMeetingProvider: 'teamsForBusiness',
+            }
+          : {}),
       }),
     }
   )
@@ -342,10 +396,21 @@ export async function createProviderCalendarEvent({
     throw new Error('Microsoft Graph did not return an event id')
   }
 
+  const conferenceUrl = shouldCreateTeams ? data.onlineMeeting?.joinUrl ?? null : null
+
+  if (shouldCreateTeams && !conferenceUrl) {
+    throw new Error('Microsoft Graph did not return a Teams join URL')
+  }
+
   return {
     externalEventId: data.id,
     providerEventUrl: data.webLink ?? null,
-    metadata: { changeKey: data.changeKey ?? null },
+    conferenceUrl,
+    metadata: {
+      changeKey: data.changeKey ?? null,
+      conferenceProvider: shouldCreateTeams ? 'microsoft_teams' : null,
+      conferenceUrl,
+    },
   }
 }
 
@@ -849,6 +914,14 @@ function providerHeaders(accessToken: string): HeadersInit {
     Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   }
+}
+
+function googleConferenceUrl(data: GoogleEventResponse): string | null {
+  const videoEntryPoint = data.conferenceData?.entryPoints?.find(
+    (entryPoint) => entryPoint.entryPointType === 'video' && entryPoint.uri
+  )
+
+  return videoEntryPoint?.uri ?? data.hangoutLink ?? null
 }
 
 async function parseProviderJson<T>(response: Response): Promise<T> {

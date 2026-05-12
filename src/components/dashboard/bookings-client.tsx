@@ -7,6 +7,7 @@ import {
   Clock,
   Globe,
   FileText,
+  Video,
   X,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -318,6 +319,31 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
                   <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   <span className="text-sm">{selectedBooking.guest_email}</span>
                 </div>
+                {bookingLocationLabel(selectedBooking) && (
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <span className="text-sm">
+                      {bookingLocationLabel(selectedBooking)}
+                    </span>
+                  </div>
+                )}
+                {selectedBooking.conference_url && (
+                  <div className="flex items-center gap-2">
+                    <Video className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <a
+                      href={selectedBooking.conference_url}
+                      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                    >
+                      Open meeting link
+                    </a>
+                  </div>
+                )}
+                {!selectedBooking.conference_url &&
+                  conferenceStatusText(selectedBooking) && (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                      {conferenceStatusText(selectedBooking)}
+                    </div>
+                  )}
                 {selectedBooking.notes && (
                   <div className="flex items-start gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden="true" />
@@ -402,6 +428,32 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
       </Dialog>
     </div>
   );
+}
+
+function bookingLocationLabel(booking: Booking): string | null {
+  if (booking.conference_provider === "google_meet") return "Google Meet";
+  if (booking.conference_provider === "microsoft_teams") return "Microsoft Teams";
+  if (booking.location_value) return booking.location_value;
+  if (booking.location_type === "phone") return "Phone call";
+  if (booking.location_type === "in_person") return "In person";
+  if (booking.location_type === "online") return "Online";
+  return null;
+}
+
+function conferenceStatusText(booking: Booking): string | null {
+  if (!booking.conference_provider || booking.conference_status === "ready") {
+    return null;
+  }
+
+  if (booking.conference_status === "setup_required") {
+    return booking.conference_error ?? "Video provider setup is required.";
+  }
+
+  if (booking.conference_status === "failed") {
+    return booking.conference_error ?? "Meeting link generation failed.";
+  }
+
+  return "Meeting link generation is pending.";
 }
 
 // Desktop table / Mobile card layout

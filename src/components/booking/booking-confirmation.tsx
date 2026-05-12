@@ -20,6 +20,11 @@ interface BookingConfirmationProps {
   eventTitle: string;
   hostName: string;
   timezone: string;
+  locationType?: string;
+  locationValue?: string | null;
+  conferenceProvider?: string | null;
+  conferenceStatus?: string;
+  conferenceUrl?: string | null;
   variant?: "booking" | "reschedule";
 }
 
@@ -32,6 +37,11 @@ export function BookingConfirmation({
   eventTitle,
   hostName,
   timezone,
+  locationType,
+  locationValue,
+  conferenceProvider,
+  conferenceStatus,
+  conferenceUrl,
   variant = "booking",
 }: BookingConfirmationProps) {
   function formatDateTime(isoString: string): string {
@@ -59,6 +69,15 @@ export function BookingConfirmation({
     ? `/booking/reschedule/${rescheduleToken}`
     : null;
   const isReschedule = variant === "reschedule";
+  const locationLabel = bookingLocationLabel({
+    locationType,
+    locationValue,
+    conferenceProvider,
+  });
+  const conferenceMessage = conferenceStatusMessage(
+    conferenceStatus,
+    conferenceProvider
+  );
 
   return (
     <Card className="mt-6 max-w-lg mx-auto">
@@ -117,6 +136,28 @@ export function BookingConfirmation({
             <span className="text-sm text-muted-foreground">Timezone</span>
             <Badge variant="secondary">{timezone.replace(/_/g, " ")}</Badge>
           </div>
+          {locationLabel && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-muted-foreground">Location</span>
+              <span className="text-right font-medium">{locationLabel}</span>
+            </div>
+          )}
+          {conferenceUrl && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-sm text-muted-foreground">Join link</span>
+              <a
+                href={conferenceUrl}
+                className="text-right text-sm font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Open meeting
+              </a>
+            </div>
+          )}
+          {!conferenceUrl && conferenceMessage && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              {conferenceMessage}
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Status</span>
             <Badge variant="default">Confirmed</Badge>
@@ -141,4 +182,39 @@ export function BookingConfirmation({
       </CardContent>
     </Card>
   );
+}
+
+function bookingLocationLabel({
+  locationType,
+  locationValue,
+  conferenceProvider,
+}: {
+  locationType?: string;
+  locationValue?: string | null;
+  conferenceProvider?: string | null;
+}) {
+  if (conferenceProvider === "google_meet") return "Google Meet";
+  if (conferenceProvider === "microsoft_teams") return "Microsoft Teams";
+  if (locationValue) return locationValue;
+  if (locationType === "phone") return "Phone call";
+  if (locationType === "in_person") return "In person";
+  if (locationType === "online") return "Online";
+  return null;
+}
+
+function conferenceStatusMessage(
+  conferenceStatus?: string,
+  conferenceProvider?: string | null
+) {
+  if (!conferenceProvider || conferenceStatus === "ready") return null;
+
+  if (conferenceStatus === "setup_required") {
+    return "The host needs to finish video setup before a meeting link can be generated.";
+  }
+
+  if (conferenceStatus === "failed") {
+    return "The meeting link could not be generated yet. The host can retry from their integration setup.";
+  }
+
+  return "The video meeting link is being generated and will be sent by email when it is ready.";
 }

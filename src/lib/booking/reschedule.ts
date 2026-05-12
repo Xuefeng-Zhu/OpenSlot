@@ -15,6 +15,8 @@ interface RescheduleRpcRow {
   previous_end_at: string
   cancellation_token: string
   reschedule_token: string
+  conference_status: string
+  conference_url: string | null
 }
 
 /**
@@ -98,6 +100,8 @@ export async function rescheduleBooking(
     previousBookingId: row.old_booking_id,
     cancellationToken: row.cancellation_token,
     rescheduleToken: row.reschedule_token,
+    conferenceStatus: row.conference_status,
+    conferenceUrl: row.conference_url,
     startAt: row.start_at,
     endAt: row.end_at,
     previousStartAt: row.previous_start_at,

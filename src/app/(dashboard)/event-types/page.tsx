@@ -11,6 +11,7 @@ const locationLabels: Record<string, string> = {
   phone: "Phone call",
   in_person: "In person",
   custom: "Custom location",
+  video_provider: "Video meeting",
 };
 
 function buildBookingUrl(username: string, slug: string) {
@@ -49,7 +50,7 @@ export default async function EventTypesPage() {
   const { data: eventTypesData } = await supabase
     .from("event_types")
     .select(
-      "id, title, slug, description, duration_minutes, location_type, is_active, created_at"
+      "id, title, slug, description, duration_minutes, location_type, video_provider, is_active, created_at"
     )
     .eq("user_id", profile.id)
     .order("created_at", { ascending: false });
@@ -62,18 +63,28 @@ export default async function EventTypesPage() {
     | "description"
     | "duration_minutes"
     | "location_type"
+    | "video_provider"
     | "is_active"
   >>) ?? []).map<DashboardEventType>((eventType) => ({
     id: eventType.id,
     title: eventType.title,
     description: eventType.description,
     durationMinutes: eventType.duration_minutes,
-    locationType:
-      locationLabels[eventType.location_type] ?? eventType.location_type,
+    locationType: eventLocationLabel(eventType),
     slug: eventType.slug,
     isActive: eventType.is_active,
     bookingUrl: buildBookingUrl(username, eventType.slug),
   }));
 
   return <EventTypesClient initialEventTypes={eventTypes} />;
+}
+
+function eventLocationLabel(eventType: Pick<
+  Tables<"event_types">,
+  "location_type" | "video_provider"
+>): string {
+  if (eventType.video_provider === "google_meet") return "Google Meet";
+  if (eventType.video_provider === "microsoft_teams") return "Microsoft Teams";
+
+  return locationLabels[eventType.location_type] ?? eventType.location_type;
 }

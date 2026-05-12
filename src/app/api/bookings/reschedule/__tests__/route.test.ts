@@ -56,6 +56,8 @@ describe('POST /api/bookings/reschedule', () => {
       previousBookingId: 'old-booking-1',
       cancellationToken: 'cancel-token-2',
       rescheduleToken: 'reschedule-token-2',
+      conferenceStatus: 'not_required',
+      conferenceUrl: null,
     })
   })
 
@@ -70,6 +72,8 @@ describe('POST /api/bookings/reschedule', () => {
       previousBookingId: 'old-booking-1',
       cancellationToken: 'cancel-token-2',
       rescheduleToken: 'reschedule-token-2',
+      conferenceStatus: 'not_required',
+      conferenceUrl: null,
     })
     expect(rescheduleBooking).toHaveBeenCalledWith(validBody, mocks.adminClient)
   })

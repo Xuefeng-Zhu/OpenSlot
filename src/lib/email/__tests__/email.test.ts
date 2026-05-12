@@ -100,6 +100,19 @@ describe('Email Templates', () => {
       expect(result.html).toContain('Bob &amp; Sons')
       expect(result.html).toContain('x=&quot;bad&quot;&amp;next=&lt;tag&gt;')
     })
+
+    it('includes generated conference details when provided', () => {
+      const result = bookingConfirmationGuestTemplate({
+        ...sampleTemplateDetails,
+        locationLabel: 'Google Meet',
+        conferenceUrl: 'https://meet.google.com/aaa-bbbb-ccc',
+      })
+
+      expect(result.text).toContain('Location: Google Meet')
+      expect(result.text).toContain('Join link: https://meet.google.com/aaa-bbbb-ccc')
+      expect(result.html).toContain('Google Meet')
+      expect(result.html).toContain('https://meet.google.com/aaa-bbbb-ccc')
+    })
   })
 
   describe('bookingNotificationHostTemplate', () => {
@@ -125,6 +138,21 @@ describe('Email Templates', () => {
       expect(result.html).not.toContain('<img')
       expect(result.html).toContain('Alice &lt;img src=x onerror=alert(1)&gt;')
       expect(result.html).toContain('alice&amp;guest@example.com')
+    })
+
+    it('includes generated conference details for hosts', () => {
+      const result = bookingNotificationHostTemplate({
+        ...sampleTemplateDetails,
+        locationLabel: 'Microsoft Teams',
+        conferenceUrl: 'https://teams.microsoft.com/l/meetup-join/abc',
+      })
+
+      expect(result.text).toContain('Location: Microsoft Teams')
+      expect(result.text).toContain(
+        'Join link: https://teams.microsoft.com/l/meetup-join/abc'
+      )
+      expect(result.html).toContain('Microsoft Teams')
+      expect(result.html).toContain('https://teams.microsoft.com/l/meetup-join/abc')
     })
   })
 

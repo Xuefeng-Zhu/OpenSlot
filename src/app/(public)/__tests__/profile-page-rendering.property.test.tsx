@@ -38,7 +38,8 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
     )
     .filter((s) => s.trim().length > 0)
 
-  const locationTypeArb = fc.constantFrom('video', 'phone', 'in_person')
+  const locationTypeArb = fc.constantFrom('online', 'phone', 'in_person', 'custom', 'video_provider')
+  const videoProviderArb = fc.constantFrom(null, 'google_meet', 'microsoft_teams')
 
   const timezoneArb = fc.constantFrom(
     'America/New_York',
@@ -65,6 +66,7 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
     description: fc.oneof(fc.constant(null), nonEmptyAlphanumeric),
     duration_minutes: fc.integer({ min: 5, max: 480 }),
     location_type: locationTypeArb,
+    video_provider: videoProviderArb,
   })
 
   it('rendered output contains every profile field and every event type field', () => {
@@ -91,7 +93,7 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
           for (const eventType of eventTypes) {
             expect(textContent).toContain(eventType.title)
             expect(textContent).toContain(String(eventType.duration_minutes))
-            expect(textContent).toContain(eventType.location_type)
+            expect(textContent).toContain(eventLocationLabel(eventType))
             // Slug appears in the booking link href attribute
             expect(innerHTML).toContain(eventType.slug)
             if (eventType.description) {
@@ -106,3 +108,16 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
     )
   })
 })
+
+function eventLocationLabel(eventType: EventTypeData): string {
+  if (eventType.video_provider === 'google_meet') return 'Google Meet'
+  if (eventType.video_provider === 'microsoft_teams') return 'Microsoft Teams'
+
+  if (eventType.location_type === 'in_person') return 'In person'
+  if (eventType.location_type === 'video_provider') return 'Video'
+  return eventType.location_type === 'online'
+    ? 'Online'
+    : eventType.location_type === 'phone'
+      ? 'Phone'
+      : 'Custom'
+}

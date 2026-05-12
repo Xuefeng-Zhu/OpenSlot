@@ -36,9 +36,11 @@ const claimedEvent = {
 function createMockClient({
   events = [claimedEvent],
   handlerError = null,
+  bookingOverrides = {},
 }: {
   events?: Array<Record<string, unknown>>
   handlerError?: Error | null
+  bookingOverrides?: Record<string, unknown>
 } = {}) {
   const calls = {
     updates: [] as Array<Record<string, unknown>>,
@@ -69,8 +71,15 @@ function createMockClient({
                   cancel_reason: null,
                   cancellation_token: 'cancel-token',
                   reschedule_token: 'reschedule-token',
+                  location_type: 'custom',
+                  location_value: 'https://example.com/meeting',
+                  conference_provider: null,
+                  conference_url: null,
+                  conference_status: 'not_required',
+                  conference_error: null,
                   created_at: '2026-06-01T00:00:00.000Z',
                   updated_at: '2026-06-01T00:00:00.000Z',
+                  ...bookingOverrides,
                 },
                 error: null,
               }
@@ -186,5 +195,29 @@ describe('processOutboxBatch', () => {
       client,
       calendarEvent
     )
+  })
+
+  it('defers booking notifications while generated conference links are pending', async () => {
+    const { client, calls } = createMockClient({
+      bookingOverrides: {
+        location_type: 'video_provider',
+        conference_provider: 'google_meet',
+        conference_status: 'pending',
+      },
+    })
+
+    const result = await processOutboxBatch({
+      adminClient: client as any,
+      maxAttempts: 5,
+    })
+
+    expect(result).toEqual({ claimed: 1, completed: 0, failed: 1 })
+    expect(sendBookingConfirmationToGuest).not.toHaveBeenCalled()
+    expect(sendBookingNotificationToHost).not.toHaveBeenCalled()
+    expect(calls.updates[0]).toMatchObject({
+      status: 'failed',
+      last_error:
+        'Conference link is not ready for booking booking-id-1: pending',
+    })
   })
 })

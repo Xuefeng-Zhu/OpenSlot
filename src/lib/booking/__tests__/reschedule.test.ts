@@ -26,6 +26,8 @@ const rpcRow = {
   previous_end_at: '2026-05-07T16:30:00.000Z',
   cancellation_token: 'cancel-token-2',
   reschedule_token: 'reschedule-token-2',
+  conference_status: 'pending',
+  conference_url: null,
 }
 
 const validInput = {
@@ -55,6 +57,8 @@ describe('rescheduleBooking', () => {
       previousBookingId: 'old-booking-1',
       cancellationToken: 'cancel-token-2',
       rescheduleToken: 'reschedule-token-2',
+      conferenceStatus: 'pending',
+      conferenceUrl: null,
       startAt: '2026-05-08T16:00:00.000Z',
       endAt: '2026-05-08T16:30:00.000Z',
       previousStartAt: '2026-05-07T16:00:00.000Z',

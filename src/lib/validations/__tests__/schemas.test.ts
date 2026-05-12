@@ -119,6 +119,49 @@ describe('eventTypeSchema', () => {
       expect(result.success).toBe(false)
     })
   })
+
+  describe('location validation', () => {
+    it('accepts generated Google Meet locations with a provider', () => {
+      const result = eventTypeSchema.safeParse({
+        ...validEventType,
+        location_type: 'video_provider',
+        video_provider: 'google_meet',
+      })
+
+      expect(result.success).toBe(true)
+    })
+
+    it('rejects generated video locations without a provider', () => {
+      const result = eventTypeSchema.safeParse({
+        ...validEventType,
+        location_type: 'video_provider',
+      })
+
+      expect(result.success).toBe(false)
+    })
+
+    it('requires details for custom, phone, and in-person locations', () => {
+      for (const locationType of ['custom', 'phone', 'in_person'] as const) {
+        const result = eventTypeSchema.safeParse({
+          ...validEventType,
+          location_type: locationType,
+          location_value: '',
+        })
+
+        expect(result.success).toBe(false)
+      }
+    })
+
+    it('keeps legacy online locations valid without details', () => {
+      const result = eventTypeSchema.safeParse({
+        ...validEventType,
+        location_type: 'online',
+        location_value: '',
+      })
+
+      expect(result.success).toBe(true)
+    })
+  })
 })
 
 describe('confirmBookingSchema', () => {

@@ -496,6 +496,7 @@ export interface Database {
           max_booking_days_ahead: number
           location_type: string
           location_value: string
+          video_provider: string | null
           is_active: boolean
           created_at: string
           updated_at: string
@@ -513,6 +514,7 @@ export interface Database {
           max_booking_days_ahead?: number
           location_type?: string
           location_value?: string
+          video_provider?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -530,6 +532,7 @@ export interface Database {
           max_booking_days_ahead?: number
           location_type?: string
           location_value?: string
+          video_provider?: string | null
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -751,6 +754,12 @@ export interface Database {
           cancel_reason: string | null
           cancellation_token: string
           reschedule_token: string
+          location_type: string
+          location_value: string
+          conference_provider: string | null
+          conference_url: string | null
+          conference_status: string
+          conference_error: string | null
           rescheduled_from_booking_id: string | null
           rescheduled_to_booking_id: string | null
           rescheduled_at: string | null
@@ -771,6 +780,12 @@ export interface Database {
           cancel_reason?: string | null
           cancellation_token?: string
           reschedule_token?: string
+          location_type?: string
+          location_value?: string
+          conference_provider?: string | null
+          conference_url?: string | null
+          conference_status?: string
+          conference_error?: string | null
           rescheduled_from_booking_id?: string | null
           rescheduled_to_booking_id?: string | null
           rescheduled_at?: string | null
@@ -791,6 +806,12 @@ export interface Database {
           cancel_reason?: string | null
           cancellation_token?: string
           reschedule_token?: string
+          location_type?: string
+          location_value?: string
+          conference_provider?: string | null
+          conference_url?: string | null
+          conference_status?: string
+          conference_error?: string | null
           rescheduled_from_booking_id?: string | null
           rescheduled_to_booking_id?: string | null
           rescheduled_at?: string | null
@@ -1010,6 +1031,8 @@ export interface Database {
           previous_end_at: string
           cancellation_token: string
           reschedule_token: string
+          conference_status: string
+          conference_url: string | null
         }[]
       }
     }

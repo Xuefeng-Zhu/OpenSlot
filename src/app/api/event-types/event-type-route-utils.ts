@@ -87,6 +87,8 @@ export function eventTypeWritePayload(
   data: EventTypeFormValues,
   userId: string
 ) {
+  const isGeneratedVideo = data.location_type === 'video_provider'
+
   return {
     user_id: userId,
     title: data.title,
@@ -98,7 +100,8 @@ export function eventTypeWritePayload(
     min_notice_minutes: data.min_notice_minutes,
     max_booking_days_ahead: data.max_booking_days_ahead,
     location_type: data.location_type,
-    location_value: data.location_value ?? '',
+    location_value: isGeneratedVideo ? '' : data.location_value ?? '',
+    video_provider: isGeneratedVideo ? data.video_provider ?? null : null,
     is_active: data.is_active,
   }
 }

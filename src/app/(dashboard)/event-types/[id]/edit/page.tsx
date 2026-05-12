@@ -5,6 +5,8 @@ import {
   EventTypeEditor,
 } from "../../event-type-editor";
 import { Button } from "@/components/ui/button";
+import { listCalendarConnectionSummaries } from "@/lib/calendar/connections";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/types/database";
 import type { EventTypeFormValues } from "@/lib/validations/event-type";
@@ -45,7 +47,7 @@ export default async function EditEventTypePage({
   const { data: eventTypeData } = await supabase
     .from("event_types")
     .select(
-      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, is_active"
+      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, is_active"
     )
     .eq("id", id)
     .eq("user_id", profile.id)
@@ -65,9 +67,11 @@ export default async function EditEventTypePage({
         | "max_booking_days_ahead"
         | "location_type"
         | "location_value"
+        | "video_provider"
         | "is_active"
       > & {
         location_type: EventTypeFormValues["location_type"];
+        video_provider: EventTypeFormValues["video_provider"];
       })
     | null;
 
@@ -87,14 +91,24 @@ export default async function EditEventTypePage({
     max_booking_days_ahead: eventType.max_booking_days_ahead,
     location_type: eventType.location_type,
     location_value: eventType.location_value,
+    video_provider: eventType.video_provider,
     is_active: eventType.is_active,
   };
+
+  const calendarConnections = await listCalendarConnectionSummaries(
+    createAdminClient(),
+    profile.id
+  ).catch((error) => {
+    console.error("Error loading calendar connections:", error);
+    return [];
+  });
 
   return (
     <EventTypeEditor
       mode="edit"
       hostName={profile.name}
       initialEventType={editableEventType}
+      calendarConnections={calendarConnections}
     />
   );
 }

@@ -169,6 +169,16 @@ async function loadBookingDetails(
   }
 
   const booking = bookingData as BookingRow
+
+  if (
+    booking.conference_provider &&
+    booking.conference_status !== 'ready'
+  ) {
+    throw new Error(
+      `Conference link is not ready for booking ${bookingId}: ${booking.conference_status}`
+    )
+  }
+
   const [eventTypeResult, hostProfileResult] = await Promise.all([
     adminClient
       .from('event_types')
@@ -192,6 +202,11 @@ async function loadBookingDetails(
     guestTimezone: booking.guest_timezone,
     hostName: hostProfileResult.data?.name ?? 'Host',
     hostEmail: hostProfileResult.data?.email ?? '',
+    locationType: booking.location_type,
+    locationValue: booking.location_value,
+    conferenceProvider: booking.conference_provider,
+    conferenceUrl: booking.conference_url,
+    conferenceStatus: booking.conference_status,
     cancellationToken: booking.cancellation_token,
     rescheduleToken: booking.reschedule_token,
   }

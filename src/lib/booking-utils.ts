@@ -14,6 +14,12 @@ export interface Booking {
   status: string;
   cancellation_token: string;
   event_type_title: string;
+  location_type?: string;
+  location_value?: string;
+  conference_provider?: string | null;
+  conference_url?: string | null;
+  conference_status?: string;
+  conference_error?: string | null;
 }
 
 export type BookingCategory = "upcoming" | "past" | "cancelled";
