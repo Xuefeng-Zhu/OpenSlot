@@ -9,6 +9,7 @@ import {
   BookOpen,
   Settings,
   User,
+  Users,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AppIcon } from '@/components/shared/app-icon'
@@ -20,6 +21,7 @@ const navItems = [
   { label: 'Event Types', href: '/event-types', icon: Calendar },
   { label: 'Availability', href: '/availability', icon: Clock },
   { label: 'Bookings', href: '/bookings', icon: BookOpen },
+  { label: 'Contacts', href: '/contacts', icon: Users },
   { label: 'Profile', href: '/profile', icon: User },
   { label: 'Settings', href: '/settings', icon: Settings },
 ]

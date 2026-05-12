@@ -6,7 +6,7 @@ Operational guide for coding agents and human contributors working in this repos
 
 OpenSlot is an MVP scheduling app. Hosts can authenticate with Supabase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, outbox processing, calendar provider sync, webhook endpoint dashboard management, and webhook delivery processing.
+Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, contact profiles/history, outbox processing, calendar provider sync, webhook endpoint dashboard management, and webhook delivery processing.
 
 ## Tech Stack
 
@@ -31,6 +31,7 @@ src/components/shared/           Cross-feature UI helpers
 src/components/ui/               Local shadcn-style primitives
 src/lib/availability/            Slot computation engine and types
 src/lib/booking/                 Booking confirmation/cancellation engines
+src/lib/contacts/                Contact identity, summaries, and anonymization helpers
 src/lib/email/                   Email templates and console provider
 src/lib/idempotency/             Request idempotency helpers for retry-safe mutations
 src/lib/outbox/                  Internal side-effect event enqueue helpers
@@ -187,6 +188,8 @@ OpenSlot is server-first for data access and booking integrity:
 - Booking confirmation uses `/api/bookings`.
 - Booking confirmation, cancellation, and rescheduling support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Booking confirmation, cancellation, and rescheduling enqueue outbox events for provider writes, notifications, and tenant webhooks.
+- Booking confirmation, cancellation, and rescheduling update host-scoped contact aggregates as best-effort derived data.
+- Contact anonymization uses `DELETE /api/contacts/[id]` and the `anonymize_contact_bookings()` RPC to scrub matching booking display PII while preserving meeting records.
 - Outbox events are processed through `GET/POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET` or `CRON_SECRET`.
 - Calendar provider metadata and busy cache are refreshed through `GET/POST /api/calendar/sync` using `CALENDAR_SYNC_SECRET` or `CRON_SECRET`.
 - Tenant webhook deliveries are processed through `GET/POST /api/webhooks/process` using `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET`.
@@ -213,6 +216,8 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and queues side effects.
 - `src/lib/booking/reschedule.ts`: swaps a confirmed booking to a new hold through `reschedule_booking_with_hold()`, then queues side effects.
 - `src/lib/booking/events.ts`: appends ID-based booking lifecycle audit events.
+- `src/lib/contacts/contacts.ts`: normalizes/hashes guest email identity, updates host-scoped contacts from booking lifecycle events, and calls contact anonymization RPCs.
+- `src/lib/contacts/summaries.ts`: builds contact list summaries and meeting timelines from contacts, bookings, and booking events.
 - `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
 - `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events.
 - `src/lib/outbox/process.ts`: claims outbox rows, runs event handlers, and marks completion/failure.
@@ -241,6 +246,8 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Booking confirmation, cancellation, and rescheduling forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
 - Confirmed and cancelled bookings append ID-based rows to `outbox_events`; notification emails are sent by the outbox processor.
 - Confirmed, cancelled, and rescheduled bookings append ID-based rows to `booking_events` for audit/replay.
+- Confirmed, cancelled, and rescheduled bookings maintain host-scoped `contacts` rows keyed by normalized email hash. Contact list and profile pages derive visible email/history from booking rows.
+- Contact anonymization marks the contact deleted and scrubs matching booking guest fields, notes, and cancellation reason through a service-role RPC.
 - Tenant webhook outbox events create `webhook_deliveries`; delivery workers sign requests with endpoint secrets and retry non-2xx or network failures.
 
 ## Storage and Sync Behavior

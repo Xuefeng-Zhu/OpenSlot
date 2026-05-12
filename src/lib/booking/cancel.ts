@@ -3,6 +3,7 @@ import type { Database } from '@/lib/types/database'
 import type { CancelBookingInput, CancelBookingResult } from './types'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
+import { touchContactForBookingEvent } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from './events'
 
 /**
@@ -67,6 +68,11 @@ export async function cancelBooking(
       endAt: booking.end_at,
       cancelReasonProvided: Boolean(cancelReason),
     },
+  })
+
+  await touchContactForBookingEvent(adminClient, {
+    hostUserId: booking.host_user_id,
+    guestEmail: booking.guest_email,
   })
 
   await enqueueBookingCancelledOutbox(adminClient, {
