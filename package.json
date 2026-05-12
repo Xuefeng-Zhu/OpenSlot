@@ -46,6 +46,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/jest-axe": "^3.5.9",
@@ -64,7 +65,7 @@
     "tailwindcss": "^4.3.0",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.7.3",
-    "vite": "^7.3.2",
+    "vite": "^8.0.12",
     "vitest": "^4.1.6"
   },
   "overrides": {
