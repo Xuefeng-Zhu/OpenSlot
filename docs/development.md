@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- Node.js 22 LTS or newer is recommended. Next.js requires Node.js 20.9 or
-  newer.
+- Node.js 22 LTS or newer is recommended. The current toolchain requires
+  Node.js 20.19 or newer.
 - npm. Use the npm version recorded in `package.json` when possible.
 - Supabase project or Supabase CLI for local development.
 

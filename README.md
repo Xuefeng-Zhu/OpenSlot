@@ -95,7 +95,8 @@ notes and naming conventions.
 
 ## Prerequisites
 
-- Node.js 22 LTS or newer recommended. Next.js requires Node.js 20.9 or newer.
+- Node.js 22 LTS or newer recommended. The current toolchain requires Node.js
+  20.19 or newer.
 - npm. Use `npm ci` for deterministic installs from `package-lock.json`.
 - A Supabase project or the Supabase CLI for local database development.
 
@@ -199,8 +200,11 @@ guidance.
 
 Production deploys need the environment variables above and database migrations
 applied out of band. `vercel.json` defines cron schedules for outbox, webhook,
-and calendar sync worker routes. Non-Vercel deployments should configure
-equivalent scheduled requests with bearer-token authentication.
+and calendar sync worker routes. The committed schedules are daily for Vercel
+Hobby compatibility; production environments that need faster worker processing
+should use a plan or scheduler that supports the desired cadence. Non-Vercel
+deployments should configure equivalent scheduled requests with bearer-token
+authentication.
 
 See [docs/release.md](docs/release.md) for release and deployment notes.
 

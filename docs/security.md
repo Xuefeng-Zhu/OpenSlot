@@ -1,6 +1,6 @@
 # Security
 
-OpenSlot stores scheduling and guest booking data in Supabase. Treat guest names, emails, notes, timezones, booking times, and cancellation tokens as sensitive application data.
+OpenSlot stores scheduling and guest booking data in Supabase. Treat guest names, emails, notes, timezones, booking times, contact records, and cancellation tokens as sensitive application data.
 
 For the short repository security policy, see [../SECURITY.md](../SECURITY.md).
 
@@ -54,6 +54,16 @@ Current public access:
 - App tables are not directly exposed to `anon`.
 
 The service role bypasses RLS and is used only in server-side route handlers/libraries. Application code must still scope writes by user, hold token, or cancellation token.
+
+## Contact Privacy
+
+Contacts are host-scoped aggregates derived from booking attendees. Contact identity uses a deterministic hash of the normalized guest email plus `host_user_id`; raw guest email remains on booking rows and is not stored as a separate contact identity column.
+
+- Hosts can view only contacts whose `host_user_id` belongs to their authenticated profile.
+- Booking confirmation, cancellation, and rescheduling update contacts as best-effort derived data after the primary booking mutation succeeds.
+- `DELETE /api/contacts/[id]` uses the authenticated profile id plus the service-role anonymization RPC to mark the contact deleted and scrub matching booking guest display fields, notes, and cancellation reason.
+- Deleted contacts are hidden from the dashboard contact list and cannot be viewed through the contact profile route.
+- Do not log contact hashes together with raw emails; the pair can become identifying.
 
 ## Booking Integrity
 

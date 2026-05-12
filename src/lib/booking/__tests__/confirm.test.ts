@@ -6,6 +6,7 @@ import {
   convertHoldReservationToBooking,
   expireHoldReservation,
 } from '@/lib/reservations/host-reservations'
+import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from '../events'
 
 // Mock email send functions so they don't interfere with tests
@@ -25,6 +26,10 @@ vi.mock('@/lib/outbox/outbox', () => ({
 vi.mock('@/lib/reservations/host-reservations', () => ({
   convertHoldReservationToBooking: vi.fn().mockResolvedValue(true),
   expireHoldReservation: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('@/lib/contacts/contacts', () => ({
+  upsertContactFromBooking: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('../events', () => ({
@@ -85,6 +90,7 @@ describe('confirmBooking', () => {
     })
     vi.mocked(convertHoldReservationToBooking).mockResolvedValue(true)
     vi.mocked(expireHoldReservation).mockResolvedValue(true)
+    vi.mocked(upsertContactFromBooking).mockResolvedValue(null)
     vi.mocked(appendBookingEvent).mockResolvedValue(true)
     mockClient = createMockClient()
   })
@@ -148,6 +154,13 @@ describe('confirmBooking', () => {
         startAt: '2025-01-15T14:00:00Z',
         endAt: '2025-01-15T14:30:00Z',
       },
+    })
+    expect(upsertContactFromBooking).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      hostUserId: 'host-user-1',
+      guestName: 'Jane Doe',
+      guestEmail: 'jane@example.com',
+      guestTimezone: 'America/New_York',
     })
   })
 

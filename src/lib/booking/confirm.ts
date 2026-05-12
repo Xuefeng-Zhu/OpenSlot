@@ -6,6 +6,7 @@ import {
   convertHoldReservationToBooking,
   expireHoldReservation,
 } from '@/lib/reservations/host-reservations'
+import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from './events'
 
 /**
@@ -104,6 +105,14 @@ export async function confirmBooking(
       startAt: hold.start_at,
       endAt: hold.end_at,
     },
+  })
+
+  await upsertContactFromBooking(adminClient, {
+    bookingId: booking.id,
+    hostUserId: hold.host_user_id,
+    guestName,
+    guestEmail,
+    guestTimezone,
   })
 
   await enqueueBookingConfirmedOutbox(adminClient, {

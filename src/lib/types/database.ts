@@ -866,6 +866,63 @@ export interface Database {
           }
         ]
       }
+      contacts: {
+        Row: {
+          id: string
+          host_user_id: string
+          email_hash: string
+          display_name: string | null
+          last_guest_timezone: string | null
+          first_seen_at: string
+          last_seen_at: string
+          last_booking_id: string | null
+          deleted_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          host_user_id: string
+          email_hash: string
+          display_name?: string | null
+          last_guest_timezone?: string | null
+          first_seen_at?: string
+          last_seen_at?: string
+          last_booking_id?: string | null
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          host_user_id?: string
+          email_hash?: string
+          display_name?: string | null
+          last_guest_timezone?: string | null
+          first_seen_at?: string
+          last_seen_at?: string
+          last_booking_id?: string | null
+          deleted_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contacts_host_user_id_fkey"
+            columns: ["host_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contacts_last_booking_id_fkey"
+            columns: ["last_booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       request_idempotency: {
         Row: {
           id: string
@@ -1011,6 +1068,13 @@ export interface Database {
           cancellation_token: string
           reschedule_token: string
         }[]
+      }
+      anonymize_contact_bookings: {
+        Args: {
+          p_contact_id: string
+          p_host_user_id: string
+        }
+        Returns: number
       }
     }
     Enums: {
