@@ -961,6 +961,33 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
+      confirm_booking_from_hold: {
+        Args: {
+          p_hold_token: string
+          p_guest_name: string
+          p_guest_email: string
+          p_guest_timezone: string
+          p_notes?: string
+        }
+        Returns: {
+          success: boolean
+          error_code: string | null
+          booking_id: string | null
+          cancellation_token: string | null
+          reschedule_token: string | null
+        }[]
+      }
+      cancel_booking_by_token: {
+        Args: {
+          p_cancellation_token: string
+          p_cancel_reason?: string | null
+        }
+        Returns: {
+          success: boolean
+          error_code: string | null
+          booking_id: string | null
+        }[]
+      }
       create_slot_hold_with_reservation: {
         Args: {
           p_event_type_id: string

@@ -17,8 +17,9 @@ export interface AppendBookingEventInput {
 
 /**
  * Appends a durable audit event for a booking lifecycle transition.
- * This is intentionally best-effort and returns false on write failure so the
- * primary booking mutation does not roll back after it has already succeeded.
+ * RPC-backed transitions should append audit rows inside their database
+ * transaction. This helper is for post-transaction flows and returns false
+ * instead of throwing after the primary booking mutation has already succeeded.
  */
 export async function appendBookingEvent(
   adminClient: SupabaseClient<Database>,

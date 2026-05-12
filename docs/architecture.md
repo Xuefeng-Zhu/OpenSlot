@@ -56,9 +56,9 @@ Public event page
   -> POST /api/bookings
   -> request_idempotency check/cache when an idempotency key is supplied
   -> confirmBooking()
+  -> confirm_booking_from_hold()
   -> bookings insert + hold status update + host_reservations hold-to-booking conversion
-  -> booking_events append
-  -> outbox_events enqueue for provider writes, notifications, and future webhooks
+  -> booking_events append + outbox_events enqueue in the same database transaction
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
   -> provider calendar event create/delete through Google Calendar or Microsoft Graph
@@ -69,9 +69,9 @@ Public event page
   -> POST /api/bookings/[id]/cancel
   -> request_idempotency check/cache when an idempotency key is supplied
   -> cancelBooking()
-  -> host_reservations cancellation
-  -> booking_events append
-  -> outbox_events enqueue for provider updates, notifications, and future webhooks
+  -> cancel_booking_by_token()
+  -> booking status update + host_reservations cancellation
+  -> booking_events append + outbox_events enqueue in the same database transaction
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> /booking/reschedule/[token]
   -> POST /api/holds for the replacement slot
@@ -134,6 +134,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508071400_add_calendar_integration_foundation.sql`: server-only provider connection, calendar, watch, and busy-cache tables.
 - `20260508071723_add_webhook_delivery_system.sql`: webhook endpoint, delivery queue, and atomic delivery leasing RPC.
 - `20260508074740_add_calendar_event_refs.sql`: external calendar event reference rows for provider write/cancel retries.
+- `20260512000000_add_atomic_booking_transition_rpcs.sql`: atomic confirmation and cancellation RPCs that include reservation, audit, and outbox writes.
 
 ## API Routes
 
@@ -141,8 +142,8 @@ Migrations are in `supabase/migrations/`:
 | --- | --- | --- |
 | `GET /api/slots` | Public route, service-role read after active host/event validation | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
-| `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
-| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/bookings` | Hold token operation, optional idempotency key, service role RPC | `src/lib/booking/confirm.ts` |
+| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role RPC | `src/lib/booking/cancel.ts` |
 | `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, service role RPC | `src/lib/booking/reschedule.ts` |
 | `GET/POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
 | `PATCH/DELETE /api/settings` | Authenticated host settings and account deletion | `src/app/api/settings/route.ts` |
