@@ -23,6 +23,7 @@ Browser UI
 | `src/app/(dashboard)/dashboard/page.tsx` | Dashboard overview with profile, bookings, active event type count. |
 | `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |
 | `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
+| `src/app/(dashboard)/contacts/*` | Host contact list and contact booking history derived from booking attendees. |
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
 | `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, calendar, and webhook integration settings. |
 | `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
@@ -58,6 +59,7 @@ Public event page
   -> confirmBooking()
   -> bookings insert + hold status update + host_reservations hold-to-booking conversion
   -> booking_events append
+  -> contacts upsert from guest identity hash
   -> outbox_events enqueue for provider writes, notifications, and future webhooks
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
@@ -71,6 +73,7 @@ Public event page
   -> cancelBooking()
   -> host_reservations cancellation
   -> booking_events append
+  -> contacts lifecycle touch
   -> outbox_events enqueue for provider updates, notifications, and future webhooks
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> /booking/reschedule/[token]
@@ -78,7 +81,7 @@ Public event page
   -> POST /api/bookings/reschedule
   -> reschedule_booking_with_hold()
   -> old booking status = rescheduled + new confirmed booking insert
-  -> booking_events append + outbox_events enqueue
+  -> booking_events append + contacts upsert + outbox_events enqueue
 ```
 
 The final anti-double-booking guard for confirmed bookings is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`. Active hold and booking reservation races are guarded by `host_reservations_no_overlap` in `supabase/migrations/20260508062648_add_host_reservations.sql`.
@@ -134,6 +137,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508071400_add_calendar_integration_foundation.sql`: server-only provider connection, calendar, watch, and busy-cache tables.
 - `20260508071723_add_webhook_delivery_system.sql`: webhook endpoint, delivery queue, and atomic delivery leasing RPC.
 - `20260508074740_add_calendar_event_refs.sql`: external calendar event reference rows for provider write/cancel retries.
+- `20260512000000_add_contacts.sql`: host-scoped contact aggregate, backfill, RLS, and soft-anonymization RPC.
 
 ## API Routes
 
@@ -144,6 +148,7 @@ Migrations are in `supabase/migrations/`:
 | `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
 | `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |
 | `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, service role RPC | `src/lib/booking/reschedule.ts` |
+| `DELETE /api/contacts/[id]` | Authenticated host contact anonymization scoped to own profile | `src/lib/contacts/contacts.ts` |
 | `GET/POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
 | `PATCH/DELETE /api/settings` | Authenticated host settings and account deletion | `src/app/api/settings/route.ts` |
 | `GET /api/calendar/connections` | Authenticated host, safe server-side calendar connection summaries | `src/lib/calendar/connections.ts` |
@@ -163,7 +168,7 @@ Migrations are in `supabase/migrations/`:
 Detailed target/current gaps are tracked in [System Design Gap Analysis](system-design-gaps.md).
 
 - `docs/system-design.md` describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` for those surfaces. This is acceptable for the MVP because it maximizes local code reuse and keeps deployment simple, but it couples high-risk public/provider endpoints to the web app runtime instead of isolating them in the Supabase function runtime with separate secrets and lifecycle.
-- Vercel Cron triggers are configured for outbox and webhook workers; non-Vercel deployments still need equivalent scheduler configuration.
+- Vercel Cron triggers are configured for outbox, webhook, and calendar sync workers. The committed schedules are daily for Hobby deployment compatibility; production environments that need faster processing still need an upgraded Vercel plan or equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
 - Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, and provider event writes are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
 - There is no realtime sync in the UI.

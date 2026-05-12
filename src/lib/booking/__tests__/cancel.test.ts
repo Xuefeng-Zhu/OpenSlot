@@ -3,6 +3,7 @@ import { cancelBooking } from '../cancel'
 import type { CancelBookingInput } from '../types'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
+import { touchContactForBookingEvent } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from '../events'
 
 // Mock email send functions so they don't interfere with tests
@@ -20,6 +21,10 @@ vi.mock('@/lib/outbox/outbox', () => ({
 
 vi.mock('@/lib/reservations/host-reservations', () => ({
   cancelBookingReservation: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('@/lib/contacts/contacts', () => ({
+  touchContactForBookingEvent: vi.fn().mockResolvedValue(true),
 }))
 
 vi.mock('../events', () => ({
@@ -76,6 +81,7 @@ describe('cancelBooking', () => {
       failed: 0,
     })
     vi.mocked(cancelBookingReservation).mockResolvedValue(true)
+    vi.mocked(touchContactForBookingEvent).mockResolvedValue(true)
     vi.mocked(appendBookingEvent).mockResolvedValue(true)
     mockClient = createMockClient()
   })
@@ -180,6 +186,10 @@ describe('cancelBooking', () => {
         endAt: '2025-01-15T14:30:00Z',
         cancelReasonProvided: true,
       },
+    })
+    expect(touchContactForBookingEvent).toHaveBeenCalledWith(mockClient, {
+      hostUserId: 'host-user-1',
+      guestEmail: 'jane@example.com',
     })
   })
 
