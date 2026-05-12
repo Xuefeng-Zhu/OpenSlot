@@ -95,7 +95,8 @@ notes and naming conventions.
 
 ## Prerequisites
 
-- Node.js 22 LTS or newer recommended. Next.js requires Node.js 20.9 or newer.
+- Node.js 22 LTS or newer recommended. The current toolchain requires Node.js
+  20.19 or newer.
 - npm. Use `npm ci` for deterministic installs from `package-lock.json`.
 - A Supabase project or the Supabase CLI for local database development.
 
