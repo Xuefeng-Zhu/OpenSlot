@@ -23,6 +23,7 @@ export interface ProcessOutboxBatchOptions {
 export interface ProcessOutboxBatchResult {
   claimed: number
   completed: number
+  deferred: number
   failed: number
 }
 
@@ -52,13 +53,14 @@ export async function processOutboxBatch({
 
   if (error) {
     console.error('Error claiming outbox events:', error)
-    return { claimed: 0, completed: 0, failed: 0 }
+    return { claimed: 0, completed: 0, deferred: 0, failed: 0 }
   }
 
   const claimed = (events ?? []) as OutboxEventRow[]
   const result: ProcessOutboxBatchResult = {
     claimed: claimed.length,
     completed: 0,
+    deferred: 0,
     failed: 0,
   }
 
@@ -69,8 +71,13 @@ export async function processOutboxBatch({
       await markOutboxEventCompleted(adminClient, event.id)
       result.completed += 1
     } catch (handlerError) {
-      await markOutboxEventFailed(adminClient, event, handlerError, maxAttempts)
-      result.failed += 1
+      if (handlerError instanceof DeferredOutboxEventError) {
+        await markOutboxEventDeferred(adminClient, event, handlerError)
+        result.deferred += 1
+      } else {
+        await markOutboxEventFailed(adminClient, event, handlerError, maxAttempts)
+        result.failed += 1
+      }
     }
   }
 
@@ -121,7 +128,8 @@ async function sendBookingConfirmedNotifications(
 ) {
   const bookingDetails = await loadBookingDetails(
     adminClient,
-    bookingIdFromPayload(event.payload)
+    bookingIdFromPayload(event.payload),
+    { requireReadyConference: true }
   )
 
   await sendBookingConfirmationToGuest(bookingDetails)
@@ -134,7 +142,8 @@ async function sendBookingCancelledNotifications(
 ) {
   const bookingDetails = await loadBookingDetails(
     adminClient,
-    bookingIdFromPayload(event.payload)
+    bookingIdFromPayload(event.payload),
+    { requireReadyConference: false }
   )
 
   await sendCancellationEmail(bookingDetails, 'guest')
@@ -147,7 +156,8 @@ async function sendBookingRescheduledNotifications(
 ) {
   const bookingDetails = await loadBookingDetails(
     adminClient,
-    bookingIdFromPayload(event.payload)
+    bookingIdFromPayload(event.payload),
+    { requireReadyConference: true }
   )
 
   await sendBookingConfirmationToGuest(bookingDetails)
@@ -156,7 +166,8 @@ async function sendBookingRescheduledNotifications(
 
 async function loadBookingDetails(
   adminClient: SupabaseClient<Database>,
-  bookingId: string
+  bookingId: string,
+  options: { requireReadyConference: boolean }
 ): Promise<BookingDetails> {
   const { data: bookingData, error: bookingError } = await adminClient
     .from('bookings')
@@ -171,11 +182,13 @@ async function loadBookingDetails(
   const booking = bookingData as BookingRow
 
   if (
+    options.requireReadyConference &&
     booking.conference_provider &&
     booking.conference_status !== 'ready'
   ) {
-    throw new Error(
-      `Conference link is not ready for booking ${bookingId}: ${booking.conference_status}`
+    throw new ConferenceLinkPendingError(
+      bookingId,
+      booking.conference_status ?? 'pending'
     )
   }
 
@@ -209,6 +222,20 @@ async function loadBookingDetails(
     conferenceStatus: booking.conference_status,
     cancellationToken: booking.cancellation_token,
     rescheduleToken: booking.reschedule_token,
+  }
+}
+
+class DeferredOutboxEventError extends Error {
+  constructor(message: string, readonly retryDelayMs = 60_000) {
+    super(message)
+    this.name = 'DeferredOutboxEventError'
+  }
+}
+
+class ConferenceLinkPendingError extends DeferredOutboxEventError {
+  constructor(bookingId: string, status: string) {
+    super(`Conference link is not ready for booking ${bookingId}: ${status}`)
+    this.name = 'ConferenceLinkPendingError'
   }
 }
 
@@ -253,6 +280,34 @@ async function markOutboxEventFailed(
 
   if (updateError) {
     console.error('Error failing outbox event:', updateError)
+  }
+}
+
+/**
+ * Reschedules expected wait states without consuming the retry budget that is
+ * reserved for actual handler failures. The claim RPC already increments
+ * attempts, so this writes the count back down while the event waits.
+ */
+async function markOutboxEventDeferred(
+  adminClient: SupabaseClient<Database>,
+  event: OutboxEventRow,
+  error: DeferredOutboxEventError
+): Promise<void> {
+  const availableAt = new Date(Date.now() + error.retryDelayMs).toISOString()
+
+  const { error: updateError } = await adminClient
+    .from('outbox_events')
+    .update({
+      status: 'pending',
+      attempts: Math.max(event.attempts - 1, 0),
+      last_error: error.message,
+      available_at: availableAt,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', event.id)
+
+  if (updateError) {
+    console.error('Error deferring outbox event:', updateError)
   }
 }
 
