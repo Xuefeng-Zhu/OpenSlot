@@ -2,6 +2,8 @@
 
 OpenSlot stores scheduling and guest booking data in Supabase. Treat guest names, emails, notes, timezones, booking times, and cancellation tokens as sensitive application data.
 
+For the short repository security policy, see [../SECURITY.md](../SECURITY.md).
+
 ## Environment Variables
 
 Required:

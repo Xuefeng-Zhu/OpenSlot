@@ -1,6 +1,9 @@
 # Release and Build Notes
 
-There is no committed GitHub Actions workflow in this repository. The repository includes Vercel cron configuration for worker routes, but any production deploy still needs the required environment variables and database migrations applied out of band.
+GitHub Actions runs the normal release gate on pushes to `main` and pull
+requests that target `main`. The repository also includes Vercel cron
+configuration for worker routes, but any production deploy still needs the
+required environment variables and database migrations applied out of band.
 
 ## Release Gate
 
@@ -10,6 +13,12 @@ npm run lint
 npm run typecheck
 npm run test
 npm run build
+```
+
+For local handoff you can run the same gate with:
+
+```bash
+npm run verify
 ```
 
 The production build command is:
@@ -84,7 +93,6 @@ Vercel sends `CRON_SECRET` as a bearer token when that project environment varia
 
 These are not present in the current repository:
 
-- CI workflow.
 - Calendar provider webhook/watch renewal handlers.
 - Error monitoring.
 

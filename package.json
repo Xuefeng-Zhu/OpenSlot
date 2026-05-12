@@ -2,6 +2,11 @@
   "name": "openslot",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@11.11.0",
+  "engines": {
+    "node": ">=20.9.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
@@ -10,6 +15,7 @@
     "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest --run",
     "test:watch": "vitest",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build",
     "oauth:calendar": "node scripts/configure-calendar-oauth.mjs",
     "oauth:google": "node scripts/configure-google-calendar-oauth.mjs",
     "oauth:microsoft": "node scripts/configure-microsoft-calendar-oauth.mjs"
