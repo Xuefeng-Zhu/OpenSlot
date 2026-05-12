@@ -17,6 +17,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Public cancellation links for guests to review booking details and cancel with an optional reason.
 - Public rescheduling links for guests to choose a replacement slot.
 - Host bookings page with upcoming, past, and cancelled groupings.
+- Host contacts page with repeat-guest recognition, meeting history, search, and soft anonymization.
 - Host availability editor for weekly rules and date overrides.
 - Host settings persistence for profile basics, display preferences, notification preferences, password update, and account deletion.
 - Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
@@ -66,6 +67,14 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 2. Server page fetches host bookings from Supabase.
 3. Client view categorizes bookings locally.
 4. Host can cancel upcoming bookings through `/api/bookings/[id]/cancel`.
+
+### Host Contact Management
+
+1. Host opens `/contacts`.
+2. Server page fetches host contacts and bookings from Supabase.
+3. Client view searches contacts by name, email, timezone, and event type.
+4. Host opens a contact profile to review confirmed, cancelled, and rescheduled booking history.
+5. Host can anonymize a contact through `/api/contacts/[id]`, which scrubs matching booking guest display data while preserving meeting records.
 
 ## Related Docs
 

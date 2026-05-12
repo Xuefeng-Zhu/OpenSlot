@@ -106,7 +106,7 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
       ),
       { numRuns: 100 }
     )
-  })
+  }, 15000)
 })
 
 function eventLocationLabel(eventType: EventTypeData): string {

@@ -82,7 +82,13 @@ Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send producti
 - `GET /api/webhooks/process`
 - `GET /api/calendar/sync`
 
-Vercel sends `CRON_SECRET` as a bearer token when that project environment variable is configured. Non-Vercel deployments should configure an equivalent scheduler that calls the same routes with `Authorization: Bearer <secret>`.
+The committed schedules run once daily so Hobby preview deployments pass
+Vercel's Cron limits. Production deployments that need lower-latency
+notifications, webhook delivery, or calendar busy-cache refreshes should use a
+Vercel plan or an external scheduler that supports the desired cadence. Vercel
+sends `CRON_SECRET` as a bearer token when that project environment variable is
+configured. Non-Vercel deployments should configure an equivalent scheduler that
+calls the same routes with `Authorization: Bearer <secret>`.
 
 The outbox worker must run for generated conference links and booking notification emails to complete. Video-provider bookings remain confirmed while conference link creation is pending or retrying.
 

@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/lib/types/database'
 import type { RescheduleBookingInput, RescheduleBookingResult } from './types'
 import { appendBookingEvent } from './events'
+import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { enqueueBookingRescheduledOutbox } from '@/lib/outbox/outbox'
 
 interface RescheduleRpcRow {
@@ -81,6 +82,14 @@ export async function rescheduleBooking(
       startAt: row.start_at,
       endAt: row.end_at,
     },
+  })
+
+  await upsertContactFromBooking(adminClient, {
+    bookingId: row.new_booking_id,
+    hostUserId: row.host_user_id,
+    guestName: input.guestName,
+    guestEmail: input.guestEmail,
+    guestTimezone: input.guestTimezone,
   })
 
   await enqueueBookingRescheduledOutbox(adminClient, {

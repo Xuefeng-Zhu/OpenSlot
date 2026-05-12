@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { rescheduleBooking } from '../reschedule'
 import { appendBookingEvent } from '../events'
+import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { enqueueBookingRescheduledOutbox } from '@/lib/outbox/outbox'
 
 vi.mock('../events', () => ({
@@ -13,6 +14,10 @@ vi.mock('@/lib/outbox/outbox', () => ({
     duplicates: 0,
     failed: 0,
   }),
+}))
+
+vi.mock('@/lib/contacts/contacts', () => ({
+  upsertContactFromBooking: vi.fn().mockResolvedValue(null),
 }))
 
 const rpcRow = {
@@ -42,6 +47,7 @@ const validInput = {
 describe('rescheduleBooking', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(upsertContactFromBooking).mockResolvedValue(null)
   })
 
   it('uses the atomic reschedule RPC and queues side effects', async () => {
@@ -73,6 +79,13 @@ describe('rescheduleBooking', () => {
       p_notes: 'New time works better.',
     })
     expect(appendBookingEvent).toHaveBeenCalledTimes(2)
+    expect(upsertContactFromBooking).toHaveBeenCalledWith(adminClient, {
+      bookingId: 'new-booking-1',
+      hostUserId: 'profile-1',
+      guestName: 'Sarah Chen',
+      guestEmail: 'sarah@example.com',
+      guestTimezone: 'America/Los_Angeles',
+    })
     expect(enqueueBookingRescheduledOutbox).toHaveBeenCalledWith(adminClient, {
       bookingId: 'new-booking-1',
       previousBookingId: 'old-booking-1',
