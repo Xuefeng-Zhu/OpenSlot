@@ -6,11 +6,13 @@ import {
   AvailabilityDayRow,
   type TimeInterval,
 } from "@/components/dashboard/availability-day-row"
+import { PageHeader } from "@/components/dashboard/page-header"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { EmptyState } from "@/components/shared/empty-state"
 import { useToast } from "@/components/ui/use-toast"
 
 // --- Types ---
@@ -418,18 +420,11 @@ export function AvailabilityClient({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="text-sm text-muted-foreground">
-        Dashboard &gt;{" "}
-        <span className="text-foreground font-medium">Availability</span>
-      </div>
-
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Availability</h1>
-        <p className="text-muted-foreground">
-          Set your regular weekly availability and date overrides.
-        </p>
-      </div>
+      <PageHeader
+        title="Availability"
+        description="Set your regular weekly hours and add date-specific exceptions for holidays, travel, or custom coverage."
+        meta="Dashboard / Availability"
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Weekly schedule - 2 columns */}
@@ -563,7 +558,7 @@ export function AvailabilityClient({
               </div>
 
               {/* Existing overrides list */}
-              {overrides.length > 0 && (
+              {overrides.length > 0 ? (
                 <ul className="space-y-2" aria-label="Date overrides">
                   {overrides.map((override) => (
                     <li
@@ -621,6 +616,13 @@ export function AvailabilityClient({
                     </li>
                   ))}
                 </ul>
+              ) : (
+                <EmptyState
+                  icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
+                  heading="No date overrides"
+                  description="Your weekly schedule applies every week. Add an override when a specific date needs custom hours or should be unavailable."
+                  className="bg-muted/30 py-10"
+                />
               )}
             </CardContent>
           </Card>
@@ -647,20 +649,22 @@ export function AvailabilityClient({
 
       {/* Sticky save bar */}
       {hasChanges && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card px-6 py-3 flex items-center justify-between shadow-lg">
-          <div className="flex items-center gap-2">
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-3 border-t border-border bg-card px-4 py-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div className="flex min-w-0 items-start gap-2 sm:items-center">
             <span
-              className="h-2 w-2 rounded-full bg-warning"
+              className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-warning sm:mt-0"
               aria-hidden="true"
             />
-            <span className="text-sm font-medium text-foreground">
-              You have unsaved changes
-            </span>
-            <span className="text-sm text-muted-foreground">
-              Don&apos;t forget to save your availability.
-            </span>
+            <div className="text-sm">
+              <span className="font-medium text-foreground">
+                You have unsaved changes.
+              </span>{" "}
+              <span className="text-muted-foreground">
+                Save before leaving this page.
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 sm:shrink-0">
             <Button variant="outline" onClick={handleDiscard} disabled={isSaving}>
               Discard
             </Button>

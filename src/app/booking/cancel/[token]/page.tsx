@@ -126,7 +126,7 @@ function BookingDetailsSummary({
 }) {
   return (
     <div className={className}>
-      <div className="rounded-md border border-border p-4 text-left">
+      <div className="rounded-lg border border-border bg-muted/20 p-4 text-left">
         <div className="space-y-3 text-sm">
           <div className="flex items-center gap-2">
             <Calendar

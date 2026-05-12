@@ -5,24 +5,20 @@ import Link from "next/link";
 import {
   Calendar,
   CalendarCheck,
-  Link2,
-  CheckCircle2,
   Activity,
   ExternalLink,
-  Circle,
-  Copy,
-  Clock,
-  MapPin,
   ArrowRight,
-  Plus,
 } from "lucide-react";
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, getInitials } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { getDisplayedBookings } from "@/lib/dashboard-utils";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 
 export interface DashboardBooking {
   id: string;
@@ -59,14 +55,22 @@ export function DashboardClient({
   const displayedBookings = getDisplayedBookings(upcomingBookings);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(bookingLink).then(() => {
-      setCopied(true);
-      toast({
-        title: "Link copied!",
-        description: "Your booking link has been copied to clipboard.",
+    copyTextToClipboard(bookingLink)
+      .then(() => {
+        setCopied(true);
+        toast({
+          title: "Link copied!",
+          description: "Your booking link has been copied to clipboard.",
+        });
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        toast({
+          title: "Could not copy link",
+          description: "Please copy the URL from your public preview instead.",
+          variant: "destructive",
+        });
       });
-      setTimeout(() => setCopied(false), 2000);
-    });
   };
 
   function formatBookingDate(startAt: string): string {
@@ -106,44 +110,19 @@ export function DashboardClient({
 
   return (
     <div className="space-y-6">
-      {/* Greeting */}
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back, {profile.name.split(" ")[0]} 👋
-        </h1>
-        <p className="text-muted-foreground">
-          Here&apos;s what&apos;s happening with your schedule.
-        </p>
-      </div>
+      <PageHeader
+        title={`Welcome back, ${profile.name.split(" ")[0] || "there"}`}
+        description="Track bookings, manage availability, and share your public booking page from one calm workspace."
+      />
 
-      {/* Metric Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Upcoming bookings"
-          value={upcomingBookings.length}
-          icon={<Calendar className="h-5 w-5" />}
-          action={{ label: "View bookings", href: "/bookings" }}
-          subtitle={
-            upcomingBookings.length > 0
-              ? `Next: ${formatBookingDate(upcomingBookings[0].start_at)}`
-              : "No upcoming bookings"
-          }
-        />
+      {/* Top overview cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <MetricCard
           title="Active event types"
           value={activeEventTypeCount}
           icon={<CalendarCheck className="h-5 w-5" />}
           action={{ label: "Manage event types", href: "/event-types" }}
           subtitle="All systems go"
-        />
-        <MetricCard
-          title="Booking link"
-          value={`/${profile.username}`}
-          icon={<Link2 className="h-5 w-5" />}
-          action={{
-            label: copied ? "Copied!" : "Copy link",
-            onClick: handleCopyLink,
-          }}
         />
         <MetricCard
           title="Availability status"
@@ -153,29 +132,64 @@ export function DashboardClient({
           action={{ label: "Manage availability", href: "/availability" }}
           subtitle="You're available to be booked"
         />
-      </div>
-
-      {/* Main content grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Next Bookings - takes 2 columns on desktop */}
-        <Card className="lg:col-span-2">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle className="text-lg">Next bookings</CardTitle>
-            <Button variant="ghost" size="sm" asChild>
+        <Card className="h-full">
+          <CardContent className="flex h-full flex-col p-5">
+            <p className="text-sm font-medium text-muted-foreground">
+              Public profile preview
+            </p>
+            <div className="mt-4 flex items-center gap-3">
+              <Avatar
+                src={null}
+                alt={profile.name}
+                fallback={getInitials(profile.name)}
+                size="md"
+              />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-foreground">
+                  {profile.name}
+                </p>
+                <p className="truncate text-sm text-muted-foreground">
+                  /{profile.username}
+                </p>
+              </div>
+            </div>
+            <Button size="sm" className="mt-5 w-full" asChild>
               <Link
-                href="/bookings"
-                className="flex items-center gap-1 text-primary"
+                href={`/${profile.username}`}
+                target="_blank"
+                rel="noopener noreferrer"
               >
-                View all bookings
+                Preview booking page
+                <ExternalLink className="ml-1 h-3 w-3" aria-hidden="true" />
               </Link>
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Next bookings</CardTitle>
           </CardHeader>
           <CardContent>
             {displayedBookings.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">
-                No upcoming bookings. Share your booking link to start receiving
-                bookings.
-              </p>
+              <EmptyState
+                icon={<Calendar className="h-6 w-6" aria-hidden="true" />}
+                heading="No upcoming bookings"
+                description="Share your booking link or create a new event type to give guests a clear path to your calendar."
+                action={{
+                  label: copied ? "Link copied" : "Copy booking link",
+                  onClick: handleCopyLink,
+                }}
+                secondaryAction={{
+                  label: "Create event type",
+                  onClick: () => {
+                    window.location.href = "/event-types/new";
+                  },
+                }}
+                className="border-0 bg-muted/30 py-10"
+              />
             ) : (
               <ul className="space-y-1" aria-label="Upcoming bookings">
                 {displayedBookings.map((booking) => (
@@ -225,78 +239,13 @@ export function DashboardClient({
               >
                 <Link href="/bookings" className="flex items-center gap-1">
                   <Calendar className="h-4 w-4" aria-hidden="true" />
-                  View full calendar
+                  View all bookings
                   <ArrowRight className="h-3 w-3" aria-hidden="true" />
                 </Link>
               </Button>
             </div>
           </CardContent>
         </Card>
-
-        {/* Right column */}
-        <div className="space-y-6">
-          {/* Public Profile Preview */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-lg">Public profile preview</CardTitle>
-              <Button variant="ghost" size="sm" asChild className="text-primary">
-                <Link href={`/${profile.username}`}>
-                  View full page
-                  <ArrowRight className="h-3 w-3 ml-1" aria-hidden="true" />
-                </Link>
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center gap-3">
-                <Avatar
-                  src={null}
-                  alt={profile.name}
-                  fallback={getInitials(profile.name)}
-                  size="md"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">{profile.name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    /{profile.username}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-4">
-                <Button variant="outline" size="sm" className="w-full" asChild>
-                  <Link
-                    href={`/${profile.username}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Preview booking page
-                    <ExternalLink
-                      className="h-3 w-3 ml-1"
-                      aria-hidden="true"
-                    />
-                  </Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Bottom CTA bar */}
-      <div className="rounded-lg border border-border bg-muted/30 p-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <p className="text-sm font-medium text-foreground">
-            Your schedule. Your way.
-          </p>
-          <p className="text-sm text-muted-foreground hidden sm:block">
-            Add more event types to give people more ways to connect with you.
-          </p>
-        </div>
-        <Button size="sm" asChild>
-          <Link href="/event-types/new">
-            <Plus className="h-4 w-4 mr-1" aria-hidden="true" />
-            New event type
-          </Link>
-        </Button>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Bell, Menu, HelpCircle } from 'lucide-react'
+import { Bell, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
 import {
@@ -48,27 +48,6 @@ export function TopBar({ title, onMenuToggle, user }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Help" className="text-muted-foreground">
-              <HelpCircle className="h-5 w-5" aria-hidden="true" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Help</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild>
-              <Link href="/availability">Set availability</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/event-types/new">Create event type</Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings">Open settings</Link>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" aria-label="Notifications" className="text-muted-foreground">
