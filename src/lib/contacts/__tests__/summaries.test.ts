@@ -68,10 +68,44 @@ describe('contact summaries', () => {
       id: 'contact-1',
       displayName: 'Jane Doe',
       displayEmail: 'Jane@Example.COM',
+      lastMeetingAt: null,
+      nextMeetingAt: '2026-05-20T16:00:00.000Z',
       totalBookings: 2,
       upcomingCount: 1,
       cancelledCount: 1,
       eventTitles: ['Design Review', 'Intro Call'],
+    })
+  })
+
+  it('derives last meeting from past confirmed bookings only', () => {
+    const summaries = buildContactSummaries(
+      [contact],
+      [
+        booking({
+          id: 'future-confirmed',
+          start_at: '2026-05-20T16:00:00.000Z',
+          end_at: '2026-05-20T16:30:00.000Z',
+          status: 'confirmed',
+        }),
+        booking({
+          id: 'past-confirmed',
+          start_at: '2026-05-10T16:00:00.000Z',
+          end_at: '2026-05-10T16:30:00.000Z',
+          status: 'confirmed',
+        }),
+        booking({
+          id: 'future-cancelled',
+          start_at: '2026-05-25T16:00:00.000Z',
+          end_at: '2026-05-25T16:30:00.000Z',
+          status: 'cancelled',
+        }),
+      ],
+      new Date('2026-05-12T12:00:00.000Z')
+    )
+
+    expect(summaries[0]).toMatchObject({
+      lastMeetingAt: '2026-05-10T16:00:00.000Z',
+      nextMeetingAt: '2026-05-20T16:00:00.000Z',
     })
   })
 

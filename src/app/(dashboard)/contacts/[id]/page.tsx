@@ -66,9 +66,14 @@ export default async function ContactPage({ params }: ContactPageProps) {
     .eq("id", id)
     .eq("host_user_id", profile.id)
     .is("deleted_at", null)
-    .single();
+    .maybeSingle();
 
-  if (contactError || !contactData) {
+  if (contactError) {
+    console.error("Error loading contact:", contactError);
+    throw new Error("Failed to load contact");
+  }
+
+  if (!contactData) {
     notFound();
   }
 

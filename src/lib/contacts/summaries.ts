@@ -81,7 +81,6 @@ export function buildContactSummaries(
     .filter((contact) => !contact.deleted_at)
     .map((contact) => {
       const contactBookings = bookingsByHash.get(contact.email_hash) ?? []
-      const sortedBookings = sortBookingsByStart(contactBookings)
       const latestBooking = latestByCreatedAt(contactBookings)
       const upcoming = contactBookings.filter(
         (booking) => booking.status === 'confirmed' && new Date(booking.start_at) > now
@@ -94,6 +93,9 @@ export function buildContactSummaries(
       const nextMeeting = upcoming
         .slice()
         .sort((a, b) => a.start_at.localeCompare(b.start_at))[0]
+      const lastMeeting = past
+        .slice()
+        .sort((a, b) => b.start_at.localeCompare(a.start_at))[0]
 
       return {
         id: contact.id,
@@ -106,7 +108,7 @@ export function buildContactSummaries(
           contact.last_guest_timezone || latestBooking?.guest_timezone || null,
         firstSeenAt: contact.first_seen_at,
         lastSeenAt: maxIso([contact.last_seen_at, latestBooking?.updated_at]),
-        lastMeetingAt: sortedBookings[0]?.start_at ?? null,
+        lastMeetingAt: lastMeeting?.start_at ?? null,
         nextMeetingAt: nextMeeting?.start_at ?? null,
         totalBookings: contactBookings.length,
         upcomingCount: upcoming.length,
@@ -169,10 +171,6 @@ function groupBookingsByEmailHash(bookings: ContactBookingRecord[]) {
   }
 
   return grouped
-}
-
-function sortBookingsByStart(bookings: ContactBookingRecord[]) {
-  return bookings.slice().sort((a, b) => b.start_at.localeCompare(a.start_at))
 }
 
 function latestByCreatedAt(bookings: ContactBookingRecord[]) {
