@@ -1,5 +1,7 @@
 -- Host-scoped contacts derived from booking attendees. Raw email remains on
 -- booking rows; contacts store only a deterministic hash for repeat detection.
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 CREATE TABLE contacts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   host_user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
@@ -45,22 +47,22 @@ REVOKE ALL ON TABLE contacts FROM anon;
 WITH booking_groups AS (
   SELECT
     host_user_id,
-    encode(digest(lower(trim(guest_email)), 'sha256'), 'hex') AS email_hash,
+    encode(extensions.digest(lower(trim(guest_email)), 'sha256'), 'hex') AS email_hash,
     MIN(created_at) AS first_seen_at,
     MAX(created_at) AS last_seen_at
   FROM bookings
   WHERE length(trim(guest_email)) > 0
   GROUP BY
     host_user_id,
-    encode(digest(lower(trim(guest_email)), 'sha256'), 'hex')
+    encode(extensions.digest(lower(trim(guest_email)), 'sha256'), 'hex')
 ),
 latest_bookings AS (
   SELECT DISTINCT ON (
     host_user_id,
-    encode(digest(lower(trim(guest_email)), 'sha256'), 'hex')
+    encode(extensions.digest(lower(trim(guest_email)), 'sha256'), 'hex')
   )
     host_user_id,
-    encode(digest(lower(trim(guest_email)), 'sha256'), 'hex') AS email_hash,
+    encode(extensions.digest(lower(trim(guest_email)), 'sha256'), 'hex') AS email_hash,
     id AS last_booking_id,
     guest_name AS display_name,
     guest_timezone AS last_guest_timezone
@@ -68,7 +70,7 @@ latest_bookings AS (
   WHERE length(trim(guest_email)) > 0
   ORDER BY
     host_user_id,
-    encode(digest(lower(trim(guest_email)), 'sha256'), 'hex'),
+    encode(extensions.digest(lower(trim(guest_email)), 'sha256'), 'hex'),
     created_at DESC,
     id DESC
 )
@@ -144,7 +146,7 @@ BEGIN
       cancel_reason = NULL,
       updated_at = v_now
   WHERE host_user_id = p_host_user_id
-    AND encode(digest(lower(trim(guest_email)), 'sha256'), 'hex') = v_contact.email_hash;
+    AND encode(extensions.digest(lower(trim(guest_email)), 'sha256'), 'hex') = v_contact.email_hash;
 
   GET DIAGNOSTICS v_updated_count = ROW_COUNT;
 
