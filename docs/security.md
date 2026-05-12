@@ -84,6 +84,17 @@ The default email provider logs messages to the console. `EMAIL_PROVIDER=resend`
 - Store provider API keys in server-only environment variables.
 - Configure a verified sending domain before enabling a production provider.
 
+## Browser Security Headers
+
+`next.config.js` applies browser hardening headers to all routes:
+
+- Content Security Policy defaults to same-origin scripts, styles, forms, workers, and manifests; blocks inline script attributes, object content, and framed content; denies embedding with `frame-ancestors 'none'`; allows Supabase HTTP/WebSocket connections; and permits image/media loading from HTTPS so profile avatars and public assets still render.
+- Local development adds `localhost`/`127.0.0.1` HTTP and WebSocket allowances plus `unsafe-eval` for the Next.js development runtime. Production omits `unsafe-eval` and adds `upgrade-insecure-requests`.
+- Production adds HSTS with `max-age=63072000; includeSubDomains`.
+- `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` are set alongside the CSP.
+
+Calendar OAuth, email providers, and tenant webhook deliveries are server-side integrations. The browser policy intentionally keeps `connect-src` narrow to `self` and Supabase rather than allowing Google, Microsoft, email-provider, or arbitrary webhook destination origins directly from client code.
+
 ## Integration Secrets
 
 - Calendar provider token columns live in server-only tables without direct `anon` or `authenticated` grants. Application code encrypts OAuth access and refresh tokens before writing them.
