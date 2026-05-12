@@ -24,7 +24,7 @@ function contact(overrides: Partial<ContactSummary> = {}): ContactSummary {
 }
 
 describe('ContactsClient', () => {
-  it('filters contacts by search text and status tabs', () => {
+  it('filters contacts by search text', () => {
     render(
       <ContactsClient
         contacts={[
@@ -50,10 +50,28 @@ describe('ContactsClient', () => {
     expect(screen.queryAllByText('Ada Lovelace')).toHaveLength(0)
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear contact search' }))
-    fireEvent.click(screen.getByRole('tab', { name: 'Cancelled' }))
 
+    expect(screen.getAllByText('Ada Lovelace').length).toBeGreaterThan(0)
     expect(screen.getAllByText('Grace Hopper').length).toBeGreaterThan(0)
-    expect(screen.queryAllByText('Ada Lovelace')).toHaveLength(0)
+  })
+
+  it('shows only total meeting counts in the list', () => {
+    render(
+      <ContactsClient
+        contacts={[
+          contact({
+            totalBookings: 1,
+            upcomingCount: 0,
+            pastCount: 0,
+            cancelledCount: 1,
+          }),
+        ]}
+      />
+    )
+
+    expect(screen.queryByRole('tablist')).toBeNull()
+    expect(screen.getByText('1 total')).toBeDefined()
+    expect(screen.queryByText('1 cancelled')).toBeNull()
   })
 
   it('renders an empty state when there are no contacts', () => {

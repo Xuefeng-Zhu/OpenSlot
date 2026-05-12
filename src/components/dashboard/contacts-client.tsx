@@ -15,11 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { ContactSummary } from "@/lib/contacts/summaries";
-
-type ContactFilter = "all" | "upcoming" | "past" | "cancelled";
 
 interface ContactsClientProps {
   contacts: ContactSummary[];
@@ -48,25 +45,12 @@ function contactMatchesSearch(contact: ContactSummary, search: string): boolean 
   ].some((value) => value.toLowerCase().includes(query));
 }
 
-function contactMatchesFilter(contact: ContactSummary, filter: ContactFilter): boolean {
-  if (filter === "upcoming") return contact.upcomingCount > 0;
-  if (filter === "past") return contact.pastCount > 0 || contact.rescheduledCount > 0;
-  if (filter === "cancelled") return contact.cancelledCount > 0;
-  return true;
-}
-
 export function ContactsClient({ contacts }: ContactsClientProps) {
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<ContactFilter>("all");
 
   const filteredContacts = useMemo(
-    () =>
-      contacts.filter(
-        (contact) =>
-          contactMatchesSearch(contact, search) &&
-          contactMatchesFilter(contact, filter)
-      ),
-    [contacts, filter, search]
+    () => contacts.filter((contact) => contactMatchesSearch(contact, search)),
+    [contacts, search]
   );
 
   return (
@@ -78,49 +62,38 @@ export function ContactsClient({ contacts }: ContactsClientProps) {
         </p>
       </div>
 
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="w-full max-w-md">
-          <Label
-            htmlFor="contact-search"
-            className="mb-1 block text-xs font-medium text-muted-foreground"
-          >
-            Search contacts
-          </Label>
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden="true"
-            />
-            <Input
-              id="contact-search"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, email, event type..."
-              className="pl-9 pr-10"
-            />
-            {search && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Clear contact search"
-                className="absolute right-0 top-1/2 h-9 w-9 -translate-y-1/2"
-                onClick={() => setSearch("")}
-              >
-                <X className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            )}
-          </div>
+      <div className="w-full max-w-md">
+        <Label
+          htmlFor="contact-search"
+          className="mb-1 block text-xs font-medium text-muted-foreground"
+        >
+          Search contacts
+        </Label>
+        <div className="relative">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            id="contact-search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Name, email, event type..."
+            className="pl-9 pr-10"
+          />
+          {search && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Clear contact search"
+              className="absolute right-0 top-1/2 h-9 w-9 -translate-y-1/2"
+              onClick={() => setSearch("")}
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
         </div>
-
-        <Tabs value={filter} onValueChange={(value) => setFilter(value as ContactFilter)}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="past">Past</TabsTrigger>
-            <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-          </TabsList>
-        </Tabs>
       </div>
 
       {filteredContacts.length === 0 ? (
@@ -130,7 +103,7 @@ export function ContactsClient({ contacts }: ContactsClientProps) {
           description={
             contacts.length === 0
               ? "Contacts appear after guests book time with you."
-              : "Adjust the search or status filter."
+              : "Adjust the search."
           }
         />
       ) : (
@@ -187,15 +160,7 @@ function ContactsTable({ contacts }: { contacts: ContactSummary[] }) {
                     </div>
                   </td>
                   <td className="p-3">
-                    <div className="flex flex-wrap gap-1">
-                      <Badge variant="secondary">{contact.totalBookings} total</Badge>
-                      {contact.upcomingCount > 0 && (
-                        <Badge variant="success">{contact.upcomingCount} upcoming</Badge>
-                      )}
-                      {contact.cancelledCount > 0 && (
-                        <Badge variant="danger">{contact.cancelledCount} cancelled</Badge>
-                      )}
-                    </div>
+                    <Badge variant="secondary">{contact.totalBookings} total</Badge>
                   </td>
                   <td className="p-3">{formatDate(contact.lastMeetingAt)}</td>
                   <td className="p-3">{formatDate(contact.nextMeetingAt)}</td>
