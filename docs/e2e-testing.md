@@ -1,10 +1,36 @@
-# Manual E2E Testing
+# E2E Testing
 
-OpenSlot does not currently have a committed Playwright or Cypress E2E
-runner. Use this manual browser suite for release smoke testing and for
-validating scheduling flows against a Supabase-backed environment.
+OpenSlot has a committed Playwright E2E lane for seeded page smoke coverage and
+authenticated dashboard interactions. Use the manual browser suite below for
+broader release smoke testing and for booking flows that are not automated yet.
 
-## Prerequisites
+## Automated Page E2E
+
+The automated suite uses local Supabase seed data, including this host account:
+
+- Email: `demo@openslot.dev`
+- Password: `demo-password-123`
+
+Run it locally with:
+
+```bash
+supabase start
+supabase db reset --local
+npm run test:e2e
+```
+
+The Playwright config starts the Next.js dev server on
+`http://127.0.0.1:3000`. It expects local Supabase to already be running and
+seeded. The CI `Page E2E` job installs Chromium, starts local Supabase,
+resets and seeds the database, exports the local Supabase env vars, and runs
+`npm run test:e2e`.
+
+The current automated tests are intentionally non-mutating. They check public
+pages, auth pages, seeded public profile/event pages, cancellation and
+reschedule token pages, auth redirects, demo host login, dashboard page
+headings, Event Types search, and the Bookings details drawer.
+
+## Manual Prerequisites
 
 1. Install dependencies and configure `.env.local`.
 2. Apply all database migrations:

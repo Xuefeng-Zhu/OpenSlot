@@ -1,11 +1,14 @@
 # Testing
 
-Tests use Vitest with jsdom. Configuration lives in `vitest.config.ts`.
+Unit, property, and component tests use Vitest with jsdom. Configuration lives
+in `vitest.config.ts`. Browser E2E page smoke tests use Playwright with local
+Supabase seed data. Configuration lives in `playwright.config.ts`.
 
 ## Commands
 
 ```bash
 npm run test
+npm run test:e2e
 npm run test:watch
 npm run lint
 npm run typecheck
@@ -44,6 +47,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 ## Test Organization
 
 - Unit and property tests live in `__tests__` directories near source files.
+- Browser E2E specs live in `e2e/` and are excluded from Vitest.
 - `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, booking windows, and external busy windows.
 - `src/lib/booking/__tests__/` covers confirmation, cancellation, and rescheduling engines with mocked Supabase chains.
 - `src/lib/booking/__tests__/events.test.ts` covers booking audit event append behavior.
@@ -65,6 +69,26 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/lib/validations/__tests__/` covers Zod schemas.
 - `src/components/ui/__tests__/` covers accessibility and focus behavior.
 - Dashboard/public page property tests cover rendering invariants and UI helpers.
+- `e2e/pages.spec.ts` smokes public pages, seeded public booking pages,
+  token pages, and authenticated dashboard pages without mutating data.
+
+## E2E Tests
+
+The committed Playwright lane covers page smoke tests and seeded dashboard
+interactions. It runs in CI.
+For local runs, start and seed Supabase before running the test:
+
+```bash
+supabase start
+supabase db reset --local
+npm run test:e2e
+```
+
+If Chromium has not been installed on the machine yet, run:
+
+```bash
+npx playwright install chromium
+```
 
 ## Property-Based Tests
 
@@ -109,12 +133,13 @@ This comes from jsdom when a test triggers browser navigation. It is currently n
 | Settings persistence | Settings route tests, dashboard smoke/build, typecheck |
 | Forms and validation | Schema tests plus component tests |
 | Dashboard UI polish | Relevant component/page test, accessibility if inputs/actions change |
+| Page smoke or authenticated dashboard behavior | `npm run test:e2e` with local Supabase seed data |
 | Supabase schema or RLS | Migration review, manual Supabase check, full build/test |
 | Docs only | `npm run lint`, `npm run typecheck`, `npm run test` when feasible |
 
 ## Related Docs
 
-- [Manual E2E Testing](e2e-testing.md)
+- [E2E Testing](e2e-testing.md)
 - [Development](development.md)
 - [Architecture](architecture.md)
 - [Troubleshooting](troubleshooting.md)

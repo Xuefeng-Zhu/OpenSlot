@@ -175,6 +175,7 @@ Use `.env.example` as the source of truth for local keys.
 | `npm run lint` | Run ESLint. |
 | `npm run typecheck` | Run TypeScript without emitting files. |
 | `npm run test` | Run the Vitest suite once. |
+| `npm run test:e2e` | Run the Playwright page E2E suite. |
 | `npm run test:watch` | Run Vitest in watch mode. |
 | `npm run verify` | Run lint, typecheck, tests, and build. |
 | `npm run oauth:calendar` | Configure calendar OAuth credentials interactively. |
@@ -190,16 +191,19 @@ npm run test
 ```
 
 Run `npm run build` for route, environment, Next.js, or production-sensitive
-changes. The full test suite may print `Not implemented: navigation to another
-Document` from jsdom while still passing.
+changes. Run `npm run test:e2e` when validating page rendering, authenticated
+dashboard behavior, or navigation against local Supabase seed data. The full
+Vitest suite may print `Not implemented: navigation to another Document` from
+jsdom while still passing.
 
 See [docs/testing.md](docs/testing.md) for targeted test examples and coverage
 guidance.
 
 ## Deployment
 
-GitHub Actions runs the app release gate, npm dependency audit, and local
-Supabase migration validation for pushes and pull requests targeting `main`.
+GitHub Actions runs the app release gate, Page E2E, npm dependency audit,
+and local Supabase migration validation for pushes and pull requests targeting
+`main`.
 Production deploys still need the environment variables above and database
 migrations applied out of band. `vercel.json` defines cron schedules for
 outbox, webhook, and calendar sync worker routes. The committed schedules are
