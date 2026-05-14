@@ -92,7 +92,7 @@ jobs:
 
       - name: Stop local database
         if: always()
-        run: supabase stop --no-backup
+        run: supabase stop --no-backup || true
 
   e2e:
     name: Page E2E
@@ -147,11 +147,12 @@ jobs:
           supabase status -o env \
             --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
             --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
-            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY >> "$GITHUB_ENV"
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' >> "$GITHUB_ENV"
 
-      - name: Run dashboard E2E
+      - name: Run page E2E
         run: npm run test:e2e
 
       - name: Stop local Supabase
         if: always()
-        run: supabase stop --no-backup
+        run: supabase stop --no-backup || true
