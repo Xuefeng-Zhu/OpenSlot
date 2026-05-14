@@ -35,6 +35,8 @@ BEGIN
     email_confirmed_at,
     created_at,
     updated_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
     confirmation_token,
     recovery_token
   ) VALUES (
@@ -47,9 +49,48 @@ BEGIN
     now(),
     now(),
     now(),
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
     '',
     ''
-  ) ON CONFLICT (id) DO NOTHING;
+  ) ON CONFLICT (id) DO UPDATE SET
+    aud = EXCLUDED.aud,
+    role = EXCLUDED.role,
+    email = EXCLUDED.email,
+    encrypted_password = EXCLUDED.encrypted_password,
+    email_confirmed_at = EXCLUDED.email_confirmed_at,
+    raw_app_meta_data = EXCLUDED.raw_app_meta_data,
+    raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    provider_id,
+    identity_data,
+    provider,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    demo_auth_user_id,
+    demo_auth_user_id,
+    demo_auth_user_id::text,
+    jsonb_build_object(
+      'sub', demo_auth_user_id::text,
+      'email', 'demo@openslot.dev',
+      'email_verified', true,
+      'phone_verified', false
+    ),
+    'email',
+    now(),
+    now(),
+    now()
+  ) ON CONFLICT (provider_id, provider) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    identity_data = EXCLUDED.identity_data,
+    last_sign_in_at = EXCLUDED.last_sign_in_at,
+    updated_at = EXCLUDED.updated_at;
 
   -- 2. Create demo profile
   INSERT INTO profiles (
