@@ -67,7 +67,13 @@ BEGIN
     'America/New_York',
     now(),
     now()
-  ) ON CONFLICT (id) DO NOTHING;
+  ) ON CONFLICT (auth_user_id) DO UPDATE SET
+    id = EXCLUDED.id,
+    email = EXCLUDED.email,
+    name = EXCLUDED.name,
+    username = EXCLUDED.username,
+    default_timezone = EXCLUDED.default_timezone,
+    updated_at = EXCLUDED.updated_at;
 
   -- 3. Create event types
   INSERT INTO event_types (
