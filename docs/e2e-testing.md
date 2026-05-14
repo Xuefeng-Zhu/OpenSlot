@@ -21,9 +21,12 @@ npm run test:e2e
 
 The Playwright config starts the Next.js dev server on
 `http://127.0.0.1:3000`. It expects local Supabase to already be running and
-seeded. The CI `Page E2E` job installs Chromium, starts local Supabase,
-resets and seeds the database, exports the local Supabase env vars, and runs
-`npm run test:e2e`.
+seeded, with local Supabase env vars available in the shell or `.env.local`.
+Before tests run, Playwright refreshes and verifies the seeded demo host
+password through the local service-role key so the browser login uses a real
+Supabase Auth password flow. The CI `Page E2E` job installs Chromium, starts
+local Supabase, resets and seeds the database, exports the local Supabase env
+vars, and runs `npm run test:e2e`.
 
 The current automated tests are intentionally non-mutating. They check public
 pages, auth pages, seeded public profile/event pages, cancellation and

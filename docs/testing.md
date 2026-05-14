@@ -84,6 +84,10 @@ supabase db reset --local
 npm run test:e2e
 ```
 
+The suite loads `.env.local` and uses the local service-role key during
+Playwright setup to refresh and verify the seeded demo host password before the
+browser login test runs.
+
 If Chromium has not been installed on the machine yet, run:
 
 ```bash

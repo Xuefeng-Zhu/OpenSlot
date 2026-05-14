@@ -1,16 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-
-const demoHost = {
-  email: "demo@openslot.dev",
-  password: "demo-password-123",
-};
-
-const demoIds = {
-  eventType30Min: "c3d4e5f6-a7b8-9012-cdef-123456789012",
-  contact: "f6a7b8c9-d0e1-2345-fabc-456789012345",
-  cancellationToken: "11111111-1111-4111-8111-111111111111",
-  rescheduleToken: "22222222-2222-4222-8222-222222222222",
-};
+import { demoHost, demoIds } from "./demo-data";
 
 interface PageSmokeCase {
   name: string;
