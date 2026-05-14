@@ -38,7 +38,17 @@ BEGIN
     raw_app_meta_data,
     raw_user_meta_data,
     confirmation_token,
-    recovery_token
+    recovery_token,
+    email_change_token_current,
+    email_change_token_new,
+    email_change,
+    email_change_confirm_status,
+    phone_change,
+    phone_change_token,
+    reauthentication_token,
+    last_sign_in_at,
+    is_sso_user,
+    is_anonymous
   ) VALUES (
     demo_auth_user_id,
     '00000000-0000-0000-0000-000000000000',
@@ -52,7 +62,17 @@ BEGIN
     '{"provider": "email", "providers": ["email"]}'::jsonb,
     '{}'::jsonb,
     '',
-    ''
+    '',
+    '',
+    '',
+    '',
+    0,
+    '',
+    '',
+    '',
+    now(),
+    false,
+    false
   ) ON CONFLICT (id) DO UPDATE SET
     aud = EXCLUDED.aud,
     role = EXCLUDED.role,
@@ -61,6 +81,18 @@ BEGIN
     email_confirmed_at = EXCLUDED.email_confirmed_at,
     raw_app_meta_data = EXCLUDED.raw_app_meta_data,
     raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+    confirmation_token = EXCLUDED.confirmation_token,
+    recovery_token = EXCLUDED.recovery_token,
+    email_change_token_current = EXCLUDED.email_change_token_current,
+    email_change_token_new = EXCLUDED.email_change_token_new,
+    email_change = EXCLUDED.email_change,
+    email_change_confirm_status = EXCLUDED.email_change_confirm_status,
+    phone_change = EXCLUDED.phone_change,
+    phone_change_token = EXCLUDED.phone_change_token,
+    reauthentication_token = EXCLUDED.reauthentication_token,
+    last_sign_in_at = EXCLUDED.last_sign_in_at,
+    is_sso_user = EXCLUDED.is_sso_user,
+    is_anonymous = EXCLUDED.is_anonymous,
     updated_at = EXCLUDED.updated_at;
 
   INSERT INTO auth.identities (
