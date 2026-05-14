@@ -278,10 +278,11 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
   await page.getByRole("link", { name: "Bookings", exact: true }).click();
   await expect(page).toHaveURL(/\/bookings$/);
   await expect(page.getByRole("heading", { name: "Bookings" })).toBeVisible();
-  await expect(page.getByText("Jane Guest")).toBeVisible();
-  await page
-    .getByRole("button", { name: "View booking with Jane Guest" })
-    .click();
+  const janeGuestBooking = page.getByRole("button", {
+    name: "View booking with Jane Guest",
+  });
+  await expect(janeGuestBooking).toBeVisible();
+  await janeGuestBooking.click();
 
   const bookingDetails = page.getByRole("dialog", { name: "Booking Details" });
   await expect(bookingDetails).toBeVisible();
