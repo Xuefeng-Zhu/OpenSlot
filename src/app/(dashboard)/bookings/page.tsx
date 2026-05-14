@@ -33,7 +33,7 @@ export default async function BookingsPage() {
   const { data: bookingsData } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancellation_token, event_types(title)"
+      "id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"
     )
     .eq("host_user_id", profile.id);
 
@@ -48,6 +48,12 @@ export default async function BookingsPage() {
       end_at: string;
       status: string;
       cancellation_token: string;
+      location_type: string;
+      location_value: string;
+      conference_provider: string | null;
+      conference_url: string | null;
+      conference_status: string;
+      conference_error: string | null;
       event_types: { title: string } | null;
     }>) ?? []
   ).map((booking) => ({
@@ -60,6 +66,12 @@ export default async function BookingsPage() {
     end_at: booking.end_at,
     status: booking.status,
     cancellation_token: booking.cancellation_token,
+    location_type: booking.location_type,
+    location_value: booking.location_value,
+    conference_provider: booking.conference_provider,
+    conference_url: booking.conference_url,
+    conference_status: booking.conference_status,
+    conference_error: booking.conference_error,
     event_type_title: booking.event_types?.title ?? "Unknown",
   }));
 

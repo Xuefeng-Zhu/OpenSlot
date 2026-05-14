@@ -24,9 +24,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
+import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import {
   eventTypeSchema,
+  type EventLocationType,
   type EventTypeFormValues,
+  type VideoProvider,
 } from "@/lib/validations/event-type";
 
 interface FormSection {
@@ -48,6 +51,7 @@ export interface EditableEventType {
   max_booking_days_ahead: number;
   location_type: EventTypeFormValues["location_type"];
   location_value: string;
+  video_provider?: EventTypeFormValues["video_provider"];
   is_active: boolean;
 }
 
@@ -55,6 +59,7 @@ interface EventTypeEditorProps {
   mode: "create" | "edit";
   hostName: string;
   initialEventType?: EditableEventType;
+  calendarConnections?: CalendarConnectionSummary[];
 }
 
 type FieldErrors = Partial<Record<keyof EventTypeFormValues, string>>;
@@ -74,6 +79,7 @@ const defaultEventType: Omit<EditableEventType, "id"> = {
   max_booking_days_ahead: 60,
   location_type: "online",
   location_value: "",
+  video_provider: null,
   is_active: true,
 };
 
@@ -104,6 +110,7 @@ export function EventTypeEditor({
   mode,
   hostName,
   initialEventType,
+  calendarConnections = [],
 }: EventTypeEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -124,6 +131,10 @@ export function EventTypeEditor({
   const [locationType, setLocationType] =
     useState<EventTypeFormValues["location_type"]>(source.location_type);
   const [locationValue, setLocationValue] = useState(source.location_value);
+  const [videoProvider, setVideoProvider] =
+    useState<EventTypeFormValues["video_provider"]>(
+      source.video_provider ?? null
+    );
   const [minNotice, setMinNotice] = useState(source.min_notice_minutes);
   const [maxDaysAhead, setMaxDaysAhead] = useState(
     source.max_booking_days_ahead
@@ -167,6 +178,7 @@ export function EventTypeEditor({
     max_booking_days_ahead: maxDaysAhead,
     location_type: locationType,
     location_value: locationValue.trim(),
+    video_provider: locationType === "video_provider" ? videoProvider : null,
     is_active: isActive,
   });
 
@@ -232,6 +244,11 @@ export function EventTypeEditor({
   const handleCancel = () => {
     router.push("/event-types");
   };
+  const locationSelectValue =
+    locationType === "video_provider" ? videoProvider ?? "google_meet" : locationType;
+  const selectedVideoHealth = videoProvider
+    ? videoProviderHealth(videoProvider, calendarConnections)
+    : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -424,44 +441,76 @@ export function EventTypeEditor({
                         <Label htmlFor="location-type">Location type</Label>
                         <select
                           id="location-type"
-                          value={locationType}
+                          value={locationSelectValue}
                           onChange={(event) => {
-                            setLocationType(
-                              event.target
-                                .value as EventTypeFormValues["location_type"]
-                            );
+                            const nextValue = event.target.value;
+
+                            if (
+                              nextValue === "google_meet" ||
+                              nextValue === "microsoft_teams"
+                            ) {
+                              setLocationType("video_provider");
+                              setVideoProvider(nextValue);
+                              setLocationValue("");
+                              clearFieldError("video_provider");
+                              clearFieldError("location_value");
+                            } else {
+                              setLocationType(nextValue as EventLocationType);
+                              setVideoProvider(null);
+                            }
+
                             clearFieldError("location_type");
                           }}
                           className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         >
-                          <option value="online">Online (Video)</option>
+                          <option value="custom">Custom link</option>
                           <option value="phone">Phone</option>
                           <option value="in_person">In Person</option>
-                          <option value="custom">Custom</option>
+                          <option value="google_meet">Google Meet</option>
+                          <option value="microsoft_teams">Microsoft Teams</option>
+                          <option value="online">Online (manual)</option>
                         </select>
                         {errors.location_type && (
                           <p className="text-xs text-destructive mt-1">
                             {errors.location_type}
                           </p>
                         )}
-                      </div>
-                      <div>
-                        <Label htmlFor="location-value">Location details</Label>
-                        <Input
-                          id="location-value"
-                          value={locationValue}
-                          onChange={(event) => {
-                            setLocationValue(event.target.value);
-                            clearFieldError("location_value");
-                          }}
-                          placeholder="e.g. Zoom link, address, or phone number"
-                        />
-                        {errors.location_value && (
+                        {errors.video_provider && (
                           <p className="text-xs text-destructive mt-1">
-                            {errors.location_value}
+                            {errors.video_provider}
+                          </p>
+                        )}
+                        {selectedVideoHealth && (
+                          <p
+                            className={`mt-2 text-xs ${
+                              selectedVideoHealth.ready
+                                ? "text-success"
+                                : "text-amber-600"
+                            }`}
+                          >
+                            {selectedVideoHealth.message}
                           </p>
                         )}
                       </div>
+                      {locationType !== "video_provider" && (
+                        <div>
+                          <Label htmlFor="location-value">Location details</Label>
+                          <Input
+                            id="location-value"
+                            value={locationValue}
+                            onChange={(event) => {
+                              setLocationValue(event.target.value);
+                              clearFieldError("location_value");
+                            }}
+                            placeholder={locationPlaceholder(locationType)}
+                          />
+                          {errors.location_value && (
+                            <p className="text-xs text-destructive mt-1">
+                              {errors.location_value}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                   {section.id === "scheduling" && (
@@ -566,4 +615,48 @@ export function EventTypeEditor({
       </div>
     </form>
   );
+}
+
+function locationPlaceholder(locationType: EventTypeFormValues["location_type"]) {
+  if (locationType === "phone") return "e.g. +1 555 123 4567";
+  if (locationType === "in_person") return "e.g. 123 Market Street";
+  if (locationType === "custom") return "e.g. https://example.com/meeting";
+  return "e.g. Online meeting details";
+}
+
+function videoProviderHealth(
+  provider: VideoProvider,
+  connections: CalendarConnectionSummary[]
+): { ready: boolean; message: string } {
+  const calendarProvider = provider === "google_meet" ? "google" : "microsoft";
+  const label = provider === "google_meet" ? "Google Meet" : "Microsoft Teams";
+  const connection = connections.find(
+    (item) => item.provider === calendarProvider
+  );
+
+  if (!connection) {
+    return {
+      ready: false,
+      message: `${label} needs a connected calendar account before links can be generated.`,
+    };
+  }
+
+  if (connection.status !== "active") {
+    return {
+      ready: false,
+      message: `${label} calendar connection needs attention before links can be generated.`,
+    };
+  }
+
+  if (!connection.calendars.some((calendar) => calendar.useForWrites)) {
+    return {
+      ready: false,
+      message: `${label} needs a writable calendar selected for booking writes.`,
+    };
+  }
+
+  return {
+    ready: true,
+    message: `${label} is ready to generate links for new bookings.`,
+  };
 }

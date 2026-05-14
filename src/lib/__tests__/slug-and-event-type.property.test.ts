@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 import { generateSlug } from '@/lib/utils/slug'
-import { eventTypeSchema } from '@/lib/validations/event-type'
+import { eventTypeFieldsSchema } from '@/lib/validations/event-type'
 
 /**
  * Property 1: Slug generation produces URL-safe output
@@ -46,7 +46,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
         fc.property(
           fc.integer({ min: 1, max: 10000 }),
           (duration) => {
-            const result = eventTypeSchema.shape.duration_minutes.safeParse(duration)
+            const result = eventTypeFieldsSchema.shape.duration_minutes.safeParse(duration)
             expect(result.success).toBe(true)
           }
         ),
@@ -59,7 +59,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
         fc.property(
           fc.integer({ min: -10000, max: -1 }),
           (duration) => {
-            const result = eventTypeSchema.shape.duration_minutes.safeParse(duration)
+            const result = eventTypeFieldsSchema.shape.duration_minutes.safeParse(duration)
             expect(result.success).toBe(false)
           }
         ),
@@ -68,7 +68,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
     })
 
     it('rejects zero', () => {
-      const result = eventTypeSchema.shape.duration_minutes.safeParse(0)
+      const result = eventTypeFieldsSchema.shape.duration_minutes.safeParse(0)
       expect(result.success).toBe(false)
     })
 
@@ -79,7 +79,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
             (n) => !Number.isInteger(n)
           ),
           (duration) => {
-            const result = eventTypeSchema.shape.duration_minutes.safeParse(duration)
+            const result = eventTypeFieldsSchema.shape.duration_minutes.safeParse(duration)
             expect(result.success).toBe(false)
           }
         ),
@@ -94,7 +94,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
         fc.property(
           fc.integer({ min: 0, max: 10000 }),
           (buffer) => {
-            const result = eventTypeSchema.shape.buffer_before_minutes.safeParse(buffer)
+            const result = eventTypeFieldsSchema.shape.buffer_before_minutes.safeParse(buffer)
             expect(result.success).toBe(true)
           }
         ),
@@ -107,7 +107,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
         fc.property(
           fc.integer({ min: 0, max: 10000 }),
           (buffer) => {
-            const result = eventTypeSchema.shape.buffer_after_minutes.safeParse(buffer)
+            const result = eventTypeFieldsSchema.shape.buffer_after_minutes.safeParse(buffer)
             expect(result.success).toBe(true)
           }
         ),
@@ -120,7 +120,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
         fc.property(
           fc.integer({ min: -10000, max: -1 }),
           (buffer) => {
-            const result = eventTypeSchema.shape.buffer_before_minutes.safeParse(buffer)
+            const result = eventTypeFieldsSchema.shape.buffer_before_minutes.safeParse(buffer)
             expect(result.success).toBe(false)
           }
         ),
@@ -133,7 +133,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
         fc.property(
           fc.integer({ min: -10000, max: -1 }),
           (buffer) => {
-            const result = eventTypeSchema.shape.buffer_after_minutes.safeParse(buffer)
+            const result = eventTypeFieldsSchema.shape.buffer_after_minutes.safeParse(buffer)
             expect(result.success).toBe(false)
           }
         ),
@@ -148,7 +148,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
             (n) => !Number.isInteger(n)
           ),
           (buffer) => {
-            const result = eventTypeSchema.shape.buffer_before_minutes.safeParse(buffer)
+            const result = eventTypeFieldsSchema.shape.buffer_before_minutes.safeParse(buffer)
             expect(result.success).toBe(false)
           }
         ),
@@ -163,7 +163,7 @@ describe('Property 3: Event type numeric constraint validation', () => {
             (n) => !Number.isInteger(n)
           ),
           (buffer) => {
-            const result = eventTypeSchema.shape.buffer_after_minutes.safeParse(buffer)
+            const result = eventTypeFieldsSchema.shape.buffer_after_minutes.safeParse(buffer)
             expect(result.success).toBe(false)
           }
         ),

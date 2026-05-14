@@ -114,6 +114,11 @@ export function SettingsClient({
   const microsoftConnection = calendarConnections.find(
     (connection) => connection.provider === "microsoft"
   );
+  const googleMeetHealth = videoProviderHealth(googleConnection, "Google Meet");
+  const teamsHealth = videoProviderHealth(
+    microsoftConnection,
+    "Microsoft Teams"
+  );
 
   const saveSettings = async (action: SaveAction) => {
     const nextSettings = currentSettings();
@@ -712,14 +717,41 @@ export function SettingsClient({
                           <Video className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
                         </div>
                         <div>
-                          <p className="text-sm font-medium">Zoom</p>
+                          <p className="text-sm font-medium">Google Meet</p>
                           <p className="text-xs text-muted-foreground">
-                            Auto-create meeting links
+                            Generated meeting links
                           </p>
                         </div>
                       </div>
-                      <Badge variant="secondary">Available soon</Badge>
+                      <Badge variant={googleMeetHealth.ready ? "default" : "secondary"}>
+                        {googleMeetHealth.label}
+                      </Badge>
                     </div>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      {googleMeetHealth.description}
+                    </p>
+                  </div>
+
+                  <div className="rounded-md border border-border p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                          <Video className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Microsoft Teams</p>
+                          <p className="text-xs text-muted-foreground">
+                            Generated meeting links
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={teamsHealth.ready ? "default" : "secondary"}>
+                        {teamsHealth.label}
+                      </Badge>
+                    </div>
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      {teamsHealth.description}
+                    </p>
                   </div>
 
                   <div className="rounded-md border border-border p-4">
@@ -929,6 +961,41 @@ function connectionBadgeText(connection?: CalendarConnectionSummary): string {
   }
 
   return "Disconnected";
+}
+
+function videoProviderHealth(
+  connection: CalendarConnectionSummary | undefined,
+  providerLabel: string
+): { ready: boolean; label: string; description: string } {
+  if (!connection) {
+    return {
+      ready: false,
+      label: "Setup needed",
+      description: `${providerLabel} links need a connected calendar account.`,
+    };
+  }
+
+  if (connection.status !== "active") {
+    return {
+      ready: false,
+      label: "Needs attention",
+      description: `Reconnect ${connection.accountEmail} before OpenSlot can generate ${providerLabel} links.`,
+    };
+  }
+
+  if (!connection.calendars.some((calendar) => calendar.useForWrites)) {
+    return {
+      ready: false,
+      label: "Write calendar off",
+      description: `Enable a writable calendar on ${connection.accountEmail} before OpenSlot can generate ${providerLabel} links.`,
+    };
+  }
+
+  return {
+    ready: true,
+    label: "Ready",
+    description: `${providerLabel} links can be generated for new bookings.`,
+  };
 }
 
 function webhookEventLabel(eventType: string): string {

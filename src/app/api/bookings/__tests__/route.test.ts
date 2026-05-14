@@ -72,6 +72,8 @@ describe('POST /api/bookings idempotency', () => {
       bookingId: 'booking-1',
       cancellationToken: 'cancel-token-1',
       rescheduleToken: 'reschedule-token-1',
+      conferenceStatus: 'not_required',
+      conferenceUrl: null,
     })
   })
 
@@ -85,6 +87,8 @@ describe('POST /api/bookings idempotency', () => {
       bookingId: 'booking-1',
       cancellationToken: 'cancel-token-1',
       rescheduleToken: 'reschedule-token-1',
+      conferenceStatus: 'not_required',
+      conferenceUrl: null,
     })
     expect(mocks.beginIdempotentRequest).toHaveBeenCalledWith({
       adminClient: mocks.adminClient,

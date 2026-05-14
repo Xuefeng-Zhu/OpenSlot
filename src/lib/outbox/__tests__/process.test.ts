@@ -3,6 +3,7 @@ import { processOutboxBatch } from '../process'
 import {
   sendBookingConfirmationToGuest,
   sendBookingNotificationToHost,
+  sendCancellationEmail,
 } from '@/lib/email/send'
 import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 
@@ -36,9 +37,11 @@ const claimedEvent = {
 function createMockClient({
   events = [claimedEvent],
   handlerError = null,
+  bookingOverrides = {},
 }: {
   events?: Array<Record<string, unknown>>
   handlerError?: Error | null
+  bookingOverrides?: Record<string, unknown>
 } = {}) {
   const calls = {
     updates: [] as Array<Record<string, unknown>>,
@@ -69,8 +72,15 @@ function createMockClient({
                   cancel_reason: null,
                   cancellation_token: 'cancel-token',
                   reschedule_token: 'reschedule-token',
+                  location_type: 'custom',
+                  location_value: 'https://example.com/meeting',
+                  conference_provider: null,
+                  conference_url: null,
+                  conference_status: 'not_required',
+                  conference_error: null,
                   created_at: '2026-06-01T00:00:00.000Z',
                   updated_at: '2026-06-01T00:00:00.000Z',
+                  ...bookingOverrides,
                 },
                 error: null,
               }
@@ -118,7 +128,7 @@ describe('processOutboxBatch', () => {
       maxAttempts: 5,
     })
 
-    expect(result).toEqual({ claimed: 1, completed: 1, failed: 0 })
+    expect(result).toEqual({ claimed: 1, completed: 1, deferred: 0, failed: 0 })
     expect(client.rpc).toHaveBeenCalledWith('claim_outbox_events', {
       p_limit: 3,
       p_max_attempts: 5,
@@ -147,7 +157,7 @@ describe('processOutboxBatch', () => {
       maxAttempts: 5,
     })
 
-    expect(result).toEqual({ claimed: 1, completed: 0, failed: 1 })
+    expect(result).toEqual({ claimed: 1, completed: 0, deferred: 0, failed: 1 })
     expect(calls.updates[0]).toMatchObject({
       status: 'failed',
       last_error: 'email provider down',
@@ -163,6 +173,7 @@ describe('processOutboxBatch', () => {
     ).resolves.toEqual({
       claimed: 0,
       completed: 0,
+      deferred: 0,
       failed: 0,
     })
   })
@@ -181,10 +192,70 @@ describe('processOutboxBatch', () => {
       maxAttempts: 5,
     })
 
-    expect(result).toEqual({ claimed: 1, completed: 1, failed: 0 })
+    expect(result).toEqual({ claimed: 1, completed: 1, deferred: 0, failed: 0 })
     expect(processCalendarOutboxEvent).toHaveBeenCalledWith(
       client,
       calendarEvent
     )
+  })
+
+  it('defers booking notifications while generated conference links are pending without spending retry attempts', async () => {
+    const { client, calls } = createMockClient({
+      bookingOverrides: {
+        location_type: 'video_provider',
+        conference_provider: 'google_meet',
+        conference_status: 'pending',
+      },
+    })
+
+    const result = await processOutboxBatch({
+      adminClient: client as any,
+      maxAttempts: 5,
+    })
+
+    expect(result).toEqual({ claimed: 1, completed: 0, deferred: 1, failed: 0 })
+    expect(sendBookingConfirmationToGuest).not.toHaveBeenCalled()
+    expect(sendBookingNotificationToHost).not.toHaveBeenCalled()
+    expect(calls.updates[0]).toMatchObject({
+      status: 'pending',
+      attempts: 0,
+      last_error:
+        'Conference link is not ready for booking booking-id-1: pending',
+    })
+  })
+
+  it('sends cancellation notifications even when a generated conference link is pending', async () => {
+    const cancelEvent = {
+      ...claimedEvent,
+      event_type: 'notifications.cancel.requested',
+      dedupe_key: 'booking:booking-id-1:notifications-cancel-requested',
+    }
+    const { client, calls } = createMockClient({
+      events: [cancelEvent],
+      bookingOverrides: {
+        location_type: 'video_provider',
+        conference_provider: 'google_meet',
+        conference_status: 'pending',
+      },
+    })
+
+    const result = await processOutboxBatch({
+      adminClient: client as any,
+      maxAttempts: 5,
+    })
+
+    expect(result).toEqual({ claimed: 1, completed: 1, deferred: 0, failed: 0 })
+    expect(sendCancellationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingId: 'booking-id-1' }),
+      'guest'
+    )
+    expect(sendCancellationEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingId: 'booking-id-1' }),
+      'host'
+    )
+    expect(calls.updates[0]).toMatchObject({
+      status: 'completed',
+      last_error: null,
+    })
   })
 })

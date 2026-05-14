@@ -35,6 +35,8 @@ export interface ConfirmBookingResult {
   bookingId?: string
   cancellationToken?: string
   rescheduleToken?: string
+  conferenceStatus?: string
+  conferenceUrl?: string | null
   error?: string
 }
 
@@ -65,6 +67,8 @@ export interface RescheduleBookingResult {
   previousBookingId?: string
   cancellationToken?: string
   rescheduleToken?: string
+  conferenceStatus?: string
+  conferenceUrl?: string | null
   startAt?: string
   endAt?: string
   previousStartAt?: string

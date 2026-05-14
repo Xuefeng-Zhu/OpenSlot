@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/types/database'
+import type { Database, Tables } from '@/lib/types/database'
 import type { ConfirmBookingInput, ConfirmBookingResult } from './types'
 import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
 import {
@@ -56,6 +56,23 @@ export async function confirmBooking(
     }
   }
 
+  const { data: eventTypeData, error: eventTypeError } = await adminClient
+    .from('event_types')
+    .select('location_type, location_value, video_provider')
+    .eq('id', hold.event_type_id)
+    .single()
+
+  if (eventTypeError || !eventTypeData) {
+    return { success: false, error: 'Failed to load event type.' }
+  }
+
+  const eventType = eventTypeData as Pick<
+    Tables<'event_types'>,
+    'location_type' | 'location_value' | 'video_provider'
+  >
+  const conferenceProvider =
+    eventType.location_type === 'video_provider' ? eventType.video_provider : null
+
   // Step 3: Insert booking (exclusion constraint provides final guard against double-booking)
   const { data: booking, error: bookingError } = await adminClient
     .from('bookings')
@@ -69,8 +86,13 @@ export async function confirmBooking(
       start_at: hold.start_at,
       end_at: hold.end_at,
       status: 'confirmed',
+      location_type: eventType.location_type,
+      location_value: eventType.location_value ?? '',
+      conference_provider: conferenceProvider,
+      conference_status: conferenceProvider ? 'pending' : 'not_required',
+      conference_error: null,
     })
-    .select('id, cancellation_token, reschedule_token')
+    .select('id, cancellation_token, reschedule_token, conference_status, conference_url')
     .single()
 
   if (bookingError) {
@@ -128,5 +150,7 @@ export async function confirmBooking(
     bookingId: booking.id,
     cancellationToken: booking.cancellation_token,
     rescheduleToken: booking.reschedule_token,
+    conferenceStatus: booking.conference_status,
+    conferenceUrl: booking.conference_url,
   }
 }

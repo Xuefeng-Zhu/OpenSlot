@@ -57,14 +57,15 @@ Public event page
   -> POST /api/bookings
   -> request_idempotency check/cache when an idempotency key is supplied
   -> confirmBooking()
-  -> bookings insert + hold status update + host_reservations hold-to-booking conversion
+  -> bookings insert with event-type location snapshot + hold status update + host_reservations hold-to-booking conversion
   -> booking_events append
   -> contacts upsert from guest identity hash
   -> outbox_events enqueue for provider writes, notifications, and future webhooks
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
   -> provider calendar event create/delete through Google Calendar or Microsoft Graph
-  -> notification emails through the configured email provider
+  -> generated Google Meet/Microsoft Teams link storage when the event type requests a video provider
+  -> notification emails through the configured email provider after required generated links are ready
   -> tenant webhook delivery rows for subscribed endpoints
   -> GET/POST /api/webhooks/process through Vercel Cron or an equivalent worker trigger
   -> /booking/cancel/[token]
@@ -138,6 +139,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508071723_add_webhook_delivery_system.sql`: webhook endpoint, delivery queue, and atomic delivery leasing RPC.
 - `20260508074740_add_calendar_event_refs.sql`: external calendar event reference rows for provider write/cancel retries.
 - `20260512000000_add_contacts.sql`: host-scoped contact aggregate, backfill, RLS, and soft-anonymization RPC.
+- `20260512055807_add_video_conferencing_fields.sql`: event type video provider selection, booking location/conference snapshots, and reschedule RPC snapshot handling.
 
 ## API Routes
 
@@ -170,7 +172,7 @@ Detailed target/current gaps are tracked in [System Design Gap Analysis](system-
 - `docs/system-design.md` describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` for those surfaces. This is acceptable for the MVP because it maximizes local code reuse and keeps deployment simple, but it couples high-risk public/provider endpoints to the web app runtime instead of isolating them in the Supabase function runtime with separate secrets and lifecycle.
 - Vercel Cron triggers are configured for outbox, webhook, and calendar sync workers. The committed schedules are daily for Hobby deployment compatibility; production environments that need faster processing still need an upgraded Vercel plan or equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
-- Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, and provider event writes are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
+- Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, provider event writes, and generated Google Meet/Microsoft Teams links are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
 - There is no realtime sync in the UI.
 
 ## Related Docs

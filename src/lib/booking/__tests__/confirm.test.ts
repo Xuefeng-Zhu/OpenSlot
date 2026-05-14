@@ -79,6 +79,14 @@ describe('confirmBooking', () => {
     id: 'booking-id-1',
     cancellation_token: 'cancel-token-1',
     reschedule_token: 'reschedule-token-1',
+    conference_status: 'not_required',
+    conference_url: null,
+  }
+
+  const eventTypeLocation = {
+    location_type: 'custom',
+    location_value: 'https://example.com/meeting',
+    video_provider: null,
   }
 
   beforeEach(() => {
@@ -111,16 +119,12 @@ describe('confirmBooking', () => {
         return Promise.resolve({ data: activeHold, error: null })
       }
       if (singleCallCount === 2) {
-        // Second single() call: insert booking
-        return Promise.resolve({ data: createdBooking, error: null })
+        // Second single() call: fetch event type location snapshot
+        return Promise.resolve({ data: eventTypeLocation, error: null })
       }
       if (singleCallCount === 3) {
-        // Third single() call: fetch event type
-        return Promise.resolve({ data: { title: '30 Minute Meeting' }, error: null })
-      }
-      if (singleCallCount === 4) {
-        // Fourth single() call: fetch host profile
-        return Promise.resolve({ data: { name: 'Host User', email: 'host@example.com' }, error: null })
+        // Third single() call: insert booking
+        return Promise.resolve({ data: createdBooking, error: null })
       }
       return Promise.resolve({ data: null, error: null })
     })
@@ -134,6 +138,15 @@ describe('confirmBooking', () => {
     expect(result.bookingId).toBe('booking-id-1')
     expect(result.cancellationToken).toBe('cancel-token-1')
     expect(result.rescheduleToken).toBe('reschedule-token-1')
+    expect(result.conferenceStatus).toBe('not_required')
+    expect(mockClient.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        location_type: 'custom',
+        location_value: 'https://example.com/meeting',
+        conference_provider: null,
+        conference_status: 'not_required',
+      })
+    )
     expect(enqueueBookingConfirmedOutbox).toHaveBeenCalledWith(mockClient, {
       bookingId: 'booking-id-1',
       eventTypeId: 'event-type-1',
@@ -204,6 +217,11 @@ describe('confirmBooking', () => {
       error: null,
     })
 
+    mockClient.single.mockResolvedValueOnce({
+      data: eventTypeLocation,
+      error: null,
+    })
+
     // Booking insert fails with exclusion constraint violation
     mockClient.single.mockResolvedValueOnce({
       data: null,
@@ -224,13 +242,10 @@ describe('confirmBooking', () => {
         return Promise.resolve({ data: activeHold, error: null })
       }
       if (singleCallCount === 2) {
-        return Promise.resolve({ data: createdBooking, error: null })
+        return Promise.resolve({ data: eventTypeLocation, error: null })
       }
       if (singleCallCount === 3) {
-        return Promise.resolve({ data: { title: 'Meeting' }, error: null })
-      }
-      if (singleCallCount === 4) {
-        return Promise.resolve({ data: { name: 'Host', email: 'host@test.com' }, error: null })
+        return Promise.resolve({ data: createdBooking, error: null })
       }
       return Promise.resolve({ data: null, error: null })
     })
@@ -255,13 +270,10 @@ describe('confirmBooking', () => {
         return Promise.resolve({ data: activeHold, error: null })
       }
       if (singleCallCount === 2) {
-        return Promise.resolve({ data: createdBooking, error: null })
+        return Promise.resolve({ data: eventTypeLocation, error: null })
       }
       if (singleCallCount === 3) {
-        return Promise.resolve({ data: { title: 'Meeting' }, error: null })
-      }
-      if (singleCallCount === 4) {
-        return Promise.resolve({ data: { name: 'Host', email: 'host@test.com' }, error: null })
+        return Promise.resolve({ data: createdBooking, error: null })
       }
       return Promise.resolve({ data: null, error: null })
     })
@@ -276,6 +288,11 @@ describe('confirmBooking', () => {
     // Hold fetch succeeds
     mockClient.single.mockResolvedValueOnce({
       data: activeHold,
+      error: null,
+    })
+
+    mockClient.single.mockResolvedValueOnce({
+      data: eventTypeLocation,
       error: null,
     })
 

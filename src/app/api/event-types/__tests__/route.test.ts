@@ -103,7 +103,31 @@ describe('POST /api/event-types', () => {
       duration_minutes: 30,
       location_type: 'online',
       location_value: 'Zoom',
+      video_provider: null,
       is_active: true,
+    })
+  })
+
+  it('creates generated video provider event types', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+
+    const response = await POST(
+      requestWithJson({
+        ...validBody,
+        location_type: 'video_provider',
+        location_value: '',
+        video_provider: 'google_meet',
+      }) as any
+    )
+
+    expect(response.status).toBe(201)
+    expect(mocks.eventTypeInsertPayload).toMatchObject({
+      location_type: 'video_provider',
+      location_value: '',
+      video_provider: 'google_meet',
     })
   })
 

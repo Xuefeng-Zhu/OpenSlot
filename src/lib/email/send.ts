@@ -27,6 +27,11 @@ export interface BookingDetails {
   guestTimezone: string
   hostName: string
   hostEmail: string
+  locationType?: string
+  locationValue?: string
+  conferenceProvider?: string | null
+  conferenceUrl?: string | null
+  conferenceStatus?: string
   cancellationToken?: string
   rescheduleToken?: string
 }
@@ -123,6 +128,34 @@ function buildRescheduleUrl(rescheduleToken: string | undefined): string | undef
   return `${baseUrl}/booking/reschedule/${rescheduleToken}`
 }
 
+function bookingLocationLabel(booking: BookingDetails): string | undefined {
+  if (booking.conferenceProvider === 'google_meet') {
+    return 'Google Meet'
+  }
+
+  if (booking.conferenceProvider === 'microsoft_teams') {
+    return 'Microsoft Teams'
+  }
+
+  if (booking.locationValue) {
+    return booking.locationValue
+  }
+
+  if (booking.locationType === 'phone') {
+    return 'Phone call'
+  }
+
+  if (booking.locationType === 'in_person') {
+    return 'In person'
+  }
+
+  if (booking.locationType === 'online') {
+    return 'Online'
+  }
+
+  return undefined
+}
+
 /**
  * Sends a booking confirmation email to the guest.
  * Fire-and-forget: catches errors and logs them.
@@ -133,6 +166,7 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
     const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
     const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
     const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
+    const locationLabel = bookingLocationLabel(booking)
 
     const { subject, html, text } = bookingConfirmationGuestTemplate({
       eventTitle: booking.eventTitle,
@@ -142,6 +176,8 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
       guestEmail: booking.guestEmail,
       hostName: booking.hostName,
       timezone: booking.guestTimezone,
+      locationLabel,
+      conferenceUrl: booking.conferenceUrl ?? undefined,
       cancellationUrl,
       rescheduleUrl,
     })
@@ -171,6 +207,7 @@ export async function sendBookingNotificationToHost(booking: BookingDetails): Pr
   try {
     const provider = getEmailProvider()
     const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+    const locationLabel = bookingLocationLabel(booking)
 
     const { subject, html, text } = bookingNotificationHostTemplate({
       eventTitle: booking.eventTitle,
@@ -180,6 +217,8 @@ export async function sendBookingNotificationToHost(booking: BookingDetails): Pr
       guestEmail: booking.guestEmail,
       hostName: booking.hostName,
       timezone: booking.guestTimezone,
+      locationLabel,
+      conferenceUrl: booking.conferenceUrl ?? undefined,
     })
 
     const payload: EmailPayload = {

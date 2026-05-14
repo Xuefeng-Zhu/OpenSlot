@@ -31,7 +31,7 @@ export default async function RescheduleBookingPage({
     supabase
       .from("event_types")
       .select(
-        "id, title, slug, description, duration_minutes, location_type, user_id"
+        "id, title, slug, description, duration_minutes, location_type, location_value, video_provider, user_id"
       )
       .eq("id", booking.event_type_id)
       .eq("is_active", true)
@@ -51,6 +51,8 @@ export default async function RescheduleBookingPage({
     | "description"
     | "duration_minutes"
     | "location_type"
+    | "location_value"
+    | "video_provider"
     | "user_id"
   > | null;
   const profile = profileData as Pick<

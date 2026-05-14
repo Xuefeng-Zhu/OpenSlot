@@ -38,6 +38,8 @@ interface EventTypeInfo {
   description: string;
   duration_minutes: number;
   location_type: string;
+  location_value?: string | null;
+  video_provider?: string | null;
   user_id: string;
 }
 
@@ -70,6 +72,8 @@ interface BookingResult {
   bookingId: string;
   cancellationToken: string;
   rescheduleToken?: string;
+  conferenceStatus?: string;
+  conferenceUrl?: string | null;
   startAt: string;
   endAt: string;
   guestName: string;
@@ -319,6 +323,11 @@ export function SlotPicker({
           eventTitle={flowState.booking.eventTitle}
           hostName={hostProfile.name}
           timezone={timezone}
+          locationType={eventType.location_type}
+          locationValue={eventType.location_value}
+          conferenceProvider={eventType.video_provider}
+          conferenceStatus={flowState.booking.conferenceStatus}
+          conferenceUrl={flowState.booking.conferenceUrl}
           variant={rescheduleContext ? "reschedule" : "booking"}
         />
       </div>
@@ -343,7 +352,7 @@ export function SlotPicker({
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           <Badge variant="secondary">{eventType.duration_minutes} min</Badge>
           <Badge variant="outline">
-            {formatLocationType(eventType.location_type)}
+            {formatEventLocation(eventType)}
           </Badge>
         </div>
         {eventType.description && (
@@ -499,8 +508,16 @@ export function SlotPicker({
   );
 }
 
-function formatLocationType(locationType: string): string {
-  switch (locationType) {
+function formatEventLocation(eventType: EventTypeInfo): string {
+  if (eventType.video_provider === "google_meet") {
+    return "Google Meet";
+  }
+
+  if (eventType.video_provider === "microsoft_teams") {
+    return "Microsoft Teams";
+  }
+
+  switch (eventType.location_type) {
     case "online":
       return "Online";
     case "phone":
@@ -509,7 +526,9 @@ function formatLocationType(locationType: string): string {
       return "In Person";
     case "custom":
       return "Custom";
+    case "video_provider":
+      return "Video";
     default:
-      return locationType;
+      return eventType.location_type;
   }
 }

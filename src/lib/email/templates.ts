@@ -12,6 +12,8 @@ export interface BookingTemplateDetails {
   guestEmail: string
   hostName: string
   timezone: string
+  locationLabel?: string
+  conferenceUrl?: string
   cancellationUrl?: string
   rescheduleUrl?: string
 }
@@ -41,6 +43,8 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
     time,
     hostName,
     timezone,
+    locationLabel,
+    conferenceUrl,
     cancellationUrl,
     rescheduleUrl,
   } = details
@@ -49,6 +53,8 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
   const htmlTime = escapeHtml(time)
   const htmlHostName = escapeHtml(hostName)
   const htmlTimezone = escapeHtml(timezone)
+  const htmlLocationLabel = locationLabel ? escapeHtml(locationLabel) : undefined
+  const htmlConferenceUrl = conferenceUrl ? escapeHtml(conferenceUrl) : undefined
   const htmlCancellationUrl = cancellationUrl
     ? escapeHtml(cancellationUrl)
     : undefined
@@ -65,6 +71,8 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
     `Host: ${hostName}`,
     `Date: ${date}`,
     `Time: ${time} (${timezone})`,
+    locationLabel ? `Location: ${locationLabel}` : '',
+    conferenceUrl ? `Join link: ${conferenceUrl}` : '',
     rescheduleUrl ? `\nNeed to reschedule? ${rescheduleUrl}` : '',
     cancellationUrl ? `\nNeed to cancel? ${cancellationUrl}` : '',
     ``,
@@ -85,6 +93,8 @@ export function bookingConfirmationGuestTemplate(details: BookingTemplateDetails
     <tr><td style="padding: 8px; font-weight: bold;">Host</td><td style="padding: 8px;">${htmlHostName}</td></tr>
     <tr><td style="padding: 8px; font-weight: bold;">Date</td><td style="padding: 8px;">${htmlDate}</td></tr>
     <tr><td style="padding: 8px; font-weight: bold;">Time</td><td style="padding: 8px;">${htmlTime} (${htmlTimezone})</td></tr>
+    ${htmlLocationLabel ? `<tr><td style="padding: 8px; font-weight: bold;">Location</td><td style="padding: 8px;">${htmlLocationLabel}</td></tr>` : ''}
+    ${htmlConferenceUrl ? `<tr><td style="padding: 8px; font-weight: bold;">Join link</td><td style="padding: 8px;"><a href="${htmlConferenceUrl}" style="color: #2563eb;">${htmlConferenceUrl}</a></td></tr>` : ''}
   </table>
   ${htmlRescheduleUrl ? `<p><a href="${htmlRescheduleUrl}" style="color: #2563eb;">Need to reschedule?</a></p>` : ''}
   ${htmlCancellationUrl ? `<p><a href="${htmlCancellationUrl}" style="color: #dc2626;">Need to cancel?</a></p>` : ''}
@@ -105,13 +115,24 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
   html: string
   text: string
 } {
-  const { eventTitle, date, time, guestName, guestEmail, timezone } = details
+  const {
+    eventTitle,
+    date,
+    time,
+    guestName,
+    guestEmail,
+    timezone,
+    locationLabel,
+    conferenceUrl,
+  } = details
   const htmlEventTitle = escapeHtml(eventTitle)
   const htmlDate = escapeHtml(date)
   const htmlTime = escapeHtml(time)
   const htmlGuestName = escapeHtml(guestName)
   const htmlGuestEmail = escapeHtml(guestEmail)
   const htmlTimezone = escapeHtml(timezone)
+  const htmlLocationLabel = locationLabel ? escapeHtml(locationLabel) : undefined
+  const htmlConferenceUrl = conferenceUrl ? escapeHtml(conferenceUrl) : undefined
 
   const subject = `New Booking: ${eventTitle} with ${guestName}`
 
@@ -122,6 +143,8 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
     `Guest: ${guestName} (${guestEmail})`,
     `Date: ${date}`,
     `Time: ${time} (${timezone})`,
+    locationLabel ? `Location: ${locationLabel}` : '',
+    conferenceUrl ? `Join link: ${conferenceUrl}` : '',
     ``,
     `View your bookings in the OpenSlot dashboard.`,
   ].join('\n')
@@ -138,6 +161,8 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
     <tr><td style="padding: 8px; font-weight: bold;">Guest</td><td style="padding: 8px;">${htmlGuestName} (${htmlGuestEmail})</td></tr>
     <tr><td style="padding: 8px; font-weight: bold;">Date</td><td style="padding: 8px;">${htmlDate}</td></tr>
     <tr><td style="padding: 8px; font-weight: bold;">Time</td><td style="padding: 8px;">${htmlTime} (${htmlTimezone})</td></tr>
+    ${htmlLocationLabel ? `<tr><td style="padding: 8px; font-weight: bold;">Location</td><td style="padding: 8px;">${htmlLocationLabel}</td></tr>` : ''}
+    ${htmlConferenceUrl ? `<tr><td style="padding: 8px; font-weight: bold;">Join link</td><td style="padding: 8px;"><a href="${htmlConferenceUrl}" style="color: #2563eb;">${htmlConferenceUrl}</a></td></tr>` : ''}
   </table>
   <p style="color: #666; font-size: 14px;">View your bookings in the OpenSlot dashboard.</p>
 </body>

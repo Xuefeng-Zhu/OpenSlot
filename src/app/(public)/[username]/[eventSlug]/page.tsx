@@ -30,7 +30,7 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
   // Fetch active event type by slug for this host
   const { data: eventTypeData } = await supabase
     .from("event_types")
-    .select("id, title, slug, description, duration_minutes, location_type, user_id")
+    .select("id, title, slug, description, duration_minutes, location_type, location_value, video_provider, user_id")
     .eq("user_id", profile.id)
     .eq("slug", eventSlug)
     .eq("is_active", true)
@@ -38,7 +38,15 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
 
   const eventType = eventTypeData as Pick<
     Tables<"event_types">,
-    "id" | "title" | "slug" | "description" | "duration_minutes" | "location_type" | "user_id"
+    | "id"
+    | "title"
+    | "slug"
+    | "description"
+    | "duration_minutes"
+    | "location_type"
+    | "location_value"
+    | "video_provider"
+    | "user_id"
   > | null;
 
   if (!eventType) {

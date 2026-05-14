@@ -30,13 +30,19 @@ export default async function PublicProfilePage({ params }: ProfilePageProps) {
   // Fetch active event types for this profile
   const { data: eventTypesData } = await supabase
     .from("event_types")
-    .select("id, title, slug, description, duration_minutes, location_type")
+    .select("id, title, slug, description, duration_minutes, location_type, video_provider")
     .eq("user_id", profile.id)
     .eq("is_active", true);
 
   const activeEventTypes = (eventTypesData ?? []) as Pick<
     Tables<"event_types">,
-    "id" | "title" | "slug" | "description" | "duration_minutes" | "location_type"
+    | "id"
+    | "title"
+    | "slug"
+    | "description"
+    | "duration_minutes"
+    | "location_type"
+    | "video_provider"
   >[];
 
   return (
