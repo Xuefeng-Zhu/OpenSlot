@@ -22,6 +22,8 @@ export default defineConfig({
     browserName: "chromium",
     viewport: { width: 1280, height: 900 },
     colorScheme: "light",
+    locale: "en-US",
+    timezoneId: "America/New_York",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",

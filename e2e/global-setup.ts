@@ -1,21 +1,11 @@
-import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
 import { demoHost } from "./demo-data";
+import { loadE2EEnv } from "./support/env";
 
 export default async function globalSetup() {
-  loadEnvConfig(process.cwd());
+  const env = loadE2EEnv();
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    throw new Error(
-      "E2E tests require NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY."
-    );
-  }
-
-  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+  const adminClient = createClient(env.supabaseUrl, env.supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -41,7 +31,7 @@ export default async function globalSetup() {
     );
   }
 
-  const authClient = createClient(supabaseUrl, anonKey, {
+  const authClient = createClient(env.supabaseUrl, env.supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
