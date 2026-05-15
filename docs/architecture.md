@@ -57,7 +57,8 @@ Public event page
   -> POST /api/bookings
   -> request_idempotency check/cache when an idempotency key is supplied
   -> confirmBooking()
-  -> bookings insert with event-type location snapshot + hold status update + host_reservations hold-to-booking conversion
+  -> validate structured answers against event_types.invitee_questions
+  -> bookings insert with event-type location/answer snapshot + hold status update + host_reservations hold-to-booking conversion
   -> booking_events append
   -> contacts upsert from guest identity hash
   -> outbox_events enqueue for provider writes, notifications, and future webhooks
@@ -140,6 +141,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508074740_add_calendar_event_refs.sql`: external calendar event reference rows for provider write/cancel retries.
 - `20260512000000_add_contacts.sql`: host-scoped contact aggregate, backfill, RLS, and soft-anonymization RPC.
 - `20260512055807_add_video_conferencing_fields.sql`: event type video provider selection, booking location/conference snapshots, and reschedule RPC snapshot handling.
+- `20260514072605_add_invitee_questions.sql`: event type invitee question JSON, booking answer snapshots, and answer-aware reschedule RPC.
 
 ## API Routes
 

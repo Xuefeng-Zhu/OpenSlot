@@ -60,4 +60,31 @@ describe('BookingsClient', () => {
     expect(filter.disabled).toBe(true)
     expect(filter.getAttribute('placeholder')).toBe('No event types to filter')
   })
+
+  it('shows structured answers in the booking detail drawer', () => {
+    render(
+      <BookingsClient
+        bookings={[
+          booking({
+            booking_answers: [
+              {
+                questionId: 'topic',
+                label: 'What should we discuss?',
+                type: 'textarea',
+                required: true,
+                value: 'Roadmap tradeoffs',
+              },
+            ],
+          }),
+        ]}
+      />
+    )
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'View booking with Ada Lovelace' })[0]
+    )
+
+    expect(screen.getByText('What should we discuss?')).toBeDefined()
+    expect(screen.getByText('Roadmap tradeoffs')).toBeDefined()
+  })
 })

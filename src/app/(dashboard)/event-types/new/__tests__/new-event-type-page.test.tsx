@@ -34,4 +34,19 @@ describe("NewEventTypePage editor", () => {
 
     expect(screen.queryByText("URL slug is required")).toBeNull();
   });
+
+  it("lets hosts add a structured invitee question", () => {
+    render(<EventTypeEditor mode="create" hostName="Sarah Chen" />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /Invitee Questions/ })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Add question" }));
+    fireEvent.change(screen.getByLabelText("Question label"), {
+      target: { value: "What should we discuss?" },
+    });
+
+    expect(screen.getByDisplayValue("What should we discuss?")).toBeDefined();
+    expect(screen.getByText("Required")).toBeDefined();
+  });
 });

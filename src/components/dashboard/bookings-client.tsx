@@ -8,6 +8,7 @@ import {
   Globe,
   FileText,
   Video,
+  MessageSquare,
   Search,
   X,
 } from "lucide-react";
@@ -43,6 +44,7 @@ import {
   categorizeBookings,
   filterBookingsByEventType,
 } from "@/lib/booking-utils";
+import { formatBookingAnswerValue } from "@/lib/validations/invitee-questions";
 
 interface BookingsClientProps {
   bookings: Booking[];
@@ -384,6 +386,21 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
                   <div className="flex items-start gap-2">
                     <FileText className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden="true" />
                     <span className="text-sm">{selectedBooking.notes}</span>
+                  </div>
+                )}
+                {(selectedBooking.booking_answers?.length ?? 0) > 0 && (
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    <div className="space-y-2 text-sm">
+                      {selectedBooking.booking_answers?.map((answer) => (
+                        <div key={answer.questionId}>
+                          <p className="font-medium">{answer.label}</p>
+                          <p className="text-muted-foreground">
+                            {formatBookingAnswerValue(answer)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

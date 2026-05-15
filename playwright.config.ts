@@ -1,6 +1,10 @@
 import { defineConfig } from "@playwright/test";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const parsedBaseURL = new URL(baseURL);
+const webServerHost = parsedBaseURL.hostname;
+const webServerPort =
+  parsedBaseURL.port || (parsedBaseURL.protocol === "https:" ? "443" : "80");
 const webServerEnv = Object.fromEntries(
   Object.entries(process.env).filter(
     (entry): entry is [string, string] => typeof entry[1] === "string"
@@ -29,7 +33,7 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    command: `npm run dev -- --hostname ${webServerHost} --port ${webServerPort}`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

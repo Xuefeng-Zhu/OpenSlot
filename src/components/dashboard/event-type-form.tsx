@@ -47,6 +47,7 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
       max_booking_days_ahead: 60,
       location_type: 'online',
       location_value: '',
+      invitee_questions: [],
       is_active: true,
     },
   })
@@ -94,6 +95,7 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
           max_booking_days_ahead: data.max_booking_days_ahead,
           location_type: data.location_type,
           location_value: data.location_value ?? '',
+          invitee_questions: data.invitee_questions,
           is_active: data.is_active,
         })
 
@@ -120,6 +122,7 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
             max_booking_days_ahead: data.max_booking_days_ahead,
             location_type: data.location_type,
             location_value: data.location_value ?? '',
+            invitee_questions: data.invitee_questions,
             is_active: data.is_active,
             updated_at: new Date().toISOString(),
           })

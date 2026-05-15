@@ -4,6 +4,11 @@ import type { RescheduleBookingInput, RescheduleBookingResult } from './types'
 import { appendBookingEvent } from './events'
 import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { enqueueBookingRescheduledOutbox } from '@/lib/outbox/outbox'
+import {
+  normalizeInviteeQuestions,
+  parseInviteeAnswers,
+} from '@/lib/validations/invitee-questions'
+import type { Json } from '@/lib/types/database'
 
 interface RescheduleRpcRow {
   old_booking_id: string
@@ -29,6 +34,41 @@ export async function rescheduleBooking(
   input: RescheduleBookingInput,
   adminClient: SupabaseClient<Database>
 ): Promise<RescheduleBookingResult> {
+  const { data: existingBookingData, error: existingBookingError } =
+    await adminClient
+      .from('bookings')
+      .select('event_type_id')
+      .eq('reschedule_token', input.rescheduleToken)
+      .eq('status', 'confirmed')
+      .single()
+
+  if (existingBookingError || !existingBookingData) {
+    return { success: false, error: 'Booking not found or cannot be rescheduled' }
+  }
+
+  const { data: eventTypeData, error: eventTypeError } = await adminClient
+    .from('event_types')
+    .select('invitee_questions')
+    .eq('id', existingBookingData.event_type_id)
+    .single()
+
+  if (eventTypeError || !eventTypeData) {
+    console.error('Error loading event type questions:', eventTypeError)
+    return { success: false, error: 'Failed to validate booking answers.' }
+  }
+
+  const parsedAnswers = parseInviteeAnswers(
+    normalizeInviteeQuestions(eventTypeData.invitee_questions),
+    input.answers ?? {}
+  )
+
+  if (!parsedAnswers.success) {
+    return {
+      success: false,
+      error: 'Booking answers validation failed.',
+    }
+  }
+
   const { data, error } = await adminClient.rpc('reschedule_booking_with_hold', {
     p_reschedule_token: input.rescheduleToken,
     p_hold_token: input.holdToken,
@@ -36,6 +76,7 @@ export async function rescheduleBooking(
     p_guest_email: input.guestEmail,
     p_guest_timezone: input.guestTimezone,
     p_notes: input.notes ?? '',
+    p_booking_answers: parsedAnswers.data as Json,
   })
 
   if (error) {

@@ -4,6 +4,7 @@
  * These interfaces define the inputs and outputs for the hold, confirm,
  * and cancel operations in the booking flow.
  */
+import type { InviteeAnswerInput } from '@/lib/validations/invitee-questions'
 
 export interface CreateHoldInput {
   eventTypeId: string
@@ -27,6 +28,7 @@ export interface ConfirmBookingInput {
   guestEmail: string
   guestTimezone: string
   notes?: string
+  answers?: InviteeAnswerInput
   idempotencyKey?: string
 }
 
@@ -58,6 +60,7 @@ export interface RescheduleBookingInput {
   guestEmail: string
   guestTimezone: string
   notes?: string
+  answers?: InviteeAnswerInput
   idempotencyKey?: string
 }
 

@@ -9,6 +9,7 @@ import {
 } from '@/lib/email/send'
 import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 import { enqueueWebhookDeliveriesForOutboxEvent } from '@/lib/webhooks/deliveries'
+import { normalizeBookingAnswerSummaries } from '@/lib/validations/invitee-questions'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type BookingRow = Tables<'bookings'>
@@ -220,6 +221,7 @@ async function loadBookingDetails(
     conferenceProvider: booking.conference_provider,
     conferenceUrl: booking.conference_url,
     conferenceStatus: booking.conference_status,
+    bookingAnswers: normalizeBookingAnswerSummaries(booking.booking_answers),
     cancellationToken: booking.cancellation_token,
     rescheduleToken: booking.reschedule_token,
   }

@@ -497,6 +497,7 @@ export interface Database {
           location_type: string
           location_value: string
           video_provider: string | null
+          invitee_questions: Json
           is_active: boolean
           created_at: string
           updated_at: string
@@ -515,6 +516,7 @@ export interface Database {
           location_type?: string
           location_value?: string
           video_provider?: string | null
+          invitee_questions?: Json
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -533,6 +535,7 @@ export interface Database {
           location_type?: string
           location_value?: string
           video_provider?: string | null
+          invitee_questions?: Json
           is_active?: boolean
           created_at?: string
           updated_at?: string
@@ -748,6 +751,7 @@ export interface Database {
           guest_email: string
           guest_timezone: string
           notes: string
+          booking_answers: Json
           start_at: string
           end_at: string
           status: string
@@ -774,6 +778,7 @@ export interface Database {
           guest_email: string
           guest_timezone: string
           notes?: string
+          booking_answers?: Json
           start_at: string
           end_at: string
           status?: string
@@ -800,6 +805,7 @@ export interface Database {
           guest_email?: string
           guest_timezone?: string
           notes?: string
+          booking_answers?: Json
           start_at?: string
           end_at?: string
           status?: string
@@ -1076,6 +1082,7 @@ export interface Database {
           p_guest_email: string
           p_guest_timezone: string
           p_notes?: string
+          p_booking_answers?: Json
         }
         Returns: {
           old_booking_id: string

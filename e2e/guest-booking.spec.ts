@@ -45,8 +45,12 @@ test.describe("guest booking flow", () => {
       await expect(page.getByText("Name is required")).toBeVisible();
       await expect(page.getByText("Must be a valid email address")).toBeVisible();
 
-      await page.getByLabel("Name *").fill(guestName);
-      await page.getByLabel("Email *").fill(guestEmail);
+      await page
+        .getByRole("textbox", { name: "Name *", exact: true })
+        .fill(guestName);
+      await page
+        .getByRole("textbox", { name: "Email *", exact: true })
+        .fill(guestEmail);
       await page
         .getByLabel("Notes (optional)")
         .fill("Please include the agenda in the invite.");
@@ -79,6 +83,124 @@ test.describe("guest booking flow", () => {
       await expect(dialog.getByText(guestEmail).first()).toBeVisible();
       await expect(dialog.getByText(eventType.title)).toBeVisible();
       await expect(dialog.getByText("America/New_York")).toBeVisible();
+    } finally {
+      await cleanupEventType(adminClient, eventType.id);
+    }
+  });
+
+  test("guest answers configured invitee questions during booking", async ({
+    page,
+    request,
+  }) => {
+    const adminClient = createE2EAdminClient();
+    const eventType = await createEventType(adminClient, {
+      title: `E2E Invitee Questions ${uniqueE2EId("questions").slice(-8)}`,
+      duration_minutes: 30,
+      invitee_questions: [
+        {
+          id: "company",
+          label: "Company name",
+          type: "text",
+          required: true,
+          options: [],
+        },
+        {
+          id: "topic",
+          label: "What should we cover?",
+          type: "textarea",
+          required: true,
+          options: [],
+        },
+        {
+          id: "meeting-type",
+          label: "Meeting type",
+          type: "select",
+          required: true,
+          options: ["Discovery", "Support"],
+        },
+        {
+          id: "recording-consent",
+          label: "I agree to a recording if needed",
+          type: "checkbox",
+          required: false,
+          options: [],
+        },
+      ],
+    });
+    const slot = await findFirstAvailableSlot(request, eventType);
+    const guestName = `E2E Questions ${uniqueE2EId("guest").slice(-6)}`;
+    const guestEmail = `${uniqueE2EId("answers")}@example.com`;
+
+    try {
+      await page.goto(`/demo/${eventType.slug}`);
+      await selectBookingDate(page, slot.date);
+      await page.getByRole("button", { name: slot.label }).first().click();
+
+      await expect(
+        page.getByRole("heading", { name: "Confirm your booking" })
+      ).toBeVisible();
+      await page
+        .getByRole("textbox", { name: "Name *", exact: true })
+        .fill(guestName);
+      await page
+        .getByRole("textbox", { name: "Email *", exact: true })
+        .fill(guestEmail);
+      await page.getByLabel("Company name *").fill("Codex QA Labs");
+      await page
+        .getByLabel("What should we cover? *")
+        .fill("Structured invitee questions from the public booking page.");
+      await page.getByLabel("Meeting type *").click();
+      await page.getByRole("option", { name: "Discovery" }).click();
+      await page.getByLabel("I agree to a recording if needed").check();
+      await page.getByRole("button", { name: "Confirm Booking" }).click();
+
+      await expect(
+        page.getByRole("heading", { name: "Booking confirmed" })
+      ).toBeVisible();
+
+      const { data, error } = await adminClient
+        .from("bookings")
+        .select("booking_answers")
+        .eq("event_type_id", eventType.id)
+        .eq("guest_email", guestEmail)
+        .single();
+
+      if (error || !data) {
+        throw new Error(
+          `Could not verify invitee answers: ${error?.message ?? "missing row"}`
+        );
+      }
+
+      expect(data.booking_answers).toEqual([
+        {
+          questionId: "company",
+          label: "Company name",
+          type: "text",
+          required: true,
+          value: "Codex QA Labs",
+        },
+        {
+          questionId: "topic",
+          label: "What should we cover?",
+          type: "textarea",
+          required: true,
+          value: "Structured invitee questions from the public booking page.",
+        },
+        {
+          questionId: "meeting-type",
+          label: "Meeting type",
+          type: "select",
+          required: true,
+          value: "Discovery",
+        },
+        {
+          questionId: "recording-consent",
+          label: "I agree to a recording if needed",
+          type: "checkbox",
+          required: false,
+          value: true,
+        },
+      ]);
     } finally {
       await cleanupEventType(adminClient, eventType.id);
     }

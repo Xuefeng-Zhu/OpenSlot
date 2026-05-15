@@ -13,6 +13,7 @@ import {
   bookingNotificationHostTemplate,
   cancellationTemplate,
 } from './templates'
+import type { BookingAnswerSummary } from '@/lib/validations/invitee-questions'
 
 /**
  * Booking details needed to compose email notifications.
@@ -32,6 +33,7 @@ export interface BookingDetails {
   conferenceProvider?: string | null
   conferenceUrl?: string | null
   conferenceStatus?: string
+  bookingAnswers?: BookingAnswerSummary[]
   cancellationToken?: string
   rescheduleToken?: string
 }
@@ -219,6 +221,7 @@ export async function sendBookingNotificationToHost(booking: BookingDetails): Pr
       timezone: booking.guestTimezone,
       locationLabel,
       conferenceUrl: booking.conferenceUrl ?? undefined,
+      bookingAnswers: booking.bookingAnswers,
     })
 
     const payload: EmailPayload = {

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import type { Tables } from "@/lib/types/database";
+import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
 
 interface ReschedulePageProps {
   params: Promise<{ token: string }>;
@@ -31,7 +32,7 @@ export default async function RescheduleBookingPage({
     supabase
       .from("event_types")
       .select(
-        "id, title, slug, description, duration_minutes, location_type, location_value, video_provider, user_id"
+        "id, title, slug, description, duration_minutes, location_type, location_value, video_provider, invitee_questions, user_id"
       )
       .eq("id", booking.event_type_id)
       .eq("is_active", true)
@@ -53,6 +54,7 @@ export default async function RescheduleBookingPage({
     | "location_type"
     | "location_value"
     | "video_provider"
+    | "invitee_questions"
     | "user_id"
   > | null;
   const profile = profileData as Pick<
@@ -87,7 +89,10 @@ export default async function RescheduleBookingPage({
       </div>
 
       <SlotPicker
-        eventType={eventType}
+        eventType={{
+          ...eventType,
+          invitee_questions: normalizeInviteeQuestions(eventType.invitee_questions),
+        }}
         hostProfile={{
           id: profile.id,
           name: profile.name,

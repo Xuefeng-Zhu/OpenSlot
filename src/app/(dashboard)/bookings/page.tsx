@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/types/database";
 import BookingsClient from "@/components/dashboard/bookings-client";
 import type { Booking } from "@/lib/booking-utils";
+import { normalizeBookingAnswerSummaries } from "@/lib/validations/invitee-questions";
 
 export default async function BookingsPage() {
   const supabase = await createServerSupabaseClient();
@@ -33,7 +34,7 @@ export default async function BookingsPage() {
   const { data: bookingsData } = await supabase
     .from("bookings")
     .select(
-      "id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"
+      "id, guest_name, guest_email, guest_timezone, notes, booking_answers, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"
     )
     .eq("host_user_id", profile.id);
 
@@ -44,6 +45,7 @@ export default async function BookingsPage() {
       guest_email: string;
       guest_timezone: string;
       notes: string;
+      booking_answers: unknown;
       start_at: string;
       end_at: string;
       status: string;
@@ -62,6 +64,7 @@ export default async function BookingsPage() {
     guest_email: booking.guest_email,
     guest_timezone: booking.guest_timezone,
     notes: booking.notes ?? "",
+    booking_answers: normalizeBookingAnswerSummaries(booking.booking_answers),
     start_at: booking.start_at,
     end_at: booking.end_at,
     status: booking.status,
