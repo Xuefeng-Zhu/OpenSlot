@@ -13,6 +13,9 @@ DECLARE
   event_type_30min_id UUID := 'c3d4e5f6-a7b8-9012-cdef-123456789012';
   event_type_60min_id UUID := 'd4e5f6a7-b8c9-0123-defa-234567890123';
   booking_id UUID := 'e5f6a7b8-c9d0-1234-efab-345678901234';
+  demo_contact_id UUID := 'f6a7b8c9-d0e1-2345-fabc-456789012345';
+  demo_cancellation_token UUID := '11111111-1111-4111-8111-111111111111';
+  demo_reschedule_token UUID := '22222222-2222-4222-8222-222222222222';
   tomorrow_date DATE := CURRENT_DATE + INTERVAL '1 day';
   booking_start TIMESTAMPTZ;
   booking_end TIMESTAMPTZ;
@@ -32,8 +35,20 @@ BEGIN
     email_confirmed_at,
     created_at,
     updated_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
     confirmation_token,
-    recovery_token
+    recovery_token,
+    email_change_token_current,
+    email_change_token_new,
+    email_change,
+    email_change_confirm_status,
+    phone_change,
+    phone_change_token,
+    reauthentication_token,
+    last_sign_in_at,
+    is_sso_user,
+    is_anonymous
   ) VALUES (
     demo_auth_user_id,
     '00000000-0000-0000-0000-000000000000',
@@ -44,9 +59,70 @@ BEGIN
     now(),
     now(),
     now(),
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
     '',
-    ''
-  ) ON CONFLICT (id) DO NOTHING;
+    '',
+    '',
+    '',
+    '',
+    0,
+    '',
+    '',
+    '',
+    now(),
+    false,
+    false
+  ) ON CONFLICT (id) DO UPDATE SET
+    aud = EXCLUDED.aud,
+    role = EXCLUDED.role,
+    email = EXCLUDED.email,
+    encrypted_password = EXCLUDED.encrypted_password,
+    email_confirmed_at = EXCLUDED.email_confirmed_at,
+    raw_app_meta_data = EXCLUDED.raw_app_meta_data,
+    raw_user_meta_data = EXCLUDED.raw_user_meta_data,
+    confirmation_token = EXCLUDED.confirmation_token,
+    recovery_token = EXCLUDED.recovery_token,
+    email_change_token_current = EXCLUDED.email_change_token_current,
+    email_change_token_new = EXCLUDED.email_change_token_new,
+    email_change = EXCLUDED.email_change,
+    email_change_confirm_status = EXCLUDED.email_change_confirm_status,
+    phone_change = EXCLUDED.phone_change,
+    phone_change_token = EXCLUDED.phone_change_token,
+    reauthentication_token = EXCLUDED.reauthentication_token,
+    last_sign_in_at = EXCLUDED.last_sign_in_at,
+    is_sso_user = EXCLUDED.is_sso_user,
+    is_anonymous = EXCLUDED.is_anonymous,
+    updated_at = EXCLUDED.updated_at;
+
+  INSERT INTO auth.identities (
+    id,
+    user_id,
+    provider_id,
+    identity_data,
+    provider,
+    last_sign_in_at,
+    created_at,
+    updated_at
+  ) VALUES (
+    demo_auth_user_id,
+    demo_auth_user_id,
+    demo_auth_user_id::text,
+    jsonb_build_object(
+      'sub', demo_auth_user_id::text,
+      'email', 'demo@openslot.dev',
+      'email_verified', true,
+      'phone_verified', false
+    ),
+    'email',
+    now(),
+    now(),
+    now()
+  ) ON CONFLICT (provider_id, provider) DO UPDATE SET
+    user_id = EXCLUDED.user_id,
+    identity_data = EXCLUDED.identity_data,
+    last_sign_in_at = EXCLUDED.last_sign_in_at,
+    updated_at = EXCLUDED.updated_at;
 
   -- 2. Create demo profile
   INSERT INTO profiles (
@@ -166,6 +242,8 @@ BEGIN
     start_at,
     end_at,
     status,
+    cancellation_token,
+    reschedule_token,
     created_at,
     updated_at
   ) VALUES (
@@ -179,8 +257,54 @@ BEGIN
     booking_start,
     booking_end,
     'confirmed',
+    demo_cancellation_token,
+    demo_reschedule_token,
     now(),
     now()
-  ) ON CONFLICT (id) DO NOTHING;
+  ) ON CONFLICT (id) DO UPDATE SET
+    event_type_id = EXCLUDED.event_type_id,
+    host_user_id = EXCLUDED.host_user_id,
+    guest_name = EXCLUDED.guest_name,
+    guest_email = EXCLUDED.guest_email,
+    guest_timezone = EXCLUDED.guest_timezone,
+    notes = EXCLUDED.notes,
+    start_at = EXCLUDED.start_at,
+    end_at = EXCLUDED.end_at,
+    status = EXCLUDED.status,
+    cancellation_token = EXCLUDED.cancellation_token,
+    reschedule_token = EXCLUDED.reschedule_token,
+    updated_at = EXCLUDED.updated_at;
+
+  -- 6. Create a matching contact profile for dashboard contact pages
+  INSERT INTO contacts (
+    id,
+    host_user_id,
+    email_hash,
+    display_name,
+    last_guest_timezone,
+    first_seen_at,
+    last_seen_at,
+    last_booking_id,
+    created_at,
+    updated_at
+  ) VALUES (
+    demo_contact_id,
+    demo_profile_id,
+    '9f4c07655c890f7bfa1ab7e0ac62ea8369a05f1ba57445af1a24fe0013c8baa1',
+    'Jane Guest',
+    'America/Chicago',
+    now(),
+    now(),
+    booking_id,
+    now(),
+    now()
+  ) ON CONFLICT (host_user_id, email_hash) DO UPDATE SET
+    id = EXCLUDED.id,
+    display_name = EXCLUDED.display_name,
+    last_guest_timezone = EXCLUDED.last_guest_timezone,
+    last_seen_at = EXCLUDED.last_seen_at,
+    last_booking_id = EXCLUDED.last_booking_id,
+    deleted_at = NULL,
+    updated_at = EXCLUDED.updated_at;
 
 END $$;

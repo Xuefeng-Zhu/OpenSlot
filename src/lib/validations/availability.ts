@@ -1,6 +1,16 @@
 import { z } from 'zod'
 import { isValidTimezone } from '@/lib/validations/profile'
 
+const timeStringSchema = z.string().regex(
+  /^\d{2}:\d{2}(?::\d{2})?$/,
+  'Start time must be in HH:MM format'
+)
+
+const endTimeStringSchema = z.string().regex(
+  /^\d{2}:\d{2}(?::\d{2})?$/,
+  'End time must be in HH:MM format'
+)
+
 /**
  * Schema for a single availability rule (standalone validation with timezone and time range check).
  * Exported for use in tests and direct rule validation.
@@ -8,8 +18,8 @@ import { isValidTimezone } from '@/lib/validations/profile'
 export const availabilityRuleSchema = z.object({
   id: z.string().uuid().optional(),
   weekday: z.number().int().min(0).max(6),
-  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
-  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
+  start_time: timeStringSchema,
+  end_time: endTimeStringSchema,
   timezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }).optional(),
   is_active: z.boolean(),
 }).refine(
@@ -23,8 +33,8 @@ export const availabilityRuleSchema = z.object({
 const saveAvailabilityRuleSchema = z.object({
   id: z.string().uuid().optional(),
   weekday: z.number().int().min(0).max(6),
-  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format'),
-  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format'),
+  start_time: timeStringSchema,
+  end_time: endTimeStringSchema,
   is_active: z.boolean(),
 })
 
@@ -34,8 +44,8 @@ const saveAvailabilityRuleSchema = z.object({
 const availabilityOverrideSchema = z.object({
   id: z.string().uuid().optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-  start_time: z.string().regex(/^\d{2}:\d{2}$/, 'Start time must be in HH:MM format').nullable(),
-  end_time: z.string().regex(/^\d{2}:\d{2}$/, 'End time must be in HH:MM format').nullable(),
+  start_time: timeStringSchema.nullable(),
+  end_time: endTimeStringSchema.nullable(),
   is_available: z.boolean(),
   reason: z.string().max(500).nullable().optional(),
 })

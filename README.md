@@ -44,7 +44,7 @@ Screenshots are not committed yet. Suggested first additions:
 | Styling | Tailwind CSS and local shadcn-style primitives |
 | Forms and validation | React Hook Form and Zod |
 | Dates and timezones | `date-fns` and `date-fns-tz` |
-| Tests | Vitest, jsdom, Testing Library, `fast-check`, `jest-axe` |
+| Tests | Vitest, jsdom, Testing Library, `fast-check`, `jest-axe`, Playwright |
 | Deployment shape | Next build with Vercel cron config in `vercel.json` |
 
 ## Architecture Overview
@@ -175,6 +175,10 @@ Use `.env.example` as the source of truth for local keys.
 | `npm run lint` | Run ESLint. |
 | `npm run typecheck` | Run TypeScript without emitting files. |
 | `npm run test` | Run the Vitest suite once. |
+| `npm run test:e2e` | Run the Playwright core E2E suite. |
+| `npm run test:e2e:headed` | Run Playwright with a visible browser. |
+| `npm run test:e2e:ui` | Open the Playwright UI runner. |
+| `npm run test:e2e:debug` | Run Playwright in debug mode. |
 | `npm run test:watch` | Run Vitest in watch mode. |
 | `npm run verify` | Run lint, typecheck, tests, and build. |
 | `npm run oauth:calendar` | Configure calendar OAuth credentials interactively. |
@@ -190,7 +194,9 @@ npm run test
 ```
 
 Run `npm run build` for route, environment, Next.js, or production-sensitive
-changes. The full test suite may print `Not implemented: navigation to another
+changes. Run `npm run test:e2e` when validating page rendering, authenticated
+dashboard behavior, guest booking, or navigation against local Supabase seed
+data. The full Vitest suite may print `Not implemented: navigation to another
 Document` from jsdom while still passing.
 
 See [docs/testing.md](docs/testing.md) for targeted test examples and coverage
@@ -198,8 +204,9 @@ guidance.
 
 ## Deployment
 
-GitHub Actions runs the app release gate, npm dependency audit, and local
-Supabase migration validation for pushes and pull requests targeting `main`.
+GitHub Actions runs the app release gate, Dashboard E2E, npm dependency audit,
+and local Supabase migration validation for pushes and pull requests targeting
+`main`.
 Production deploys still need the environment variables above and database
 migrations applied out of band. `vercel.json` defines cron schedules for
 outbox, webhook, and calendar sync worker routes. The committed schedules are

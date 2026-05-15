@@ -1,10 +1,65 @@
-# Manual E2E Testing
+# E2E Testing
 
-OpenSlot does not currently have a committed Playwright or Cypress E2E
-runner. Use this manual browser suite for release smoke testing and for
-validating scheduling flows against a Supabase-backed environment.
+OpenSlot has a committed Playwright E2E lane for the core public, guest, and
+authenticated host journeys. The suite runs against local Supabase seed data,
+creates isolated rows for mutating flows, and cleans those rows with the local
+service-role key.
 
-## Prerequisites
+## Automated Dashboard E2E
+
+The automated suite uses local Supabase seed data, including this host account:
+
+- Email: `demo@openslot.dev`
+- Password: `demo-password-123`
+
+Run it locally with:
+
+```bash
+supabase start
+supabase db reset --local
+npm run test:e2e
+```
+
+Useful development modes:
+
+```bash
+npm run test:e2e:headed
+npm run test:e2e:ui
+npm run test:e2e:debug
+```
+
+The Playwright config starts the Next.js dev server on
+`http://127.0.0.1:3000`. It expects local Supabase to already be running and
+seeded, with local Supabase env vars available in the shell or `.env.local`.
+Before tests run, Playwright refreshes and verifies the seeded demo host
+password through the local service-role key so the browser login uses a real
+Supabase Auth password flow.
+
+The CI `Dashboard E2E` job installs Chromium, starts local Supabase, resets and
+seeds the database, exports the local Supabase env vars, runs
+`npm run test:e2e`, and stops Supabase in an `always()` cleanup step.
+
+## Automated Coverage
+
+| Priority | Area | Automated coverage |
+| --- | --- | --- |
+| P0 | App/public smoke | Landing, legal, auth, public profile/event, cancellation token, reschedule token, authenticated dashboard pages, and no browser console/page errors. |
+| P0 | Auth/access control | Signed-out redirects, login field validation, invalid credentials, valid demo login, return URL handling, and session persistence after reload. |
+| P0 | Event types | Validation, create, reload persistence, public URL visibility, edit, pause, public hiding, delete, search, and status filters. |
+| P0 | Guest booking | Public slot lookup, date/time selection, booking form validation, booking confirmation, cancel/reschedule links, host booking visibility, and stale-slot conflict handling without duplicate bookings. |
+| P1 | Bookings | Event-type filtering, details drawer, host cancellation dialog, cancelled tab, and database status/reason verification. |
+| P1 | Contacts | Search no-match/match states and contact profile meeting history for an isolated booking. |
+| P1 | Availability | Invalid interval validation, discard behavior, date override save, reload persistence, and service-role restoration. |
+| P1 | Profile/settings | Profile save with public profile persistence, display preference persistence, and service-role restoration. |
+| P1 | Webhooks | Invalid URL handling, create, one-time signing secret, pause, enable, delete, and cleanup. |
+| P1 | Mobile nav | Narrow viewport dashboard drawer navigation to primary pages. |
+| P2 | Onboarding/token edges | Non-mutating onboarding validation/back flow and safe invalid guest action links. |
+
+Mutating specs create unique event types, bookings, contacts, availability
+overrides, or webhook endpoints. Cleanup runs in `finally` blocks; the CI job
+also starts from a freshly reset local database.
+
+## Manual Prerequisites
 
 1. Install dependencies and configure `.env.local`.
 2. Apply all database migrations:
@@ -27,27 +82,23 @@ validating scheduling flows against a Supabase-backed environment.
 
 Do not commit real account credentials or customer data in test notes.
 
-## Core Manual Suite
+## Supplemental Manual Suite
 
-Run the suite in a real browser and check console/server logs while testing.
-Clean up temporary event types, bookings, and webhook endpoints before handing
-off.
+The automated suite covers the high-priority core journeys. Use this manual
+suite for release smoke testing, live-provider validation, and flows that are
+too slow or external for CI.
 
 | Area | Scenario | Expected result |
 | --- | --- | --- |
 | Public pages | Load `/`, `/signup`, `/terms`, `/privacy`, `/login` | Pages render meaningful content with no framework overlay or console errors. |
 | Auth | Submit invalid login credentials, then valid test credentials | Invalid login shows an error; valid login reaches `/dashboard`. |
 | Dashboard smoke | Visit `/dashboard`, `/event-types`, `/availability`, `/bookings`, `/profile`, `/settings` | Each authenticated route renders its primary heading and has no console errors. |
-| Event types | Create a temporary active event type | The event appears in `/event-types` and on the public profile. |
-| Event types | Search by title and edit the temporary event type | Search narrows to the event; edit persists after save. |
-| Public booking | Open the public profile and temporary event page | The event is visible and loads the date picker. |
-| Public booking | Pick a date and slot | Available times load; selecting a slot creates a hold and opens the booking form. |
-| Booking form | Submit empty required fields | Name and email validation messages appear. |
-| Booking confirm | Submit valid guest details | The confirmation screen appears with cancel and reschedule links. |
+| Event types | Create, edit, pause, and delete a temporary event type | The event appears, persists, hides publicly when paused, and is removed after delete. |
+| Public booking | Open the public profile and temporary event page, then pick a date and slot | Available times load; selecting a slot creates a hold and opens the booking form. |
+| Booking form | Submit empty required fields, then valid guest details | Validation appears first; the confirmation screen appears after valid submit. |
 | Host bookings | Open `/bookings` after confirmation | The booking appears under Upcoming with confirmed status. |
 | Reschedule | Use the guest reschedule link and choose a new slot | The reschedule confirmation appears and the host dashboard shows the new date/time. |
 | Cancellation | Use the guest cancellation link | The cancellation confirmation appears; Upcoming is cleared and Cancelled shows the booking. |
-| Event cleanup | Delete the temporary event type | The event no longer appears in dashboard search or on the public profile. |
 | Webhooks | In Settings > Integrations, create and delete a temporary webhook endpoint | A one-time signing secret appears after create; delete removes the endpoint and the secret banner. |
 | Mobile smoke | Set a narrow viewport and open a public event page | Date picker and available-time list remain usable with no console errors. |
 
@@ -60,48 +111,20 @@ npm run test -- src/app/api/holds/__tests__/route.test.ts src/app/api/bookings/_
 npm run lint
 npm run typecheck
 npm run build
+npm run test:e2e
 ```
 
-Run the full suite when time allows:
+Run the full Vitest suite when time allows:
 
 ```bash
 npm run test
 ```
 
-## Latest Manual Run
+## Current Known Gaps
 
-Date: May 9, 2026
-
-Environment:
-- Branch: `codex/calendar-busy-slot-filter`
-- URL: `http://localhost:3000`
-- Browser: Codex in-app browser
-- Desktop viewport plus mobile `390x844`
-- Database migrations applied through `20260509000000_fix_hold_rpc_expires_at`
-
-Result:
-- 27 of 28 checks passed.
-- 1 follow-up issue found and documented below.
-- Temporary QA event type, webhook endpoint, and related bookings were cleaned up.
-- Browser console checks were clean for passing flows.
-- Server logs showed expected 2xx responses for slots, holds, bookings,
-  rescheduling, cancellation, event-type CRUD, and webhook CRUD.
-
-Issue found:
-- Event Types search only matches the event title. It does not match the
-  visible slug text shown on each card, so searching for `qa-e2e-*` returned
-  "No event types match your filters" while searching by title worked.
-
-Fix validated during this run:
-- Guest hold creation previously failed with Postgres error `42702` because
-  `expires_at` was ambiguous inside `create_slot_hold_with_reservation`.
-  Migration `20260509000000_fix_hold_rpc_expires_at.sql` qualifies those
-  references and allowed the full hold -> confirm -> reschedule -> cancel flow
-  to pass.
-
-Not covered in this run:
-- Multi-browser coverage outside the Codex in-app browser.
-- Concurrent double-booking from two independent sessions.
-- Waiting for a hold to expire naturally after five minutes.
+- Multi-browser Playwright coverage beyond Chromium desktop.
+- Full guest reschedule automation after a confirmed booking.
+- Natural five-minute hold expiration waits.
 - End-to-end email provider delivery beyond app-side confirmation messaging.
-- Live calendar provider event creation/cancellation side effects.
+- Live Google/Microsoft calendar provider writes and webhook delivery to an
+  external receiver.

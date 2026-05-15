@@ -3,6 +3,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server"
 import type { Tables } from "@/lib/types/database"
 import { AvailabilityClient } from "@/components/dashboard/availability-client"
 
+function toTimeInputValue(time: string | null): string | null {
+  return time ? time.slice(0, 5) : null
+}
+
 export default async function AvailabilityPage() {
   const supabase = await createServerSupabaseClient()
 
@@ -43,8 +47,8 @@ export default async function AvailabilityPage() {
   >>) ?? []).map((rule) => ({
     id: rule.id,
     weekday: rule.weekday,
-    start_time: rule.start_time,
-    end_time: rule.end_time,
+    start_time: toTimeInputValue(rule.start_time) ?? "",
+    end_time: toTimeInputValue(rule.end_time) ?? "",
     is_active: rule.is_active,
   }))
 
@@ -60,8 +64,8 @@ export default async function AvailabilityPage() {
   >>) ?? []).map((override) => ({
     id: override.id,
     date: override.date,
-    start_time: override.start_time,
-    end_time: override.end_time,
+    start_time: toTimeInputValue(override.start_time),
+    end_time: toTimeInputValue(override.end_time),
     is_available: override.is_available,
     reason: override.reason,
   }))
