@@ -95,9 +95,9 @@ jobs:
         run: supabase stop --no-backup || true
 
   e2e:
-    name: Page E2E
+    name: Dashboard E2E
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 35
 
     env:
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
@@ -150,7 +150,7 @@ jobs:
             --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
             | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' >> "$GITHUB_ENV"
 
-      - name: Run page E2E
+      - name: Run dashboard E2E
         run: npm run test:e2e
 
       - name: Stop local Supabase
