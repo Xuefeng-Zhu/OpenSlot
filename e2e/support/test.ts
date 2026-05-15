@@ -1,7 +1,7 @@
 import { expect, test as base, type Page } from "@playwright/test";
 
 export const test = base.extend<{ page: Page }>({
-  page: async ({ page }, use) => {
+  page: async ({ page }, runTest) => {
     const browserErrors: string[] = [];
 
     page.on("console", (message) => {
@@ -14,7 +14,7 @@ export const test = base.extend<{ page: Page }>({
       browserErrors.push(error.message);
     });
 
-    await use(page);
+    await runTest(page);
 
     expect(browserErrors, "browser console and uncaught page errors").toEqual(
       []

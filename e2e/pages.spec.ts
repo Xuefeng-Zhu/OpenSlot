@@ -1,5 +1,7 @@
-import { expect, test, type Page } from "@playwright/test";
-import { demoHost, demoIds } from "./demo-data";
+import { demoIds } from "./demo-data";
+import { loginAsDemoHost } from "./support/auth";
+import { expect, expectVisibleText, test } from "./support/test";
+import type { Page } from "@playwright/test";
 
 interface PageSmokeCase {
   name: string;
@@ -150,28 +152,6 @@ const authenticatedPageCases: PageSmokeCase[] = [
   },
 ];
 
-function trackBrowserErrors(page: Page) {
-  const consoleErrors: string[] = [];
-  const pageErrors: string[] = [];
-
-  page.on("console", (message) => {
-    if (message.type() === "error") {
-      consoleErrors.push(message.text());
-    }
-  });
-
-  page.on("pageerror", (error) => {
-    pageErrors.push(error.message);
-  });
-
-  return () => {
-    expect(
-      [...pageErrors, ...consoleErrors],
-      "browser console and page errors"
-    ).toEqual([]);
-  };
-}
-
 async function expectSmokePage(page: Page, pageCase: PageSmokeCase) {
   await page.goto(pageCase.path);
 
@@ -191,55 +171,20 @@ async function expectSmokePage(page: Page, pageCase: PageSmokeCase) {
   }
 }
 
-async function expectVisibleText(page: Page, text: string | RegExp) {
-  await expect
-    .poll(async () => {
-      const matches = page.getByText(text);
-      const count = await matches.count();
-
-      for (let index = 0; index < count; index += 1) {
-        if (await matches.nth(index).isVisible()) {
-          return true;
-        }
-      }
-
-      return false;
-    })
-    .toBe(true);
-}
-
-async function loginAsDemoHost(page: Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(demoHost.email);
-  await page.getByLabel("Password").fill(demoHost.password);
-  await page.getByRole("button", { name: "Log in" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-}
-
 test("public and token pages render with seeded data", async ({ page }) => {
-  const assertNoBrowserErrors = trackBrowserErrors(page);
-
   for (const pageCase of publicPageCases) {
     await test.step(pageCase.name, async () => {
       await expectSmokePage(page, pageCase);
     });
   }
-
-  assertNoBrowserErrors();
 });
 
 test("dashboard pages require authentication", async ({ page }) => {
-  const assertNoBrowserErrors = trackBrowserErrors(page);
-
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fdashboard$/);
-
-  assertNoBrowserErrors();
 });
 
 test("authenticated seeded pages render", async ({ page }) => {
-  const assertNoBrowserErrors = trackBrowserErrors(page);
-
   await loginAsDemoHost(page);
 
   for (const pageCase of authenticatedPageCases) {
@@ -247,13 +192,9 @@ test("authenticated seeded pages render", async ({ page }) => {
       await expectSmokePage(page, pageCase);
     });
   }
-
-  assertNoBrowserErrors();
 });
 
 test("seeded host can use dashboard page interactions", async ({ page }) => {
-  const assertNoBrowserErrors = trackBrowserErrors(page);
-
   await loginAsDemoHost(page);
 
   await expect(
@@ -295,6 +236,4 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
 
   await page.keyboard.press("Escape");
   await expect(bookingDetails).toBeHidden();
-
-  assertNoBrowserErrors();
 });

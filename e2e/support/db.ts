@@ -285,6 +285,22 @@ export async function cleanupEventType(
   }
 }
 
+export async function cleanupEventTypesBySlug(
+  adminClient: E2EAdminClient,
+  slugs: string[]
+) {
+  const profile = await getDemoProfile(adminClient);
+  const { data } = await adminClient
+    .from("event_types")
+    .select("id")
+    .eq("user_id", profile.id)
+    .in("slug", slugs);
+
+  for (const eventType of data ?? []) {
+    await cleanupEventType(adminClient, eventType.id);
+  }
+}
+
 export async function cleanupWebhookEndpointByUrl(
   adminClient: E2EAdminClient,
   url: string
