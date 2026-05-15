@@ -171,8 +171,6 @@ async function expectSmokePage(page: Page, pageCase: PageSmokeCase) {
   }
 }
 
-// Smoke-checks public, auth, and guest token pages against seeded data so top
-// level routes fail fast on render errors or missing critical content.
 test("public and token pages render with seeded data", async ({ page }) => {
   for (const pageCase of publicPageCases) {
     await test.step(pageCase.name, async () => {
@@ -181,14 +179,11 @@ test("public and token pages render with seeded data", async ({ page }) => {
   }
 });
 
-// Verifies the main dashboard entry point protects host-only content.
 test("dashboard pages require authentication", async ({ page }) => {
   await page.goto("/dashboard");
   await expect(page).toHaveURL(/\/login\?returnUrl=%2Fdashboard$/);
 });
 
-// Smoke-checks all seeded authenticated pages after login for headings and key
-// content that should be present on first render.
 test("authenticated seeded pages render", async ({ page }) => {
   await loginAsDemoHost(page);
 
@@ -199,8 +194,8 @@ test("authenticated seeded pages render", async ({ page }) => {
   }
 });
 
-// Exercises representative dashboard interactions: event type filtering,
-// sidebar navigation, booking detail drawer open, and drawer close.
+// Exercises representative seeded dashboard interactions: filtering event
+// types, navigating by sidebar, opening booking details, and closing the drawer.
 test("seeded host can use dashboard page interactions", async ({ page }) => {
   await loginAsDemoHost(page);
 

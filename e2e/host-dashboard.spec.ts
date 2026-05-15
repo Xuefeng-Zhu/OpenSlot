@@ -24,8 +24,8 @@ import {
 } from "./support/test";
 
 test.describe("host dashboard workflows", () => {
-  // Verifies hosts can locate a booking, inspect its details, cancel it, and
-  // see the persisted cancelled state.
+  // Walks the booking details drawer and host cancellation flow, then confirms
+  // the cancellation persisted in the database.
   test("host filters, opens, and cancels an isolated booking", async ({
     page,
     request,
@@ -96,8 +96,8 @@ test.describe("host dashboard workflows", () => {
     }
   });
 
-  // Confirms contact search finds booked guests and the contact profile shows
-  // meeting history details derived from bookings.
+  // Creates an isolated booking and verifies the derived contact search result
+  // and contact profile timeline.
   test("contacts search and profile history reflect booked guests", async ({
     page,
     request,
@@ -195,8 +195,8 @@ test.describe("host dashboard workflows", () => {
     }
   });
 
-  // Updates profile display data and settings preferences, then restores the
-  // seeded demo state after verifying persistence.
+  // Updates public profile display data and settings preferences, verifies both
+  // persist, and restores the seeded demo state.
   test("profile and display preferences persist and can be restored", async ({
     page,
   }) => {
@@ -231,8 +231,8 @@ test.describe("host dashboard workflows", () => {
     }
   });
 
-  // Exercises webhook endpoint validation and the create, pause, enable, and
-  // delete controls without calling any external receiver.
+  // Exercises webhook endpoint validation plus create, pause, enable, and delete
+  // controls without calling an external receiver.
   test("settings can create, pause, enable, and delete a webhook endpoint", async ({
     page,
   }) => {
@@ -280,8 +280,6 @@ test.describe("host dashboard workflows", () => {
     }
   });
 
-  // Verifies the narrow viewport dashboard menu opens and navigates to primary
-  // host pages.
   test("mobile dashboard navigation opens primary pages", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginAsDemoHost(page, "/dashboard");
