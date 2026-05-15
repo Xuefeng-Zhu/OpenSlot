@@ -7,6 +7,8 @@ import {
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("event type management", () => {
+  // Exercises the complete host event type lifecycle and verifies public
+  // visibility follows the active/paused state.
   test("host validates, creates, edits, pauses, and deletes an event type", async ({
     page,
   }) => {
@@ -90,6 +92,8 @@ test.describe("event type management", () => {
     }
   });
 
+  // Verifies list search and status filters return useful empty states and can
+  // be cleared back to the seeded event types.
   test("event type search and status filters show meaningful empty states", async ({
     page,
   }) => {

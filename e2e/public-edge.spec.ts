@@ -1,6 +1,8 @@
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("public edge cases", () => {
+  // Verifies malformed or unknown guest action links fail with safe public
+  // messaging instead of exposing dashboard-only data.
   test("invalid guest action links fail safely", async ({ page }) => {
     await page.goto("/booking/cancel/not-a-valid-token");
     await expect(

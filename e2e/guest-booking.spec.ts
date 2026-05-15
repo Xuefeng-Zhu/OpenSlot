@@ -13,6 +13,8 @@ import {
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("guest booking flow", () => {
+  // Covers the primary guest journey from public event page to confirmed
+  // booking, then verifies the host can find the new booking.
   test("guest validates and confirms a real booking, then host can find it", async ({
     page,
     request,
@@ -82,6 +84,8 @@ test.describe("guest booking flow", () => {
     }
   });
 
+  // Simulates another guest taking the selected slot before click time and
+  // asserts the stale selection is rejected without creating a booking.
   test("stale slot selection reports a conflict without creating a booking", async ({
     page,
     request,

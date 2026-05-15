@@ -2,6 +2,8 @@ import { loginAsDemoHost } from "./support/auth";
 import { expect, test } from "./support/test";
 
 test.describe("onboarding wizard", () => {
+  // Walks the onboarding wizard validation and back navigation without saving
+  // over the seeded demo host profile.
   test("validates each step without submitting seeded host data", async ({
     page,
   }) => {

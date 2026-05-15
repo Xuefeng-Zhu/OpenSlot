@@ -13,6 +13,7 @@ const protectedRoutes = [
 ];
 
 test.describe("authentication and access control", () => {
+  // Covers unauthenticated access control across host-only dashboard routes.
   test("protected host pages redirect signed-out visitors", async ({ page }) => {
     for (const route of protectedRoutes) {
       await test.step(route.path, async () => {
@@ -25,6 +26,8 @@ test.describe("authentication and access control", () => {
     }
   });
 
+  // Exercises login validation, rejected credentials, returnUrl routing, and
+  // session persistence after a reload.
   test("login validates fields, rejects bad credentials, and persists a session", async ({
     page,
   }) => {
@@ -55,6 +58,7 @@ test.describe("authentication and access control", () => {
     ).toBeVisible();
   });
 
+  // Confirms a protected deep link is honored after demo host authentication.
   test("demo host can deep-link through login returnUrl", async ({ page }) => {
     await loginAsDemoHost(page, "/event-types");
 
