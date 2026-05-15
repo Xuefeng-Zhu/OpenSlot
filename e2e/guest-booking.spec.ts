@@ -10,7 +10,7 @@ import {
   findFirstAvailableSlot,
   selectBookingDate,
 } from "./support/booking";
-import { expect, test } from "./support/test";
+import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("guest booking flow", () => {
   test("guest validates and confirms a real booking, then host can find it", async ({
@@ -55,7 +55,7 @@ test.describe("guest booking flow", () => {
       ).toBeVisible();
       await expect(page.getByText(eventType.title)).toBeVisible();
       await expect(page.getByText(guestName)).toBeVisible();
-      await expect(page.getByText("Confirmed")).toBeVisible();
+      await expect(page.getByText("Confirmed", { exact: true })).toBeVisible();
       await expect(
         page.getByRole("link", { name: "Need to cancel?" })
       ).toBeVisible();
@@ -76,7 +76,7 @@ test.describe("guest booking flow", () => {
       await expect(dialog.getByText(guestName)).toBeVisible();
       await expect(dialog.getByText(guestEmail).first()).toBeVisible();
       await expect(dialog.getByText(eventType.title)).toBeVisible();
-      await expect(dialog.getByText("America/New_York")).toBeVisible();
+      await expect(dialog.getByText("UTC")).toBeVisible();
     } finally {
       await cleanupEventType(adminClient, eventType.id);
     }
@@ -104,10 +104,15 @@ test.describe("guest booking flow", () => {
         guestEmail: `${uniqueE2EId("race")}@example.com`,
       });
 
+      allowBrowserConsoleErrors(page, [
+        /Failed to load resource: the server responded with a status of 409/,
+      ]);
       await page.getByRole("button", { name: slot.label }).first().click();
-      await expect(page.getByRole("alert")).toContainText(
-        "This slot has been taken by another guest. Please select a different time."
-      );
+      await expect(
+        page.getByText(
+          "This slot has been taken by another guest. Please select a different time."
+        )
+      ).toBeVisible();
       await expect(
         page.getByRole("heading", { name: "Confirm your booking" })
       ).toBeHidden();

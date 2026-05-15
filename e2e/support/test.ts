@@ -1,11 +1,18 @@
 import { expect, test as base, type Page } from "@playwright/test";
 
+const allowedConsoleErrors = new WeakMap<Page, RegExp[]>();
+
 export const test = base.extend<{ page: Page }>({
   page: async ({ page }, runTest) => {
     const browserErrors: string[] = [];
 
     page.on("console", (message) => {
-      if (message.type() === "error") {
+      const text = message.text();
+
+      if (
+        message.type() === "error" &&
+        !allowedConsoleErrors.get(page)?.some((pattern) => pattern.test(text))
+      ) {
         browserErrors.push(message.text());
       }
     });
@@ -23,6 +30,13 @@ export const test = base.extend<{ page: Page }>({
 });
 
 export { expect };
+
+export function allowBrowserConsoleErrors(page: Page, patterns: RegExp[]) {
+  allowedConsoleErrors.set(page, [
+    ...(allowedConsoleErrors.get(page) ?? []),
+    ...patterns,
+  ]);
+}
 
 export async function expectVisibleText(page: Page, text: string | RegExp) {
   await expect

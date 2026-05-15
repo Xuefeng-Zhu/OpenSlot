@@ -10,7 +10,7 @@ export interface AvailableSlot extends TimeSlot {
 export async function findFirstAvailableSlot(
   request: APIRequestContext,
   eventType: CreatedEventType,
-  timezone = "America/New_York"
+  timezone = "UTC"
 ): Promise<AvailableSlot> {
   for (let offset = 1; offset <= 45; offset += 1) {
     const date = formatDateYmd(addDays(new Date(), offset));

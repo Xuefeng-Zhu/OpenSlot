@@ -10,7 +10,7 @@ test.describe("onboarding wizard", () => {
     await expect(
       page.getByRole("heading", { name: "Create your public profile" })
     ).toBeVisible();
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(
       page.getByText("Enter the display name people will see.")
     ).toBeVisible();
@@ -20,18 +20,18 @@ test.describe("onboarding wizard", () => {
 
     await page.getByLabel("Display name").fill("E2E Onboarding");
     await page.getByLabel("Username").fill("Invalid Username");
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(
       page.getByText("Use lowercase letters, numbers, and hyphens.")
     ).toBeVisible();
 
     await page.getByLabel("Username").fill("e2e-onboarding");
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Set your availability" })
     ).toBeVisible();
 
-    await page.getByRole("button", { name: "Next" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Create your first event type" })
     ).toBeVisible();

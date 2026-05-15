@@ -4,7 +4,7 @@ import {
   createE2EAdminClient,
   uniqueE2EId,
 } from "./support/db";
-import { expect, test } from "./support/test";
+import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("event type management", () => {
   test("host validates, creates, edits, pauses, and deletes an event type", async ({
@@ -42,7 +42,9 @@ test.describe("event type management", () => {
       await expect(
         page.getByRole("heading", { name: title })
       ).toBeVisible();
-      await expect(page.getByText("Select a date")).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Select a date" })
+      ).toBeVisible();
 
       await page.goto("/event-types");
       await page.getByRole("button", { name: `Edit ${title}` }).click();
@@ -59,6 +61,9 @@ test.describe("event type management", () => {
       await expect(page.getByText(updatedTitle)).toBeVisible();
       await expect(page.getByText("Paused").first()).toBeVisible();
 
+      allowBrowserConsoleErrors(page, [
+        /Failed to load resource: the server responded with a status of 404/,
+      ]);
       await page.goto(`/demo/${slug}`);
       await expect(page.locator("body")).toContainText(
         "This page could not be found"

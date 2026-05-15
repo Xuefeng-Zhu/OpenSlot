@@ -1,4 +1,4 @@
-import { expect, test } from "./support/test";
+import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("public edge cases", () => {
   test("invalid guest action links fail safely", async ({ page }) => {
@@ -9,6 +9,9 @@ test.describe("public edge cases", () => {
     await expect(page.getByText("This cancellation link is no longer valid."))
       .toBeVisible();
 
+    allowBrowserConsoleErrors(page, [
+      /Failed to load resource: the server responded with a status of 404/,
+    ]);
     await page.goto(
       "/booking/reschedule/33333333-3333-4333-8333-333333333333"
     );

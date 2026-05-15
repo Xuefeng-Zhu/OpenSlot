@@ -16,7 +16,7 @@ import {
   findFirstAvailableSlot,
   formatDateYmd,
 } from "./support/booking";
-import { expect, test } from "./support/test";
+import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 test.describe("host dashboard workflows", () => {
   test("host filters, opens, and cancels an isolated booking", async ({
@@ -116,10 +116,11 @@ test.describe("host dashboard workflows", () => {
       await expect(page.getByText("No contacts found")).toBeVisible();
 
       await page.getByLabel("Search contacts").fill(guestEmail);
-      await expect(page.getByText(guestName)).toBeVisible();
-      await expect(page.getByText(guestEmail)).toBeVisible();
+      const contactsTable = page.getByRole("table");
+      await expect(contactsTable.getByText(guestName)).toBeVisible();
+      await expect(contactsTable.getByText(guestEmail)).toBeVisible();
 
-      await page.getByRole("link", { name: /View/ }).click();
+      await contactsTable.getByRole("link", { name: /View/ }).click();
       await expect(
         page.getByRole("heading", { name: guestName })
       ).toBeVisible();
@@ -181,7 +182,9 @@ test.describe("host dashboard workflows", () => {
 
     try {
       await loginAsDemoHost(page, "/profile");
-      await page.getByLabel("Name").fill(nextName);
+      await page
+        .getByRole("textbox", { name: "Name", exact: true })
+        .fill(nextName);
       await page.getByRole("button", { name: "Save changes" }).click();
       await expect(page.getByText("Profile updated successfully.")).toBeVisible();
 
@@ -218,6 +221,9 @@ test.describe("host dashboard workflows", () => {
       await loginAsDemoHost(page, "/settings");
       await page.getByRole("tab", { name: "Integrations" }).click();
       await page.getByLabel("Endpoint URL").fill("not-a-url");
+      allowBrowserConsoleErrors(page, [
+        /Failed to load resource: the server responded with a status of 400/,
+      ]);
       await page.getByRole("button", { name: "Add endpoint" }).click();
       await expect(page.getByText("Webhook not created")).toBeVisible();
 

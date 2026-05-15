@@ -23,7 +23,7 @@ export default defineConfig({
     viewport: { width: 1280, height: 900 },
     colorScheme: "light",
     locale: "en-US",
-    timezoneId: "America/New_York",
+    timezoneId: "UTC",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",

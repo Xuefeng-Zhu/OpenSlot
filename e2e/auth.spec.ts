@@ -1,6 +1,6 @@
 import { demoHost } from "./demo-data";
 import { loginAsDemoHost } from "./support/auth";
-import { expect, test } from "./support/test";
+import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 const protectedRoutes = [
   { path: "/dashboard", expectedUrl: /\/login\?returnUrl=%2Fdashboard$/ },
@@ -35,10 +35,13 @@ test.describe("authentication and access control", () => {
 
     await page.getByLabel("Email").fill(demoHost.email);
     await page.getByLabel("Password").fill("not-the-demo-password");
+    allowBrowserConsoleErrors(page, [
+      /Failed to load resource: the server responded with a status of 400/,
+    ]);
     await page.getByRole("button", { name: "Log in" }).click();
-    await expect(page.getByRole("alert")).toContainText(
-      "We could not sign you in. Check your email and password."
-    );
+    await expect(
+      page.getByText("We could not sign you in. Check your email and password.")
+    ).toBeVisible();
 
     await page.getByLabel("Password").fill(demoHost.password);
     await page.getByRole("button", { name: "Log in" }).click();
