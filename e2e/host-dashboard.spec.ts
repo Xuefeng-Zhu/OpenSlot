@@ -168,7 +168,18 @@ test.describe("host dashboard workflows", () => {
       await page.getByLabel("Reason (optional)").fill(reason);
       await page.getByRole("button", { name: "Add override" }).click();
       await expect(page.getByText(reason)).toBeVisible();
+      const availabilityResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/availability") &&
+          response.request().method() === "POST"
+      );
       await page.getByRole("button", { name: "Save availability" }).click();
+      const availabilityResponse = await availabilityResponsePromise;
+      if (!availabilityResponse.ok()) {
+        throw new Error(
+          `Availability save failed: ${availabilityResponse.status()} ${await availabilityResponse.text()}`
+        );
+      }
       await expectVisibleText(page, "Availability saved");
 
       await page.reload();

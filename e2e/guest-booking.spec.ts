@@ -107,7 +107,14 @@ test.describe("guest booking flow", () => {
       allowBrowserConsoleErrors(page, [
         /Failed to load resource: the server responded with a status of 409/,
       ]);
+      const holdResponsePromise = page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/holds") &&
+          response.request().method() === "POST"
+      );
       await page.getByRole("button", { name: slot.label }).first().click();
+      const holdResponse = await holdResponsePromise;
+      expect(holdResponse.status()).toBe(409);
       await expect(
         page.getByText(
           "This slot has been taken by another guest. Please select a different time."

@@ -231,14 +231,13 @@ export function SlotPicker({
 
       if (!response.ok) {
         if (response.status === 409) {
-          // Slot taken — refresh slots
-          setError(
-            "This slot has been taken by another guest. Please select a different time."
-          );
+          const conflictMessage =
+            "This slot has been taken by another guest. Please select a different time.";
           setSelectedSlot(null);
           if (selectedDate) {
-            fetchSlots(selectedDate, timezone);
+            await fetchSlots(selectedDate, timezone);
           }
+          setError(conflictMessage);
           return;
         }
         setError(data.error || "Failed to hold slot. Please try again.");

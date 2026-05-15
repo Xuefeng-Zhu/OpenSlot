@@ -4,6 +4,10 @@ import { z } from 'zod'
  * Checks if a timezone string is a valid IANA timezone identifier.
  */
 export function isValidTimezone(timezone: string): boolean {
+  if (timezone === 'UTC') {
+    return true
+  }
+
   try {
     const validTimezones = Intl.supportedValuesOf('timeZone')
     return validTimezones.includes(timezone)
