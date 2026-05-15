@@ -102,6 +102,7 @@ export function eventTypeWritePayload(
     location_type: data.location_type,
     location_value: isGeneratedVideo ? '' : data.location_value ?? '',
     video_provider: isGeneratedVideo ? data.video_provider ?? null : null,
+    invitee_questions: data.invitee_questions,
     is_active: data.is_active,
   }
 }

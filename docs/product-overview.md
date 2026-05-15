@@ -10,6 +10,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Profile settings with public username and default timezone.
 - Public host profile page at `/<username>`.
 - Public event booking page at `/<username>/<eventSlug>`.
+- Event-type-level invitee questions with required/optional text, dropdown, and checkbox answers.
 - Guest slot selection with timezone display and connected-calendar conflict checks.
 - Five-minute slot holds before confirmation.
 - Confirmed bookings with database-level anti-double-booking.
@@ -55,8 +56,8 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 2. Guest selects an active event type.
 3. `SlotPicker` fetches slots from `/api/slots`.
 4. Guest clicks a slot, creating a hold through `/api/holds`.
-5. Guest submits booking form to `/api/bookings`.
-6. Booking is inserted with status `confirmed`; generated video locations start as pending until the calendar outbox worker stores the join link.
+5. Guest submits booking form and any configured structured answers to `/api/bookings`.
+6. Booking is inserted with status `confirmed`; structured answers are snapshotted separately from notes, and generated video locations start as pending until the calendar outbox worker stores the join link.
 7. Outbox processing creates provider calendar events, stores generated Meet/Teams links, sends emails after required links are ready, and queues tenant webhook deliveries.
 8. Guest can use `/booking/cancel/[token]` from the confirmation email or success screen to cancel the booking.
 9. Guest can use `/booking/reschedule/[token]` to select a new slot; the old booking is marked `rescheduled` and a new confirmed booking is created.
@@ -66,7 +67,8 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 1. Host opens `/bookings`.
 2. Server page fetches host bookings from Supabase.
 3. Client view categorizes bookings locally.
-4. Host can cancel upcoming bookings through `/api/bookings/[id]/cancel`.
+4. Host can open booking details to review notes and structured answer summaries.
+5. Host can cancel upcoming bookings through `/api/bookings/[id]/cancel`.
 
 ### Host Contact Management
 

@@ -2,6 +2,7 @@
  * Pure utility functions for booking categorization and filtering.
  * These are extracted for testability via property-based tests.
  */
+import type { BookingAnswerSummary } from './validations/invitee-questions'
 
 export interface Booking {
   id: string;
@@ -9,6 +10,7 @@ export interface Booking {
   guest_email: string;
   guest_timezone: string;
   notes: string;
+  booking_answers?: BookingAnswerSummary[];
   start_at: string;
   end_at: string;
   status: string;

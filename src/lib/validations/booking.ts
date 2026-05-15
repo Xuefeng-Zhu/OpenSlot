@@ -1,5 +1,10 @@
 import { z } from 'zod'
 import { isValidTimezone } from '@/lib/validations/profile'
+import {
+  createInviteeAnswersSchema,
+  inviteeAnswerRecordSchema,
+  type InviteeQuestion,
+} from './invitee-questions'
 
 const idempotencyKeySchema = z
   .string()
@@ -32,6 +37,7 @@ export const confirmBookingSchema = z.object({
   guestEmail: z.string().email('Must be a valid email address'),
   guestTimezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }),
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
+  answers: inviteeAnswerRecordSchema.optional(),
   idempotencyKey: idempotencyKeySchema,
 })
 
@@ -60,7 +66,27 @@ export const rescheduleBookingSchema = z.object({
   guestEmail: z.string().email('Must be a valid email address'),
   guestTimezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }),
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
+  answers: inviteeAnswerRecordSchema.optional(),
   idempotencyKey: idempotencyKeySchema,
 })
 
 export type RescheduleBookingSchemaInput = z.infer<typeof rescheduleBookingSchema>
+
+/**
+ * Builds the public booking form schema with event-type-specific invitee
+ * answers. The server validates the same answer contract after resolving the
+ * hold to the current event type configuration.
+ */
+export function createConfirmBookingFormSchema(
+  inviteeQuestions: InviteeQuestion[] = []
+) {
+  return confirmBookingSchema
+    .omit({ holdToken: true, idempotencyKey: true })
+    .extend({
+      answers: createInviteeAnswersSchema(inviteeQuestions).default({}),
+    })
+}
+
+export type ConfirmBookingFormValues = z.infer<
+  ReturnType<typeof createConfirmBookingFormSchema>
+>

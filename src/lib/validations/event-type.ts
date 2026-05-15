@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { inviteeQuestionConfigSchema } from './invitee-questions'
 
 export const eventLocationTypes = [
   'online',
@@ -30,19 +31,20 @@ export const eventTypeSlugSchema = z
  * Defaults mirror the database-backed MVP scheduling constraints.
  */
 export const eventTypeFieldsSchema = z.object({
-    title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
-    slug: eventTypeSlugSchema,
-    description: z.string().max(500, 'Description must be 500 characters or less').optional(),
-    duration_minutes: z.number().int('Duration must be a whole number').positive('Duration must be positive'),
-    buffer_before_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
-    buffer_after_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
-    min_notice_minutes: z.number().int('Notice must be a whole number').nonnegative('Notice cannot be negative').default(60),
-    max_booking_days_ahead: z.number().int('Max days must be a whole number').positive('Max days must be positive').default(60),
-    location_type: z.enum(eventLocationTypes),
-    location_value: z.string().max(500, 'Location details must be 500 characters or less').optional(),
-    video_provider: z.enum(videoProviders).nullable().optional(),
-    is_active: z.boolean().default(true),
-  })
+  title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
+  slug: eventTypeSlugSchema,
+  description: z.string().max(500, 'Description must be 500 characters or less').optional(),
+  duration_minutes: z.number().int('Duration must be a whole number').positive('Duration must be positive'),
+  buffer_before_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
+  buffer_after_minutes: z.number().int('Buffer must be a whole number').nonnegative('Buffer cannot be negative').default(0),
+  min_notice_minutes: z.number().int('Notice must be a whole number').nonnegative('Notice cannot be negative').default(60),
+  max_booking_days_ahead: z.number().int('Max days must be a whole number').positive('Max days must be positive').default(60),
+  location_type: z.enum(eventLocationTypes),
+  location_value: z.string().max(500, 'Location details must be 500 characters or less').optional(),
+  video_provider: z.enum(videoProviders).nullable().optional(),
+  invitee_questions: inviteeQuestionConfigSchema.default([]),
+  is_active: z.boolean().default(true),
+})
 
 export const eventTypeSchema = eventTypeFieldsSchema
   .superRefine((data, ctx) => {

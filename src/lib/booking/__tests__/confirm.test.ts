@@ -87,6 +87,7 @@ describe('confirmBooking', () => {
     location_type: 'custom',
     location_value: 'https://example.com/meeting',
     video_provider: null,
+    invitee_questions: [],
   }
 
   beforeEach(() => {
@@ -119,7 +120,7 @@ describe('confirmBooking', () => {
         return Promise.resolve({ data: activeHold, error: null })
       }
       if (singleCallCount === 2) {
-        // Second single() call: fetch event type location snapshot
+        // Second single() call: fetch event type location and question config
         return Promise.resolve({ data: eventTypeLocation, error: null })
       }
       if (singleCallCount === 3) {
@@ -175,6 +176,72 @@ describe('confirmBooking', () => {
       guestEmail: 'jane@example.com',
       guestTimezone: 'America/New_York',
     })
+    expect(mockClient.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        booking_answers: [],
+      })
+    )
+  })
+
+  it('validates and snapshots structured invitee answers', async () => {
+    mockClient.single
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          ...eventTypeLocation,
+          invitee_questions: [
+            {
+              id: 'topic',
+              label: 'What should we cover?',
+              type: 'textarea',
+              required: true,
+              options: [],
+            },
+            {
+              id: 'newsletter',
+              label: 'Send follow-up resources',
+              type: 'checkbox',
+              required: false,
+              options: [],
+            },
+          ],
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({ data: createdBooking, error: null })
+
+    const result = await confirmBooking(
+      {
+        ...validInput,
+        answers: {
+          topic: 'Roadmap tradeoffs',
+          newsletter: true,
+        },
+      },
+      mockClient
+    )
+
+    expect(result.success).toBe(true)
+    expect(mockClient.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        booking_answers: [
+          {
+            questionId: 'topic',
+            label: 'What should we cover?',
+            type: 'textarea',
+            required: true,
+            value: 'Roadmap tradeoffs',
+          },
+          {
+            questionId: 'newsletter',
+            label: 'Send follow-up resources',
+            type: 'checkbox',
+            required: false,
+            value: true,
+          },
+        ],
+      })
+    )
   })
 
   it('returns error when hold is not found', async () => {

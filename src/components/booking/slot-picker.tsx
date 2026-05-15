@@ -25,6 +25,7 @@ import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 interface TimeSlot {
   start: string;
@@ -40,6 +41,7 @@ interface EventTypeInfo {
   location_type: string;
   location_value?: string | null;
   video_provider?: string | null;
+  invitee_questions: InviteeQuestion[];
   user_id: string;
 }
 
@@ -488,6 +490,7 @@ export function SlotPicker({
           eventTitle={eventType.title}
           hostName={hostProfile.name}
           timezone={timezone}
+          inviteeQuestions={eventType.invitee_questions}
           rescheduleToken={rescheduleContext?.token}
           initialGuest={
             rescheduleContext

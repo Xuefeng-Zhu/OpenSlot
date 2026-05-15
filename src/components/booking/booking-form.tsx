@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { CalendarCheck, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +22,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  createConfirmBookingFormSchema,
+  type ConfirmBookingFormValues,
+} from "@/lib/validations/booking";
+import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 const COMMON_TIMEZONES = [
   "America/New_York",
@@ -54,21 +58,6 @@ const COMMON_TIMEZONES = [
   "Africa/Johannesburg",
 ];
 
-/**
- * Form schema for the booking form (excludes holdToken which is passed as prop).
- */
-const bookingFormSchema = z.object({
-  guestName: z
-    .string()
-    .min(1, "Name is required")
-    .max(100, "Name must be 100 characters or less"),
-  guestEmail: z.string().email("Must be a valid email address"),
-  guestTimezone: z.string().min(1, "Timezone is required"),
-  notes: z.string().max(1000, "Notes must be 1000 characters or less").optional(),
-});
-
-type BookingFormValues = z.infer<typeof bookingFormSchema>;
-
 interface BookingFormProps {
   holdToken: string;
   expiresAt: string;
@@ -76,6 +65,7 @@ interface BookingFormProps {
   eventTitle: string;
   hostName: string;
   timezone: string;
+  inviteeQuestions: InviteeQuestion[];
   rescheduleToken?: string;
   initialGuest?: {
     name: string;
@@ -109,6 +99,7 @@ export function BookingForm({
   eventTitle,
   hostName,
   timezone,
+  inviteeQuestions,
   rescheduleToken,
   initialGuest,
   onConfirmed,
@@ -121,6 +112,10 @@ export function BookingForm({
   const [timeRemaining, setTimeRemaining] = useState<number>(
     Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
   );
+  const bookingFormSchema = useMemo(
+    () => createConfirmBookingFormSchema(inviteeQuestions),
+    [inviteeQuestions]
+  );
 
   const {
     register,
@@ -128,17 +123,22 @@ export function BookingForm({
     setValue,
     watch,
     formState: { errors },
-  } = useForm<BookingFormValues>({
+  } = useForm<ConfirmBookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       guestName: initialGuest?.name ?? "",
       guestEmail: initialGuest?.email ?? "",
       guestTimezone: initialGuest?.timezone ?? timezone,
       notes: "",
+      answers: defaultAnswerValues(inviteeQuestions),
     },
   });
 
   const selectedTimezone = watch("guestTimezone");
+  const answers = watch("answers");
+  const answerErrors = errors.answers as
+    | Record<string, { message?: string }>
+    | undefined;
 
   // Countdown timer
   useEffect(() => {
@@ -164,7 +164,7 @@ export function BookingForm({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   }, []);
 
-  const onSubmit = async (data: BookingFormValues) => {
+  const onSubmit = async (data: ConfirmBookingFormValues) => {
     setSubmitting(true);
     setError(null);
 
@@ -184,6 +184,7 @@ export function BookingForm({
           guestEmail: data.guestEmail,
           guestTimezone: data.guestTimezone,
           notes: data.notes || undefined,
+          answers: data.answers ?? {},
           idempotencyKey,
         }),
         }
@@ -368,6 +369,116 @@ export function BookingForm({
             )}
           </div>
 
+          {inviteeQuestions.map((question) => (
+            <div key={question.id} className="space-y-2">
+              {question.type !== "checkbox" && (
+                <Label htmlFor={`answer-${question.id}`}>
+                  {question.label}
+                  {question.required ? " *" : ""}
+                </Label>
+              )}
+
+              {question.type === "textarea" && (
+                <Textarea
+                  id={`answer-${question.id}`}
+                  value={(answers?.[question.id] as string | undefined) ?? ""}
+                  onChange={(event) =>
+                    setValue(`answers.${question.id}`, event.target.value, {
+                      shouldValidate: true,
+                    })
+                  }
+                  aria-invalid={!!answerErrors?.[question.id]}
+                  aria-describedby={
+                    answerErrors?.[question.id]
+                      ? `answer-${question.id}-error`
+                      : undefined
+                  }
+                />
+              )}
+
+              {question.type === "text" && (
+                <Input
+                  id={`answer-${question.id}`}
+                  value={(answers?.[question.id] as string | undefined) ?? ""}
+                  onChange={(event) =>
+                    setValue(`answers.${question.id}`, event.target.value, {
+                      shouldValidate: true,
+                    })
+                  }
+                  aria-invalid={!!answerErrors?.[question.id]}
+                  aria-describedby={
+                    answerErrors?.[question.id]
+                      ? `answer-${question.id}-error`
+                      : undefined
+                  }
+                />
+              )}
+
+              {question.type === "select" && (
+                <Select
+                  value={(answers?.[question.id] as string | undefined) ?? ""}
+                  onValueChange={(value) =>
+                    setValue(`answers.${question.id}`, value, {
+                      shouldValidate: true,
+                    })
+                  }
+                >
+                  <SelectTrigger
+                    id={`answer-${question.id}`}
+                    aria-invalid={!!answerErrors?.[question.id]}
+                  >
+                    <SelectValue placeholder="Select an option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {question.options.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {question.type === "checkbox" && (
+                <label
+                  htmlFor={`answer-${question.id}`}
+                  className="flex items-start gap-2 rounded-md border border-border p-3 text-sm"
+                >
+                  <input
+                    id={`answer-${question.id}`}
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                    checked={Boolean(answers?.[question.id])}
+                    onChange={(event) =>
+                      setValue(`answers.${question.id}`, event.target.checked, {
+                        shouldValidate: true,
+                      })
+                    }
+                    aria-invalid={!!answerErrors?.[question.id]}
+                    aria-describedby={
+                      answerErrors?.[question.id]
+                        ? `answer-${question.id}-error`
+                        : undefined
+                    }
+                  />
+                  <span>
+                    {question.label}
+                    {question.required ? " *" : ""}
+                  </span>
+                </label>
+              )}
+
+              {answerErrors?.[question.id] && (
+                <p
+                  id={`answer-${question.id}-error`}
+                  className="text-sm text-destructive"
+                >
+                  {answerErrors[question.id].message}
+                </p>
+              )}
+            </div>
+          ))}
+
           {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (optional)</Label>
@@ -416,4 +527,14 @@ function createIdempotencyKey(): string {
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function defaultAnswerValues(inviteeQuestions: InviteeQuestion[]) {
+  return inviteeQuestions.reduce<Record<string, string | boolean>>(
+    (values, question) => {
+      values[question.id] = question.type === "checkbox" ? false : "";
+      return values;
+    },
+    {}
+  );
 }

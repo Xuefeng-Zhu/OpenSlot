@@ -154,6 +154,25 @@ describe('Email Templates', () => {
       expect(result.html).toContain('Microsoft Teams')
       expect(result.html).toContain('https://teams.microsoft.com/l/meetup-join/abc')
     })
+
+    it('includes escaped invitee answer summaries for the host', () => {
+      const result = bookingNotificationHostTemplate({
+        ...sampleTemplateDetails,
+        bookingAnswers: [
+          {
+            questionId: 'topic',
+            label: 'Topic <focus>',
+            type: 'textarea',
+            required: true,
+            value: 'Roadmap & launch',
+          },
+        ],
+      })
+
+      expect(result.text).toContain('Topic <focus>: Roadmap & launch')
+      expect(result.html).toContain('Topic &lt;focus&gt;')
+      expect(result.html).toContain('Roadmap &amp; launch')
+    })
   })
 
   describe('cancellationTemplate', () => {

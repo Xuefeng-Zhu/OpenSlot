@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { profileSchema } from '../profile'
 import { eventTypeSchema } from '../event-type'
-import { confirmBookingSchema } from '../booking'
+import { confirmBookingSchema, createConfirmBookingFormSchema } from '../booking'
 import { availabilityRuleSchema } from '../availability'
 
 describe('profileSchema', () => {
@@ -162,6 +162,49 @@ describe('eventTypeSchema', () => {
       expect(result.success).toBe(true)
     })
   })
+
+  describe('invitee questions', () => {
+    it('accepts required and optional custom questions', () => {
+      const result = eventTypeSchema.safeParse({
+        ...validEventType,
+        invitee_questions: [
+          {
+            id: 'topic',
+            label: 'What should we discuss?',
+            type: 'textarea',
+            required: true,
+            options: [],
+          },
+          {
+            id: 'priority',
+            label: 'Priority',
+            type: 'select',
+            required: false,
+            options: ['High', 'Low'],
+          },
+        ],
+      })
+
+      expect(result.success).toBe(true)
+    })
+
+    it('rejects select questions without at least two options', () => {
+      const result = eventTypeSchema.safeParse({
+        ...validEventType,
+        invitee_questions: [
+          {
+            id: 'priority',
+            label: 'Priority',
+            type: 'select',
+            required: true,
+            options: ['High'],
+          },
+        ],
+      })
+
+      expect(result.success).toBe(false)
+    })
+  })
 })
 
 describe('confirmBookingSchema', () => {
@@ -208,6 +251,60 @@ describe('confirmBookingSchema', () => {
     it('rejects a guestName with 101 characters', () => {
       const result = confirmBookingSchema.safeParse({ ...validBooking, guestName: 'A'.repeat(101) })
       expect(result.success).toBe(false)
+    })
+  })
+
+  describe('invitee answer validation', () => {
+    it('requires answers for required custom questions', () => {
+      const schema = createConfirmBookingFormSchema([
+        {
+          id: 'topic',
+          label: 'What should we discuss?',
+          type: 'textarea',
+          required: true,
+          options: [],
+        },
+      ])
+
+      const result = schema.safeParse({
+        guestName: 'Jane Doe',
+        guestEmail: 'jane@example.com',
+        guestTimezone: 'America/New_York',
+        answers: { topic: '' },
+      })
+
+      expect(result.success).toBe(false)
+    })
+
+    it('accepts typed custom answers when configured', () => {
+      const schema = createConfirmBookingFormSchema([
+        {
+          id: 'priority',
+          label: 'Priority',
+          type: 'select',
+          required: true,
+          options: ['High', 'Low'],
+        },
+        {
+          id: 'send-summary',
+          label: 'Send a summary afterward',
+          type: 'checkbox',
+          required: false,
+          options: [],
+        },
+      ])
+
+      const result = schema.safeParse({
+        guestName: 'Jane Doe',
+        guestEmail: 'jane@example.com',
+        guestTimezone: 'America/New_York',
+        answers: {
+          priority: 'High',
+          'send-summary': true,
+        },
+      })
+
+      expect(result.success).toBe(true)
     })
   })
 })

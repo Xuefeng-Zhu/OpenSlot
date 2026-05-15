@@ -44,6 +44,38 @@ const validInput = {
   notes: 'New time works better.',
 }
 
+function createAdminClient({
+  rpcResult,
+  inviteeQuestions = [],
+}: {
+  rpcResult: unknown
+  inviteeQuestions?: unknown[]
+}) {
+  const bookingsQuery = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: { event_type_id: 'event-type-1' },
+      error: null,
+    }),
+  }
+  const eventTypesQuery = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    single: vi.fn().mockResolvedValue({
+      data: { invitee_questions: inviteeQuestions },
+      error: null,
+    }),
+  }
+
+  return {
+    from: vi.fn((table: string) =>
+      table === 'bookings' ? bookingsQuery : eventTypesQuery
+    ),
+    rpc: vi.fn().mockResolvedValue(rpcResult),
+  }
+}
+
 describe('rescheduleBooking', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -51,9 +83,9 @@ describe('rescheduleBooking', () => {
   })
 
   it('uses the atomic reschedule RPC and queues side effects', async () => {
-    const adminClient = {
-      rpc: vi.fn().mockResolvedValue({ data: [rpcRow], error: null }),
-    } as any
+    const adminClient = createAdminClient({
+      rpcResult: { data: [rpcRow], error: null },
+    }) as any
 
     const result = await rescheduleBooking(validInput, adminClient)
 
@@ -77,6 +109,7 @@ describe('rescheduleBooking', () => {
       p_guest_email: 'sarah@example.com',
       p_guest_timezone: 'America/Los_Angeles',
       p_notes: 'New time works better.',
+      p_booking_answers: [],
     })
     expect(appendBookingEvent).toHaveBeenCalledTimes(2)
     expect(upsertContactFromBooking).toHaveBeenCalledWith(adminClient, {
@@ -98,13 +131,51 @@ describe('rescheduleBooking', () => {
     })
   })
 
+  it('passes validated invitee answers into the reschedule RPC', async () => {
+    const adminClient = createAdminClient({
+      rpcResult: { data: [rpcRow], error: null },
+      inviteeQuestions: [
+        {
+          id: 'priority',
+          label: 'Priority',
+          type: 'select',
+          required: true,
+          options: ['High', 'Low'],
+        },
+      ],
+    }) as any
+
+    await rescheduleBooking(
+      {
+        ...validInput,
+        answers: { priority: 'High' },
+      },
+      adminClient
+    )
+
+    expect(adminClient.rpc).toHaveBeenCalledWith(
+      'reschedule_booking_with_hold',
+      expect.objectContaining({
+        p_booking_answers: [
+          {
+            questionId: 'priority',
+            label: 'Priority',
+            type: 'select',
+            required: true,
+            value: 'High',
+          },
+        ],
+      })
+    )
+  })
+
   it('maps expired holds to a guest-safe error', async () => {
-    const adminClient = {
-      rpc: vi.fn().mockResolvedValue({
+    const adminClient = createAdminClient({
+      rpcResult: {
         data: null,
         error: { code: 'P0001', message: 'hold_expired' },
-      }),
-    } as any
+      },
+    }) as any
 
     const result = await rescheduleBooking(validInput, adminClient)
 
@@ -116,12 +187,12 @@ describe('rescheduleBooking', () => {
   })
 
   it('maps database overlap conflicts to slot-taken', async () => {
-    const adminClient = {
-      rpc: vi.fn().mockResolvedValue({
+    const adminClient = createAdminClient({
+      rpcResult: {
         data: null,
         error: { code: '23P01', message: 'conflict' },
-      }),
-    } as any
+      },
+    }) as any
 
     const result = await rescheduleBooking(validInput, adminClient)
 

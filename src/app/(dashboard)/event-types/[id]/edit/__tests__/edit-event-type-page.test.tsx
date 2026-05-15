@@ -23,6 +23,7 @@ const strategySession: EditableEventType = {
   max_booking_days_ahead: 60,
   location_type: "online",
   location_value: "https://zoom.us/j/987654",
+  invitee_questions: [],
   is_active: true,
 };
 
@@ -44,7 +45,7 @@ describe("EditEventTypePage editor", () => {
       screen.getByText('Update the settings for "Strategy session".')
     ).toBeDefined();
     expect(screen.getByText("Sarah Chen")).toBeDefined();
-    expect(screen.getByText("60 min")).toBeDefined();
+    expect(screen.getAllByText("60 min").length).toBeGreaterThan(0);
     expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
       "Strategy session"
     );
@@ -127,7 +128,9 @@ describe("EditEventTypePage editor", () => {
     });
 
     expect(
-      screen.getByText("Google Meet is ready to generate links for new bookings.")
-    ).toBeDefined();
+      screen.getAllByText(
+        "Google Meet is ready to generate links for new bookings."
+      ).length
+    ).toBeGreaterThan(0);
   });
 });

@@ -10,6 +10,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/types/database";
 import type { EventTypeFormValues } from "@/lib/validations/event-type";
+import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
 
 interface EditEventTypePageProps {
   params: Promise<{ id: string }>;
@@ -47,7 +48,7 @@ export default async function EditEventTypePage({
   const { data: eventTypeData } = await supabase
     .from("event_types")
     .select(
-      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, is_active"
+      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active"
     )
     .eq("id", id)
     .eq("user_id", profile.id)
@@ -68,6 +69,7 @@ export default async function EditEventTypePage({
         | "location_type"
         | "location_value"
         | "video_provider"
+        | "invitee_questions"
         | "is_active"
       > & {
         location_type: EventTypeFormValues["location_type"];
@@ -92,6 +94,7 @@ export default async function EditEventTypePage({
     location_type: eventType.location_type,
     location_value: eventType.location_value,
     video_provider: eventType.video_provider,
+    invitee_questions: normalizeInviteeQuestions(eventType.invitee_questions),
     is_active: eventType.is_active,
   };
 

@@ -16,7 +16,7 @@ import type { Json } from '@/lib/types/database'
  *
  * Confirms a booking from an active hold.
  *
- * Request body: { holdToken, guestName, guestEmail, guestTimezone, notes?, idempotencyKey? }
+ * Request body: { holdToken, guestName, guestEmail, guestTimezone, notes?, answers?, idempotencyKey? }
  * Response: { success, bookingId, cancellationToken, rescheduleToken } or error
  *
  * Uses the service role client to bypass RLS for bookings and slot_holds tables.
@@ -127,6 +127,9 @@ function getErrorStatus(error?: string): number {
   }
   if (error.includes('expired')) {
     return 410 // Gone
+  }
+  if (error.includes('validation')) {
+    return 400
   }
   if (error.includes('booked by someone else') || error.includes('slot taken')) {
     return 409 // Conflict

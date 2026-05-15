@@ -8,6 +8,11 @@ import {
 } from '@/lib/reservations/host-reservations'
 import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from './events'
+import {
+  normalizeInviteeQuestions,
+  parseInviteeAnswers,
+} from '@/lib/validations/invitee-questions'
+import type { Json } from '@/lib/types/database'
 
 /**
  * Confirms a booking from an active hold.
@@ -27,7 +32,7 @@ export async function confirmBooking(
   input: ConfirmBookingInput,
   adminClient: SupabaseClient<Database>
 ): Promise<ConfirmBookingResult> {
-  const { holdToken, guestName, guestEmail, guestTimezone, notes } = input
+  const { holdToken, guestName, guestEmail, guestTimezone, notes, answers } = input
 
   // Step 1: Fetch and validate the hold
   const { data: hold, error: holdError } = await adminClient
@@ -58,7 +63,7 @@ export async function confirmBooking(
 
   const { data: eventTypeData, error: eventTypeError } = await adminClient
     .from('event_types')
-    .select('location_type, location_value, video_provider')
+    .select('location_type, location_value, video_provider, invitee_questions')
     .eq('id', hold.event_type_id)
     .single()
 
@@ -68,10 +73,22 @@ export async function confirmBooking(
 
   const eventType = eventTypeData as Pick<
     Tables<'event_types'>,
-    'location_type' | 'location_value' | 'video_provider'
+    'location_type' | 'location_value' | 'video_provider' | 'invitee_questions'
   >
   const conferenceProvider =
     eventType.location_type === 'video_provider' ? eventType.video_provider : null
+
+  const inviteeQuestions = normalizeInviteeQuestions(
+    eventType.invitee_questions
+  )
+  const parsedAnswers = parseInviteeAnswers(inviteeQuestions, answers ?? {})
+
+  if (!parsedAnswers.success) {
+    return {
+      success: false,
+      error: 'Booking answers validation failed.',
+    }
+  }
 
   // Step 3: Insert booking (exclusion constraint provides final guard against double-booking)
   const { data: booking, error: bookingError } = await adminClient
@@ -83,6 +100,7 @@ export async function confirmBooking(
       guest_email: guestEmail,
       guest_timezone: guestTimezone,
       notes: notes ?? '',
+      booking_answers: parsedAnswers.data as Json,
       start_at: hold.start_at,
       end_at: hold.end_at,
       status: 'confirmed',

@@ -3,6 +3,10 @@
  *
  * Each template function returns { subject, html, text } for use with the email provider.
  */
+import {
+  formatBookingAnswerValue,
+  type BookingAnswerSummary,
+} from '@/lib/validations/invitee-questions'
 
 export interface BookingTemplateDetails {
   eventTitle: string
@@ -14,6 +18,7 @@ export interface BookingTemplateDetails {
   timezone: string
   locationLabel?: string
   conferenceUrl?: string
+  bookingAnswers?: BookingAnswerSummary[]
   cancellationUrl?: string
   rescheduleUrl?: string
 }
@@ -124,6 +129,7 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
     timezone,
     locationLabel,
     conferenceUrl,
+    bookingAnswers = [],
   } = details
   const htmlEventTitle = escapeHtml(eventTitle)
   const htmlDate = escapeHtml(date)
@@ -133,6 +139,23 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
   const htmlTimezone = escapeHtml(timezone)
   const htmlLocationLabel = locationLabel ? escapeHtml(locationLabel) : undefined
   const htmlConferenceUrl = conferenceUrl ? escapeHtml(conferenceUrl) : undefined
+  const answerText = bookingAnswers.length
+    ? [
+        ``,
+        `Invitee answers:`,
+        ...bookingAnswers.map(
+          (answer) => `${answer.label}: ${formatBookingAnswerValue(answer)}`
+        ),
+      ]
+    : []
+  const answerRows = bookingAnswers
+    .map((answer) => {
+      const label = escapeHtml(answer.label)
+      const value = escapeHtml(formatBookingAnswerValue(answer))
+
+      return `<tr><td style="padding: 8px; font-weight: bold;">${label}</td><td style="padding: 8px;">${value}</td></tr>`
+    })
+    .join('')
 
   const subject = `New Booking: ${eventTitle} with ${guestName}`
 
@@ -145,9 +168,12 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
     `Time: ${time} (${timezone})`,
     locationLabel ? `Location: ${locationLabel}` : '',
     conferenceUrl ? `Join link: ${conferenceUrl}` : '',
+    ...answerText,
     ``,
     `View your bookings in the OpenSlot dashboard.`,
-  ].join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 
   const html = `
 <!DOCTYPE html>
@@ -163,6 +189,7 @@ export function bookingNotificationHostTemplate(details: BookingTemplateDetails)
     <tr><td style="padding: 8px; font-weight: bold;">Time</td><td style="padding: 8px;">${htmlTime} (${htmlTimezone})</td></tr>
     ${htmlLocationLabel ? `<tr><td style="padding: 8px; font-weight: bold;">Location</td><td style="padding: 8px;">${htmlLocationLabel}</td></tr>` : ''}
     ${htmlConferenceUrl ? `<tr><td style="padding: 8px; font-weight: bold;">Join link</td><td style="padding: 8px;"><a href="${htmlConferenceUrl}" style="color: #2563eb;">${htmlConferenceUrl}</a></td></tr>` : ''}
+    ${answerRows}
   </table>
   <p style="color: #666; font-size: 14px;">View your bookings in the OpenSlot dashboard.</p>
 </body>

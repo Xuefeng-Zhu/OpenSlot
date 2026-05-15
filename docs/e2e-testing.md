@@ -28,12 +28,14 @@ npm run test:e2e:ui
 npm run test:e2e:debug
 ```
 
-The Playwright config starts the Next.js dev server on
-`http://127.0.0.1:3000`. It expects local Supabase to already be running and
-seeded, with local Supabase env vars available in the shell or `.env.local`.
-Before tests run, Playwright refreshes and verifies the seeded demo host
-password through the local service-role key so the browser login uses a real
-Supabase Auth password flow.
+The Playwright config starts the Next.js dev server at
+`PLAYWRIGHT_BASE_URL`, defaulting to `http://127.0.0.1:3000`. Use another port,
+for example `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100`, when port 3000 is
+already occupied. It expects Supabase env vars to be available in the shell or
+`.env.local`. Before tests run, Playwright refreshes and verifies the demo host
+password through the configured service-role key so browser login uses a real
+Supabase Auth password flow. If the demo host is missing, setup creates the auth
+user, profile, and weekday availability needed by isolated E2E specs.
 
 The CI `Dashboard E2E` job installs Chromium, starts local Supabase, resets and
 seeds the database, exports the local Supabase env vars, runs

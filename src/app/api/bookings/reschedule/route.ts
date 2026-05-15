@@ -113,6 +113,9 @@ function getErrorStatus(error?: string): number {
   if (error.includes('expired')) {
     return 410
   }
+  if (error.includes('validation')) {
+    return 400
+  }
   if (
     error.includes('booked by someone else') ||
     error.includes('does not match')
