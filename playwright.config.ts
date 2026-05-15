@@ -23,7 +23,7 @@ export default defineConfig({
     viewport: { width: 1280, height: 900 },
     colorScheme: "light",
     locale: "en-US",
-    timezoneId: "UTC",
+    timezoneId: "America/New_York",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
     video: "retain-on-failure",
@@ -35,6 +35,7 @@ export default defineConfig({
     timeout: 120_000,
     env: {
       ...webServerEnv,
+      TZ: process.env.TZ ?? "America/New_York",
       NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? baseURL,
     },
   },

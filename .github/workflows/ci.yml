@@ -100,6 +100,7 @@ jobs:
     timeout-minutes: 35
 
     env:
+      TZ: America/New_York
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
       OUTBOX_PROCESS_SECRET: ci-outbox-secret

@@ -16,7 +16,12 @@ import {
   findFirstAvailableSlot,
   formatDateYmd,
 } from "./support/booking";
-import { allowBrowserConsoleErrors, expect, test } from "./support/test";
+import {
+  allowBrowserConsoleErrors,
+  expect,
+  expectVisibleText,
+  test,
+} from "./support/test";
 
 test.describe("host dashboard workflows", () => {
   test("host filters, opens, and cancels an isolated booking", async ({
@@ -63,7 +68,7 @@ test.describe("host dashboard workflows", () => {
         .getByRole("button", { name: "Confirm cancellation" })
         .click();
 
-      await expect(page.getByText("Booking cancelled")).toBeVisible();
+      await expectVisibleText(page, "Booking cancelled");
       await page.getByRole("tab", { name: /Cancelled/ }).click();
       await expect(
         page.getByRole("button", { name: `View booking with ${guestName}` })
@@ -164,7 +169,7 @@ test.describe("host dashboard workflows", () => {
       await page.getByRole("button", { name: "Add override" }).click();
       await expect(page.getByText(reason)).toBeVisible();
       await page.getByRole("button", { name: "Save availability" }).click();
-      await expect(page.getByText("Availability saved")).toBeVisible();
+      await expectVisibleText(page, "Availability saved");
 
       await page.reload();
       await expect(page.getByText(reason)).toBeVisible();
@@ -196,7 +201,7 @@ test.describe("host dashboard workflows", () => {
       await page.getByLabel("Date format").selectOption("YYYY-MM-DD");
       await page.getByLabel("Time format").selectOption("24h");
       await page.getByRole("button", { name: "Save preferences" }).click();
-      await expect(page.getByText("Settings saved")).toBeVisible();
+      await expectVisibleText(page, "Settings saved");
 
       await page.reload();
       await page.getByRole("tab", { name: "Preferences" }).click();
@@ -225,7 +230,7 @@ test.describe("host dashboard workflows", () => {
         /Failed to load resource: the server responded with a status of 400/,
       ]);
       await page.getByRole("button", { name: "Add endpoint" }).click();
-      await expect(page.getByText("Webhook not created")).toBeVisible();
+      await expectVisibleText(page, "Webhook not created");
 
       await page.getByLabel("Endpoint URL").fill(endpointUrl);
       await page
@@ -234,7 +239,7 @@ test.describe("host dashboard workflows", () => {
       await page.getByLabel("Cancelled").check();
       await page.getByRole("button", { name: "Add endpoint" }).click();
 
-      await expect(page.getByText("Webhook created")).toBeVisible();
+      await expectVisibleText(page, "Webhook created");
       await expect(page.getByLabel("Signing secret")).toBeVisible();
       await expect(page.getByText(endpointUrl)).toBeVisible();
       await expect(page.getByText("Active").first()).toBeVisible();

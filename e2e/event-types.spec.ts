@@ -32,11 +32,11 @@ test.describe("event type management", () => {
       await page.getByRole("button", { name: "Save" }).click();
 
       await expect(page).toHaveURL(/\/event-types$/);
-      await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByRole("heading", { name: title })).toBeVisible();
       await expect(page.getByText(`/${slug}`)).toBeVisible();
 
       await page.reload();
-      await expect(page.getByText(title)).toBeVisible();
+      await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
       await page.goto(`/demo/${slug}`);
       await expect(
@@ -58,7 +58,9 @@ test.describe("event type management", () => {
       await page.getByRole("button", { name: "Save" }).click();
 
       await expect(page).toHaveURL(/\/event-types$/);
-      await expect(page.getByText(updatedTitle)).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: updatedTitle })
+      ).toBeVisible();
       await expect(page.getByText("Paused").first()).toBeVisible();
 
       allowBrowserConsoleErrors(page, [

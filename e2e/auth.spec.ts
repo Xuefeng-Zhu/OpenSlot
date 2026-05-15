@@ -50,7 +50,9 @@ test.describe("authentication and access control", () => {
 
     await page.reload();
     await expect(page).toHaveURL(/\/bookings$/);
-    await expect(page.getByText("Jane Guest")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "View booking with Jane Guest" })
+    ).toBeVisible();
   });
 
   test("demo host can deep-link through login returnUrl", async ({ page }) => {

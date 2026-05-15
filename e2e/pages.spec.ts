@@ -201,7 +201,7 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
     page.getByRole("heading", { name: "Welcome back, Demo" })
   ).toBeVisible();
   await expect(page.getByText("Active event types")).toBeVisible();
-  await expect(page.getByText("Jane Guest")).toBeVisible();
+  await expectVisibleText(page, "Jane Guest");
   await expect(page.getByText("30 Minute Meeting")).toBeVisible();
   await expect(page.getByText("Confirmed").first()).toBeVisible();
 
@@ -227,7 +227,7 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
 
   const bookingDetails = page.getByRole("dialog", { name: "Booking Details" });
   await expect(bookingDetails).toBeVisible();
-  await expect(bookingDetails.getByText("Jane Guest")).toBeVisible();
+  await expect(bookingDetails.getByText("Jane Guest").first()).toBeVisible();
   await expect(
     bookingDetails.getByText("jane.guest@example.com").first()
   ).toBeVisible();
