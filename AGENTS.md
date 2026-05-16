@@ -55,18 +55,22 @@ npm run dev
 npm run lint
 npm run typecheck
 npm run test
+npm run test:e2e
 npm run test:watch
 npm run build
 npm run start
+npm run verify
+npm run oauth:calendar
 ```
 
 Supabase CLI commands used by the project:
 
 ```bash
 supabase start
-supabase db push
-supabase db reset
-supabase db seed
+supabase db reset --local
+supabase db push --local
+supabase db push --linked --dry-run
+supabase db push --linked
 ```
 
 GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to `main` and pull requests targeting `main`. It runs `npm ci`, `npm audit --audit-level=moderate`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and Supabase migration validation with `supabase db start`, `supabase db reset --local --no-seed`, and `supabase db lint --local --fail-on error`. Vercel worker cron config exists in `vercel.json`.
@@ -99,6 +103,7 @@ GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to 
    GOOGLE_CALENDAR_CLIENT_SECRET=...
    MICROSOFT_CALENDAR_CLIENT_ID=...
    MICROSOFT_CALENDAR_CLIENT_SECRET=...
+   MICROSOFT_CALENDAR_TENANT=common
    CALENDAR_TOKEN_ENCRYPTION_SECRET=...
    CALENDAR_SYNC_SECRET=...
    EMAIL_PROVIDER=console
@@ -107,19 +112,26 @@ GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to 
    MAILEROO_API_KEY=...
    ```
 
-4. Apply database migrations using Supabase CLI or the SQL editor:
+4. For local Supabase development, start the stack and reset the local database
+   from migrations plus `supabase/seed.sql`:
 
    ```bash
-   supabase db push
+   supabase start
+   supabase db reset --local
    ```
 
-5. Optional local seed:
+   For a linked staging or production project, review the pending migrations
+   before applying them:
 
    ```bash
-   supabase db seed
+   supabase db push --linked --dry-run
+   supabase db push --linked
    ```
 
-6. Start the app:
+   Add `--include-seed` only when seed data should be applied to that linked
+   project.
+
+5. Start the app:
 
    ```bash
    npm run dev

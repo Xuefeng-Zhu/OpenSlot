@@ -25,19 +25,24 @@ Create `.env.local` from `.env.example`:
 cp .env.example .env.local
 ```
 
-Required variables:
+Minimum app variables:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-CRON_SECRET=...
 ```
 
 Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. It is used by `src/lib/supabase/admin.ts`.
 
-Calendar integration development also needs provider OAuth credentials and `CALENDAR_TOKEN_ENCRYPTION_SECRET`. `CALENDAR_SYNC_SECRET` is optional locally unless you want route-specific protection on `/api/calendar/sync`; otherwise `CRON_SECRET` can protect the cron GET path.
+Worker routes can run without secrets outside production. Set
+`OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, or
+`CRON_SECRET` when testing bearer-token protection locally or deploying.
+
+Calendar integration development also needs provider OAuth credentials and
+`CALENDAR_TOKEN_ENCRYPTION_SECRET`. `MICROSOFT_CALENDAR_TENANT` defaults to
+`common`.
 
 To configure calendar OAuth credentials locally:
 
@@ -52,6 +57,13 @@ npm run oauth:google
 npm run oauth:microsoft
 ```
 
+The OAuth setup scripts write to `.env.local` by default. Use
+`--env-file <path>` or `ENV_FILE=<path>` to target a different env file. The
+scripts derive redirect URIs from `NEXT_PUBLIC_APP_URL`; override them with
+`GOOGLE_CALENDAR_REDIRECT_URI` or `MICROSOFT_CALENDAR_REDIRECT_URI` only when
+the provider app needs a non-default callback. The Google helper also accepts
+`GOOGLE_CALENDAR_JS_ORIGIN` and `GOOGLE_CLOUD_PROJECT` or `GCLOUD_PROJECT`.
+
 The Google script enables the Calendar API when `gcloud` is installed, opens the Google Auth Platform client page, then securely prompts for the one-time client ID and secret. Google does not expose a general CLI/API flow for creating Calendar-capable web OAuth clients, so the client creation step remains a console action.
 
 The Microsoft script uses Azure CLI to create a fresh Entra app registration, configure the OpenSlot redirect URI, add delegated Microsoft Graph `User.Read` and `Calendars.ReadWrite` permissions, create a client secret, and write the resulting values to `.env.local`. Install Azure CLI and run `az login` before using it.
@@ -64,14 +76,30 @@ With Supabase CLI:
 
 ```bash
 supabase start
-supabase db push
-supabase db seed
+supabase db reset --local
 ```
 
-For a clean local reset:
+`supabase db reset --local` applies all migrations and then loads
+`supabase/seed.sql` because `[db.seed]` is enabled in `supabase/config.toml`.
+Use a migration-only reset when you do not want seed data:
 
 ```bash
-supabase db reset
+supabase db reset --local --no-seed
+```
+
+To apply pending migrations to an already-running local database without
+resetting data:
+
+```bash
+supabase db push --local
+```
+
+For a linked remote project, review the pending migration list before applying
+it:
+
+```bash
+supabase db push --linked --dry-run
+supabase db push --linked
 ```
 
 Migrations are ordered SQL files in `supabase/migrations/`. Add new migrations for schema changes.

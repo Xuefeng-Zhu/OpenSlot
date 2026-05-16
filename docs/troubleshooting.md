@@ -39,6 +39,12 @@ npm run oauth:google
 npm run oauth:microsoft
 ```
 
+They write to `.env.local` by default. Use `--env-file <path>` or
+`ENV_FILE=<path>` when testing against a different env file. Redirect URIs are
+derived from `NEXT_PUBLIC_APP_URL`; use `GOOGLE_CALENDAR_REDIRECT_URI` or
+`MICROSOFT_CALENDAR_REDIRECT_URI` only when the provider app needs a custom
+callback URL.
+
 For Google, install `gcloud` if you want the script to enable the Calendar API automatically. The web OAuth client still has to be created in Google Auth Platform because Google only displays the client secret once in the console flow.
 
 For Microsoft, install Azure CLI and run:

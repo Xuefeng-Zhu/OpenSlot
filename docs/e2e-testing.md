@@ -64,10 +64,11 @@ also starts from a freshly reset local database.
 ## Manual Prerequisites
 
 1. Install dependencies and configure `.env.local`.
-2. Apply all database migrations:
+2. Start a local Supabase stack and reset it from migrations plus seed data:
 
    ```bash
-   supabase db push --include-all --yes
+   supabase start
+   supabase db reset --local
    ```
 
 3. Start the app:

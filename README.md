@@ -116,25 +116,33 @@ notes and naming conventions.
 
 3. Fill in the required Supabase and app values in `.env.local`.
 
-4. Apply database migrations:
+4. For local Supabase development, start the local stack and reset the local
+   database from the committed migrations:
 
    ```bash
-   supabase db push
+   supabase start
+   supabase db reset --local
    ```
 
-5. Optional: seed local/demo data:
+   `supabase db reset --local` applies `supabase/migrations/` and then loads
+   `supabase/seed.sql` through the `[db.seed]` config. For linked staging or
+   production projects, review the pending remote migrations first:
 
    ```bash
-   supabase db seed
+   supabase db push --linked --dry-run
+   supabase db push --linked
    ```
 
-6. Start the app:
+   Add `--include-seed` only when you intentionally want to apply configured
+   seed data to the linked project.
+
+5. Start the app:
 
    ```bash
    npm run dev
    ```
 
-7. Open [http://localhost:3000](http://localhost:3000).
+6. Open [http://localhost:3000](http://localhost:3000).
 
 The landing page can render without Supabase credentials. Authenticated
 dashboard routes, public booking data, API routes, and booking writes require
@@ -182,6 +190,15 @@ Use `.env.example` as the source of truth for local keys.
 | `npm run test:watch` | Run Vitest in watch mode. |
 | `npm run verify` | Run lint, typecheck, tests, and build. |
 | `npm run oauth:calendar` | Configure calendar OAuth credentials interactively. |
+| `npm run oauth:google` | Configure Google Calendar OAuth credentials. |
+| `npm run oauth:microsoft` | Create/configure a Microsoft Calendar OAuth app registration. |
+
+OAuth helper scripts write to `.env.local` by default. Use `--env-file <path>`
+or shell `ENV_FILE=<path>` to target another file. The scripts derive callback
+URLs from `NEXT_PUBLIC_APP_URL`; shell overrides are available as
+`GOOGLE_CALENDAR_REDIRECT_URI`, `GOOGLE_CALENDAR_JS_ORIGIN`,
+`GOOGLE_CLOUD_PROJECT` or `GCLOUD_PROJECT`, and
+`MICROSOFT_CALENDAR_REDIRECT_URI`.
 
 ## Testing
 
