@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/types/database";
+import { videoProviderLabel } from "@/lib/calendar/video-providers";
 import {
   EventTypesClient,
   type DashboardEventType,
@@ -83,8 +84,8 @@ function eventLocationLabel(eventType: Pick<
   Tables<"event_types">,
   "location_type" | "video_provider"
 >): string {
-  if (eventType.video_provider === "google_meet") return "Google Meet";
-  if (eventType.video_provider === "microsoft_teams") return "Microsoft Teams";
+  const generatedVideoLabel = videoProviderLabel(eventType.video_provider);
+  if (generatedVideoLabel) return generatedVideoLabel;
 
   return locationLabels[eventType.location_type] ?? eventType.location_type;
 }

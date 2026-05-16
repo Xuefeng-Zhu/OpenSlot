@@ -5,6 +5,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
+import { videoProviderLabel } from "@/lib/calendar/video-providers";
 
 export interface ProfileData {
   name: string;
@@ -173,8 +174,8 @@ export function PublicProfileContent({ profile, activeEventTypes }: PublicProfil
 }
 
 function eventLocationLabel(eventType: EventTypeData): string {
-  if (eventType.video_provider === "google_meet") return "Google Meet";
-  if (eventType.video_provider === "microsoft_teams") return "Microsoft Teams";
+  const generatedVideoLabel = videoProviderLabel(eventType.video_provider);
+  if (generatedVideoLabel) return generatedVideoLabel;
 
   switch (eventType.location_type) {
     case "online":

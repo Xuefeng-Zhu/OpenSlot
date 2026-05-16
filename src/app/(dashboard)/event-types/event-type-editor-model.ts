@@ -1,4 +1,11 @@
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
+import {
+  defaultVideoProvider,
+  getVideoProviderReadiness,
+  isVideoProvider,
+  videoProviderLabel,
+  type VideoProviderReadiness,
+} from "@/lib/calendar/video-providers";
 import type {
   EventLocationType,
   EventTypeFormValues,
@@ -48,7 +55,10 @@ export type ApiResponse = {
   details?: Partial<Record<keyof EventTypeFormValues, string[]>>;
 };
 
-export type VideoProviderHealth = { ready: boolean; message: string };
+export type VideoProviderHealth = Pick<
+  VideoProviderReadiness,
+  "ready" | "message"
+>;
 
 export const defaultEventType: EventTypeEditorFormState = {
   title: "",
@@ -132,7 +142,7 @@ export function firstFieldErrors(
 }
 
 export function isVideoProviderValue(value: string): value is VideoProvider {
-  return value === "google_meet" || value === "microsoft_teams";
+  return isVideoProvider(value);
 }
 
 export function locationPlaceholder(
@@ -149,9 +159,7 @@ export function locationPreviewType(
   videoProvider: EventTypeFormValues["video_provider"]
 ) {
   if (locationType === "video_provider") {
-    return videoProvider === "microsoft_teams"
-      ? "Microsoft Teams"
-      : "Google Meet";
+    return videoProviderLabel(videoProvider ?? defaultVideoProvider);
   }
 
   if (locationType === "in_person") return "In person";
@@ -176,37 +184,7 @@ export function videoProviderHealth(
   provider: VideoProvider,
   connections: CalendarConnectionSummary[]
 ): VideoProviderHealth {
-  const calendarProvider = provider === "google_meet" ? "google" : "microsoft";
-  const label = provider === "google_meet" ? "Google Meet" : "Microsoft Teams";
-  const connection = connections.find(
-    (item) => item.provider === calendarProvider
-  );
-
-  if (!connection) {
-    return {
-      ready: false,
-      message: `${label} needs a connected calendar account before links can be generated.`,
-    };
-  }
-
-  if (connection.status !== "active") {
-    return {
-      ready: false,
-      message: `${label} calendar connection needs attention before links can be generated.`,
-    };
-  }
-
-  if (!connection.calendars.some((calendar) => calendar.useForWrites)) {
-    return {
-      ready: false,
-      message: `${label} needs a writable calendar selected for booking writes.`,
-    };
-  }
-
-  return {
-    ready: true,
-    message: `${label} is ready to generate links for new bookings.`,
-  };
+  return getVideoProviderReadiness(provider, connections);
 }
 
 export function createQuestionId(): string {

@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { videoProviderLabel } from "@/lib/calendar/video-providers";
 
 interface BookingConfirmationProps {
   bookingId: string;
@@ -193,8 +194,8 @@ function bookingLocationLabel({
   locationValue?: string | null;
   conferenceProvider?: string | null;
 }) {
-  if (conferenceProvider === "google_meet") return "Google Meet";
-  if (conferenceProvider === "microsoft_teams") return "Microsoft Teams";
+  const generatedVideoLabel = videoProviderLabel(conferenceProvider);
+  if (generatedVideoLabel) return generatedVideoLabel;
   if (locationValue) return locationValue;
   if (locationType === "phone") return "Phone call";
   if (locationType === "in_person") return "In person";

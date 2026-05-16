@@ -1,6 +1,10 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  defaultVideoProvider,
+  videoProviderOptions,
+} from "@/lib/calendar/video-providers";
+import {
   locationPlaceholder,
   type VideoProviderHealth,
 } from "../event-type-editor-model";
@@ -21,7 +25,7 @@ export function LocationSection({
 }: LocationSectionProps) {
   const locationSelectValue =
     values.location_type === "video_provider"
-      ? values.video_provider ?? "google_meet"
+      ? values.video_provider ?? defaultVideoProvider
       : values.location_type;
 
   return (
@@ -37,8 +41,11 @@ export function LocationSection({
           <option value="custom">Custom link</option>
           <option value="phone">Phone</option>
           <option value="in_person">In Person</option>
-          <option value="google_meet">Google Meet</option>
-          <option value="microsoft_teams">Microsoft Teams</option>
+          {videoProviderOptions.map((provider) => (
+            <option key={provider.id} value={provider.id}>
+              {provider.label}
+            </option>
+          ))}
           <option value="online">Online (manual)</option>
         </select>
         {errors.location_type ? (
