@@ -71,7 +71,6 @@ supabase db reset --local
 supabase db push --local
 supabase db push --linked --dry-run
 supabase db push --linked
-supabase seed --local
 ```
 
 GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to `main` and pull requests targeting `main`. It runs `npm ci`, `npm audit --audit-level=moderate`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and Supabase migration validation with `supabase db start`, `supabase db reset --local --no-seed`, and `supabase db lint --local --fail-on error`. Vercel worker cron config exists in `vercel.json`.
@@ -132,13 +131,7 @@ GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to 
    Add `--include-seed` only when seed data should be applied to that linked
    project.
 
-5. Optional standalone local seed after the local stack is running:
-
-   ```bash
-   supabase seed --local
-   ```
-
-6. Start the app:
+5. Start the app:
 
    ```bash
    npm run dev
