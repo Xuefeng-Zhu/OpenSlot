@@ -205,6 +205,26 @@ describe('eventTypeSchema', () => {
       expect(result.success).toBe(false)
     })
   })
+
+  describe('reminder policy validation', () => {
+    it('requires a recipient for generated video event reminders', () => {
+      const result = eventTypeSchema.safeParse({
+        ...validEventType,
+        location_type: 'video_provider',
+        video_provider: 'google_meet',
+        reminder_enabled: true,
+        reminder_guest_enabled: false,
+        reminder_host_enabled: false,
+      })
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error.flatten().fieldErrors.reminder_guest_enabled).toEqual([
+          'Select at least one reminder recipient',
+        ])
+      }
+    })
+  })
 })
 
 describe('confirmBookingSchema', () => {

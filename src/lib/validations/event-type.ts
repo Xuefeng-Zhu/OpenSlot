@@ -65,26 +65,25 @@ export const eventTypeSchema = eventTypeFieldsSchema
           path: ['video_provider'],
         })
       }
-      return
-    }
+    } else {
+      if (data.video_provider) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Video provider is only available for generated video locations',
+          path: ['video_provider'],
+        })
+      }
 
-    if (data.video_provider) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Video provider is only available for generated video locations',
-        path: ['video_provider'],
-      })
-    }
-
-    if (
-      ['phone', 'in_person', 'custom'].includes(data.location_type) &&
-      !data.location_value?.trim()
-    ) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Location details are required',
-        path: ['location_value'],
-      })
+      if (
+        ['phone', 'in_person', 'custom'].includes(data.location_type) &&
+        !data.location_value?.trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Location details are required',
+          path: ['location_value'],
+        })
+      }
     }
 
     if (
