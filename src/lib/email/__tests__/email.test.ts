@@ -554,17 +554,44 @@ describe('Email Send Functions', () => {
     })
   })
 
-  describe('fire-and-forget behavior', () => {
-    it('never throws even if provider fails', async () => {
-      // Simulate an error by mocking the provider to throw
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  describe('provider failure behavior', () => {
+    const deliveryFailureCases: Array<[string, () => Promise<void>, string]> = [
+      [
+        'booking confirmation',
+        () => sendBookingConfirmationToGuest(sampleBookingDetails),
+        'Booking confirmation email to guest failed: Provider down',
+      ],
+      [
+        'host notification',
+        () => sendBookingNotificationToHost(sampleBookingDetails),
+        'Booking notification email to host failed: Provider down',
+      ],
+      [
+        'cancellation',
+        () => sendCancellationEmail(sampleBookingDetails, 'guest'),
+        'Cancellation email to guest failed: Provider down',
+      ],
+      [
+        'reminder',
+        () => sendBookingReminderEmail(sampleBookingDetails, 'host', 60),
+        'Reminder email to host failed: Provider down',
+      ],
+    ]
 
-      // Even with a broken provider, the function should not throw
-      await expect(
-        sendBookingConfirmationToGuest(sampleBookingDetails)
-      ).resolves.toBeUndefined()
+    it.each(deliveryFailureCases)('throws when %s delivery fails', async (_label, sendEmail, message) => {
+      process.env.EMAIL_PROVIDER = 'resend'
+      process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
+      process.env.RESEND_API_KEY = 'resend-key'
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () =>
+          new Response(JSON.stringify({ message: 'Provider down' }), {
+            status: 503,
+          })
+        )
+      )
 
-      errorSpy.mockRestore()
+      await expect(sendEmail()).rejects.toThrow(message)
     })
   })
 })
