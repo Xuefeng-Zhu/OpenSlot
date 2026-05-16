@@ -48,7 +48,7 @@ export default async function EditEventTypePage({
   const { data: eventTypeData } = await supabase
     .from("event_types")
     .select(
-      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active"
+      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active, reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
     )
     .eq("id", id)
     .eq("user_id", profile.id)
@@ -71,6 +71,10 @@ export default async function EditEventTypePage({
         | "video_provider"
         | "invitee_questions"
         | "is_active"
+        | "reminder_enabled"
+        | "reminder_minutes_before"
+        | "reminder_guest_enabled"
+        | "reminder_host_enabled"
       > & {
         location_type: EventTypeFormValues["location_type"];
         video_provider: EventTypeFormValues["video_provider"];
@@ -96,6 +100,10 @@ export default async function EditEventTypePage({
     video_provider: eventType.video_provider,
     invitee_questions: normalizeInviteeQuestions(eventType.invitee_questions),
     is_active: eventType.is_active,
+    reminder_enabled: eventType.reminder_enabled,
+    reminder_minutes_before: eventType.reminder_minutes_before,
+    reminder_guest_enabled: eventType.reminder_guest_enabled,
+    reminder_host_enabled: eventType.reminder_host_enabled,
   };
 
   const calendarConnections = await listCalendarConnectionSummaries(

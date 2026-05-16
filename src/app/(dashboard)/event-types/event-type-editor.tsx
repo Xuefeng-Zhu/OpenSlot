@@ -3,6 +3,7 @@
 import { type FormEvent, type ReactNode, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Bell,
   CalendarDays,
   CheckCircle,
   ChevronDown,
@@ -45,7 +46,14 @@ import {
 } from "@/lib/validations/invitee-questions";
 
 interface FormSection {
-  id: "basics" | "duration" | "location" | "scheduling" | "questions" | "confirmation";
+  id:
+    | "basics"
+    | "duration"
+    | "location"
+    | "scheduling"
+    | "reminders"
+    | "questions"
+    | "confirmation";
   title: string;
   icon: ReactNode;
   open: boolean;
@@ -66,6 +74,10 @@ export interface EditableEventType {
   video_provider?: EventTypeFormValues["video_provider"];
   invitee_questions: InviteeQuestion[];
   is_active: boolean;
+  reminder_enabled: boolean;
+  reminder_minutes_before: number;
+  reminder_guest_enabled: boolean;
+  reminder_host_enabled: boolean;
 }
 
 interface EventTypeEditorProps {
@@ -95,6 +107,10 @@ const defaultEventType: Omit<EditableEventType, "id"> = {
   video_provider: null,
   invitee_questions: [],
   is_active: true,
+  reminder_enabled: false,
+  reminder_minutes_before: 1440,
+  reminder_guest_enabled: true,
+  reminder_host_enabled: true,
 };
 
 function firstFieldErrors(
@@ -156,12 +172,25 @@ export function EventTypeEditor({
     source.max_booking_days_ahead
   );
   const [isActive, setIsActive] = useState(source.is_active);
+  const [reminderEnabled, setReminderEnabled] = useState(
+    source.reminder_enabled
+  );
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState(
+    source.reminder_minutes_before
+  );
+  const [reminderGuestEnabled, setReminderGuestEnabled] = useState(
+    source.reminder_guest_enabled
+  );
+  const [reminderHostEnabled, setReminderHostEnabled] = useState(
+    source.reminder_host_enabled
+  );
 
   const [sections, setSections] = useState<FormSection[]>([
     { id: "basics", title: "Basics", icon: <FileText className="h-4 w-4" />, open: true },
     { id: "duration", title: "Duration & Buffers", icon: <Clock className="h-4 w-4" />, open: false },
     { id: "location", title: "Location", icon: <MapPin className="h-4 w-4" />, open: false },
     { id: "scheduling", title: "Scheduling Limits", icon: <CalendarDays className="h-4 w-4" />, open: false },
+    { id: "reminders", title: "Reminders", icon: <Bell className="h-4 w-4" />, open: false },
     { id: "questions", title: "Invitee Questions", icon: <MessageSquare className="h-4 w-4" />, open: false },
     { id: "confirmation", title: "Confirmation", icon: <CheckCircle className="h-4 w-4" />, open: false },
   ]);
@@ -262,6 +291,10 @@ export function EventTypeEditor({
     video_provider: locationType === "video_provider" ? videoProvider : null,
     invitee_questions: inviteeQuestions,
     is_active: isActive,
+    reminder_enabled: reminderEnabled,
+    reminder_minutes_before: reminderMinutesBefore,
+    reminder_guest_enabled: reminderGuestEnabled,
+    reminder_host_enabled: reminderHostEnabled,
   });
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -618,6 +651,92 @@ export function EventTypeEditor({
                           </p>
                         )}
                       </div>
+                    </div>
+                  )}
+                  {section.id === "reminders" && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between rounded-md border border-border p-3">
+                        <div>
+                          <Label htmlFor="reminder-enabled">
+                            Pre-meeting reminder
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Send one email reminder before this event starts.
+                          </p>
+                        </div>
+                        <Switch
+                          id="reminder-enabled"
+                          checked={reminderEnabled}
+                          onCheckedChange={(checked) => {
+                            setReminderEnabled(checked);
+                            clearFieldError("reminder_guest_enabled");
+                          }}
+                          aria-label="Enable pre-meeting reminders"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="reminder-minutes-before">
+                          Send before start (minutes)
+                        </Label>
+                        <Input
+                          id="reminder-minutes-before"
+                          type="number"
+                          value={reminderMinutesBefore}
+                          onChange={(event) => {
+                            setReminderMinutesBefore(Number(event.target.value));
+                            clearFieldError("reminder_minutes_before");
+                          }}
+                          min={5}
+                          max={10080}
+                          disabled={!reminderEnabled}
+                        />
+                        {errors.reminder_minutes_before && (
+                          <p className="text-xs text-destructive mt-1">
+                            {errors.reminder_minutes_before}
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="flex items-center justify-between rounded-md border border-border p-3">
+                          <div>
+                            <p className="text-sm font-medium">Email guest</p>
+                            <p className="text-xs text-muted-foreground">
+                              Use the guest&apos;s booking email.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={reminderGuestEnabled}
+                            onCheckedChange={(checked) => {
+                              setReminderGuestEnabled(checked);
+                              clearFieldError("reminder_guest_enabled");
+                            }}
+                            disabled={!reminderEnabled}
+                            aria-label="Email guest reminders"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between rounded-md border border-border p-3">
+                          <div>
+                            <p className="text-sm font-medium">Email host</p>
+                            <p className="text-xs text-muted-foreground">
+                              Use your profile email.
+                            </p>
+                          </div>
+                          <Switch
+                            checked={reminderHostEnabled}
+                            onCheckedChange={(checked) => {
+                              setReminderHostEnabled(checked);
+                              clearFieldError("reminder_guest_enabled");
+                            }}
+                            disabled={!reminderEnabled}
+                            aria-label="Email host reminders"
+                          />
+                        </div>
+                      </div>
+                      {errors.reminder_guest_enabled && (
+                        <p className="text-xs text-destructive">
+                          {errors.reminder_guest_enabled}
+                        </p>
+                      )}
                     </div>
                   )}
                   {section.id === "questions" && (

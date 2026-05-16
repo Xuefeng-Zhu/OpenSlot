@@ -4,7 +4,7 @@ This document tracks the gap between the target architecture in [system-design.m
 
 ## Summary
 
-The current app has a strong one-on-one scheduling core: Supabase-backed auth/profile/event types, public booking pages, slot computation, five-minute holds, database overlap constraints, idempotent confirmation/cancellation/rescheduling when keys are supplied, booking events, outbox processing, calendar OAuth/sync/write support, and signed tenant webhook deliveries.
+The current app has a strong one-on-one scheduling core: Supabase-backed auth/profile/event types, public booking pages, slot computation, five-minute holds, database overlap constraints, idempotent confirmation/cancellation/rescheduling when keys are supplied, booking events, outbox processing, one configurable pre-meeting reminder, calendar OAuth/sync/write support, and signed tenant webhook deliveries.
 
 The target system design is broader. It assumes organization-scoped tenancy, Edge Functions for risky public/provider boundaries, group and team scheduling, paid bookings, provider watch callbacks, stronger transaction boundaries, Supabase-native queues/cron, realtime dashboard freshness, and enterprise hardening.
 
@@ -24,7 +24,7 @@ The target system design is broader. It assumes organization-scoped tenancy, Edg
 | Public abuse controls | Public booking endpoints use strict validation, rate limiting, CAPTCHA/bot protection, and signed tokens. | Zod validation and high-entropy hold/cancel/reschedule tokens exist. No app-level rate limiter or CAPTCHA is implemented for slot/hold/booking routes. | Public endpoints are more exposed to scraping, brute-force attempts, and high-volume hold spam than the target design allows. | Add IP/user-agent aware rate limits, optional CAPTCHA/Turnstile for public booking mutations, and monitoring for conflict/hold spikes. |
 | Background job platform | Supabase Cron/`pg_cron` plus `pgmq` queues for expiry, provider sync, watch renewal, reminders, payment reconciliation, cleanup, and webhook/provider backoff. | Vercel Cron calls Next route handlers for outbox processing, webhook delivery processing, and calendar sync. Outbox/delivery ledgers are normal tables with leasing RPCs, not `pgmq`. | Works for MVP, but background work is tied to Vercel and lacks several target jobs. | Decide whether to stay Vercel-based or move to Supabase Cron/Queues; document one worker platform as canonical before adding more jobs. |
 | Hold expiry sweeps | Active holds expire automatically and release reservations on a schedule. | Expired holds/reservations are cleaned lazily during hold creation or confirmation/reschedule paths. | Expired rows may remain active until touched by another operation, increasing reliance on lazy cleanup paths. | Add a scheduled expiry worker that marks expired holds and host reservations idempotently. |
-| Reminders | Reminder jobs enqueue 24h/1h/10m or product-defined reminder notifications. | Confirmation/cancellation/reschedule notification events exist; reminder scheduling does not. | No pre-meeting reminder emails or reminder worker state. | Add reminder policy fields, scheduled reminder outbox events, and suppression rules for cancelled/rescheduled bookings. |
+| Reminders | Reminder jobs enqueue 24h/1h/10m or product-defined reminder notifications. | Event types can schedule one pre-meeting email reminder through `outbox_events.available_at`, with guest/host email recipient toggles and cancellation/reschedule suppression at processing time. | MVP reminders do not yet support multi-step workflows, post-meeting follow-ups, no-show style automation, templates per event type, or scheduler SLAs below the active worker cadence. | Add multi-step workflow rules, follow-up/no-show automation, per-event template customization, and production scheduler monitoring for queue latency. |
 | Calendar watch callbacks | Google `events.watch`, Microsoft Graph subscriptions, callback endpoints, renewal jobs, and sync-token repair paths keep busy cache fresh. | OAuth, calendar list sync, busy-cache refresh, provider availability filtering, and provider event writes are implemented. Provider watch/subscription creation, renewal, and webhook callbacks are not implemented. | Busy-cache freshness depends on periodic sync; provider changes can be stale between syncs. | Add provider webhook endpoints, watch/subscription rows lifecycle, renewal worker, sync cursor handling, and provider-specific validation tests. |
 | Final provider availability verification | Booking commit can perform a final live provider check when cache freshness is poor or watch health is degraded. | Slot computation uses local schedules, holds/bookings, and synced external busy cache. Confirmation trusts the hold; it does not perform a live provider check. | A provider calendar event added after the last sync can conflict with a booking. | Track cache freshness/watch health and add an optional final free/busy check before confirmation for stale or high-value bookings. |
 | Webhook endpoint model | Tenant webhooks are org-scoped and secret handling is explicitly designed for signing, rotation, and endpoint lifecycle. | Webhook endpoints are profile-scoped and store a server-only `secret_token`; create returns the secret once, and list APIs hide it. | Signed delivery works, but org ownership, secret rotation, delivery replay UX, and endpoint lifecycle are narrower than the target tenant model. | Move endpoints to org scope after org tenancy exists; add secret rotation/versioning and replay/diagnostic controls. |
@@ -51,7 +51,7 @@ Medium priority for a stronger scheduling product:
 
 - Implement provider watch callbacks and renewal.
 - Add final live provider availability checks when cache health is stale.
-- Add reminders.
+- Expand reminders into multi-step follow-up workflows.
 - Improve observability around queue lag, provider failures, webhook delivery, and booking conflicts.
 
 Major product expansion:
@@ -66,6 +66,7 @@ Major product expansion:
 - Booking confirmation, cancellation, and rescheduling support idempotent retries when clients send a key.
 - Booking lifecycle events are appended to `booking_events`.
 - Side effects are represented as deduped `outbox_events`.
+- Pre-meeting reminders use deduped, scheduled `outbox_events` and recheck booking status before sending.
 - Calendar provider tokens live in server-only tables and are encrypted before storage.
 - Calendar event writes and cancellation retries store external references in `calendar_event_refs`.
 - Tenant webhook deliveries are signed and retried through worker processing.

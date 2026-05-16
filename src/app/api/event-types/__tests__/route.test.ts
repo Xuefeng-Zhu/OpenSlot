@@ -62,6 +62,10 @@ const validBody = {
   location_type: 'online',
   location_value: 'Zoom',
   is_active: true,
+  reminder_enabled: true,
+  reminder_minutes_before: 1440,
+  reminder_guest_enabled: true,
+  reminder_host_enabled: true,
 }
 
 function requestWithJson(body: unknown) {
@@ -105,6 +109,10 @@ describe('POST /api/event-types', () => {
       location_value: 'Zoom',
       video_provider: null,
       is_active: true,
+      reminder_enabled: true,
+      reminder_minutes_before: 1440,
+      reminder_guest_enabled: true,
+      reminder_host_enabled: true,
     })
   })
 
@@ -162,6 +170,28 @@ describe('POST /api/event-types', () => {
     expect(data.success).toBe(false)
     expect(data.details.slug).toEqual([
       'Use lowercase letters, numbers, and hyphens',
+    ])
+  })
+
+  it('requires at least one reminder recipient when reminders are enabled', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+
+    const response = await POST(
+      requestWithJson({
+        ...validBody,
+        reminder_guest_enabled: false,
+        reminder_host_enabled: false,
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.success).toBe(false)
+    expect(data.details.reminder_guest_enabled).toEqual([
+      'Select at least one reminder recipient',
     ])
   })
 

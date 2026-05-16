@@ -32,6 +32,20 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+function formatReminderLeadTime(minutesBefore: number): string {
+  if (minutesBefore % 1440 === 0) {
+    const days = minutesBefore / 1440
+    return `${days} ${days === 1 ? 'day' : 'days'}`
+  }
+
+  if (minutesBefore % 60 === 0) {
+    const hours = minutesBefore / 60
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'}`
+  }
+
+  return `${minutesBefore} minutes`
+}
+
 /**
  * Builds the guest-facing confirmation email for a confirmed booking.
  * User-provided values are escaped for HTML while the plain-text fallback keeps
@@ -253,6 +267,80 @@ export function cancellationTemplate(
       ? `Your booking with ${htmlOtherParty} has been cancelled. You can rebook at any time.`
       : `The booking with ${htmlOtherParty} has been cancelled. The time slot is now available again.`
   }</p>
+</body>
+</html>`.trim()
+
+  return { subject, html, text }
+}
+
+/**
+ * Builds a pre-meeting reminder for either the guest or host.
+ * Reminder emails reuse booking details loaded server-side at send time so stale
+ * or cancelled bookings can be suppressed before template rendering.
+ */
+export function bookingReminderTemplate(
+  details: BookingTemplateDetails,
+  recipient: 'guest' | 'host',
+  minutesBefore: number
+): {
+  subject: string
+  html: string
+  text: string
+} {
+  const {
+    eventTitle,
+    date,
+    time,
+    guestName,
+    hostName,
+    timezone,
+    cancellationUrl,
+    rescheduleUrl,
+  } = details
+  const leadTime = formatReminderLeadTime(minutesBefore)
+  const htmlEventTitle = escapeHtml(eventTitle)
+  const htmlDate = escapeHtml(date)
+  const htmlTime = escapeHtml(time)
+  const htmlTimezone = escapeHtml(timezone)
+  const isGuest = recipient === 'guest'
+  const otherParty = isGuest ? hostName : guestName
+  const htmlOtherParty = escapeHtml(otherParty)
+  const htmlCancellationUrl = cancellationUrl
+    ? escapeHtml(cancellationUrl)
+    : undefined
+  const htmlRescheduleUrl = rescheduleUrl
+    ? escapeHtml(rescheduleUrl)
+    : undefined
+
+  const subject = `Reminder: ${eventTitle} starts in ${leadTime}`
+  const text = [
+    `Your meeting starts in ${leadTime}.`,
+    ``,
+    `Event: ${eventTitle}`,
+    isGuest ? `Host: ${hostName}` : `Guest: ${guestName}`,
+    `Date: ${date}`,
+    `Time: ${time} (${timezone})`,
+    isGuest && rescheduleUrl ? `\nNeed to reschedule? ${rescheduleUrl}` : '',
+    isGuest && cancellationUrl ? `\nNeed to cancel? ${cancellationUrl}` : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <h2 style="color: #1a1a1a;">Meeting Reminder</h2>
+  <p>Your meeting starts in ${escapeHtml(leadTime)}.</p>
+  <table style="border-collapse: collapse; width: 100%; margin: 16px 0;">
+    <tr><td style="padding: 8px; font-weight: bold;">Event</td><td style="padding: 8px;">${htmlEventTitle}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">${isGuest ? 'Host' : 'Guest'}</td><td style="padding: 8px;">${htmlOtherParty}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">Date</td><td style="padding: 8px;">${htmlDate}</td></tr>
+    <tr><td style="padding: 8px; font-weight: bold;">Time</td><td style="padding: 8px;">${htmlTime} (${htmlTimezone})</td></tr>
+  </table>
+  ${isGuest && htmlRescheduleUrl ? `<p><a href="${htmlRescheduleUrl}" style="color: #2563eb;">Need to reschedule?</a></p>` : ''}
+  ${isGuest && htmlCancellationUrl ? `<p><a href="${htmlCancellationUrl}" style="color: #dc2626;">Need to cancel?</a></p>` : ''}
 </body>
 </html>`.trim()
 

@@ -11,6 +11,7 @@ export type OutboxEventType =
   | 'notifications.requested'
   | 'notifications.cancel.requested'
   | 'notifications.reschedule.requested'
+  | 'notifications.reminder.requested'
   | 'tenant.webhooks.requested'
   | 'tenant.webhooks.cancel.requested'
   | 'tenant.webhooks.reschedule.requested'
@@ -46,6 +47,13 @@ export interface BookingRescheduleOutboxInput extends BookingOutboxInput {
   previousBookingId: string
   previousStartAt: string
   previousEndAt: string
+}
+
+export interface BookingReminderPolicy {
+  reminderEnabled: boolean
+  reminderMinutesBefore: number
+  reminderGuestEnabled: boolean
+  reminderHostEnabled: boolean
 }
 
 interface BookingOutboxPayload {
@@ -96,6 +104,84 @@ export async function enqueueBookingConfirmedOutbox(
       eventType: 'tenant.webhooks.requested',
       payload,
       dedupeKey: `booking:${booking.bookingId}:tenant-webhooks-requested`,
+    },
+  ])
+}
+
+/**
+ * Loads the event-type reminder policy and queues a scheduled reminder event
+ * for a confirmed booking. Missing or disabled policy data is treated as no-op
+ * work so booking confirmation is not blocked by optional reminder setup.
+ */
+export async function enqueueConfiguredBookingReminderOutbox(
+  adminClient: SupabaseClient<Database>,
+  booking: BookingOutboxInput
+): Promise<EnqueueOutboxEventsResult> {
+  const { data, error } = await adminClient
+    .from('event_types')
+    .select(
+      'reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled'
+    )
+    .eq('id', booking.eventTypeId)
+    .single()
+
+  if (error || !data) {
+    if (error) {
+      console.error('Error loading reminder policy:', {
+        message: error.message,
+        eventTypeId: booking.eventTypeId,
+      })
+    }
+
+    return emptyOutboxResult()
+  }
+
+  return enqueueBookingReminderOutbox(adminClient, booking, {
+    reminderEnabled: data.reminder_enabled,
+    reminderMinutesBefore: data.reminder_minutes_before,
+    reminderGuestEnabled: data.reminder_guest_enabled,
+    reminderHostEnabled: data.reminder_host_enabled,
+  })
+}
+
+/**
+ * Queues one pre-meeting reminder for a booking using an outbox available_at
+ * timestamp. The deterministic dedupe key keeps retries from scheduling more
+ * than one reminder for the same booking.
+ */
+export async function enqueueBookingReminderOutbox(
+  adminClient: SupabaseClient<Database>,
+  booking: BookingOutboxInput,
+  policy: BookingReminderPolicy
+): Promise<EnqueueOutboxEventsResult> {
+  if (
+    !policy.reminderEnabled ||
+    policy.reminderMinutesBefore <= 0 ||
+    (!policy.reminderGuestEnabled && !policy.reminderHostEnabled)
+  ) {
+    return emptyOutboxResult()
+  }
+
+  const availableAt = new Date(
+    new Date(booking.startAt).getTime() -
+      policy.reminderMinutesBefore * 60 * 1000
+  ).toISOString()
+
+  return enqueueOutboxEvents(adminClient, [
+    {
+      aggregateType: 'booking',
+      aggregateId: booking.bookingId,
+      eventType: 'notifications.reminder.requested',
+      payload: {
+        ...buildBookingPayload(booking),
+        reminderMinutesBefore: policy.reminderMinutesBefore,
+        channels: {
+          guest: policy.reminderGuestEnabled,
+          host: policy.reminderHostEnabled,
+        },
+      },
+      dedupeKey: `booking:${booking.bookingId}:notifications-reminder-requested`,
+      availableAt,
     },
   ])
 }
@@ -251,5 +337,13 @@ function buildBookingPayload(booking: BookingOutboxInput): BookingOutboxPayload 
     hostUserId: booking.hostUserId,
     startAt: booking.startAt,
     endAt: booking.endAt,
+  }
+}
+
+function emptyOutboxResult(): EnqueueOutboxEventsResult {
+  return {
+    queued: 0,
+    duplicates: 0,
+    failed: 0,
   }
 }

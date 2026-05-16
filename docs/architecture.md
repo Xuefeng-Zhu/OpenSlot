@@ -61,12 +61,12 @@ Public event page
   -> bookings insert with event-type location/answer snapshot + hold status update + host_reservations hold-to-booking conversion
   -> booking_events append
   -> contacts upsert from guest identity hash
-  -> outbox_events enqueue for provider writes, notifications, and future webhooks
+  -> outbox_events enqueue for provider writes, notifications, reminders, and future webhooks
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
   -> provider calendar event create/delete through Google Calendar or Microsoft Graph
   -> generated Google Meet/Microsoft Teams link storage when the event type requests a video provider
-  -> notification emails through the configured email provider after required generated links are ready
+  -> notification and due reminder emails through the configured email provider after required generated links are ready
   -> tenant webhook delivery rows for subscribed endpoints
   -> GET/POST /api/webhooks/process through Vercel Cron or an equivalent worker trigger
   -> /booking/cancel/[token]
@@ -84,9 +84,18 @@ Public event page
   -> reschedule_booking_with_hold()
   -> old booking status = rescheduled + new confirmed booking insert
   -> booking_events append + contacts upsert + outbox_events enqueue
+  -> replacement booking reminder outbox event scheduled from the event type policy
 ```
 
 The final anti-double-booking guard for confirmed bookings is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`. Active hold and booking reservation races are guarded by `host_reservations_no_overlap` in `supabase/migrations/20260508062648_add_host_reservations.sql`.
+
+Event types can enable one pre-meeting reminder. Booking confirmation and
+rescheduling read the event type reminder policy and enqueue a deterministic
+`notifications.reminder.requested` outbox row with `available_at` set to
+`booking.start_at - reminder_minutes_before`. The outbox worker reloads the
+booking before sending, skips rows whose booking is no longer `confirmed`, and
+also skips rows whose stored start/end time no longer matches the current
+booking. That suppresses stale reminders after cancellation or rescheduling.
 
 ## Availability Flow
 
@@ -142,6 +151,7 @@ Migrations are in `supabase/migrations/`:
 - `20260512000000_add_contacts.sql`: host-scoped contact aggregate, backfill, RLS, and soft-anonymization RPC.
 - `20260512055807_add_video_conferencing_fields.sql`: event type video provider selection, booking location/conference snapshots, and reschedule RPC snapshot handling.
 - `20260514072605_add_invitee_questions.sql`: event type invitee question JSON, booking answer snapshots, and answer-aware reschedule RPC.
+- `20260514000000_add_event_type_reminders.sql`: per-event-type pre-meeting reminder policy fields.
 
 ## API Routes
 

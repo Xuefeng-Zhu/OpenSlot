@@ -499,6 +499,10 @@ export interface Database {
           video_provider: string | null
           invitee_questions: Json
           is_active: boolean
+          reminder_enabled: boolean
+          reminder_minutes_before: number
+          reminder_guest_enabled: boolean
+          reminder_host_enabled: boolean
           created_at: string
           updated_at: string
         }
@@ -518,6 +522,10 @@ export interface Database {
           video_provider?: string | null
           invitee_questions?: Json
           is_active?: boolean
+          reminder_enabled?: boolean
+          reminder_minutes_before?: number
+          reminder_guest_enabled?: boolean
+          reminder_host_enabled?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -537,6 +545,10 @@ export interface Database {
           video_provider?: string | null
           invitee_questions?: Json
           is_active?: boolean
+          reminder_enabled?: boolean
+          reminder_minutes_before?: number
+          reminder_guest_enabled?: boolean
+          reminder_host_enabled?: boolean
           created_at?: string
           updated_at?: string
         }

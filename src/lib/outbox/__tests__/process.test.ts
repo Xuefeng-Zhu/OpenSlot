@@ -3,6 +3,7 @@ import { processOutboxBatch } from '../process'
 import {
   sendBookingConfirmationToGuest,
   sendBookingNotificationToHost,
+  sendBookingReminderEmail,
   sendCancellationEmail,
 } from '@/lib/email/send'
 import { processCalendarOutboxEvent } from '@/lib/calendar/events'
@@ -10,6 +11,7 @@ import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 vi.mock('@/lib/email/send', () => ({
   sendBookingConfirmationToGuest: vi.fn().mockResolvedValue(undefined),
   sendBookingNotificationToHost: vi.fn().mockResolvedValue(undefined),
+  sendBookingReminderEmail: vi.fn().mockResolvedValue(undefined),
   sendCancellationEmail: vi.fn().mockResolvedValue(undefined),
 }))
 
@@ -72,6 +74,9 @@ function createMockClient({
                   cancel_reason: null,
                   cancellation_token: 'cancel-token',
                   reschedule_token: 'reschedule-token',
+                  rescheduled_from_booking_id: null,
+                  rescheduled_to_booking_id: null,
+                  rescheduled_at: null,
                   location_type: 'custom',
                   location_value: 'https://example.com/meeting',
                   conference_provider: null,
@@ -257,5 +262,115 @@ describe('processOutboxBatch', () => {
       status: 'completed',
       last_error: null,
     })
+  })
+
+  it('sends due reminder notifications to enabled channels', async () => {
+    const reminderEvent = {
+      ...claimedEvent,
+      id: 'reminder-outbox-id',
+      event_type: 'notifications.reminder.requested',
+      dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+      payload: {
+        bookingId: 'booking-id-1',
+        startAt: '2026-06-15T14:00:00.000Z',
+        endAt: '2026-06-15T14:30:00.000Z',
+        reminderMinutesBefore: 60,
+        channels: {
+          guest: true,
+          host: false,
+        },
+      },
+    }
+    const { client } = createMockClient({ events: [reminderEvent] })
+
+    const result = await processOutboxBatch({
+      adminClient: client as any,
+      maxAttempts: 5,
+    })
+
+    expect(result).toEqual({ claimed: 1, completed: 1, deferred: 0, failed: 0 })
+    expect(sendBookingReminderEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        bookingId: 'booking-id-1',
+        eventTitle: 'Intro Call',
+      }),
+      'guest',
+      60
+    )
+    expect(sendBookingReminderEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['cancelled', 'rescheduled'])(
+    'skips stale reminders for %s bookings',
+    async (bookingStatus) => {
+      const reminderEvent = {
+        ...claimedEvent,
+        id: 'reminder-outbox-id',
+        event_type: 'notifications.reminder.requested',
+        dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+        payload: {
+          bookingId: 'booking-id-1',
+          startAt: '2026-06-15T14:00:00.000Z',
+          endAt: '2026-06-15T14:30:00.000Z',
+          reminderMinutesBefore: 60,
+          channels: {
+            guest: true,
+            host: true,
+          },
+        },
+      }
+      const { client, calls } = createMockClient({
+        events: [reminderEvent],
+        bookingOverrides: {
+          status: bookingStatus,
+        },
+      })
+
+      const result = await processOutboxBatch({
+        adminClient: client as any,
+        maxAttempts: 5,
+      })
+
+      expect(result).toEqual({ claimed: 1, completed: 1, deferred: 0, failed: 0 })
+      expect(sendBookingReminderEmail).not.toHaveBeenCalled()
+      expect(calls.updates[0]).toMatchObject({
+        status: 'completed',
+        last_error: null,
+      })
+    }
+  )
+
+  it('skips reminders whose scheduled time no longer matches the booking', async () => {
+    const reminderEvent = {
+      ...claimedEvent,
+      id: 'reminder-outbox-id',
+      event_type: 'notifications.reminder.requested',
+      dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+      payload: {
+        bookingId: 'booking-id-1',
+        startAt: '2026-06-15T14:00:00.000Z',
+        endAt: '2026-06-15T14:30:00.000Z',
+        reminderMinutesBefore: 60,
+        channels: {
+          guest: true,
+          host: true,
+        },
+      },
+    }
+    const { client } = createMockClient({
+      events: [reminderEvent],
+      bookingOverrides: {
+        start_at: '2026-06-16T14:00:00.000Z',
+        end_at: '2026-06-16T14:30:00.000Z',
+      },
+    })
+
+    const result = await processOutboxBatch({
+      adminClient: client as any,
+      maxAttempts: 5,
+    })
+
+    expect(result).toEqual({ claimed: 1, completed: 1, deferred: 0, failed: 0 })
+    expect(sendBookingReminderEmail).not.toHaveBeenCalled()
   })
 })

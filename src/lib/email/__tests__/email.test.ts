@@ -2,12 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import {
   bookingConfirmationGuestTemplate,
   bookingNotificationHostTemplate,
+  bookingReminderTemplate,
   cancellationTemplate,
 } from '../templates'
 import type { BookingTemplateDetails } from '../templates'
 import {
   getEmailProvider,
   sendBookingConfirmationToGuest,
+  sendBookingReminderEmail,
   sendBookingNotificationToHost,
   sendCancellationEmail,
 } from '../send'
@@ -205,6 +207,42 @@ describe('Email Templates', () => {
       expect(result.text).toContain('Alice <b>Guest</b>')
       expect(result.html).not.toContain('<b>Guest</b>')
       expect(result.html).toContain('Alice &lt;b&gt;Guest&lt;/b&gt;')
+    })
+  })
+
+  describe('bookingReminderTemplate', () => {
+    it('returns guest-facing reminder email', () => {
+      const result = bookingReminderTemplate(sampleTemplateDetails, 'guest', 60)
+
+      expect(result.subject).toContain('starts in 1 hour')
+      expect(result.text).toContain('Host: Bob Host')
+      expect(result.text).toContain('10:00 AM - 10:30 AM')
+      expect(result.html).toContain('Meeting Reminder')
+    })
+
+    it('returns host-facing reminder email', () => {
+      const result = bookingReminderTemplate(sampleTemplateDetails, 'host', 1440)
+
+      expect(result.subject).toContain('starts in 1 day')
+      expect(result.text).toContain('Guest: Alice Guest')
+      expect(result.text).not.toContain('/booking/cancel/')
+    })
+
+    it('escapes reminder html values', () => {
+      const result = bookingReminderTemplate(
+        {
+          ...sampleTemplateDetails,
+          eventTitle: '<script>alert("x")</script>',
+          hostName: 'Bob & Sons',
+        },
+        'guest',
+        15
+      )
+
+      expect(result.text).toContain('<script>alert("x")</script>')
+      expect(result.html).not.toContain('<script>')
+      expect(result.html).toContain('&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;')
+      expect(result.html).toContain('Bob &amp; Sons')
     })
   })
 })
@@ -493,6 +531,25 @@ describe('Email Send Functions', () => {
 
     it('logs email in dev mode', async () => {
       await sendCancellationEmail(sampleBookingDetails, 'guest')
+      expect(consoleSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe('sendBookingReminderEmail', () => {
+    it('sends to guest without throwing', async () => {
+      await expect(
+        sendBookingReminderEmail(sampleBookingDetails, 'guest', 60)
+      ).resolves.toBeUndefined()
+    })
+
+    it('sends to host without throwing', async () => {
+      await expect(
+        sendBookingReminderEmail(sampleBookingDetails, 'host', 60)
+      ).resolves.toBeUndefined()
+    })
+
+    it('logs email in dev mode', async () => {
+      await sendBookingReminderEmail(sampleBookingDetails, 'guest', 60)
       expect(consoleSpy).toHaveBeenCalled()
     })
   })

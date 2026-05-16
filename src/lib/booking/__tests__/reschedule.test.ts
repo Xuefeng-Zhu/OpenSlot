@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { rescheduleBooking } from '../reschedule'
 import { appendBookingEvent } from '../events'
 import { upsertContactFromBooking } from '@/lib/contacts/contacts'
-import { enqueueBookingRescheduledOutbox } from '@/lib/outbox/outbox'
+import {
+  enqueueBookingRescheduledOutbox,
+  enqueueConfiguredBookingReminderOutbox,
+} from '@/lib/outbox/outbox'
 
 vi.mock('../events', () => ({
   appendBookingEvent: vi.fn().mockResolvedValue(true),
@@ -11,6 +14,11 @@ vi.mock('../events', () => ({
 vi.mock('@/lib/outbox/outbox', () => ({
   enqueueBookingRescheduledOutbox: vi.fn().mockResolvedValue({
     queued: 4,
+    duplicates: 0,
+    failed: 0,
+  }),
+  enqueueConfiguredBookingReminderOutbox: vi.fn().mockResolvedValue({
+    queued: 0,
     duplicates: 0,
     failed: 0,
   }),
@@ -80,6 +88,11 @@ describe('rescheduleBooking', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(upsertContactFromBooking).mockResolvedValue(null)
+    vi.mocked(enqueueConfiguredBookingReminderOutbox).mockResolvedValue({
+      queued: 0,
+      duplicates: 0,
+      failed: 0,
+    })
   })
 
   it('uses the atomic reschedule RPC and queues side effects', async () => {
@@ -129,6 +142,16 @@ describe('rescheduleBooking', () => {
       previousStartAt: '2026-05-07T16:00:00.000Z',
       previousEndAt: '2026-05-07T16:30:00.000Z',
     })
+    expect(enqueueConfiguredBookingReminderOutbox).toHaveBeenCalledWith(
+      adminClient,
+      {
+        bookingId: 'new-booking-1',
+        eventTypeId: 'event-type-1',
+        hostUserId: 'profile-1',
+        startAt: '2026-05-08T16:00:00.000Z',
+        endAt: '2026-05-08T16:30:00.000Z',
+      }
+    )
   })
 
   it('passes validated invitee answers into the reschedule RPC', async () => {
@@ -184,6 +207,7 @@ describe('rescheduleBooking', () => {
       error: 'Hold has expired. Please select a new slot.',
     })
     expect(enqueueBookingRescheduledOutbox).not.toHaveBeenCalled()
+    expect(enqueueConfiguredBookingReminderOutbox).not.toHaveBeenCalled()
   })
 
   it('maps database overlap conflicts to slot-taken', async () => {

@@ -55,8 +55,8 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/lib/booking/__tests__/` covers confirmation, cancellation, and rescheduling engines with mocked Supabase chains.
 - `src/lib/booking/__tests__/events.test.ts` covers booking audit event append behavior.
 - `src/lib/idempotency/__tests__/` covers request hashing, duplicate replay, and key-conflict behavior.
-- `src/lib/outbox/__tests__/` covers outbox dedupe handling and booking side-effect event sets.
-- `src/lib/outbox/__tests__/process.test.ts` covers outbox leasing, notification dispatch, completion, and retry failure marking.
+- `src/lib/outbox/__tests__/` covers outbox dedupe handling, booking side-effect event sets, and scheduled reminder enqueueing.
+- `src/lib/outbox/__tests__/process.test.ts` covers outbox leasing, notification/reminder dispatch, stale reminder suppression, completion, and retry failure marking.
 - `src/app/api/outbox/process/__tests__/` covers the worker trigger authorization and batch options.
 - `src/lib/webhooks/__tests__/deliveries.test.ts` covers webhook delivery enqueueing, signatures, success marking, and retry failure marking.
 - `src/lib/webhooks/__tests__/endpoints.test.ts` covers safe webhook endpoint summaries for dashboard/API use.
@@ -64,7 +64,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/app/api/webhooks/endpoints/__tests__/` covers webhook endpoint creation/listing without exposing secrets.
 - `src/lib/calendar/__tests__/` covers safe calendar connection summaries, OAuth URL/token helpers, and provider event API adapters including generated Meet/Teams links.
 - `src/lib/security/__tests__/token-encryption.test.ts` covers OAuth token encryption round trips.
-- `src/lib/email/__tests__/email.test.ts` covers templates, generated conference link rendering, console delivery, and the Resend/Maileroo provider adapters.
+- `src/lib/email/__tests__/email.test.ts` covers booking lifecycle/reminder templates, generated conference link rendering, console delivery, and the Resend/Maileroo provider adapters.
 - `src/app/api/calendar/sync/__tests__/` covers calendar sync worker trigger authorization and batch options.
 - `src/app/api/settings/__tests__/` covers authenticated settings persistence and account deletion.
 - `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC and conflict mapping.

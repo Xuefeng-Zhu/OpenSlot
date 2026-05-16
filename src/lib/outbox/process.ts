@@ -4,6 +4,7 @@ import type { OutboxEventType } from './outbox'
 import {
   sendBookingConfirmationToGuest,
   sendBookingNotificationToHost,
+  sendBookingReminderEmail,
   sendCancellationEmail,
   type BookingDetails,
 } from '@/lib/email/send'
@@ -13,6 +14,20 @@ import { normalizeBookingAnswerSummaries } from '@/lib/validations/invitee-quest
 
 type OutboxEventRow = Tables<'outbox_events'>
 type BookingRow = Tables<'bookings'>
+type LoadedBookingDetails = BookingDetails & Pick<BookingRow, 'status'>
+
+interface ReminderChannels {
+  guest: boolean
+  host: boolean
+}
+
+interface ReminderRequest {
+  bookingId: string
+  startAt: string
+  endAt: string
+  reminderMinutesBefore: number
+  channels: ReminderChannels
+}
 
 export interface ProcessOutboxBatchOptions {
   adminClient: SupabaseClient<Database>
@@ -104,6 +119,9 @@ async function defaultHandler(
     case 'notifications.reschedule.requested':
       await sendBookingRescheduledNotifications(event, adminClient)
       return
+    case 'notifications.reminder.requested':
+      await sendBookingReminderNotifications(event, adminClient)
+      return
     case 'calendar.write.requested':
     case 'calendar.cancel.requested':
     case 'calendar.reschedule.requested':
@@ -165,11 +183,47 @@ async function sendBookingRescheduledNotifications(
   await sendBookingNotificationToHost(bookingDetails)
 }
 
+async function sendBookingReminderNotifications(
+  event: OutboxEventRow,
+  adminClient: SupabaseClient<Database>
+) {
+  const reminderRequest = reminderRequestFromPayload(event.payload)
+  const bookingDetails = await loadBookingDetails(
+    adminClient,
+    reminderRequest.bookingId,
+    { requireReadyConference: true }
+  )
+
+  if (
+    bookingDetails.status !== 'confirmed' ||
+    bookingDetails.startAt !== reminderRequest.startAt ||
+    bookingDetails.endAt !== reminderRequest.endAt
+  ) {
+    return
+  }
+
+  if (reminderRequest.channels.guest) {
+    await sendBookingReminderEmail(
+      bookingDetails,
+      'guest',
+      reminderRequest.reminderMinutesBefore
+    )
+  }
+
+  if (reminderRequest.channels.host) {
+    await sendBookingReminderEmail(
+      bookingDetails,
+      'host',
+      reminderRequest.reminderMinutesBefore
+    )
+  }
+}
+
 async function loadBookingDetails(
   adminClient: SupabaseClient<Database>,
   bookingId: string,
   options: { requireReadyConference: boolean }
-): Promise<BookingDetails> {
+): Promise<LoadedBookingDetails> {
   const { data: bookingData, error: bookingError } = await adminClient
     .from('bookings')
     .select('*')
@@ -224,6 +278,7 @@ async function loadBookingDetails(
     bookingAnswers: normalizeBookingAnswerSummaries(booking.booking_answers),
     cancellationToken: booking.cancellation_token,
     rescheduleToken: booking.reschedule_token,
+    status: booking.status,
   }
 }
 
@@ -337,4 +392,38 @@ function bookingIdFromPayload(payload: Json): string {
   }
 
   throw new Error('Outbox event payload is missing bookingId')
+}
+
+function reminderRequestFromPayload(payload: Json): ReminderRequest {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    throw new Error('Outbox event payload is missing reminder data')
+  }
+
+  const channels: Record<string, Json | undefined> =
+    payload.channels &&
+    typeof payload.channels === 'object' &&
+    payload.channels !== null &&
+    !Array.isArray(payload.channels)
+      ? payload.channels
+      : {}
+
+  if (
+    typeof payload.bookingId === 'string' &&
+    typeof payload.startAt === 'string' &&
+    typeof payload.endAt === 'string' &&
+    typeof payload.reminderMinutesBefore === 'number'
+  ) {
+    return {
+      bookingId: payload.bookingId,
+      startAt: payload.startAt,
+      endAt: payload.endAt,
+      reminderMinutesBefore: payload.reminderMinutesBefore,
+      channels: {
+        guest: channels.guest !== false,
+        host: channels.host !== false,
+      },
+    }
+  }
+
+  throw new Error('Outbox event payload is missing reminder data')
 }

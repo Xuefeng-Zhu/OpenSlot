@@ -11,6 +11,7 @@ import { ConsoleEmailProvider, MailerooEmailProvider, ResendEmailProvider } from
 import {
   bookingConfirmationGuestTemplate,
   bookingNotificationHostTemplate,
+  bookingReminderTemplate,
   cancellationTemplate,
 } from './templates'
 import type { BookingAnswerSummary } from '@/lib/validations/invitee-questions'
@@ -281,5 +282,54 @@ export async function sendCancellationEmail(
     }
   } catch (error) {
     console.error(`[Email] Error sending cancellation email to ${recipient}:`, error)
+  }
+}
+
+/**
+ * Sends a pre-meeting reminder to either the guest or the host.
+ * Fire-and-forget: catches errors and logs them.
+ */
+export async function sendBookingReminderEmail(
+  booking: BookingDetails,
+  recipient: 'guest' | 'host',
+  minutesBefore: number
+): Promise<void> {
+  try {
+    const provider = getEmailProvider()
+    const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
+    const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+    const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
+    const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
+
+    const { subject, html, text } = bookingReminderTemplate(
+      {
+        eventTitle: booking.eventTitle,
+        date,
+        time,
+        guestName: booking.guestName,
+        guestEmail: booking.guestEmail,
+        hostName: booking.hostName,
+        timezone: booking.guestTimezone,
+        cancellationUrl,
+        rescheduleUrl,
+      },
+      recipient,
+      minutesBefore
+    )
+
+    const payload: EmailPayload = {
+      to: toEmail,
+      subject,
+      html,
+      text,
+      idempotencyKey: `booking-reminder:${booking.bookingId}:${recipient}:${minutesBefore}`,
+    }
+
+    const result = await provider.send(payload)
+    if (!result.success) {
+      console.error(`[Email] Failed to send reminder email to ${recipient} (${toEmail}):`, result.error)
+    }
+  } catch (error) {
+    console.error(`[Email] Error sending reminder email to ${recipient}:`, error)
   }
 }

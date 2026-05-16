@@ -3,7 +3,10 @@ import type { Database } from '@/lib/types/database'
 import type { RescheduleBookingInput, RescheduleBookingResult } from './types'
 import { appendBookingEvent } from './events'
 import { upsertContactFromBooking } from '@/lib/contacts/contacts'
-import { enqueueBookingRescheduledOutbox } from '@/lib/outbox/outbox'
+import {
+  enqueueBookingRescheduledOutbox,
+  enqueueConfiguredBookingReminderOutbox,
+} from '@/lib/outbox/outbox'
 import {
   normalizeInviteeQuestions,
   parseInviteeAnswers,
@@ -142,6 +145,14 @@ export async function rescheduleBooking(
     endAt: row.end_at,
     previousStartAt: row.previous_start_at,
     previousEndAt: row.previous_end_at,
+  })
+
+  await enqueueConfiguredBookingReminderOutbox(adminClient, {
+    bookingId: row.new_booking_id,
+    eventTypeId: row.event_type_id,
+    hostUserId: row.host_user_id,
+    startAt: row.start_at,
+    endAt: row.end_at,
   })
 
   return {

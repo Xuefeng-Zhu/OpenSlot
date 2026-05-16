@@ -108,7 +108,7 @@ MAILEROO_API_KEY=...
 
 Generated Google Meet and Microsoft Teams links depend on the existing Google/Microsoft calendar OAuth credentials and writable provider calendars. No separate Zoom or video-provider secret is required for the v1 video integration.
 
-Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking emails through Resend. Set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY` to send through Maileroo. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
+Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking and reminder emails through Resend. Set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY` to send through Maileroo. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
 
 ## Release Runbook
 
@@ -143,7 +143,7 @@ release after backup and monitoring checks.
 
 The committed schedules run once daily so Hobby preview deployments pass
 Vercel's Cron limits. Production deployments that need lower-latency
-notifications, webhook delivery, or calendar busy-cache refreshes should use a
+notifications, reminders, webhook delivery, or calendar busy-cache refreshes should use a
 Vercel plan or an external scheduler that supports the desired cadence. Vercel
 sends `CRON_SECRET` as a bearer token when that project environment variable is
 configured. Non-Vercel deployments should configure an equivalent scheduler that
@@ -156,6 +156,11 @@ the active production platform after every platform migration or project
 recreation. The app currently treats Vercel Cron as the canonical scheduler;
 do not add another production scheduler without documenting which one owns
 each worker route.
+
+Reminder punctuality depends on how often `/api/outbox/process` runs. The
+worker only sends rows whose `available_at` is due, then rechecks the booking
+status and scheduled start/end time before emailing, so stale reminders from
+cancelled or rescheduled bookings complete without sending mail.
 
 ## Migration Runbook
 

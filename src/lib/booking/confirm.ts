@@ -1,7 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Tables } from '@/lib/types/database'
 import type { ConfirmBookingInput, ConfirmBookingResult } from './types'
-import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
+import {
+  enqueueBookingConfirmedOutbox,
+  enqueueConfiguredBookingReminderOutbox,
+} from '@/lib/outbox/outbox'
 import {
   convertHoldReservationToBooking,
   expireHoldReservation,
@@ -156,6 +159,14 @@ export async function confirmBooking(
   })
 
   await enqueueBookingConfirmedOutbox(adminClient, {
+    bookingId: booking.id,
+    eventTypeId: hold.event_type_id,
+    hostUserId: hold.host_user_id,
+    startAt: hold.start_at,
+    endAt: hold.end_at,
+  })
+
+  await enqueueConfiguredBookingReminderOutbox(adminClient, {
     bookingId: booking.id,
     eventTypeId: hold.event_type_id,
     hostUserId: hold.host_user_id,
