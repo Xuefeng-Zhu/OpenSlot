@@ -3,7 +3,7 @@
  *
  * Emails are logged to the console unless EMAIL_PROVIDER is configured.
  *
- * All functions are fire-and-forget: errors are caught and logged, never thrown.
+ * Delivery failures throw so outbox processing can retry failed work.
  */
 
 import type { EmailProvider, EmailPayload } from './provider'
@@ -155,177 +155,170 @@ function bookingLocationLabel(booking: BookingDetails): string | undefined {
   return undefined
 }
 
-/**
- * Sends a booking confirmation email to the guest.
- * Fire-and-forget: catches errors and logs them.
- */
-export async function sendBookingConfirmationToGuest(booking: BookingDetails): Promise<void> {
+function emailErrorMessage(context: string, error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return `${context}: ${error.message}`
+  }
+
+  if (typeof error === 'string' && error.length > 0) {
+    return `${context}: ${error}`
+  }
+
+  return `${context}: unknown email provider error`
+}
+
+async function deliverEmail(payload: EmailPayload, failureContext: string): Promise<void> {
   try {
     const provider = getEmailProvider()
-    const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
-    const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
-    const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
-    const locationLabel = bookingLocationLabel(booking)
-
-    const { subject, html, text } = bookingConfirmationGuestTemplate({
-      eventTitle: booking.eventTitle,
-      date,
-      time,
-      guestName: booking.guestName,
-      guestEmail: booking.guestEmail,
-      hostName: booking.hostName,
-      timezone: booking.guestTimezone,
-      locationLabel,
-      conferenceUrl: booking.conferenceUrl ?? undefined,
-      cancellationUrl,
-      rescheduleUrl,
-    })
-
-    const payload: EmailPayload = {
-      to: booking.guestEmail,
-      subject,
-      html,
-      text,
-      idempotencyKey: `booking-confirmation:${booking.bookingId}:guest`,
-    }
-
     const result = await provider.send(payload)
+
     if (!result.success) {
-      console.error(`[Email] Failed to send booking confirmation to guest ${booking.guestEmail}:`, result.error)
+      throw new Error(result.error ?? 'Email provider returned an unsuccessful response')
     }
   } catch (error) {
-    console.error('[Email] Error sending booking confirmation to guest:', error)
+    throw new Error(emailErrorMessage(failureContext, error))
   }
+}
+
+/**
+ * Sends a booking confirmation email to the guest.
+ * Throws on provider failures so the outbox worker can retry delivery.
+ */
+export async function sendBookingConfirmationToGuest(booking: BookingDetails): Promise<void> {
+  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
+  const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
+  const locationLabel = bookingLocationLabel(booking)
+
+  const { subject, html, text } = bookingConfirmationGuestTemplate({
+    eventTitle: booking.eventTitle,
+    date,
+    time,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    hostName: booking.hostName,
+    timezone: booking.guestTimezone,
+    locationLabel,
+    conferenceUrl: booking.conferenceUrl ?? undefined,
+    cancellationUrl,
+    rescheduleUrl,
+  })
+
+  const payload: EmailPayload = {
+    to: booking.guestEmail,
+    subject,
+    html,
+    text,
+    idempotencyKey: `booking-confirmation:${booking.bookingId}:guest`,
+  }
+
+  await deliverEmail(payload, 'Booking confirmation email to guest failed')
 }
 
 /**
  * Sends a booking notification email to the host.
- * Fire-and-forget: catches errors and logs them.
+ * Throws on provider failures so the outbox worker can retry delivery.
  */
 export async function sendBookingNotificationToHost(booking: BookingDetails): Promise<void> {
-  try {
-    const provider = getEmailProvider()
-    const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
-    const locationLabel = bookingLocationLabel(booking)
+  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const locationLabel = bookingLocationLabel(booking)
 
-    const { subject, html, text } = bookingNotificationHostTemplate({
-      eventTitle: booking.eventTitle,
-      date,
-      time,
-      guestName: booking.guestName,
-      guestEmail: booking.guestEmail,
-      hostName: booking.hostName,
-      timezone: booking.guestTimezone,
-      locationLabel,
-      conferenceUrl: booking.conferenceUrl ?? undefined,
-      bookingAnswers: booking.bookingAnswers,
-    })
+  const { subject, html, text } = bookingNotificationHostTemplate({
+    eventTitle: booking.eventTitle,
+    date,
+    time,
+    guestName: booking.guestName,
+    guestEmail: booking.guestEmail,
+    hostName: booking.hostName,
+    timezone: booking.guestTimezone,
+    locationLabel,
+    conferenceUrl: booking.conferenceUrl ?? undefined,
+    bookingAnswers: booking.bookingAnswers,
+  })
 
-    const payload: EmailPayload = {
-      to: booking.hostEmail,
-      subject,
-      html,
-      text,
-      idempotencyKey: `booking-notification:${booking.bookingId}:host`,
-    }
-
-    const result = await provider.send(payload)
-    if (!result.success) {
-      console.error(`[Email] Failed to send booking notification to host ${booking.hostEmail}:`, result.error)
-    }
-  } catch (error) {
-    console.error('[Email] Error sending booking notification to host:', error)
+  const payload: EmailPayload = {
+    to: booking.hostEmail,
+    subject,
+    html,
+    text,
+    idempotencyKey: `booking-notification:${booking.bookingId}:host`,
   }
+
+  await deliverEmail(payload, 'Booking notification email to host failed')
 }
 
 /**
  * Sends a cancellation email to either the guest or the host.
- * Fire-and-forget: catches errors and logs them.
+ * Throws on provider failures so the outbox worker can retry delivery.
  */
 export async function sendCancellationEmail(
   booking: BookingDetails,
   recipient: 'guest' | 'host'
 ): Promise<void> {
-  try {
-    const provider = getEmailProvider()
-    const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
-    const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
+  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
 
-    const { subject, html, text } = cancellationTemplate(
-      {
-        eventTitle: booking.eventTitle,
-        date,
-        time,
-        guestName: booking.guestName,
-        guestEmail: booking.guestEmail,
-        hostName: booking.hostName,
-        timezone: booking.guestTimezone,
-      },
-      recipient
-    )
+  const { subject, html, text } = cancellationTemplate(
+    {
+      eventTitle: booking.eventTitle,
+      date,
+      time,
+      guestName: booking.guestName,
+      guestEmail: booking.guestEmail,
+      hostName: booking.hostName,
+      timezone: booking.guestTimezone,
+    },
+    recipient
+  )
 
-    const payload: EmailPayload = {
-      to: toEmail,
-      subject,
-      html,
-      text,
-      idempotencyKey: `booking-cancellation:${booking.bookingId}:${recipient}`,
-    }
-
-    const result = await provider.send(payload)
-    if (!result.success) {
-      console.error(`[Email] Failed to send cancellation email to ${recipient} (${toEmail}):`, result.error)
-    }
-  } catch (error) {
-    console.error(`[Email] Error sending cancellation email to ${recipient}:`, error)
+  const payload: EmailPayload = {
+    to: toEmail,
+    subject,
+    html,
+    text,
+    idempotencyKey: `booking-cancellation:${booking.bookingId}:${recipient}`,
   }
+
+  await deliverEmail(payload, `Cancellation email to ${recipient} failed`)
 }
 
 /**
  * Sends a pre-meeting reminder to either the guest or the host.
- * Fire-and-forget: catches errors and logs them.
+ * Throws on provider failures so the outbox worker can retry delivery.
  */
 export async function sendBookingReminderEmail(
   booking: BookingDetails,
   recipient: 'guest' | 'host',
   minutesBefore: number
 ): Promise<void> {
-  try {
-    const provider = getEmailProvider()
-    const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
-    const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
-    const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
-    const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
+  const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
+  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
+  const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
 
-    const { subject, html, text } = bookingReminderTemplate(
-      {
-        eventTitle: booking.eventTitle,
-        date,
-        time,
-        guestName: booking.guestName,
-        guestEmail: booking.guestEmail,
-        hostName: booking.hostName,
-        timezone: booking.guestTimezone,
-        cancellationUrl,
-        rescheduleUrl,
-      },
-      recipient,
-      minutesBefore
-    )
+  const { subject, html, text } = bookingReminderTemplate(
+    {
+      eventTitle: booking.eventTitle,
+      date,
+      time,
+      guestName: booking.guestName,
+      guestEmail: booking.guestEmail,
+      hostName: booking.hostName,
+      timezone: booking.guestTimezone,
+      cancellationUrl,
+      rescheduleUrl,
+    },
+    recipient,
+    minutesBefore
+  )
 
-    const payload: EmailPayload = {
-      to: toEmail,
-      subject,
-      html,
-      text,
-      idempotencyKey: `booking-reminder:${booking.bookingId}:${recipient}:${minutesBefore}`,
-    }
-
-    const result = await provider.send(payload)
-    if (!result.success) {
-      console.error(`[Email] Failed to send reminder email to ${recipient} (${toEmail}):`, result.error)
-    }
-  } catch (error) {
-    console.error(`[Email] Error sending reminder email to ${recipient}:`, error)
+  const payload: EmailPayload = {
+    to: toEmail,
+    subject,
+    html,
+    text,
+    idempotencyKey: `booking-reminder:${booking.bookingId}:${recipient}:${minutesBefore}`,
   }
+
+  await deliverEmail(payload, `Reminder email to ${recipient} failed`)
 }
