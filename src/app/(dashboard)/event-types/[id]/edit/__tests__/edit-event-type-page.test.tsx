@@ -25,6 +25,10 @@ const strategySession: EditableEventType = {
   location_value: "https://zoom.us/j/987654",
   invitee_questions: [],
   is_active: true,
+  reminder_enabled: true,
+  reminder_minutes_before: 60,
+  reminder_guest_enabled: true,
+  reminder_host_enabled: false,
 };
 
 describe("EditEventTypePage editor", () => {
@@ -55,6 +59,25 @@ describe("EditEventTypePage editor", () => {
     expect(
       (screen.getByLabelText("Description") as HTMLTextAreaElement).value
     ).toBe("A deeper session to discuss goals and next steps.");
+
+    fireEvent.click(screen.getByRole("button", { name: "Reminders" }));
+
+    expect(
+      screen.getByRole("switch", { name: "Enable pre-meeting reminders" })
+        .getAttribute("aria-checked")
+    ).toBe("true");
+    expect(
+      (screen.getByLabelText("Send before start (minutes)") as HTMLInputElement)
+        .value
+    ).toBe("60");
+    expect(
+      screen.getByRole("switch", { name: "Email guest reminders" })
+        .getAttribute("aria-checked")
+    ).toBe("true");
+    expect(
+      screen.getByRole("switch", { name: "Email host reminders" })
+        .getAttribute("aria-checked")
+    ).toBe("false");
   });
 
   it("clears field-level validation errors when corrected", () => {

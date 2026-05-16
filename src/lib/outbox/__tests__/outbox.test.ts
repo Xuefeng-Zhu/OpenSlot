@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   enqueueBookingCancelledOutbox,
   enqueueBookingConfirmedOutbox,
+  enqueueBookingReminderOutbox,
+  enqueueConfiguredBookingReminderOutbox,
   enqueueOutboxEvents,
 } from '../outbox'
 
@@ -147,6 +149,104 @@ describe('booking outbox helpers', () => {
       eventTypeId: 'event-type-1',
       hostUserId: 'host-user-1',
       cancelReasonProvided: true,
+    })
+  })
+
+  it('enqueues a scheduled reminder with configured channels', async () => {
+    const { client, calls } = createMockClient([null])
+
+    const result = await enqueueBookingReminderOutbox(client as any, booking, {
+      reminderEnabled: true,
+      reminderMinutesBefore: 60,
+      reminderGuestEnabled: true,
+      reminderHostEnabled: false,
+    })
+
+    expect(result).toEqual({ queued: 1, duplicates: 0, failed: 0 })
+    expect(calls.inserts[0]).toMatchObject({
+      aggregate_type: 'booking',
+      aggregate_id: 'booking-id-1',
+      event_type: 'notifications.reminder.requested',
+      dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+      available_at: '2025-01-15T13:00:00.000Z',
+      payload: {
+        bookingId: 'booking-id-1',
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+        reminderMinutesBefore: 60,
+        channels: {
+          guest: true,
+          host: false,
+        },
+      },
+    })
+  })
+
+  it('does not enqueue reminders when policy is disabled', async () => {
+    const { client, calls } = createMockClient([])
+
+    const result = await enqueueBookingReminderOutbox(client as any, booking, {
+      reminderEnabled: false,
+      reminderMinutesBefore: 60,
+      reminderGuestEnabled: true,
+      reminderHostEnabled: true,
+    })
+
+    expect(result).toEqual({ queued: 0, duplicates: 0, failed: 0 })
+    expect(calls.inserts).toEqual([])
+  })
+
+  it('loads event type policy before scheduling configured reminders', async () => {
+    const calls = {
+      inserts: [] as Array<Record<string, unknown>>,
+    }
+
+    const insert = vi.fn(async (payload: Record<string, unknown>) => {
+      calls.inserts.push(payload)
+      return { error: null }
+    })
+    const client = {
+      from: vi.fn((table: string) => {
+        if (table === 'event_types') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({
+                  data: {
+                    reminder_enabled: true,
+                    reminder_minutes_before: 30,
+                    reminder_guest_enabled: false,
+                    reminder_host_enabled: true,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+
+        return { insert }
+      }),
+    }
+
+    const result = await enqueueConfiguredBookingReminderOutbox(
+      client as any,
+      booking
+    )
+
+    expect(result).toEqual({ queued: 1, duplicates: 0, failed: 0 })
+    expect(calls.inserts[0]).toMatchObject({
+      event_type: 'notifications.reminder.requested',
+      available_at: '2025-01-15T13:30:00.000Z',
+      payload: {
+        reminderMinutesBefore: 30,
+        channels: {
+          guest: false,
+          host: true,
+        },
+      },
     })
   })
 })

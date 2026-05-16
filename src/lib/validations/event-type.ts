@@ -44,6 +44,15 @@ export const eventTypeFieldsSchema = z.object({
   video_provider: z.enum(videoProviders).nullable().optional(),
   invitee_questions: inviteeQuestionConfigSchema.default([]),
   is_active: z.boolean().default(true),
+  reminder_enabled: z.boolean().default(false),
+  reminder_minutes_before: z
+    .number()
+    .int('Reminder timing must be a whole number')
+    .min(5, 'Reminder must be at least 5 minutes before the meeting')
+    .max(10080, 'Reminder must be 7 days or less before the meeting')
+    .default(1440),
+  reminder_guest_enabled: z.boolean().default(true),
+  reminder_host_enabled: z.boolean().default(true),
 })
 
 export const eventTypeSchema = eventTypeFieldsSchema
@@ -56,27 +65,46 @@ export const eventTypeSchema = eventTypeFieldsSchema
           path: ['video_provider'],
         })
       }
-      return
-    }
+    } else {
+      if (data.video_provider) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Video provider is only available for generated video locations',
+          path: ['video_provider'],
+        })
+      }
 
-    if (data.video_provider) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: 'Video provider is only available for generated video locations',
-        path: ['video_provider'],
-      })
+      if (
+        ['phone', 'in_person', 'custom'].includes(data.location_type) &&
+        !data.location_value?.trim()
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Location details are required',
+          path: ['location_value'],
+        })
+      }
     }
 
     if (
-      ['phone', 'in_person', 'custom'].includes(data.location_type) &&
-      !data.location_value?.trim()
+      data.reminder_enabled &&
+      !data.reminder_guest_enabled &&
+      !data.reminder_host_enabled
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Location details are required',
-        path: ['location_value'],
+        message: 'Select at least one reminder recipient',
+        path: ['reminder_guest_enabled'],
       })
     }
   })
 
 export type EventTypeFormValues = z.infer<typeof eventTypeSchema>
+
+/**
+ * Parses event type values with cross-field location and reminder policy
+ * validation.
+ */
+export function parseEventTypeValues(body: unknown) {
+  return eventTypeSchema.safeParse(body)
+}

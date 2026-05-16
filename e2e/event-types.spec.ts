@@ -107,4 +107,70 @@ test.describe("event type management", () => {
     await expect(page.getByText("30 Minute Meeting")).toBeVisible();
     await expect(page.getByText("60 Minute Consultation")).toBeVisible();
   });
+
+  test("host configures a pre-meeting reminder for an event type", async ({
+    page,
+  }) => {
+    const adminClient = createE2EAdminClient();
+    const slug = uniqueE2EId("reminder");
+    const title = `E2E Reminder Session ${slug.slice(-8)}`;
+
+    await cleanupEventTypesBySlug(adminClient, [slug]);
+
+    try {
+      await loginAsDemoHost(page, "/event-types/new");
+
+      await page.getByLabel("Title").fill(title);
+      await page.getByLabel("URL Slug").fill(slug);
+      await page.getByRole("button", { name: "Reminders" }).click();
+      await page
+        .getByRole("switch", { name: "Enable pre-meeting reminders" })
+        .click();
+      await page.getByLabel("Send before start (minutes)").fill("90");
+      await page
+        .getByRole("switch", { name: "Email host reminders" })
+        .click();
+      await page.getByRole("button", { name: "Save" }).click();
+
+      await expect(page).toHaveURL(/\/event-types$/);
+      await expect(page.getByRole("heading", { name: title })).toBeVisible();
+
+      await expect
+        .poll(async () => {
+          const { data } = await adminClient
+            .from("event_types")
+            .select(
+              "reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
+            )
+            .eq("slug", slug)
+            .single();
+
+          return data;
+        })
+        .toMatchObject({
+          reminder_enabled: true,
+          reminder_minutes_before: 90,
+          reminder_guest_enabled: true,
+          reminder_host_enabled: false,
+        });
+
+      await page.getByRole("button", { name: `Edit ${title}` }).click();
+      await page.getByRole("button", { name: "Reminders" }).click();
+
+      await expect(
+        page.getByRole("switch", { name: "Enable pre-meeting reminders" })
+      ).toHaveAttribute("aria-checked", "true");
+      await expect(page.getByLabel("Send before start (minutes)")).toHaveValue(
+        "90"
+      );
+      await expect(
+        page.getByRole("switch", { name: "Email guest reminders" })
+      ).toHaveAttribute("aria-checked", "true");
+      await expect(
+        page.getByRole("switch", { name: "Email host reminders" })
+      ).toHaveAttribute("aria-checked", "false");
+    } finally {
+      await cleanupEventTypesBySlug(adminClient, [slug]);
+    }
+  });
 });

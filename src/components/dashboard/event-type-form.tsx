@@ -49,6 +49,10 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
       location_value: '',
       invitee_questions: [],
       is_active: true,
+      reminder_enabled: false,
+      reminder_minutes_before: 1440,
+      reminder_guest_enabled: true,
+      reminder_host_enabled: true,
     },
   })
 
@@ -97,6 +101,10 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
           location_value: data.location_value ?? '',
           invitee_questions: data.invitee_questions,
           is_active: data.is_active,
+          reminder_enabled: data.reminder_enabled,
+          reminder_minutes_before: data.reminder_minutes_before,
+          reminder_guest_enabled: data.reminder_guest_enabled,
+          reminder_host_enabled: data.reminder_host_enabled,
         })
 
         if (error) {
@@ -124,6 +132,10 @@ export function EventTypeForm({ mode, initialData, eventTypeId }: EventTypeFormP
             location_value: data.location_value ?? '',
             invitee_questions: data.invitee_questions,
             is_active: data.is_active,
+            reminder_enabled: data.reminder_enabled,
+            reminder_minutes_before: data.reminder_minutes_before,
+            reminder_guest_enabled: data.reminder_guest_enabled,
+            reminder_host_enabled: data.reminder_host_enabled,
             updated_at: new Date().toISOString(),
           })
           .eq('id', eventTypeId!)

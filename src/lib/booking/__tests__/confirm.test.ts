@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { confirmBooking } from '../confirm'
 import type { ConfirmBookingInput } from '../types'
-import { enqueueBookingConfirmedOutbox } from '@/lib/outbox/outbox'
+import {
+  enqueueBookingConfirmedOutbox,
+  enqueueConfiguredBookingReminderOutbox,
+} from '@/lib/outbox/outbox'
 import {
   convertHoldReservationToBooking,
   expireHoldReservation,
@@ -18,6 +21,11 @@ vi.mock('@/lib/email/send', () => ({
 vi.mock('@/lib/outbox/outbox', () => ({
   enqueueBookingConfirmedOutbox: vi.fn().mockResolvedValue({
     queued: 4,
+    duplicates: 0,
+    failed: 0,
+  }),
+  enqueueConfiguredBookingReminderOutbox: vi.fn().mockResolvedValue({
+    queued: 0,
     duplicates: 0,
     failed: 0,
   }),
@@ -97,6 +105,11 @@ describe('confirmBooking', () => {
       duplicates: 0,
       failed: 0,
     })
+    vi.mocked(enqueueConfiguredBookingReminderOutbox).mockResolvedValue({
+      queued: 0,
+      duplicates: 0,
+      failed: 0,
+    })
     vi.mocked(convertHoldReservationToBooking).mockResolvedValue(true)
     vi.mocked(expireHoldReservation).mockResolvedValue(true)
     vi.mocked(upsertContactFromBooking).mockResolvedValue(null)
@@ -155,6 +168,16 @@ describe('confirmBooking', () => {
       startAt: '2025-01-15T14:00:00Z',
       endAt: '2025-01-15T14:30:00Z',
     })
+    expect(enqueueConfiguredBookingReminderOutbox).toHaveBeenCalledWith(
+      mockClient,
+      {
+        bookingId: 'booking-id-1',
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+      }
+    )
     expect(convertHoldReservationToBooking).toHaveBeenCalledWith(mockClient, {
       holdId: 'hold-id-1',
       bookingId: 'booking-id-1',

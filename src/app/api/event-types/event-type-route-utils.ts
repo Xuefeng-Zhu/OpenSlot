@@ -1,7 +1,7 @@
 import type { z } from 'zod'
 import type { Tables } from '@/lib/types/database'
 import {
-  eventTypeSchema,
+  parseEventTypeValues,
   type EventTypeFormValues,
 } from '@/lib/validations/event-type'
 
@@ -66,7 +66,7 @@ export async function getAuthenticatedProfile(
  * Parses unknown JSON using the shared event type schema.
  */
 export function parseEventTypeBody(body: unknown) {
-  return eventTypeSchema.safeParse(body)
+  return parseEventTypeValues(body)
 }
 
 /**
@@ -104,6 +104,10 @@ export function eventTypeWritePayload(
     video_provider: isGeneratedVideo ? data.video_provider ?? null : null,
     invitee_questions: data.invitee_questions,
     is_active: data.is_active,
+    reminder_enabled: data.reminder_enabled,
+    reminder_minutes_before: data.reminder_minutes_before,
+    reminder_guest_enabled: data.reminder_guest_enabled,
+    reminder_host_enabled: data.reminder_host_enabled,
   }
 }
 

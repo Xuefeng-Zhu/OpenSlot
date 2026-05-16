@@ -49,4 +49,31 @@ describe("NewEventTypePage editor", () => {
     expect(screen.getByDisplayValue("What should we discuss?")).toBeDefined();
     expect(screen.getByText("Required")).toBeDefined();
   });
+
+  it("validates reminder recipient controls", () => {
+    render(<EventTypeEditor mode="create" hostName="Sarah Chen" />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Reminders" }));
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Enable pre-meeting reminders" })
+    );
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Email guest reminders" })
+    );
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Email host reminders" })
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "QA Coffee Chat" },
+    });
+    fireEvent.change(screen.getByLabelText("URL Slug"), {
+      target: { value: "qa-coffee-chat" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      screen.getByText("Select at least one reminder recipient")
+    ).toBeDefined();
+  });
 });
