@@ -11,23 +11,11 @@ import {
 import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 import { enqueueWebhookDeliveriesForOutboxEvent } from '@/lib/webhooks/deliveries'
 import { normalizeBookingAnswerSummaries } from '@/lib/validations/invitee-questions'
+import { parseReminderOutboxPayload } from './reminder-payload'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type BookingRow = Tables<'bookings'>
 type LoadedBookingDetails = BookingDetails & Pick<BookingRow, 'status'>
-
-interface ReminderChannels {
-  guest: boolean
-  host: boolean
-}
-
-interface ReminderRequest {
-  bookingId: string
-  startAt: string
-  endAt: string
-  reminderMinutesBefore: number
-  channels: ReminderChannels
-}
 
 export interface ProcessOutboxBatchOptions {
   adminClient: SupabaseClient<Database>
@@ -187,7 +175,7 @@ async function sendBookingReminderNotifications(
   event: OutboxEventRow,
   adminClient: SupabaseClient<Database>
 ) {
-  const reminderRequest = reminderRequestFromPayload(event.payload)
+  const reminderRequest = parseReminderOutboxPayload(event.payload)
   const bookingDetails = await loadBookingDetails(
     adminClient,
     reminderRequest.bookingId,
@@ -392,38 +380,4 @@ function bookingIdFromPayload(payload: Json): string {
   }
 
   throw new Error('Outbox event payload is missing bookingId')
-}
-
-function reminderRequestFromPayload(payload: Json): ReminderRequest {
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    throw new Error('Outbox event payload is missing reminder data')
-  }
-
-  const channels: Record<string, Json | undefined> =
-    payload.channels &&
-    typeof payload.channels === 'object' &&
-    payload.channels !== null &&
-    !Array.isArray(payload.channels)
-      ? payload.channels
-      : {}
-
-  if (
-    typeof payload.bookingId === 'string' &&
-    typeof payload.startAt === 'string' &&
-    typeof payload.endAt === 'string' &&
-    typeof payload.reminderMinutesBefore === 'number'
-  ) {
-    return {
-      bookingId: payload.bookingId,
-      startAt: payload.startAt,
-      endAt: payload.endAt,
-      reminderMinutesBefore: payload.reminderMinutesBefore,
-      channels: {
-        guest: channels.guest !== false,
-        host: channels.host !== false,
-      },
-    }
-  }
-
-  throw new Error('Outbox event payload is missing reminder data')
 }

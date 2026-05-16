@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/types/database'
+import {
+  buildReminderOutboxPayload,
+  type ReminderOutboxPayload,
+} from './reminder-payload'
 
 export type OutboxEventType =
   | 'booking.confirmed'
@@ -156,15 +160,33 @@ export async function enqueueBookingReminderOutbox(
 ): Promise<EnqueueOutboxEventsResult> {
   if (
     !policy.reminderEnabled ||
-    policy.reminderMinutesBefore <= 0 ||
     (!policy.reminderGuestEnabled && !policy.reminderHostEnabled)
   ) {
     return emptyOutboxResult()
   }
 
+  let payload: ReminderOutboxPayload
+  try {
+    payload = buildReminderOutboxPayload({
+      ...buildBookingPayload(booking),
+      reminderMinutesBefore: policy.reminderMinutesBefore,
+      channels: {
+        guest: policy.reminderGuestEnabled,
+        host: policy.reminderHostEnabled,
+      },
+    })
+  } catch (error) {
+    console.error('Invalid reminder outbox payload:', {
+      message: error instanceof Error ? error.message : String(error),
+      bookingId: booking.bookingId,
+      eventTypeId: booking.eventTypeId,
+    })
+    return emptyOutboxResult()
+  }
+
   const availableAt = new Date(
-    new Date(booking.startAt).getTime() -
-      policy.reminderMinutesBefore * 60 * 1000
+    new Date(payload.startAt).getTime() -
+      payload.reminderMinutesBefore * 60 * 1000
   ).toISOString()
 
   return enqueueOutboxEvents(adminClient, [
@@ -172,14 +194,7 @@ export async function enqueueBookingReminderOutbox(
       aggregateType: 'booking',
       aggregateId: booking.bookingId,
       eventType: 'notifications.reminder.requested',
-      payload: {
-        ...buildBookingPayload(booking),
-        reminderMinutesBefore: policy.reminderMinutesBefore,
-        channels: {
-          guest: policy.reminderGuestEnabled,
-          host: policy.reminderHostEnabled,
-        },
-      },
+      payload,
       dedupeKey: `booking:${booking.bookingId}:notifications-reminder-requested`,
       availableAt,
     },

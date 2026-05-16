@@ -184,6 +184,33 @@ describe('booking outbox helpers', () => {
     })
   })
 
+  it('does not enqueue reminders with invalid lead times', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    const { client, calls } = createMockClient([])
+
+    const result = await enqueueBookingReminderOutbox(client as any, booking, {
+      reminderEnabled: true,
+      reminderMinutesBefore: 4,
+      reminderGuestEnabled: true,
+      reminderHostEnabled: false,
+    })
+
+    expect(result).toEqual({ queued: 0, duplicates: 0, failed: 0 })
+    expect(calls.inserts).toEqual([])
+    expect(consoleError).toHaveBeenCalledWith(
+      'Invalid reminder outbox payload:',
+      expect.objectContaining({
+        bookingId: 'booking-id-1',
+        eventTypeId: 'event-type-1',
+        message: expect.stringContaining('reminderMinutesBefore'),
+      })
+    )
+
+    consoleError.mockRestore()
+  })
+
   it('does not enqueue reminders when policy is disabled', async () => {
     const { client, calls } = createMockClient([])
 

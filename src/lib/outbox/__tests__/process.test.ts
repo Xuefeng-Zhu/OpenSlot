@@ -36,6 +36,67 @@ const claimedEvent = {
   updated_at: '2026-01-01T00:00:00.000Z',
 }
 
+const validReminderPayload = {
+  bookingId: 'booking-id-1',
+  eventTypeId: 'event-type-1',
+  hostUserId: 'host-user-1',
+  startAt: '2026-06-15T14:00:00.000Z',
+  endAt: '2026-06-15T14:30:00.000Z',
+  reminderMinutesBefore: 60,
+  channels: {
+    guest: true,
+    host: false,
+  },
+}
+
+const malformedReminderPayloadCases: Array<
+  [string, Record<string, unknown>, string]
+> = [
+  [
+    'missing booking id',
+    {
+      ...validReminderPayload,
+      bookingId: undefined,
+    },
+    'bookingId',
+  ],
+  [
+    'missing timing fields',
+    {
+      ...validReminderPayload,
+      startAt: undefined,
+    },
+    'startAt',
+  ],
+  [
+    'missing channels',
+    {
+      ...validReminderPayload,
+      channels: undefined,
+    },
+    'channels',
+  ],
+  [
+    'invalid channel values',
+    {
+      ...validReminderPayload,
+      channels: {
+        guest: 'yes',
+        host: false,
+      },
+    },
+    'channels.guest',
+  ],
+  [
+    'invalid lead time',
+    {
+      ...validReminderPayload,
+      reminderMinutesBefore: 4,
+    },
+    'reminderMinutesBefore',
+  ],
+]
+
 function createMockClient({
   events = [claimedEvent],
   handlerError = null,
@@ -270,16 +331,7 @@ describe('processOutboxBatch', () => {
       id: 'reminder-outbox-id',
       event_type: 'notifications.reminder.requested',
       dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
-      payload: {
-        bookingId: 'booking-id-1',
-        startAt: '2026-06-15T14:00:00.000Z',
-        endAt: '2026-06-15T14:30:00.000Z',
-        reminderMinutesBefore: 60,
-        channels: {
-          guest: true,
-          host: false,
-        },
-      },
+      payload: validReminderPayload,
     }
     const { client } = createMockClient({ events: [reminderEvent] })
 
@@ -300,6 +352,32 @@ describe('processOutboxBatch', () => {
     expect(sendBookingReminderEmail).toHaveBeenCalledTimes(1)
   })
 
+  it.each(malformedReminderPayloadCases)(
+    'fails malformed reminder payloads with %s',
+    async (_caseName, payload, path) => {
+      const reminderEvent = {
+        ...claimedEvent,
+        id: 'reminder-outbox-id',
+        event_type: 'notifications.reminder.requested',
+        dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+        payload,
+      }
+      const { client, calls } = createMockClient({ events: [reminderEvent] })
+
+      const result = await processOutboxBatch({
+        adminClient: client as any,
+        maxAttempts: 5,
+      })
+
+      expect(result).toEqual({ claimed: 1, completed: 0, deferred: 0, failed: 1 })
+      expect(sendBookingReminderEmail).not.toHaveBeenCalled()
+      expect(calls.updates[0]).toMatchObject({
+        status: 'failed',
+        last_error: expect.stringContaining(path),
+      })
+    }
+  )
+
   it.each(['cancelled', 'rescheduled'])(
     'skips stale reminders for %s bookings',
     async (bookingStatus) => {
@@ -309,10 +387,7 @@ describe('processOutboxBatch', () => {
         event_type: 'notifications.reminder.requested',
         dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
         payload: {
-          bookingId: 'booking-id-1',
-          startAt: '2026-06-15T14:00:00.000Z',
-          endAt: '2026-06-15T14:30:00.000Z',
-          reminderMinutesBefore: 60,
+          ...validReminderPayload,
           channels: {
             guest: true,
             host: true,
@@ -347,10 +422,7 @@ describe('processOutboxBatch', () => {
       event_type: 'notifications.reminder.requested',
       dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
       payload: {
-        bookingId: 'booking-id-1',
-        startAt: '2026-06-15T14:00:00.000Z',
-        endAt: '2026-06-15T14:30:00.000Z',
-        reminderMinutesBefore: 60,
+        ...validReminderPayload,
         channels: {
           guest: true,
           host: true,
