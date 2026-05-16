@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { validateHoldSlotRequest } from '@/lib/availability/available-slots'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createHoldSchema } from '@/lib/validations/booking'
 
@@ -38,58 +39,18 @@ export async function POST(request: NextRequest) {
 
     const adminClient = createAdminClient()
 
-    // Check for existing active hold or confirmed booking that conflicts
-    // with the requested time range for this host
-    const nowISO = new Date().toISOString()
+    const slotValidation = await validateHoldSlotRequest({
+      supabase: adminClient,
+      hostUserId,
+      eventTypeId,
+      startAt,
+      endAt,
+    })
 
-    // Check for conflicting active holds (not expired)
-    const { data: conflictingHolds, error: holdsError } = await adminClient
-      .from('slot_holds')
-      .select('id')
-      .eq('host_user_id', hostUserId)
-      .eq('status', 'active')
-      .gt('expires_at', nowISO)
-      .lt('start_at', endAt)
-      .gt('end_at', startAt)
-      .limit(1)
-
-    if (holdsError) {
-      console.error('Error checking conflicting holds:', holdsError)
+    if (!slotValidation.success) {
       return NextResponse.json(
-        { error: 'Failed to check slot availability' },
-        { status: 500 }
-      )
-    }
-
-    if (conflictingHolds && conflictingHolds.length > 0) {
-      return NextResponse.json(
-        { error: 'This time slot is currently held by another guest. Please select a different time.' },
-        { status: 409 }
-      )
-    }
-
-    // Check for conflicting confirmed bookings
-    const { data: conflictingBookings, error: bookingsError } = await adminClient
-      .from('bookings')
-      .select('id')
-      .eq('host_user_id', hostUserId)
-      .eq('status', 'confirmed')
-      .lt('start_at', endAt)
-      .gt('end_at', startAt)
-      .limit(1)
-
-    if (bookingsError) {
-      console.error('Error checking conflicting bookings:', bookingsError)
-      return NextResponse.json(
-        { error: 'Failed to check slot availability' },
-        { status: 500 }
-      )
-    }
-
-    if (conflictingBookings && conflictingBookings.length > 0) {
-      return NextResponse.json(
-        { error: 'This time slot is already booked. Please select a different time.' },
-        { status: 409 }
+        { error: slotValidation.error },
+        { status: slotValidation.status }
       )
     }
 
@@ -112,6 +73,20 @@ export async function POST(request: NextRequest) {
       if (insertError.code === '23P01' || insertError.code === '23505') {
         return NextResponse.json(
           { error: 'This time slot is currently held by another guest. Please select a different time.' },
+          { status: 409 }
+        )
+      }
+
+      if (insertError.code === 'P0002') {
+        return NextResponse.json(
+          { error: 'Event type not found' },
+          { status: 404 }
+        )
+      }
+
+      if (insertError.code === '22023') {
+        return NextResponse.json(
+          { error: 'This time slot is no longer available. Please select a different time.' },
           { status: 409 }
         )
       }
