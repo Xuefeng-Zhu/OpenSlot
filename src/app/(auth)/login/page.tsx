@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Lock, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import {
+  setBrowserAuthSessionPersistence,
+} from "@/lib/supabase/auth-cookie-persistence";
 import { AppIcon } from "@/components/shared/app-icon";
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { Button } from "@/components/ui/button";
@@ -18,6 +21,7 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [keepSignedIn, setKeepSignedIn] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{
     email?: string;
@@ -43,7 +47,8 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
+      setBrowserAuthSessionPersistence(keepSignedIn);
+      const supabase = createClient({ keepSignedIn });
 
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
@@ -165,6 +170,21 @@ function LoginForm() {
               {fieldErrors.password}
             </p>
           )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            id="keep-signed-in"
+            type="checkbox"
+            checked={keepSignedIn}
+            onChange={(e) => setKeepSignedIn(e.target.checked)}
+            className="h-4 w-4 rounded border-border text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          />
+          <Label
+            htmlFor="keep-signed-in"
+            className="cursor-pointer text-sm font-normal text-muted-foreground"
+          >
+            Keep me signed in
+          </Label>
         </div>
         <Button type="submit" className="w-full" size="lg" disabled={loading}>
           {loading ? (

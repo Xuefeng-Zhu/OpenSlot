@@ -1,5 +1,9 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import {
+  applyAuthSessionPersistence,
+  shouldKeepAuthSession,
+} from '@/lib/supabase/auth-cookie-persistence'
 
 /**
  * Refreshes Supabase auth cookies and protects dashboard routes at the edge.
@@ -25,6 +29,10 @@ export async function proxy(request: NextRequest) {
     return response
   }
 
+  const keepSignedIn = shouldKeepAuthSession(
+    (name) => request.cookies.get(name)?.value
+  )
+
   const supabase = createServerClient(
     supabaseUrl,
     supabaseAnonKey,
@@ -33,8 +41,19 @@ export async function proxy(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
+        setAll(
+          cookiesToSet: {
+            name: string
+            value: string
+            options: CookieOptions
+          }[]
+        ) {
+          const authCookies = applyAuthSessionPersistence(
+            cookiesToSet,
+            keepSignedIn
+          )
+
+          authCookies.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           )
           response = NextResponse.next({
@@ -42,7 +61,7 @@ export async function proxy(request: NextRequest) {
               headers: request.headers,
             },
           })
-          cookiesToSet.forEach(({ name, value, options }) =>
+          authCookies.forEach(({ name, value, options }) =>
             response.cookies.set(name, value, options)
           )
         },

@@ -1,6 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/lib/types/database'
+import {
+  applyAuthSessionPersistence,
+  shouldKeepAuthSession,
+} from '@/lib/supabase/auth-cookie-persistence'
 
 /**
  * Creates a request-scoped Supabase client for Server Components and routes.
@@ -9,6 +13,9 @@ import type { Database } from '@/lib/types/database'
  */
 export async function createServerSupabaseClient() {
   const cookieStore = await cookies()
+  const keepSignedIn = shouldKeepAuthSession(
+    (name) => cookieStore.get(name)?.value
+  )
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,10 +25,17 @@ export async function createServerSupabaseClient() {
         getAll() {
           return cookieStore.getAll()
         },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+        setAll(
+          cookiesToSet: {
+            name: string
+            value: string
+            options: CookieOptions
+          }[]
+        ) {
           try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
+            applyAuthSessionPersistence(cookiesToSet, keepSignedIn).forEach(
+              ({ name, value, options }) =>
+                cookieStore.set(name, value, options)
             )
           } catch {
             // The `setAll` method was called from a Server Component.
