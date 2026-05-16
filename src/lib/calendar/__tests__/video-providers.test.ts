@@ -41,6 +41,8 @@ describe('video provider metadata', () => {
   it('parses only supported generated video provider ids', () => {
     expect(parseVideoProvider('google_meet')).toBe('google_meet')
     expect(parseVideoProvider('zoom')).toBeNull()
+    expect(parseVideoProvider('toString')).toBeNull()
+    expect(parseVideoProvider('__proto__')).toBeNull()
     expect(videoProviderLabel('zoom')).toBeNull()
   })
 })

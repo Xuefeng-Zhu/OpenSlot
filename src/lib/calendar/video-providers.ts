@@ -56,7 +56,10 @@ interface CalendarConnectionForReadiness {
 }
 
 export function isVideoProvider(value: unknown): value is VideoProvider {
-  return typeof value === 'string' && value in videoProviderMetadata
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(videoProviderMetadata, value)
+  )
 }
 
 export function parseVideoProvider(
