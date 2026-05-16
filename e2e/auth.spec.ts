@@ -65,4 +65,15 @@ test.describe("authentication and access control", () => {
     ).toBeVisible();
     await expect(page.getByText("30 Minute Meeting")).toBeVisible();
   });
+
+  test("signed-in hosts skip the login page", async ({ page }) => {
+    await loginAsDemoHost(page);
+
+    await page.goto("/login");
+    await expect(page).toHaveURL(/\/dashboard$/);
+
+    await page.goto("/login?returnUrl=/settings");
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
+  });
 });
