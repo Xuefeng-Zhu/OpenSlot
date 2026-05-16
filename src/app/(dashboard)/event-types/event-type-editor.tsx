@@ -7,19 +7,19 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import { eventTypeSchema } from "@/lib/validations/event-type";
+import { BasicsSection } from "./event-type-editor-sections/basics-section";
+import { ConfirmationSection } from "./event-type-editor-sections/confirmation-section";
+import { DurationBuffersSection } from "./event-type-editor-sections/duration-buffers-section";
+import { EventTypePreview } from "./event-type-editor-sections/event-type-preview";
+import { EventTypeSectionCard } from "./event-type-editor-sections/event-type-section-card";
 import {
-  BasicsSection,
-  ConfirmationSection,
-  DurationBuffersSection,
-  EventTypePreview,
-  EventTypeSectionCard,
   FORM_SECTIONS,
   type FormSectionId,
-  InviteeQuestionsSection,
-  LocationSection,
-  RemindersSection,
-  SchedulingLimitsSection,
-} from "./event-type-editor-sections";
+} from "./event-type-editor-sections/form-sections";
+import { InviteeQuestionsSection } from "./event-type-editor-sections/invitee-questions-section";
+import { LocationSection } from "./event-type-editor-sections/location-section";
+import { RemindersSection } from "./event-type-editor-sections/reminders-section";
+import { SchedulingLimitsSection } from "./event-type-editor-sections/scheduling-limits-section";
 import {
   type ApiResponse,
   type EditableEventType,
