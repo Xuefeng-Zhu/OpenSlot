@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
-import type { VideoProvider } from '@/lib/validations/event-type'
+import type { VideoProvider } from '@/lib/calendar/video-providers'
 import { decryptToken, encryptToken } from '@/lib/security/token-encryption'
 import { refreshCalendarAccessToken } from './oauth'
 

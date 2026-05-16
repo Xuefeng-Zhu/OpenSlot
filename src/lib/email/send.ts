@@ -14,6 +14,7 @@ import {
   bookingReminderTemplate,
   cancellationTemplate,
 } from './templates'
+import { videoProviderLabel } from '@/lib/calendar/video-providers'
 import type { BookingAnswerSummary } from '@/lib/validations/invitee-questions'
 
 /**
@@ -132,13 +133,8 @@ function buildRescheduleUrl(rescheduleToken: string | undefined): string | undef
 }
 
 function bookingLocationLabel(booking: BookingDetails): string | undefined {
-  if (booking.conferenceProvider === 'google_meet') {
-    return 'Google Meet'
-  }
-
-  if (booking.conferenceProvider === 'microsoft_teams') {
-    return 'Microsoft Teams'
-  }
+  const generatedVideoLabel = videoProviderLabel(booking.conferenceProvider)
+  if (generatedVideoLabel) return generatedVideoLabel
 
   if (booking.locationValue) {
     return booking.locationValue

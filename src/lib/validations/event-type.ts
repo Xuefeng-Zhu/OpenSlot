@@ -1,5 +1,8 @@
 import { z } from 'zod'
+import { videoProviders, type VideoProvider } from '@/lib/calendar/video-providers'
 import { inviteeQuestionConfigSchema } from './invitee-questions'
+
+export { videoProviders, type VideoProvider }
 
 export const eventLocationTypes = [
   'online',
@@ -9,10 +12,7 @@ export const eventLocationTypes = [
   'video_provider',
 ] as const
 
-export const videoProviders = ['google_meet', 'microsoft_teams'] as const
-
 export type EventLocationType = (typeof eventLocationTypes)[number]
-export type VideoProvider = (typeof videoProviders)[number]
 
 /**
  * URL-safe slug contract for event type public booking links.

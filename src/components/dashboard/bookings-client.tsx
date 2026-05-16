@@ -44,6 +44,7 @@ import {
   categorizeBookings,
   filterBookingsByEventType,
 } from "@/lib/booking-utils";
+import { videoProviderLabel } from "@/lib/calendar/video-providers";
 import { formatBookingAnswerValue } from "@/lib/validations/invitee-questions";
 
 interface BookingsClientProps {
@@ -484,8 +485,8 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
 }
 
 function bookingLocationLabel(booking: Booking): string | null {
-  if (booking.conference_provider === "google_meet") return "Google Meet";
-  if (booking.conference_provider === "microsoft_teams") return "Microsoft Teams";
+  const generatedVideoLabel = videoProviderLabel(booking.conference_provider);
+  if (generatedVideoLabel) return generatedVideoLabel;
   if (booking.location_value) return booking.location_value;
   if (booking.location_type === "phone") return "Phone call";
   if (booking.location_type === "in_person") return "In person";

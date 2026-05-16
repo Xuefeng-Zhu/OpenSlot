@@ -34,10 +34,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import {
+  defaultVideoProvider,
+  getVideoProviderReadiness,
+  isVideoProvider,
+  videoProviderLabel,
+  videoProviderOptions,
+} from "@/lib/calendar/video-providers";
+import {
   eventTypeSchema,
   type EventLocationType,
   type EventTypeFormValues,
-  type VideoProvider,
 } from "@/lib/validations/event-type";
 import {
   INVITEE_QUESTION_LIMIT,
@@ -360,9 +366,9 @@ export function EventTypeEditor({
     router.push("/event-types");
   };
   const locationSelectValue =
-    locationType === "video_provider" ? videoProvider ?? "google_meet" : locationType;
+    locationType === "video_provider" ? videoProvider ?? defaultVideoProvider : locationType;
   const selectedVideoHealth = videoProvider
-    ? videoProviderHealth(videoProvider, calendarConnections)
+    ? getVideoProviderReadiness(videoProvider, calendarConnections)
     : null;
 
   return (
@@ -545,10 +551,7 @@ export function EventTypeEditor({
                           onChange={(event) => {
                             const nextValue = event.target.value;
 
-                            if (
-                              nextValue === "google_meet" ||
-                              nextValue === "microsoft_teams"
-                            ) {
+                            if (isVideoProvider(nextValue)) {
                               setLocationType("video_provider");
                               setVideoProvider(nextValue);
                               setLocationValue("");
@@ -566,8 +569,11 @@ export function EventTypeEditor({
                           <option value="custom">Custom link</option>
                           <option value="phone">Phone</option>
                           <option value="in_person">In Person</option>
-                          <option value="google_meet">Google Meet</option>
-                          <option value="microsoft_teams">Microsoft Teams</option>
+                          {videoProviderOptions.map((provider) => (
+                            <option key={provider.id} value={provider.id}>
+                              {provider.label}
+                            </option>
+                          ))}
                           <option value="online">Online (manual)</option>
                         </select>
                         {errors.location_type && (
@@ -961,7 +967,7 @@ function locationPreviewType(
   videoProvider: EventTypeFormValues["video_provider"]
 ) {
   if (locationType === "video_provider") {
-    return videoProvider === "microsoft_teams" ? "Microsoft Teams" : "Google Meet";
+    return videoProviderLabel(videoProvider ?? defaultVideoProvider);
   }
 
   if (locationType === "in_person") return "In person";
@@ -980,43 +986,6 @@ function locationPreviewDetails(
   }
 
   return locationValue.trim() || "Not set";
-}
-
-function videoProviderHealth(
-  provider: VideoProvider,
-  connections: CalendarConnectionSummary[]
-): { ready: boolean; message: string } {
-  const calendarProvider = provider === "google_meet" ? "google" : "microsoft";
-  const label = provider === "google_meet" ? "Google Meet" : "Microsoft Teams";
-  const connection = connections.find(
-    (item) => item.provider === calendarProvider
-  );
-
-  if (!connection) {
-    return {
-      ready: false,
-      message: `${label} needs a connected calendar account before links can be generated.`,
-    };
-  }
-
-  if (connection.status !== "active") {
-    return {
-      ready: false,
-      message: `${label} calendar connection needs attention before links can be generated.`,
-    };
-  }
-
-  if (!connection.calendars.some((calendar) => calendar.useForWrites)) {
-    return {
-      ready: false,
-      message: `${label} needs a writable calendar selected for booking writes.`,
-    };
-  }
-
-  return {
-    ready: true,
-    message: `${label} is ready to generate links for new bookings.`,
-  };
 }
 
 function createQuestionId(): string {

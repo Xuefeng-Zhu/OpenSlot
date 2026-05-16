@@ -2,7 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import type { OutboxEventType } from '@/lib/outbox/outbox'
-import type { VideoProvider } from '@/lib/validations/event-type'
+import {
+  calendarProviderForVideoProvider,
+  parseVideoProvider,
+  videoProviderLabel,
+  type VideoProvider,
+} from '@/lib/calendar/video-providers'
 import {
   createProviderCalendarEvent,
   deleteProviderCalendarEvent,
@@ -437,16 +442,6 @@ function calendarTargetsForBooking(
     .slice(0, 1)
 }
 
-function calendarProviderForVideoProvider(
-  provider: VideoProvider
-): CalendarProvider {
-  return provider === 'google_meet' ? 'google' : 'microsoft'
-}
-
-function parseVideoProvider(value: string | null): VideoProvider | null {
-  return value === 'google_meet' || value === 'microsoft_teams' ? value : null
-}
-
 async function updateBookingConference(
   adminClient: SupabaseClient<Database>,
   bookingId: string,
@@ -479,10 +474,6 @@ function conferenceUrlFromMetadata(metadata: Json): string | null {
   return typeof metadata.conferenceUrl === 'string'
     ? metadata.conferenceUrl
     : null
-}
-
-function videoProviderLabel(provider: VideoProvider): string {
-  return provider === 'google_meet' ? 'Google Meet' : 'Microsoft Teams'
 }
 
 function bookingIdFromPayload(payload: Json): string {

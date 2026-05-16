@@ -25,6 +25,7 @@ import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
 import { EmptyState } from "@/components/shared/empty-state";
+import { videoProviderLabel } from "@/lib/calendar/video-providers";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 interface TimeSlot {
@@ -511,13 +512,8 @@ export function SlotPicker({
 }
 
 function formatEventLocation(eventType: EventTypeInfo): string {
-  if (eventType.video_provider === "google_meet") {
-    return "Google Meet";
-  }
-
-  if (eventType.video_provider === "microsoft_teams") {
-    return "Microsoft Teams";
-  }
+  const generatedVideoLabel = videoProviderLabel(eventType.video_provider);
+  if (generatedVideoLabel) return generatedVideoLabel;
 
   switch (eventType.location_type) {
     case "online":
