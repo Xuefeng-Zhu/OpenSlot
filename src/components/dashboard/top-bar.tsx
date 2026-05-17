@@ -1,9 +1,11 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Bell, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
+import { useToast } from '@/components/ui/use-toast'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,10 +14,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  emptyDashboardNotifications,
+  type DashboardNotifications,
+} from '@/lib/dashboard/notifications'
 import { cn } from '@/lib/utils'
 
 interface TopBarProps {
   title: string
+  notifications?: DashboardNotifications
   onMenuToggle?: () => void
   user?: {
     name?: string
@@ -24,9 +31,52 @@ interface TopBarProps {
   }
 }
 
-export function TopBar({ title, onMenuToggle, user }: TopBarProps) {
+export function TopBar({
+  title,
+  notifications = emptyDashboardNotifications,
+  onMenuToggle,
+  user,
+}: TopBarProps) {
+  const { toast } = useToast()
   const displayName = user?.name || 'User'
   const displayEmail = user?.email || 'View profile'
+  const notificationItems = notifications.items
+  const [unseenCount, setUnseenCount] = useState(notifications.unseenCount)
+  const [markingRead, setMarkingRead] = useState(false)
+  const [markReadError, setMarkReadError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setUnseenCount(notifications.unseenCount)
+  }, [notifications.unseenCount])
+
+  async function markAllAsRead() {
+    if (unseenCount === 0 || markingRead) return
+
+    const previousUnseenCount = unseenCount
+    setUnseenCount(0)
+    setMarkReadError(null)
+    setMarkingRead(true)
+
+    try {
+      const response = await fetch('/api/notifications/seen', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to mark notifications as read')
+      }
+    } catch {
+      setUnseenCount(previousUnseenCount)
+      setMarkReadError('Could not mark as read. Try again.')
+      toast({
+        title: 'Could not mark notifications as read',
+        description: 'Please try again in a moment.',
+        variant: 'destructive',
+      })
+    } finally {
+      setMarkingRead(false)
+    }
+  }
 
   return (
     <header
@@ -50,15 +100,79 @@ export function TopBar({ title, onMenuToggle, user }: TopBarProps) {
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" aria-label="Notifications" className="text-muted-foreground">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={
+                unseenCount > 0
+                  ? `Notifications (${unseenCount} unread)`
+                  : 'Notifications'
+              }
+              className="relative text-muted-foreground"
+            >
               <Bell className="h-5 w-5" aria-hidden="true" />
+              {unseenCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-1 top-1 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+                >
+                  {unseenCount}
+                </span>
+              )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-            <div className="px-2 py-2 text-sm text-muted-foreground">
-              No new notifications.
+          <DropdownMenuContent align="end" className="w-80">
+            <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+              <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
+              {unseenCount > 0 && (
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    void markAllAsRead()
+                  }}
+                  disabled={markingRead}
+                  className="h-7 cursor-pointer px-2 py-1 text-xs font-medium"
+                >
+                  {markingRead ? 'Marking...' : 'Mark all as read'}
+                </DropdownMenuItem>
+              )}
             </div>
+            {notificationItems.length > 0 ? (
+              <div className="max-h-80 overflow-y-auto py-1">
+                {notificationItems.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    asChild
+                    className="h-auto cursor-pointer items-start px-2 py-2"
+                  >
+                    <Link href={notification.href} className="flex flex-col gap-1">
+                      <span className="text-sm font-medium text-foreground">
+                        {notification.title}
+                      </span>
+                      <span className="text-xs leading-5 text-muted-foreground">
+                        {notification.description}
+                      </span>
+                      <time
+                        dateTime={notification.occurredAt}
+                        suppressHydrationWarning
+                        className="text-xs text-muted-foreground"
+                      >
+                        {formatNotificationTime(notification.occurredAt)}
+                      </time>
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            ) : (
+              <div className="px-2 py-2 text-sm text-muted-foreground">
+                No recent booking activity.
+              </div>
+            )}
+            {markReadError && (
+              <p className="px-2 py-1 text-xs text-destructive" role="alert">
+                {markReadError}
+              </p>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/bookings">View bookings</Link>
@@ -87,4 +201,19 @@ export function TopBar({ title, onMenuToggle, user }: TopBarProps) {
       </div>
     </header>
   )
+}
+
+function formatNotificationTime(occurredAt: string) {
+  const date = new Date(occurredAt)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Recently'
+  }
+
+  return date.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }

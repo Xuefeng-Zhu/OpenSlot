@@ -144,6 +144,7 @@ Migrations are in `supabase/migrations/`:
 - `20260508064552_add_booking_events.sql`: append-only booking lifecycle event ledger.
 - `20260508065512_add_outbox_claim_function.sql`: atomic outbox leasing RPC for workers.
 - `20260508070314_add_user_settings.sql`: persisted dashboard display and notification settings.
+- `20260517050402_add_notifications_seen_at.sql`: dashboard notification seen timestamp for unseen badge state.
 - `20260508070850_add_booking_reschedule_flow.sql`: reschedule status columns and atomic reschedule RPC.
 - `20260508071400_add_calendar_integration_foundation.sql`: server-only provider connection, calendar, watch, and busy-cache tables.
 - `20260508071723_add_webhook_delivery_system.sql`: webhook endpoint, delivery queue, and atomic delivery leasing RPC.

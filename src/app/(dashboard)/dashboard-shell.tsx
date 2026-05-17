@@ -4,9 +4,14 @@ import { useState } from 'react'
 import { SidebarNav } from '@/components/dashboard/sidebar-nav'
 import { TopBar } from '@/components/dashboard/top-bar'
 import { MobileDrawer } from '@/components/shared/mobile-drawer'
+import {
+  emptyDashboardNotifications,
+  type DashboardNotifications,
+} from '@/lib/dashboard/notifications'
 
 interface DashboardShellProps {
   children: React.ReactNode
+  notifications?: DashboardNotifications
   user: {
     name: string
     email: string
@@ -14,7 +19,11 @@ interface DashboardShellProps {
   }
 }
 
-export function DashboardShell({ children, user }: DashboardShellProps) {
+export function DashboardShell({
+  children,
+  notifications = emptyDashboardNotifications,
+  user,
+}: DashboardShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
@@ -35,6 +44,7 @@ export function DashboardShell({ children, user }: DashboardShellProps) {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         <TopBar
           title="Dashboard"
+          notifications={notifications}
           onMenuToggle={() => setDrawerOpen(true)}
           user={{ name: user.name, email: user.email }}
         />

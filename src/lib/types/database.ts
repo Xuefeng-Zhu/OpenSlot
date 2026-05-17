@@ -61,6 +61,7 @@ export interface Database {
           notify_new_booking: boolean
           notify_cancellation: boolean
           notify_reminder: boolean
+          notifications_seen_at: string | null
           created_at: string
           updated_at: string
         }
@@ -71,6 +72,7 @@ export interface Database {
           notify_new_booking?: boolean
           notify_cancellation?: boolean
           notify_reminder?: boolean
+          notifications_seen_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -81,6 +83,7 @@ export interface Database {
           notify_new_booking?: boolean
           notify_cancellation?: boolean
           notify_reminder?: boolean
+          notifications_seen_at?: string | null
           created_at?: string
           updated_at?: string
         }

@@ -21,7 +21,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Host contacts page with repeat-guest recognition, meeting history, search, and soft anonymization.
 - Host availability editor for weekly rules and date overrides.
 - Event type reminder controls for one configurable pre-meeting email reminder to guests and/or hosts.
-- Host settings persistence for profile basics, display preferences, notification preferences, password update, and account deletion.
+- Host settings persistence for profile basics, display preferences, notification preferences, notification seen state, password update, and account deletion.
 - Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
 - Generated Google Meet and Microsoft Teams links for event types configured with a video provider.
 - Tenant webhook endpoint dashboard management, signed deliveries, and retry processing.
