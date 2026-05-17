@@ -8,6 +8,7 @@
 export interface AvailabilityRule {
   id: string
   user_id: string
+  schedule_id?: string
   weekday: number // 0 = Sunday, 6 = Saturday
   start_time: string // "HH:mm" local time
   end_time: string // "HH:mm" local time
@@ -18,6 +19,7 @@ export interface AvailabilityRule {
 export interface AvailabilityOverride {
   id: string
   user_id: string
+  schedule_id?: string
   date: string // "YYYY-MM-DD"
   start_time: string | null // null if marking entire day unavailable
   end_time: string | null
@@ -35,6 +37,7 @@ export interface ComputeSlotsInput {
   date: string // "YYYY-MM-DD" in guest timezone
   hostUserId: string
   eventTypeId: string
+  scheduleTimezone?: string
   guestTimezone: string
   durationMinutes: number
   bufferBeforeMinutes: number

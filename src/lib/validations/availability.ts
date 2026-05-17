@@ -55,6 +55,7 @@ const availabilityOverrideSchema = z.object({
  * Used by POST /api/availability to validate the request body.
  */
 export const saveAvailabilitySchema = z.object({
+  scheduleId: z.string().uuid(),
   rules: z.array(saveAvailabilityRuleSchema),
   overrides: z.array(availabilityOverrideSchema),
   deletedRuleIds: z.array(z.string().uuid()),
@@ -62,4 +63,24 @@ export const saveAvailabilitySchema = z.object({
   timezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }),
 })
 
+export const createScheduleSchema = z.object({
+  name: z.string().trim().min(1, 'Schedule name is required').max(100, 'Schedule name must be 100 characters or less'),
+  timezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }).optional(),
+})
+
+export const duplicateScheduleSchema = z.object({
+  name: z.string().trim().min(1, 'Schedule name is required').max(100, 'Schedule name must be 100 characters or less'),
+})
+
+export const updateScheduleSchema = z.object({
+  name: z.string().trim().min(1, 'Schedule name is required').max(100, 'Schedule name must be 100 characters or less').optional(),
+  isDefault: z.boolean().optional(),
+}).refine(
+  (data) => data.name !== undefined || data.isDefault !== undefined,
+  { message: 'Provide a schedule name or default setting' }
+)
+
 export type SaveAvailabilityInput = z.infer<typeof saveAvailabilitySchema>
+export type CreateScheduleInput = z.infer<typeof createScheduleSchema>
+export type DuplicateScheduleInput = z.infer<typeof duplicateScheduleSchema>
+export type UpdateScheduleInput = z.infer<typeof updateScheduleSchema>

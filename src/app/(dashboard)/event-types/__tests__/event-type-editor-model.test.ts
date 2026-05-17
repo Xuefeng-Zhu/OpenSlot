@@ -8,6 +8,7 @@ describe("event type editor model", () => {
   it("normalizes trimmed values and manual locations for API payloads", () => {
     const values = createEventTypeEditorState({
       id: "event-type-1",
+      schedule_id: "33333333-3333-4333-8333-333333333333",
       title: "  Discovery Call  ",
       slug: "  discovery-call  ",
       description: "  Talk through the project  ",
@@ -28,6 +29,7 @@ describe("event type editor model", () => {
     });
 
     expect(buildEventTypePayload(values)).toMatchObject({
+      schedule_id: "33333333-3333-4333-8333-333333333333",
       title: "Discovery Call",
       slug: "discovery-call",
       description: "Talk through the project",
@@ -39,6 +41,7 @@ describe("event type editor model", () => {
   it("keeps generated video provider settings when selected", () => {
     const values = createEventTypeEditorState({
       id: "event-type-2",
+      schedule_id: "33333333-3333-4333-8333-333333333333",
       title: "Roadmap Review",
       slug: "roadmap-review",
       description: "",

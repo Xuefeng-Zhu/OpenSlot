@@ -91,6 +91,7 @@ export function eventTypeWritePayload(
 
   return {
     user_id: userId,
+    schedule_id: data.schedule_id,
     title: data.title,
     slug: data.slug,
     description: data.description ?? '',
@@ -109,6 +110,33 @@ export function eventTypeWritePayload(
     reminder_guest_enabled: data.reminder_guest_enabled,
     reminder_host_enabled: data.reminder_host_enabled,
   }
+}
+
+export async function scheduleBelongsToProfile(
+  supabase: { from: (table: 'schedules') => any },
+  scheduleId: string,
+  userId: string
+): Promise<{ ok: true } | { ok: false; status: 404 | 500; error: string }> {
+  const { data, error } = await supabase
+    .from('schedules')
+    .select('id')
+    .eq('id', scheduleId)
+    .eq('user_id', userId)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      return { ok: false, status: 404, error: 'Schedule not found' }
+    }
+
+    return { ok: false, status: 500, error: 'Failed to verify schedule' }
+  }
+
+  if (!data) {
+    return { ok: false, status: 404, error: 'Schedule not found' }
+  }
+
+  return { ok: true }
 }
 
 /**

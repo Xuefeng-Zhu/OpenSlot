@@ -6,6 +6,13 @@ import {
 } from "../../../event-type-editor";
 
 const push = vi.fn();
+const schedules = [
+  {
+    id: "33333333-3333-4333-8333-333333333333",
+    name: "Default schedule",
+    is_default: true,
+  },
+];
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -13,6 +20,7 @@ vi.mock("next/navigation", () => ({
 
 const strategySession: EditableEventType = {
   id: "event-type-2",
+  schedule_id: "33333333-3333-4333-8333-333333333333",
   title: "Strategy session",
   slug: "strategy-session",
   description: "A deeper session to discuss goals and next steps.",
@@ -48,6 +56,7 @@ describe("EditEventTypePage editor", () => {
       <EventTypeEditor
         mode="edit"
         hostProfile={hostProfile}
+        schedules={schedules}
         initialEventType={strategySession}
       />
     );
@@ -96,6 +105,7 @@ describe("EditEventTypePage editor", () => {
       <EventTypeEditor
         mode="edit"
         hostProfile={hostProfile}
+        schedules={schedules}
         initialEventType={strategySession}
       />
     );
@@ -130,6 +140,7 @@ describe("EditEventTypePage editor", () => {
       <EventTypeEditor
         mode="edit"
         hostProfile={hostProfile}
+        schedules={schedules}
         initialEventType={strategySession}
         calendarConnections={[
           {

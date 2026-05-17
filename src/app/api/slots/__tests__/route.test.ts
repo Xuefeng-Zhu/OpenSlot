@@ -70,6 +70,7 @@ describe('GET /api/slots', () => {
         buffer_after_minutes: 0,
         min_notice_minutes: 0,
         max_booking_days_ahead: 365,
+        schedule_id: 'schedule-1',
         user_id: '22222222-2222-4222-8222-222222222222',
         is_active: true,
       },
@@ -80,6 +81,7 @@ describe('GET /api/slots', () => {
         {
           id: 'rule-1',
           user_id: '22222222-2222-4222-8222-222222222222',
+          schedule_id: 'schedule-1',
           weekday: 1,
           start_time: '09:00',
           end_time: '10:00',
@@ -89,10 +91,18 @@ describe('GET /api/slots', () => {
       ],
       error: null,
     })
+    const scheduleQuery = createQuery({
+      data: {
+        id: 'schedule-1',
+        timezone: 'America/New_York',
+      },
+      error: null,
+    })
     const emptyQuery = createQuery({ data: [], error: null })
 
     mocks.adminClient.from
       .mockReturnValueOnce(eventTypeQuery)
+      .mockReturnValueOnce(scheduleQuery)
       .mockReturnValueOnce(rulesQuery)
       .mockReturnValueOnce(emptyQuery)
       .mockReturnValueOnce(emptyQuery)
@@ -119,6 +129,7 @@ describe('GET /api/slots', () => {
         buffer_after_minutes: 0,
         min_notice_minutes: 0,
         max_booking_days_ahead: 365,
+        schedule_id: 'schedule-1',
         user_id: '22222222-2222-4222-8222-222222222222',
         is_active: true,
       },
@@ -129,6 +140,7 @@ describe('GET /api/slots', () => {
         {
           id: 'rule-1',
           user_id: '22222222-2222-4222-8222-222222222222',
+          schedule_id: 'schedule-1',
           weekday: 1,
           start_time: '09:00',
           end_time: '10:00',
@@ -139,6 +151,13 @@ describe('GET /api/slots', () => {
       error: null,
     })
     const overridesQuery = createQuery({ data: [], error: null })
+    const scheduleQuery = createQuery({
+      data: {
+        id: 'schedule-1',
+        timezone: 'America/New_York',
+      },
+      error: null,
+    })
     const bookingsQuery = createQuery({ data: [], error: null })
     const holdsQuery = createQuery({ data: [], error: null })
     const connectionsQuery = createQuery({
@@ -161,6 +180,7 @@ describe('GET /api/slots', () => {
 
     mocks.adminClient.from
       .mockReturnValueOnce(eventTypeQuery)
+      .mockReturnValueOnce(scheduleQuery)
       .mockReturnValueOnce(rulesQuery)
       .mockReturnValueOnce(overridesQuery)
       .mockReturnValueOnce(bookingsQuery)

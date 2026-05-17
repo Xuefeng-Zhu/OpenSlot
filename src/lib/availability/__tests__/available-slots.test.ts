@@ -44,6 +44,7 @@ function availabilityQuerySet({
     {
       id: 'rule-1',
       user_id: hostUserId,
+      schedule_id: 'schedule-1',
       weekday: 1,
       start_time: '09:00',
       end_time: '10:00',
@@ -63,6 +64,10 @@ function availabilityQuerySet({
   connections?: unknown[]
 } = {}) {
   return [
+    createQuery({
+      data: { id: 'schedule-1', timezone: 'America/New_York' },
+      error: null,
+    }),
     createQuery({ data: rules, error: null }),
     createQuery({ data: overrides, error: null }),
     createQuery({ data: bookings, error: null }),
@@ -92,6 +97,7 @@ function eventTypeQuery(overrides: Record<string, unknown> = {}) {
       buffer_after_minutes: 0,
       min_notice_minutes: 0,
       max_booking_days_ahead: 365,
+      schedule_id: 'schedule-1',
       user_id: hostUserId,
       is_active: true,
       ...overrides,
@@ -260,5 +266,84 @@ describe('loadAvailableSlotsForDate', () => {
       '2025-01-05T00:00:00.000Z',
       '2025-01-07T23:59:59.999Z'
     )
+  })
+
+  it('uses the event type schedule to choose availability rules', async () => {
+    const firstScheduleClient = createSupabaseClient([
+      eventTypeQuery({ schedule_id: 'schedule-1' }),
+      createQuery({
+        data: { id: 'schedule-1', timezone: 'America/New_York' },
+        error: null,
+      }),
+      ...availabilityQuerySet({
+        rules: [
+          {
+            id: 'rule-1',
+            user_id: hostUserId,
+            schedule_id: 'schedule-1',
+            weekday: 1,
+            start_time: '09:00',
+            end_time: '09:30',
+            timezone: 'America/New_York',
+            is_active: true,
+          },
+        ],
+      }).slice(1),
+    ])
+    const secondScheduleClient = createSupabaseClient([
+      eventTypeQuery({ schedule_id: 'schedule-2' }),
+      createQuery({
+        data: { id: 'schedule-2', timezone: 'America/New_York' },
+        error: null,
+      }),
+      ...availabilityQuerySet({
+        rules: [
+          {
+            id: 'rule-2',
+            user_id: hostUserId,
+            schedule_id: 'schedule-2',
+            weekday: 1,
+            start_time: '11:00',
+            end_time: '11:30',
+            timezone: 'America/New_York',
+            is_active: true,
+          },
+        ],
+      }).slice(1),
+    ])
+
+    const firstResult = await loadAvailableSlotsForDate({
+      supabase: firstScheduleClient as any,
+      hostUserId,
+      eventTypeId,
+      date: '2025-01-06',
+      guestTimezone: 'America/New_York',
+    })
+    const secondResult = await loadAvailableSlotsForDate({
+      supabase: secondScheduleClient as any,
+      hostUserId,
+      eventTypeId: '22222222-2222-4222-8222-222222222222',
+      date: '2025-01-06',
+      guestTimezone: 'America/New_York',
+    })
+
+    expect(firstResult).toEqual({
+      success: true,
+      slots: [
+        {
+          start: '2025-01-06T14:00:00.000Z',
+          end: '2025-01-06T14:30:00.000Z',
+        },
+      ],
+    })
+    expect(secondResult).toEqual({
+      success: true,
+      slots: [
+        {
+          start: '2025-01-06T16:00:00.000Z',
+          end: '2025-01-06T16:30:00.000Z',
+        },
+      ],
+    })
   })
 })

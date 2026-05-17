@@ -127,7 +127,8 @@ async function ensureDemoProfile(
   authUserId: string
 ) {
   const profileId = await upsertDemoProfile(adminClient, authUserId);
-  await ensureWeekdayAvailability(adminClient, profileId);
+  const scheduleId = await ensureDefaultSchedule(adminClient, profileId);
+  await ensureWeekdayAvailability(adminClient, profileId, scheduleId);
 }
 
 async function upsertDemoProfile(
@@ -206,14 +207,53 @@ async function findDemoProfile(
   return byUsername.data;
 }
 
-async function ensureWeekdayAvailability(
+async function ensureDefaultSchedule(
   adminClient: ReturnType<typeof createClient<Database>>,
   profileId: string
+): Promise<string> {
+  const { data: existingSchedule, error: lookupError } = await adminClient
+    .from("schedules")
+    .select("id")
+    .eq("user_id", profileId)
+    .eq("is_default", true)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw new Error(`Could not inspect demo schedule: ${lookupError.message}`);
+  }
+
+  if (existingSchedule) return existingSchedule.id;
+
+  const { data, error } = await adminClient
+    .from("schedules")
+    .insert({
+      user_id: profileId,
+      name: "Default schedule",
+      timezone: "America/New_York",
+      is_default: true,
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(
+      `Could not create demo schedule: ${error?.message ?? "missing row"}`
+    );
+  }
+
+  return data.id;
+}
+
+async function ensureWeekdayAvailability(
+  adminClient: ReturnType<typeof createClient<Database>>,
+  profileId: string,
+  scheduleId: string
 ) {
   const { count, error } = await adminClient
     .from("availability_rules")
     .select("id", { count: "exact", head: true })
-    .eq("user_id", profileId);
+    .eq("user_id", profileId)
+    .eq("schedule_id", scheduleId);
 
   if (error) {
     throw new Error(`Could not inspect demo availability: ${error.message}`);
@@ -226,6 +266,7 @@ async function ensureWeekdayAvailability(
     .insert(
       [1, 2, 3, 4, 5].map((weekday) => ({
         user_id: profileId,
+        schedule_id: scheduleId,
         weekday,
         start_time: "09:00",
         end_time: "17:00",

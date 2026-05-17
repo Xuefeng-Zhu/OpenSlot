@@ -82,6 +82,7 @@ describe('profileSchema', () => {
 
 describe('eventTypeSchema', () => {
   const validEventType = {
+    schedule_id: '11111111-1111-4111-8111-111111111111',
     title: 'Meeting',
     slug: 'meeting',
     duration_minutes: 30,

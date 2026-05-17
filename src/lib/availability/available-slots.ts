@@ -29,8 +29,14 @@ type EventTypeAvailabilityConfig = Pick<
   | 'buffer_after_minutes'
   | 'min_notice_minutes'
   | 'max_booking_days_ahead'
+  | 'schedule_id'
   | 'user_id'
   | 'is_active'
+>
+
+type ScheduleAvailabilityConfig = Pick<
+  Tables<'schedules'>,
+  'id' | 'timezone'
 >
 
 export type AvailableSlotsResult =
@@ -186,7 +192,7 @@ async function loadEventTypeAvailabilityConfig({
   const { data: eventTypeData, error: eventTypeError } = await supabase
     .from('event_types')
     .select(
-      'duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, user_id, is_active'
+      'duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, schedule_id, user_id, is_active'
     )
     .eq('id', eventTypeId)
     .eq('user_id', hostUserId)
@@ -234,6 +240,16 @@ async function computeSlotsForDate({
   eventType: EventTypeAvailabilityConfig
   refreshExternalCalendars?: boolean
 }): Promise<AvailableSlotsResult> {
+  const scheduleResult = await loadScheduleAvailabilityConfig({
+    supabase,
+    hostUserId,
+    scheduleId: eventType.schedule_id,
+  })
+
+  if (!scheduleResult.success) {
+    return scheduleResult
+  }
+
   const conflictLookupRange = paddedConflictLookupRange(
     date,
     eventType.buffer_before_minutes,
@@ -251,8 +267,9 @@ async function computeSlotsForDate({
 
   const { data: rulesData, error: rulesError } = await supabase
     .from('availability_rules')
-    .select('id, user_id, weekday, start_time, end_time, timezone, is_active')
+    .select('id, user_id, schedule_id, weekday, start_time, end_time, timezone, is_active')
     .eq('user_id', hostUserId)
+    .eq('schedule_id', scheduleResult.schedule.id)
     .eq('is_active', true)
 
   if (rulesError) {
@@ -266,9 +283,10 @@ async function computeSlotsForDate({
   const { data: overridesData, error: overridesError } = await supabase
     .from('availability_overrides')
     .select(
-      'id, user_id, date, start_time, end_time, timezone, is_available, reason'
+      'id, user_id, schedule_id, date, start_time, end_time, timezone, is_available, reason'
     )
     .eq('user_id', hostUserId)
+    .eq('schedule_id', scheduleResult.schedule.id)
     .eq('date', date)
 
   if (overridesError) {
@@ -334,6 +352,7 @@ async function computeSlotsForDate({
     Tables<'availability_rules'>,
     | 'id'
     | 'user_id'
+    | 'schedule_id'
     | 'weekday'
     | 'start_time'
     | 'end_time'
@@ -344,6 +363,7 @@ async function computeSlotsForDate({
     Tables<'availability_overrides'>,
     | 'id'
     | 'user_id'
+    | 'schedule_id'
     | 'date'
     | 'start_time'
     | 'end_time'
@@ -363,6 +383,7 @@ async function computeSlotsForDate({
   const availabilityRules: AvailabilityRule[] = rules.map((rule) => ({
     id: rule.id,
     user_id: rule.user_id,
+    schedule_id: rule.schedule_id,
     weekday: rule.weekday,
     start_time: rule.start_time,
     end_time: rule.end_time,
@@ -374,6 +395,7 @@ async function computeSlotsForDate({
     (override) => ({
       id: override.id,
       user_id: override.user_id,
+      schedule_id: override.schedule_id,
       date: override.date,
       start_time: override.start_time,
       end_time: override.end_time,
@@ -400,6 +422,7 @@ async function computeSlotsForDate({
         date,
         hostUserId,
         eventTypeId,
+        scheduleTimezone: scheduleResult.schedule.timezone,
         guestTimezone,
         durationMinutes: eventType.duration_minutes,
         bufferBeforeMinutes: eventType.buffer_before_minutes,
@@ -413,6 +436,52 @@ async function computeSlotsForDate({
       activeHolds,
       externalBusySlots
     ),
+  }
+}
+
+async function loadScheduleAvailabilityConfig({
+  supabase,
+  hostUserId,
+  scheduleId,
+}: {
+  supabase: AdminClient
+  hostUserId: string
+  scheduleId: string
+}): Promise<
+  | {
+      success: true
+      schedule: ScheduleAvailabilityConfig
+    }
+  | AvailableSlotsFailure
+> {
+  const { data: scheduleData, error: scheduleError } = await supabase
+    .from('schedules')
+    .select('id, timezone')
+    .eq('id', scheduleId)
+    .eq('user_id', hostUserId)
+    .single()
+
+  const schedule = scheduleData as ScheduleAvailabilityConfig | null
+
+  if (scheduleError && scheduleError.code !== 'PGRST116') {
+    return {
+      success: false,
+      status: 500,
+      error: 'Failed to fetch schedule',
+    }
+  }
+
+  if (!schedule) {
+    return {
+      success: false,
+      status: 404,
+      error: 'Schedule not found',
+    }
+  }
+
+  return {
+    success: true,
+    schedule,
   }
 }
 

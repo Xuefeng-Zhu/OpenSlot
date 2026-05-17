@@ -102,9 +102,9 @@ npm run test:e2e
 The suite loads `.env.local` and uses the configured service-role key during
 Playwright setup to refresh and verify the demo host password before the browser
 login tests run. If the demo host is missing, setup creates the auth user,
-profile, and weekday availability needed by isolated E2E specs. Mutating specs
-create unique event types, bookings, and webhook endpoints, then clean them with
-the service-role key.
+profile, a default schedule, and weekday availability needed by isolated E2E
+specs. Mutating specs create unique event types, bookings, availability
+schedules, and webhook endpoints, then clean them with the service-role key.
 
 If Chromium has not been installed on the machine yet, run:
 

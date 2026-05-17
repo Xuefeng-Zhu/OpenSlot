@@ -19,11 +19,14 @@ export async function createEventType(
     overrides.title ?? `E2E ${suffix.replace(/-/g, " ").toUpperCase()}`;
   const slug = overrides.slug ?? suffix;
   const durationMinutes = overrides.duration_minutes ?? 30;
+  const scheduleId =
+    overrides.schedule_id ?? (await getDefaultScheduleId(adminClient, profile.id));
 
   const { data, error } = await adminClient
     .from("event_types")
     .insert({
       user_id: profile.id,
+      schedule_id: scheduleId,
       title,
       slug,
       description: "Created by the automated E2E suite.",
@@ -53,6 +56,26 @@ export async function createEventType(
     slug: data.slug,
     durationMinutes: data.duration_minutes,
   };
+}
+
+async function getDefaultScheduleId(
+  adminClient: E2EAdminClient,
+  profileId: string
+) {
+  const { data, error } = await adminClient
+    .from("schedules")
+    .select("id")
+    .eq("user_id", profileId)
+    .eq("is_default", true)
+    .single();
+
+  if (error || !data) {
+    throw new Error(
+      `Could not load default schedule: ${error?.message ?? "missing row"}`
+    );
+  }
+
+  return data.id;
 }
 
 export async function createConfirmedBooking(

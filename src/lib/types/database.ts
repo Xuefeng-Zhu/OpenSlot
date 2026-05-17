@@ -498,6 +498,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          schedule_id: string
           title: string
           slug: string
           description: string
@@ -521,6 +522,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          schedule_id: string
           title: string
           slug: string
           description?: string
@@ -544,6 +546,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          schedule_id?: string
           title?: string
           slug?: string
           description?: string
@@ -571,6 +574,51 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_types_schedule_owner_fkey"
+            columns: ["schedule_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id", "user_id"]
+          }
+        ]
+      }
+      schedules: {
+        Row: {
+          id: string
+          user_id: string
+          name: string
+          timezone: string
+          is_default: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          name: string
+          timezone?: string
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          name?: string
+          timezone?: string
+          is_default?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedules_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           }
         ]
       }
@@ -578,6 +626,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          schedule_id: string
           weekday: number
           start_time: string
           end_time: string
@@ -589,6 +638,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          schedule_id: string
           weekday: number
           start_time: string
           end_time: string
@@ -600,6 +650,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          schedule_id?: string
           weekday?: number
           start_time?: string
           end_time?: string
@@ -615,6 +666,13 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_rules_schedule_owner_fkey"
+            columns: ["schedule_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id", "user_id"]
           }
         ]
       }
@@ -622,6 +680,7 @@ export interface Database {
         Row: {
           id: string
           user_id: string
+          schedule_id: string
           date: string
           start_time: string | null
           end_time: string | null
@@ -634,6 +693,7 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          schedule_id: string
           date: string
           start_time?: string | null
           end_time?: string | null
@@ -646,6 +706,7 @@ export interface Database {
         Update: {
           id?: string
           user_id?: string
+          schedule_id?: string
           date?: string
           start_time?: string | null
           end_time?: string | null
@@ -662,6 +723,13 @@ export interface Database {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_overrides_schedule_owner_fkey"
+            columns: ["schedule_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id", "user_id"]
           }
         ]
       }
@@ -1097,6 +1165,20 @@ export interface Database {
           p_max_attempts?: number
         }
         Returns: Database['public']['Tables']['webhook_deliveries']['Row'][]
+      }
+      set_default_schedule: {
+        Args: {
+          p_user_id: string
+          p_schedule_id: string
+          p_name?: string | null
+          p_update_name?: boolean
+        }
+        Returns: {
+          id: string
+          name: string
+          timezone: string
+          is_default: boolean
+        }[]
       }
       reschedule_booking_with_hold: {
         Args: {

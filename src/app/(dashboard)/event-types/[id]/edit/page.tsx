@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   type EditableEventType,
   EventTypeEditor,
+  type ScheduleOption,
 } from "../../event-type-editor";
 import { Button } from "@/components/ui/button";
 import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
@@ -48,7 +49,7 @@ export default async function EditEventTypePage({
   const { data: eventTypeData } = await supabase
     .from("event_types")
     .select(
-      "id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active, reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
+      "id, schedule_id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active, reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
     )
     .eq("id", id)
     .eq("user_id", profile.id)
@@ -58,6 +59,7 @@ export default async function EditEventTypePage({
     | (Pick<
         Tables<"event_types">,
         | "id"
+        | "schedule_id"
         | "title"
         | "slug"
         | "description"
@@ -87,6 +89,7 @@ export default async function EditEventTypePage({
 
   const editableEventType: EditableEventType = {
     id: eventType.id,
+    schedule_id: eventType.schedule_id,
     title: eventType.title,
     slug: eventType.slug,
     description: eventType.description,
@@ -111,6 +114,15 @@ export default async function EditEventTypePage({
     profile.id
   );
 
+  const { data: schedulesData } = await supabase
+    .from("schedules")
+    .select("id, name, is_default")
+    .eq("user_id", profile.id)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  const schedules = ((schedulesData as ScheduleOption[] | null) ?? []);
+
   return (
     <EventTypeEditor
       mode="edit"
@@ -120,6 +132,7 @@ export default async function EditEventTypePage({
         username: profile.username,
         avatar_url: profile.avatar_url,
       }}
+      schedules={schedules}
       initialEventType={editableEventType}
       calendarConnections={calendarConnections.data}
       calendarConnectionsLoadFailed={calendarConnections.loadFailed}
