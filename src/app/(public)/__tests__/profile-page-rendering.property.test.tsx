@@ -8,10 +8,9 @@ import type { ProfileData, EventTypeData } from '../[username]/profile-content'
  * Feature: ui-backend-integration, Property 1: Profile page renders all required data fields
  * Validates: Requirements 1.4, 1.5
  *
- * For any valid profile (with name, avatar_url, default_timezone) and any non-empty
- * array of active event types (each with title, description, duration_minutes,
- * location_type, slug), rendering the public profile page with this data SHALL produce
- * output containing every profile field and every event type field.
+ * For any valid profile and any non-empty array of active event types, rendering
+ * the public profile page with this data SHALL produce output containing every
+ * public profile field, every visible event field, and every booking link.
  */
 describe('Feature: ui-backend-integration, Property 1: Profile page renders all required data fields', () => {
   const nonEmptyAlphanumeric = fc
@@ -57,6 +56,9 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
       fc.webUrl()
     ),
     default_timezone: timezoneArb,
+    public_headline: fc.oneof(fc.constant(null), nonEmptyAlphanumeric),
+    public_bio: fc.oneof(fc.constant(null), nonEmptyAlphanumeric),
+    response_time_label: fc.oneof(fc.constant(null), nonEmptyAlphanumeric),
   })
 
   const eventTypeArb: fc.Arbitrary<EventTypeData> = fc.record({
@@ -88,12 +90,20 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
           // Profile fields must appear in rendered text output
           expect(textContent).toContain(profile.name)
           expect(textContent).toContain(profile.default_timezone)
+          if (profile.public_headline) {
+            expect(textContent).toContain(profile.public_headline)
+          }
+          if (profile.public_bio) {
+            expect(textContent).toContain(profile.public_bio)
+          }
+          if (profile.response_time_label) {
+            expect(textContent).toContain(profile.response_time_label)
+          }
 
           // Each event type's fields must appear in rendered output
           for (const eventType of eventTypes) {
             expect(textContent).toContain(eventType.title)
             expect(textContent).toContain(String(eventType.duration_minutes))
-            expect(textContent).toContain(eventLocationLabel(eventType))
             // Slug appears in the booking link href attribute
             expect(innerHTML).toContain(eventType.slug)
             if (eventType.description) {
@@ -107,17 +117,39 @@ describe('Feature: ui-backend-integration, Property 1: Profile page renders all 
       { numRuns: 100 }
     )
   }, 15000)
+
+  it('omits optional profile metadata sections when values are blank', () => {
+    const profile: ProfileData = {
+      name: 'Alex Kim',
+      username: 'alex-kim',
+      avatar_url: null,
+      default_timezone: 'America/Los_Angeles',
+      public_headline: null,
+      public_bio: null,
+      response_time_label: null,
+    }
+    const eventTypes: EventTypeData[] = [
+      {
+        id: 'event-1',
+        title: 'Intro Call',
+        slug: 'intro-call',
+        description: null,
+        duration_minutes: 30,
+        location_type: 'online',
+        video_provider: null,
+      },
+    ]
+
+    const { container } = render(
+      <PublicProfileContent profile={profile} activeEventTypes={eventTypes} />
+    )
+
+    const textContent = container.textContent || ''
+
+    expect(textContent).toContain('Alex Kim')
+    expect(textContent).toContain('America/Los_Angeles')
+    expect(textContent).not.toContain('Typically responds')
+
+    cleanup()
+  })
 })
-
-function eventLocationLabel(eventType: EventTypeData): string {
-  if (eventType.video_provider === 'google_meet') return 'Google Meet'
-  if (eventType.video_provider === 'microsoft_teams') return 'Microsoft Teams'
-
-  if (eventType.location_type === 'in_person') return 'In person'
-  if (eventType.location_type === 'video_provider') return 'Video'
-  return eventType.location_type === 'online'
-    ? 'Online'
-    : eventType.location_type === 'phone'
-      ? 'Phone'
-      : 'Custom'
-}

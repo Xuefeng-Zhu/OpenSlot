@@ -12,6 +12,7 @@ const avatarVariants = cva(
         sm: "size-8 text-xs",
         md: "size-10 text-sm",
         lg: "size-16 text-lg",
+        xl: "size-28 text-2xl",
       },
     },
     defaultVariants: { size: "md" },
@@ -22,6 +23,7 @@ const avatarSizePx = {
   sm: 32,
   md: 40,
   lg: 64,
+  xl: 112,
 } as const;
 
 /**

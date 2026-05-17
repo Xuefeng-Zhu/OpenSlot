@@ -38,6 +38,9 @@ export default async function ProfilePage() {
           name: typedProfile.name || '',
           username: typedProfile.username || '',
           default_timezone: typedProfile.default_timezone || 'UTC',
+          public_headline: typedProfile.public_headline || '',
+          public_bio: typedProfile.public_bio || '',
+          response_time_label: typedProfile.response_time_label || '',
         }}
       />
     </div>

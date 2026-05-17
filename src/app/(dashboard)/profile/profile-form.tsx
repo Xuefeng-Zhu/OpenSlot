@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Card,
   CardContent,
@@ -62,6 +63,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
           name: data.name,
           username: data.username,
           default_timezone: data.default_timezone,
+          public_headline: optionalText(data.public_headline),
+          public_bio: optionalText(data.public_bio),
+          response_time_label: optionalText(data.response_time_label),
           updated_at: new Date().toISOString(),
         })
         .eq('auth_user_id', user.id)
@@ -152,6 +156,70 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
             )}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="public_headline">Public headline</Label>
+            <Input
+              id="public_headline"
+              placeholder="Product Growth Advisor"
+              maxLength={80}
+              {...register('public_headline')}
+              aria-invalid={!!errors.public_headline}
+              aria-describedby={
+                errors.public_headline ? 'public-headline-error' : 'public-headline-hint'
+              }
+            />
+            <p id="public-headline-hint" className="text-sm text-muted-foreground">
+              A short subtitle shown under your name.
+            </p>
+            {errors.public_headline && (
+              <p id="public-headline-error" className="text-sm text-destructive">
+                {errors.public_headline.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="public_bio">Public bio</Label>
+            <Textarea
+              id="public_bio"
+              placeholder="I help early-stage founders grow smarter. Book time to talk growth, product, or anything in between."
+              maxLength={280}
+              {...register('public_bio')}
+              aria-invalid={!!errors.public_bio}
+              aria-describedby={errors.public_bio ? 'public-bio-error' : 'public-bio-hint'}
+            />
+            <p id="public-bio-hint" className="text-sm text-muted-foreground">
+              A brief note guests see before choosing an event type.
+            </p>
+            {errors.public_bio && (
+              <p id="public-bio-error" className="text-sm text-destructive">
+                {errors.public_bio.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="response_time_label">Response time</Label>
+            <Input
+              id="response_time_label"
+              placeholder="Within a few hours"
+              maxLength={80}
+              {...register('response_time_label')}
+              aria-invalid={!!errors.response_time_label}
+              aria-describedby={
+                errors.response_time_label ? 'response-time-error' : 'response-time-hint'
+              }
+            />
+            <p id="response-time-hint" className="text-sm text-muted-foreground">
+              Optional expectation text for guests, such as &quot;Within a few hours&quot;.
+            </p>
+            {errors.response_time_label && (
+              <p id="response-time-error" className="text-sm text-destructive">
+                {errors.response_time_label.message}
+              </p>
+            )}
+          </div>
+
           {serverError && (
             <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
               {serverError}
@@ -171,4 +239,9 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       </CardContent>
     </Card>
   )
+}
+
+function optionalText(value?: string) {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
 }

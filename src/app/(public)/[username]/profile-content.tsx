@@ -1,17 +1,28 @@
 import Link from "next/link";
-import { CalendarX, Clock, MapPin, Globe, Shield } from "lucide-react";
+import type { ElementType, ReactNode } from "react";
+import {
+  ArrowRight,
+  CalendarX,
+  Clock,
+  Globe2,
+  ShieldCheck,
+  TrendingUp,
+  UsersRound,
+} from "lucide-react";
 import { AppIcon } from "@/components/shared/app-icon";
 import { EmptyState } from "@/components/shared/empty-state";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { videoProviderLabel } from "@/lib/calendar/video-providers";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export interface ProfileData {
   name: string;
   username: string;
   avatar_url: string | null;
   default_timezone: string;
+  public_headline: string | null;
+  public_bio: string | null;
+  response_time_label: string | null;
 }
 
 export interface EventTypeData {
@@ -29,63 +40,92 @@ interface PublicProfileContentProps {
   activeEventTypes: EventTypeData[];
 }
 
-export function PublicProfileContent({ profile, activeEventTypes }: PublicProfileContentProps) {
+export function PublicProfileContent({
+  profile,
+  activeEventTypes,
+}: PublicProfileContentProps) {
+  const firstName = profile.name.split(" ")[0] || profile.name;
+  const fallback = profile.name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
   return (
-    <div className="mx-auto max-w-4xl">
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-5 md:gap-8">
-        {/* Left column - Profile card */}
-        <div className="md:col-span-2">
-          <Card className="md:sticky md:top-24">
-            <CardContent className="p-6 flex flex-col items-center text-center">
-              <Avatar
-                src={profile.avatar_url}
-                alt={`${profile.name}'s avatar`}
-                fallback={profile.name
-                  .split(" ")
-                  .map((w) => w[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2)}
-                size="lg"
-              />
-              <h1 className="mt-4 text-xl font-bold text-foreground">
-                {profile.name}
-              </h1>
+    <div className="relative mx-auto max-w-6xl overflow-hidden">
+      <DottedMap className="left-0 top-16 hidden h-36 w-56 -translate-x-20 md:block" />
+      <DottedMap className="right-0 top-80 hidden h-40 w-72 translate-x-12 md:block" />
+      <DottedMap className="bottom-28 right-8 hidden h-48 w-64 translate-x-20 lg:block" />
 
-              <div className="mt-5 w-full space-y-3 text-left">
-                <div className="flex items-start gap-3 rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                  <Globe className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <div>
-                    <span className="font-medium text-foreground">Timezone</span>
-                    <br />
-                    <span>{profile.default_timezone}</span>
-                  </div>
+      <div className="relative grid grid-cols-1 gap-10 lg:grid-cols-[460px_minmax(0,1fr)] lg:items-start">
+        <Card className="rounded-2xl border-[#dfe7f4] bg-white/95 shadow-lg shadow-slate-200/60 lg:sticky lg:top-32">
+          <CardContent className="flex flex-col items-center px-7 py-10 text-center sm:px-10">
+            <Avatar
+              src={profile.avatar_url}
+              alt={`${profile.name}'s avatar`}
+              fallback={fallback}
+              size="xl"
+              className="shadow-md shadow-slate-300/60"
+            />
+            <h1 className="mt-6 text-4xl font-bold leading-tight text-[#061943]">
+              {profile.name}
+            </h1>
+            {profile.public_headline ? (
+              <p className="mt-3 text-xl font-medium text-[#5c6c8d]">
+                {profile.public_headline}
+              </p>
+            ) : null}
+            {profile.public_bio ? (
+              <p className="mt-7 max-w-[300px] text-left text-base leading-7 text-[#5c6c8d] sm:text-center">
+                {profile.public_bio}
+              </p>
+            ) : null}
+
+            <div className="mt-9 w-full border-t border-[#dfe7f4] pt-7">
+              <div className="space-y-6 text-left">
+                <ProfileFact
+                  icon={<Globe2 className="h-7 w-7" aria-hidden="true" />}
+                  label="Timezone"
+                  value={profile.default_timezone}
+                />
+                {profile.response_time_label ? (
+                  <ProfileFact
+                    icon={<Clock className="h-7 w-7" aria-hidden="true" />}
+                    label="Typically responds"
+                    value={profile.response_time_label}
+                  />
+                ) : null}
+              </div>
+            </div>
+
+            <div className="mt-9 w-full rounded-xl border border-[#dbe8ff] bg-[#f2f7ff] p-5 text-left shadow-inner shadow-white">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#e8f1ff] text-primary">
+                  <UsersRound className="h-8 w-8" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="text-base font-bold text-[#061943]">
+                    Let&apos;s connect
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-[#465678]">
+                    Choose a time that works for you. I look forward to our conversation!
+                  </p>
                 </div>
               </div>
+            </div>
+          </CardContent>
+        </Card>
 
-              {/* CTA card */}
-              <div className="mt-6 w-full rounded-lg border border-border bg-accent/60 p-4 text-left">
-                <div className="flex items-center gap-2 mb-1">
-                  <svg className="h-5 w-5 text-primary" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path d="M10 9a3 3 0 100-6 3 3 0 000 6zM6 8a2 2 0 11-4 0 2 2 0 014 0zM1.49 15.326a.78.78 0 01-.358-.442 3 3 0 014.308-3.516 6.484 6.484 0 00-1.905 3.959c-.023.222-.014.442.025.654a4.97 4.97 0 01-2.07-.655zM16.44 15.98a4.97 4.97 0 002.07-.654.78.78 0 00.357-.442 3 3 0 00-4.308-3.517 6.484 6.484 0 011.907 3.96 2.32 2.32 0 01-.026.654zM18 8a2 2 0 11-4 0 2 2 0 014 0zM5.304 16.19a.844.844 0 01-.277-.71 5 5 0 019.947 0 .843.843 0 01-.277.71A6.975 6.975 0 0110 18a6.974 6.974 0 01-4.696-1.81z" />
-                  </svg>
-                  <span className="text-sm font-medium text-foreground">Let&apos;s connect</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Choose a time that works for you. I look forward to our conversation!
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column - Event types */}
-        <div className="md:col-span-3">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Book time with {profile.name.split(" ")[0]}
+        <section aria-labelledby="profile-booking-heading" className="pt-4 lg:pt-5">
+          <div className="mb-7">
+            <h2
+              id="profile-booking-heading"
+              className="text-3xl font-bold tracking-tight text-[#061943] sm:text-4xl"
+            >
+              Book time with {firstName}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <p className="mt-3 text-xl leading-7 text-[#5c6c8d]">
               Choose an event type to get started.
             </p>
           </div>
@@ -97,98 +137,154 @@ export function PublicProfileContent({ profile, activeEventTypes }: PublicProfil
               description="This host does not have any active booking options right now. Check back later or contact them directly."
             />
           ) : (
-            <div className="space-y-4">
-              {activeEventTypes.map((eventType) => (
-                <Card
+            <div className="space-y-6">
+              {activeEventTypes.map((eventType, index) => (
+                <EventTypeCard
                   key={eventType.id}
-                  className="transition-colors hover:border-primary/40"
-                >
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                      {/* Icon */}
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-                        <Clock className="h-5 w-5" aria-hidden="true" />
-                      </div>
-
-                      {/* Content */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <h3 className="text-base font-semibold text-foreground">
-                              {eventType.title}
-                            </h3>
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>{eventType.duration_minutes} min</span>
-                              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-                              <span>
-                                {eventLocationLabel(eventType)}
-                                <span className="sr-only">
-                                  {" "}
-                                  {eventType.location_type}
-                                </span>
-                              </span>
-                            </div>
-                          </div>
-                          <div className="shrink-0">
-                            <Button asChild size="sm">
-                              <Link href={`/${profile.username}/${eventType.slug}`}>
-                                Book time
-                              </Link>
-                            </Button>
-                          </div>
-                        </div>
-                        {eventType.description && (
-                          <p className="mt-1.5 text-sm text-muted-foreground">
-                            {eventType.description}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  eventType={eventType}
+                  href={`/${profile.username}/${eventType.slug}`}
+                  visual={EVENT_VISUALS[index % EVENT_VISUALS.length]}
+                />
               ))}
             </div>
           )}
 
-          {/* Trust badge */}
-          <div className="mt-6 flex items-center gap-2 text-sm text-muted-foreground">
-            <Shield className="h-4 w-4 text-success" aria-hidden="true" />
-            <span>
-              <span className="font-medium text-foreground">Your time is respected</span>
-              {" "}— No double-booking. Times are shown in your local timezone.
-            </span>
+          <div className="mt-8 rounded-xl bg-[#eef5ff] px-5 py-4 text-[#465678]">
+            <div className="flex items-center gap-4">
+              <ShieldCheck className="h-8 w-8 shrink-0 text-primary" aria-hidden="true" />
+              <p className="text-sm leading-6 sm:text-base">
+                <span className="font-bold text-[#061943]">Your time is respected</span>
+                <br className="sm:hidden" /> No double-booking. Times are shown in your local timezone.
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
 
-      {/* Footer */}
-      <div className="mt-12 pt-6 border-t border-border text-center">
-        <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
-          <AppIcon className="h-4 w-4" />
-          Scheduling that stays <span className="text-primary font-medium">open.</span>
+      <footer className="mt-16 border-t border-[#dfe7f4] pt-8 text-center">
+        <p className="flex items-center justify-center gap-3 text-xl font-bold text-[#061943]">
+          <AppIcon className="h-7 w-7" />
+          Scheduling that stays <span className="text-primary">open.</span>
         </p>
+        <p className="mt-2 text-base text-[#5c6c8d]">
+          Share availability. Prevent double-booking. Let others book time that works for everyone.
+        </p>
+      </footer>
+    </div>
+  );
+}
+
+function ProfileFact({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-5">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center text-primary">
+        {icon}
+      </div>
+      <div>
+        <p className="text-base font-bold text-[#061943]">{label}</p>
+        <p className="mt-1 text-base text-[#465678]">{value}</p>
       </div>
     </div>
   );
 }
 
-function eventLocationLabel(eventType: EventTypeData): string {
-  const generatedVideoLabel = videoProviderLabel(eventType.video_provider);
-  if (generatedVideoLabel) return generatedVideoLabel;
+interface EventVisual {
+  icon: ElementType;
+  className: string;
+  iconClassName: string;
+}
 
-  switch (eventType.location_type) {
-    case "online":
-      return "Online";
-    case "phone":
-      return "Phone";
-    case "in_person":
-      return "In person";
-    case "custom":
-      return "Custom";
-    case "video_provider":
-      return "Video";
-    default:
-      return eventType.location_type;
-  }
+const EVENT_VISUALS: EventVisual[] = [
+  {
+    icon: Clock,
+    className: "bg-[#e9f7ef] text-[#0f9a55]",
+    iconClassName: "h-12 w-12",
+  },
+  {
+    icon: TrendingUp,
+    className: "bg-[#eef5ff] text-primary",
+    iconClassName: "h-12 w-12",
+  },
+  {
+    icon: UsersRound,
+    className: "bg-[#f3edff] text-[#7c3aed]",
+    iconClassName: "h-12 w-12",
+  },
+];
+
+function EventTypeCard({
+  eventType,
+  href,
+  visual,
+}: {
+  eventType: EventTypeData;
+  href: string;
+  visual: EventVisual;
+}) {
+  const Icon = visual.icon;
+
+  return (
+    <Card className="rounded-2xl border-[#dfe7f4] bg-white/95 shadow-md shadow-slate-200/60 transition-colors hover:border-primary/40">
+      <CardContent className="p-6 sm:p-7">
+        <div className="grid gap-5 sm:grid-cols-[6rem_minmax(0,1fr)_7rem] sm:items-start">
+          <div
+            className={`flex h-24 w-24 items-center justify-center rounded-2xl ${visual.className}`}
+          >
+            <Icon className={visual.iconClassName} aria-hidden="true" strokeWidth={2.4} />
+          </div>
+
+          <div className="min-w-0">
+            <h3 className="text-2xl font-bold leading-tight text-[#061943]">
+              {eventType.title}
+            </h3>
+            <div className="mt-3 flex items-center gap-2 text-base font-medium text-[#5c6c8d]">
+              <Clock className="h-5 w-5" aria-hidden="true" />
+              <span>{eventType.duration_minutes} min</span>
+            </div>
+            {eventType.description ? (
+              <p className="mt-4 max-w-[440px] text-base leading-7 text-[#465678]">
+                {eventType.description}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-stretch">
+            <Button asChild className="h-12 rounded-lg px-8 text-base">
+              <Link href={href}>
+                <span>Book</span>
+                <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+              </Link>
+            </Button>
+            <p className="text-center text-base font-semibold text-[#5c6c8d]">
+              Free
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DottedMap({ className }: { className: string }) {
+  return (
+    <div
+      className={`pointer-events-none absolute opacity-60 ${className}`}
+      aria-hidden="true"
+      style={{
+        backgroundImage:
+          "radial-gradient(circle at 2px 2px, rgba(37, 99, 235, 0.18) 2px, transparent 0)",
+        backgroundSize: "12px 12px",
+        maskImage:
+          "radial-gradient(ellipse at center, black 0 55%, transparent 78%)",
+      }}
+    />
+  );
 }
