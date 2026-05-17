@@ -179,4 +179,27 @@ describe('validateHoldSlotRequest', () => {
       error: 'Event type not found',
     })
   })
+
+  it('returns a server error when event type lookup fails unexpectedly', async () => {
+    const supabase = createSupabaseClient([
+      createQuery({
+        data: null,
+        error: { code: 'PGRST301', message: 'connection unavailable' },
+      }),
+    ])
+
+    const result = await validateHoldSlotRequest({
+      supabase: supabase as any,
+      hostUserId,
+      eventTypeId,
+      startAt: '2025-01-06T14:00:00.000Z',
+      endAt: '2025-01-06T14:30:00.000Z',
+    })
+
+    expect(result).toEqual({
+      success: false,
+      status: 500,
+      error: 'Failed to fetch event type',
+    })
+  })
 })

@@ -179,7 +179,15 @@ async function loadEventTypeAvailabilityConfig({
 
   const eventType = eventTypeData as EventTypeAvailabilityConfig | null
 
-  if (eventTypeError || !eventType) {
+  if (eventTypeError && eventTypeError.code !== 'PGRST116') {
+    return {
+      success: false,
+      status: 500,
+      error: 'Failed to fetch event type',
+    }
+  }
+
+  if (!eventType) {
     return {
       success: false,
       status: 404,
