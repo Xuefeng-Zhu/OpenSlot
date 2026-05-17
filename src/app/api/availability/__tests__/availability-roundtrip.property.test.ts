@@ -78,6 +78,7 @@ const timezoneArb = fc.constantFrom(
 
 /** Generate a full valid save availability request body */
 const saveAvailabilityRequestArb = fc.record({
+  scheduleId: fc.uuid(),
   rules: fc.array(ruleArb, { minLength: 0, maxLength: 7 }),
   overrides: fc.array(overrideArb, { minLength: 0, maxLength: 10 }),
   deletedRuleIds: fc.array(fc.uuid(), { minLength: 0, maxLength: 5 }),
@@ -98,6 +99,9 @@ describe('Property 6: Availability save round-trip preserves state', () => {
         if (!result.success) return
 
         const parsed = result.data
+
+        // Rules count preserved
+        expect(parsed.scheduleId).toBe(input.scheduleId)
 
         // Rules count preserved
         expect(parsed.rules).toHaveLength(input.rules.length)
@@ -179,6 +183,7 @@ describe('Property 6: Availability save round-trip preserves state', () => {
         if (!secondParse.success) return
 
         // Both parses should produce equivalent data
+        expect(secondParse.data.scheduleId).toBe(firstParse.data.scheduleId)
         expect(secondParse.data.rules).toHaveLength(firstParse.data.rules.length)
         expect(secondParse.data.overrides).toHaveLength(firstParse.data.overrides.length)
         expect(secondParse.data.deletedRuleIds).toEqual(firstParse.data.deletedRuleIds)
@@ -227,6 +232,7 @@ describe('Property 6: Availability save round-trip preserves state', () => {
             overrides: [],
             deletedRuleIds: [],
             deletedOverrideIds: [],
+            scheduleId: '11111111-1111-4111-8111-111111111111',
             timezone: 'America/New_York',
           }
 
@@ -253,6 +259,7 @@ describe('Property 6: Availability save round-trip preserves state', () => {
         fc.boolean(),
         (date, startTime, endTime, isAvailable) => {
           const input = {
+            scheduleId: '11111111-1111-4111-8111-111111111111',
             rules: [],
             overrides: [
               {

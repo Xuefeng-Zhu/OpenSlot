@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { saveAvailabilitySchema } from '@/lib/validations/availability'
+import {
+  getAuthenticatedAvailabilityProfile,
+  loadOwnedSchedule,
+} from './availability-route-utils'
 
 /**
  * POST /api/availability
@@ -17,30 +21,13 @@ import { saveAvailabilitySchema } from '@/lib/validations/availability'
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
     const supabase = await createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const auth = await getAuthenticatedAvailabilityProfile(supabase)
 
-    if (authError || !user) {
+    if (!auth.ok) {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    // Get the user's profile ID
-    const { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single()
-
-    const profile = profileData as { id: string } | null
-
-    if (profileError || !profile) {
-      return NextResponse.json(
-        { success: false, error: 'Profile not found' },
-        { status: 401 }
+        { success: false, error: auth.error },
+        { status: auth.status }
       )
     }
 
@@ -59,9 +46,43 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { rules, overrides, deletedRuleIds, deletedOverrideIds, timezone } = parsed.data
+    const {
+      scheduleId,
+      rules,
+      overrides,
+      deletedRuleIds,
+      deletedOverrideIds,
+      timezone,
+    } = parsed.data
     const adminClient = createAdminClient()
-    const userId = profile.id
+    const userId = auth.profile.id
+
+    const scheduleResult = await loadOwnedSchedule(
+      adminClient,
+      scheduleId,
+      userId
+    )
+
+    if (!scheduleResult.ok) {
+      return NextResponse.json(
+        { success: false, error: scheduleResult.error },
+        { status: scheduleResult.status }
+      )
+    }
+
+    const { error: updateScheduleError } = await adminClient
+      .from('schedules')
+      .update({ timezone, updated_at: new Date().toISOString() })
+      .eq('id', scheduleId)
+      .eq('user_id', userId)
+
+    if (updateScheduleError) {
+      console.error('Error updating schedule timezone:', updateScheduleError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to update schedule' },
+        { status: 500 }
+      )
+    }
 
     // Delete rules by IDs
     if (deletedRuleIds.length > 0) {
@@ -70,6 +91,7 @@ export async function POST(request: NextRequest) {
         .delete()
         .in('id', deletedRuleIds)
         .eq('user_id', userId)
+        .eq('schedule_id', scheduleId)
 
       if (deleteRulesError) {
         console.error('Error deleting availability rules:', deleteRulesError)
@@ -87,6 +109,7 @@ export async function POST(request: NextRequest) {
         .delete()
         .in('id', deletedOverrideIds)
         .eq('user_id', userId)
+        .eq('schedule_id', scheduleId)
 
       if (deleteOverridesError) {
         console.error('Error deleting availability overrides:', deleteOverridesError)
@@ -109,9 +132,11 @@ export async function POST(request: NextRequest) {
             end_time: rule.end_time,
             timezone,
             is_active: rule.is_active,
+            updated_at: new Date().toISOString(),
           })
           .eq('id', rule.id)
           .eq('user_id', userId)
+          .eq('schedule_id', scheduleId)
 
         if (updateError) {
           console.error('Error updating availability rule:', updateError)
@@ -126,6 +151,7 @@ export async function POST(request: NextRequest) {
           .from('availability_rules')
           .insert({
             user_id: userId,
+            schedule_id: scheduleId,
             weekday: rule.weekday,
             start_time: rule.start_time,
             end_time: rule.end_time,
@@ -156,9 +182,11 @@ export async function POST(request: NextRequest) {
             timezone,
             is_available: override.is_available,
             reason: override.reason ?? null,
+            updated_at: new Date().toISOString(),
           })
           .eq('id', override.id)
           .eq('user_id', userId)
+          .eq('schedule_id', scheduleId)
 
         if (updateError) {
           console.error('Error updating availability override:', updateError)
@@ -173,6 +201,7 @@ export async function POST(request: NextRequest) {
           .from('availability_overrides')
           .insert({
             user_id: userId,
+            schedule_id: scheduleId,
             date: override.date,
             start_time: override.start_time,
             end_time: override.end_time,
@@ -191,7 +220,46 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true })
+    const { data: savedRulesData, error: savedRulesError } = await adminClient
+      .from('availability_rules')
+      .select('id, weekday, start_time, end_time, is_active')
+      .eq('user_id', userId)
+      .eq('schedule_id', scheduleId)
+      .order('weekday', { ascending: true })
+      .order('start_time', { ascending: true })
+
+    if (savedRulesError) {
+      console.error('Error loading saved availability rules:', savedRulesError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to reload availability rules' },
+        { status: 500 }
+      )
+    }
+
+    const { data: savedOverridesData, error: savedOverridesError } =
+      await adminClient
+        .from('availability_overrides')
+        .select('id, date, start_time, end_time, is_available, reason')
+        .eq('user_id', userId)
+        .eq('schedule_id', scheduleId)
+        .order('date', { ascending: true })
+
+    if (savedOverridesError) {
+      console.error(
+        'Error loading saved availability overrides:',
+        savedOverridesError
+      )
+      return NextResponse.json(
+        { success: false, error: 'Failed to reload availability overrides' },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      rules: savedRulesData ?? [],
+      overrides: savedOverridesData ?? [],
+    })
   } catch (error) {
     console.error('Error in POST /api/availability:', error)
     return NextResponse.json(

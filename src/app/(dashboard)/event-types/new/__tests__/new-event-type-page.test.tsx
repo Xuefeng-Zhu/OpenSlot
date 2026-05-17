@@ -3,6 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventTypeEditor } from "../../event-type-editor";
 
 const push = vi.fn();
+const schedules = [
+  {
+    id: "33333333-3333-4333-8333-333333333333",
+    name: "Default schedule",
+    is_default: true,
+  },
+];
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
@@ -25,7 +32,13 @@ describe("NewEventTypePage editor", () => {
   });
 
   it("clears field-level validation errors when corrected", () => {
-    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -47,7 +60,13 @@ describe("NewEventTypePage editor", () => {
   });
 
   it("lets hosts add a structured invitee question", () => {
-    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
 
     fireEvent.click(
       screen.getByRole("button", { name: /Invitee Questions/ })
@@ -62,7 +81,13 @@ describe("NewEventTypePage editor", () => {
   });
 
   it("validates reminder recipient controls", () => {
-    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Reminders" }));
     fireEvent.click(
@@ -93,6 +118,7 @@ describe("NewEventTypePage editor", () => {
       <EventTypeEditor
         mode="create"
         hostProfile={hostProfile}
+        schedules={schedules}
         calendarConnectionsLoadFailed
       />
     );
@@ -108,7 +134,13 @@ describe("NewEventTypePage editor", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
 
     expect(screen.getByText("Event Title")).toBeDefined();
     expect(screen.getByText("Sarah Chen")).toBeDefined();

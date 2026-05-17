@@ -34,9 +34,16 @@ export type { EditableEventType } from "./event-type-editor-model";
 interface EventTypeEditorProps {
   mode: "create" | "edit";
   hostProfile: SlotPickerHostProfile;
+  schedules: ScheduleOption[];
   initialEventType?: EditableEventType;
   calendarConnections?: CalendarConnectionSummary[];
   calendarConnectionsLoadFailed?: boolean;
+}
+
+export interface ScheduleOption {
+  id: string;
+  name: string;
+  is_default: boolean;
 }
 
 const initialOpenSections: Record<FormSectionId, boolean> = {
@@ -56,6 +63,7 @@ const initialOpenSections: Record<FormSectionId, boolean> = {
 export function EventTypeEditor({
   mode,
   hostProfile,
+  schedules,
   initialEventType,
   calendarConnections = [],
   calendarConnectionsLoadFailed = false,
@@ -66,6 +74,10 @@ export function EventTypeEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [openSections, setOpenSections] =
     useState<Record<FormSectionId, boolean>>(initialOpenSections);
+  const defaultScheduleId =
+    schedules.find((schedule) => schedule.is_default)?.id ??
+    schedules[0]?.id ??
+    "";
   const {
     values,
     errors,
@@ -79,7 +91,7 @@ export function EventTypeEditor({
     updateQuestionOptions,
     selectLocation,
     buildPayload,
-  } = useEventTypeEditorState(initialEventType);
+  } = useEventTypeEditorState(initialEventType, defaultScheduleId);
   const selectedVideoHealth = !calendarConnectionsLoadFailed && values.video_provider
     ? videoProviderHealth(values.video_provider, calendarConnections)
     : null;
@@ -193,6 +205,7 @@ export function EventTypeEditor({
             errors={errors}
             onFieldChange={updateField}
             clearFieldError={clearFieldError}
+            schedules={schedules}
           />
         );
       case "reminders":

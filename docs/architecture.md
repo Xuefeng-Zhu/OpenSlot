@@ -118,10 +118,13 @@ Availability rules use database weekday values where `0 = Sunday` and `6 = Satur
   -> validates profile, availability, and first event type locally
   -> POST /api/onboarding
   -> authenticated profile lookup
-  -> service-role profile update + event type upsert + availability rule replacement
+  -> service-role profile update + default schedule lookup/create
+  -> event type upsert + schedule-scoped availability rule replacement
 ```
 
-The onboarding API stores the browser timezone as the profile default timezone and the timezone for created weekly availability rules.
+The onboarding API stores the browser timezone as the profile default timezone,
+creates a default schedule in that timezone, assigns the first event type to it,
+and stores created weekly availability rules under that schedule.
 
 ## Database Schema
 
@@ -153,6 +156,7 @@ Migrations are in `supabase/migrations/`:
 - `20260512055807_add_video_conferencing_fields.sql`: event type video provider selection, booking location/conference snapshots, and reschedule RPC snapshot handling.
 - `20260514072605_add_invitee_questions.sql`: event type invitee question JSON, booking answer snapshots, and answer-aware reschedule RPC.
 - `20260514000000_add_event_type_reminders.sql`: per-event-type pre-meeting reminder policy fields.
+- `20260517044810_add_availability_schedules.sql`: host-owned named schedules, event type schedule assignment, schedule-scoped availability rules/overrides, and schedule RLS/grants.
 
 ## API Routes
 

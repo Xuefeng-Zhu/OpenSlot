@@ -15,6 +15,7 @@ import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 export interface EditableEventType {
   id: string;
+  schedule_id: string;
   title: string;
   slug: string;
   description: string;
@@ -61,6 +62,7 @@ export type VideoProviderHealth = Pick<
 >;
 
 export const defaultEventType: EventTypeEditorFormState = {
+  schedule_id: "",
   title: "",
   slug: "",
   description: "",
@@ -81,13 +83,15 @@ export const defaultEventType: EventTypeEditorFormState = {
 };
 
 export function createEventTypeEditorState(
-  initialEventType?: EditableEventType
+  initialEventType?: EditableEventType,
+  defaultScheduleId = ""
 ): EventTypeEditorFormState {
   const source = initialEventType ?? defaultEventType;
 
   return {
     ...defaultEventType,
     ...source,
+    schedule_id: initialEventType?.schedule_id ?? defaultScheduleId,
     video_provider: source.video_provider ?? null,
     invitee_questions: source.invitee_questions.map((question) => ({
       ...question,
@@ -100,6 +104,7 @@ export function buildEventTypePayload(
   values: EventTypeEditorFormState
 ): EventTypeFormValues {
   return {
+    schedule_id: values.schedule_id,
     title: values.title.trim(),
     slug: values.slug.trim(),
     description: values.description.trim(),

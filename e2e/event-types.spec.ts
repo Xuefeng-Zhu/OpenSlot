@@ -1,7 +1,11 @@
+import type { Page } from "@playwright/test";
 import { loginAsDemoHost } from "./support/auth";
+import { addDays, formatDateYmd } from "./support/booking";
 import {
   cleanupEventTypesBySlug,
+  createEventType,
   createE2EAdminClient,
+  getDemoProfile,
   uniqueE2EId,
 } from "./support/db";
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
@@ -173,4 +177,155 @@ test.describe("event type management", () => {
       await cleanupEventTypesBySlug(adminClient, [slug]);
     }
   });
+
+  test("event types can use different availability schedules", async ({
+    page,
+  }) => {
+    const adminClient = createE2EAdminClient();
+    const profile = await getDemoProfile(adminClient);
+    const slug = uniqueE2EId("schedule");
+    const defaultSlug = uniqueE2EId("schedule-default");
+    const title = `E2E Schedule Session ${slug.slice(-8)}`;
+    const defaultTitle = `E2E Default Schedule Session ${defaultSlug.slice(-8)}`;
+    const scheduleName = `E2E Afternoon ${slug.slice(-6)}`;
+    const duplicatedScheduleName = `E2E Copy ${slug.slice(-6)}`;
+    const date = nextWeekdayDate(1, 14);
+
+    await cleanupEventTypesBySlug(adminClient, [slug, defaultSlug]);
+    await adminClient
+      .from("schedules")
+      .delete()
+      .eq("user_id", profile.id)
+      .in("name", [scheduleName, duplicatedScheduleName]);
+    const defaultEventType = await createEventType(adminClient, {
+      slug: defaultSlug,
+      title: defaultTitle,
+    });
+
+    try {
+      await loginAsDemoHost(page, "/availability");
+
+      await page.getByRole("button", { name: "Active schedule" }).click();
+      await page.getByRole("menuitem", { name: "Create schedule" }).click();
+      await page.getByLabel("New schedule").fill(scheduleName);
+      await page.getByRole("button", { name: "Create schedule" }).click();
+      await expect(
+        page.getByText("Schedule created", { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Active schedule" })
+      ).toContainText(scheduleName);
+
+      await page
+        .getByRole("switch", { name: "Toggle Monday availability" })
+        .click();
+      await page
+        .getByRole("button", { name: "Add interval for Monday" })
+        .click();
+      await page.getByLabel("Start time for Monday interval 1").fill("13:00");
+      await page.getByLabel("End time for Monday interval 1").fill("13:30");
+      await page.getByRole("button", { name: "Save availability" }).click();
+      await expect(
+        page.getByText("Availability saved", { exact: true })
+      ).toBeVisible();
+
+      await page.getByRole("button", { name: "Schedule actions" }).click();
+      await page.getByRole("menuitem", { name: "Duplicate" }).click();
+      await page.getByLabel("Schedule name").fill(duplicatedScheduleName);
+      await page.getByRole("button", { name: "Duplicate" }).click();
+      await expect(
+        page.getByText("Schedule duplicated", { exact: true })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Active schedule" })
+      ).toContainText(duplicatedScheduleName);
+      await expect(
+        page.getByLabel("Start time for Monday interval 1")
+      ).toHaveValue("13:00");
+      await expect(
+        page.getByLabel("End time for Monday interval 1")
+      ).toHaveValue("13:30");
+
+      await page.getByRole("button", { name: "Active schedule" }).click();
+      await page.getByRole("menuitem", { name: scheduleName }).click();
+      await expect(
+        page.getByRole("button", { name: "Active schedule" })
+      ).toContainText(
+        scheduleName
+      );
+
+      await page.goto("/event-types/new");
+      await page.getByLabel("Title").fill(title);
+      await page.getByLabel("URL Slug").fill(slug);
+      await page.getByRole("button", { name: "Scheduling Limits" }).click();
+      await page.getByRole("combobox", { name: "Availability schedule" }).click();
+      await page.getByRole("option", { name: scheduleName }).click();
+      await page.getByRole("button", { name: "Save" }).click();
+
+      await expect(page).toHaveURL(/\/event-types$/);
+
+      const { data: customEventType } = await adminClient
+        .from("event_types")
+        .select("id")
+        .eq("slug", slug)
+        .single();
+      const customSlots = await fetchSlotStarts(page, {
+        hostUserId: profile.id,
+        eventTypeId: customEventType!.id,
+        date,
+      });
+      const defaultSlots = await fetchSlotStarts(page, {
+        hostUserId: profile.id,
+        eventTypeId: defaultEventType.id,
+        date,
+      });
+
+      expect(slotLocalTime(customSlots[0])).toBe("1:00 PM");
+      expect(slotLocalTime(defaultSlots[0])).toBe("9:00 AM");
+    } finally {
+      await cleanupEventTypesBySlug(adminClient, [slug, defaultSlug]);
+      await adminClient
+        .from("schedules")
+        .delete()
+        .eq("user_id", profile.id)
+        .in("name", [scheduleName, duplicatedScheduleName]);
+    }
+  });
 });
+
+function nextWeekdayDate(weekday: number, minDaysAhead: number) {
+  let date = addDays(new Date(), minDaysAhead);
+  while (date.getDay() !== weekday) {
+    date = addDays(date, 1);
+  }
+
+  return formatDateYmd(date);
+}
+
+async function fetchSlotStarts(
+  page: Page,
+  {
+    hostUserId,
+    eventTypeId,
+    date,
+  }: { hostUserId: string; eventTypeId: string; date: string }
+) {
+  const params = new URLSearchParams({
+    hostUserId,
+    eventTypeId,
+    date,
+    timezone: "America/New_York",
+  });
+  const response = await page.request.get(`/api/slots?${params.toString()}`);
+  expect(response.ok()).toBe(true);
+  const data = (await response.json()) as { slots: Array<{ start: string }> };
+  return data.slots.map((slot) => slot.start);
+}
+
+function slotLocalTime(isoString: string) {
+  return new Date(isoString).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/New_York",
+  });
+}

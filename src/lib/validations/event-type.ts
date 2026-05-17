@@ -31,6 +31,7 @@ export const eventTypeSlugSchema = z
  * Defaults mirror the database-backed MVP scheduling constraints.
  */
 export const eventTypeFieldsSchema = z.object({
+  schedule_id: z.string().uuid('Choose an availability schedule'),
   title: z.string().min(1, 'Title is required').max(100, 'Title must be 100 characters or less'),
   slug: eventTypeSlugSchema,
   description: z.string().max(500, 'Description must be 500 characters or less').optional(),

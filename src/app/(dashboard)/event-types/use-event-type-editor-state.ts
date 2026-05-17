@@ -19,10 +19,11 @@ import {
 } from "./event-type-editor-model";
 
 export function useEventTypeEditorState(
-  initialEventType?: EditableEventType
+  initialEventType?: EditableEventType,
+  defaultScheduleId = ""
 ) {
   const [values, setValues] = useState<EventTypeEditorFormState>(() =>
-    createEventTypeEditorState(initialEventType)
+    createEventTypeEditorState(initialEventType, defaultScheduleId)
   );
   const [errors, setErrors] = useState<FieldErrors>({});
 

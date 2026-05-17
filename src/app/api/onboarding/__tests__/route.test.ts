@@ -7,6 +7,9 @@ const mocks = vi.hoisted(() => ({
   profileUpsertOptions: null as Record<string, unknown> | null,
   profileUpsertError: null as { code?: string; message: string } | null,
   savedProfileId: 'profile-1',
+  existingScheduleId: null as string | null,
+  scheduleInsertPayload: null as Record<string, unknown> | null,
+  savedScheduleId: 'schedule-1',
   eventTypePayload: null as Record<string, unknown> | null,
   eventTypeOptions: null as Record<string, unknown> | null,
   deletedAvailabilityForUser: '',
@@ -46,6 +49,35 @@ function createTableMock(table: string) {
           select: () => ({
             single: async () => ({
               data: { slug: payload.slug },
+              error: null,
+            }),
+          }),
+        }
+      },
+    }
+  }
+
+  if (table === 'schedules') {
+    return {
+      select: () => {
+        const builder = {
+          eq: () => builder,
+          maybeSingle: async () => ({
+            data: mocks.existingScheduleId
+              ? { id: mocks.existingScheduleId }
+              : null,
+            error: null,
+          }),
+        }
+
+        return builder
+      },
+      insert: (payload: Record<string, unknown>) => {
+        mocks.scheduleInsertPayload = payload
+        return {
+          select: () => ({
+            single: async () => ({
+              data: { id: mocks.savedScheduleId },
               error: null,
             }),
           }),
@@ -122,6 +154,9 @@ describe('POST /api/onboarding', () => {
     mocks.profileUpsertOptions = null
     mocks.profileUpsertError = null
     mocks.savedProfileId = 'profile-1'
+    mocks.existingScheduleId = null
+    mocks.scheduleInsertPayload = null
+    mocks.savedScheduleId = 'schedule-1'
     mocks.eventTypePayload = null
     mocks.eventTypeOptions = null
     mocks.deletedAvailabilityForUser = ''
@@ -150,8 +185,15 @@ describe('POST /api/onboarding', () => {
       default_timezone: 'America/Los_Angeles',
     })
     expect(mocks.profileUpsertOptions).toEqual({ onConflict: 'auth_user_id' })
+    expect(mocks.scheduleInsertPayload).toMatchObject({
+      user_id: 'profile-1',
+      name: 'Default schedule',
+      timezone: 'America/Los_Angeles',
+      is_default: true,
+    })
     expect(mocks.eventTypePayload).toMatchObject({
       user_id: 'profile-1',
+      schedule_id: 'schedule-1',
       title: 'Intro Call',
       slug: 'intro-call',
       duration_minutes: 30,
@@ -164,6 +206,7 @@ describe('POST /api/onboarding', () => {
     expect(mocks.insertedAvailability).toEqual([
       {
         user_id: 'profile-1',
+        schedule_id: 'schedule-1',
         weekday: 1,
         start_time: '09:00',
         end_time: '17:00',

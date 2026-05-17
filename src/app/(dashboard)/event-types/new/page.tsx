@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { EventTypeEditor } from "../event-type-editor";
+import { EventTypeEditor, type ScheduleOption } from "../event-type-editor";
 import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -36,6 +36,15 @@ export default async function NewEventTypePage() {
     profile.id
   );
 
+  const { data: schedulesData } = await supabase
+    .from("schedules")
+    .select("id, name, is_default")
+    .eq("user_id", profile.id)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true });
+
+  const schedules = ((schedulesData as ScheduleOption[] | null) ?? []);
+
   return (
     <EventTypeEditor
       mode="create"
@@ -45,6 +54,7 @@ export default async function NewEventTypePage() {
         username: profile.username,
         avatar_url: profile.avatar_url,
       }}
+      schedules={schedules}
       calendarConnections={calendarConnections.data}
       calendarConnectionsLoadFailed={calendarConnections.loadFailed}
     />

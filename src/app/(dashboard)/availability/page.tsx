@@ -7,7 +7,14 @@ function toTimeInputValue(time: string | null): string | null {
   return time ? time.slice(0, 5) : null
 }
 
-export default async function AvailabilityPage() {
+interface AvailabilityPageProps {
+  searchParams?: Promise<{ scheduleId?: string }>
+}
+
+export default async function AvailabilityPage({
+  searchParams,
+}: AvailabilityPageProps) {
+  const resolvedSearchParams = await searchParams
   const supabase = await createServerSupabaseClient()
 
   // Get authenticated user
@@ -35,11 +42,63 @@ export default async function AvailabilityPage() {
     redirect("/onboarding")
   }
 
-  // Fetch availability rules for the authenticated user
+  const { data: schedulesData } = await supabase
+    .from("schedules")
+    .select("id, name, timezone, is_default, created_at")
+    .eq("user_id", profile.id)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: true })
+
+  const { data: eventTypeScheduleData } = await supabase
+    .from("event_types")
+    .select("id, title, slug, schedule_id")
+    .eq("user_id", profile.id)
+
+  const eventTypesBySchedule = new Map<
+    string,
+    Array<{ id: string; title: string; slug: string }>
+  >()
+  for (const eventType of eventTypeScheduleData ?? []) {
+    const scheduleId = eventType.schedule_id
+    const assignedEventTypes = eventTypesBySchedule.get(scheduleId) ?? []
+    assignedEventTypes.push({
+      id: eventType.id,
+      title: eventType.title,
+      slug: eventType.slug,
+    })
+    eventTypesBySchedule.set(scheduleId, assignedEventTypes)
+  }
+
+  const schedules = ((schedulesData as Array<Pick<
+    Tables<"schedules">,
+    "id" | "name" | "timezone" | "is_default" | "created_at"
+  >>) ?? []).map((schedule) => ({
+    id: schedule.id,
+    name: schedule.name,
+    timezone: schedule.timezone,
+    is_default: schedule.is_default,
+    assignedEventTypes: eventTypesBySchedule.get(schedule.id) ?? [],
+    assignedEventTypeCount:
+      eventTypesBySchedule.get(schedule.id)?.length ?? 0,
+  }))
+
+  const selectedSchedule =
+    schedules.find(
+      (schedule) => schedule.id === resolvedSearchParams?.scheduleId
+    ) ??
+    schedules.find((schedule) => schedule.is_default) ??
+    schedules[0]
+
+  if (!selectedSchedule) {
+    redirect("/onboarding")
+  }
+
+  // Fetch availability rules for the selected schedule
   const { data: rulesData } = await supabase
     .from("availability_rules")
     .select("id, weekday, start_time, end_time, is_active")
     .eq("user_id", profile.id)
+    .eq("schedule_id", selectedSchedule.id)
 
   const rules = ((rulesData as Array<Pick<
     Tables<"availability_rules">,
@@ -57,6 +116,7 @@ export default async function AvailabilityPage() {
     .from("availability_overrides")
     .select("id, date, start_time, end_time, is_available, reason")
     .eq("user_id", profile.id)
+    .eq("schedule_id", selectedSchedule.id)
 
   const overrides = ((overridesData as Array<Pick<
     Tables<"availability_overrides">,
@@ -70,14 +130,13 @@ export default async function AvailabilityPage() {
     reason: override.reason,
   }))
 
-  // Use profile's default_timezone, fallback to UTC
-  const timezone = profile.default_timezone || "UTC"
-
   return (
     <AvailabilityClient
+      schedules={schedules}
+      selectedScheduleId={selectedSchedule.id}
       initialRules={rules}
       initialOverrides={overrides}
-      timezone={timezone}
+      timezone={selectedSchedule.timezone || profile.default_timezone || "UTC"}
       userId={profile.id}
     />
   )

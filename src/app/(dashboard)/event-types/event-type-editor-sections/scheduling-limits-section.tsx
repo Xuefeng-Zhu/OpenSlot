@@ -1,15 +1,55 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { EventTypeSectionProps } from "./event-type-section-types";
+import type { ScheduleOption } from "../event-type-editor";
+
+interface SchedulingLimitsSectionProps extends EventTypeSectionProps {
+  schedules: ScheduleOption[];
+}
 
 export function SchedulingLimitsSection({
   values,
   errors,
   onFieldChange,
   clearFieldError,
-}: EventTypeSectionProps) {
+  schedules,
+}: SchedulingLimitsSectionProps) {
   return (
     <div className="space-y-4">
+      <div>
+        <Label htmlFor="schedule">Availability schedule</Label>
+        <Select
+          value={values.schedule_id}
+          onValueChange={(value) => {
+            onFieldChange("schedule_id", value);
+            clearFieldError("schedule_id");
+          }}
+        >
+          <SelectTrigger id="schedule" aria-label="Availability schedule">
+            <SelectValue placeholder="Choose a schedule" />
+          </SelectTrigger>
+          <SelectContent>
+            {schedules.map((schedule) => (
+              <SelectItem key={schedule.id} value={schedule.id}>
+                {schedule.name}
+                {schedule.is_default ? " (default)" : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {errors.schedule_id ? (
+          <p className="text-xs text-destructive mt-1">
+            {errors.schedule_id}
+          </p>
+        ) : null}
+      </div>
       <div>
         <Label htmlFor="min-notice">Minimum notice (minutes)</Label>
         <Input

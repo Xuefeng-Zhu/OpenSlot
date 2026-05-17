@@ -6,6 +6,7 @@ import {
   getAuthenticatedProfile,
   isDuplicateSlugError,
   parseEventTypeBody,
+  scheduleBelongsToProfile,
 } from '../event-type-route-utils'
 
 interface EventTypeRouteContext {
@@ -53,6 +54,19 @@ export async function PATCH(
           details: eventTypeFieldErrors(parsed.error),
         },
         { status: 400 }
+      )
+    }
+
+    const scheduleResult = await scheduleBelongsToProfile(
+      supabase,
+      parsed.data.schedule_id,
+      auth.profile.id
+    )
+
+    if (!scheduleResult.ok) {
+      return NextResponse.json(
+        { success: false, error: scheduleResult.error },
+        { status: scheduleResult.status }
       )
     }
 

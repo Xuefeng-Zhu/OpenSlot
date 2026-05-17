@@ -35,7 +35,7 @@ already occupied. It expects Supabase env vars to be available in the shell or
 `.env.local`. Before tests run, Playwright refreshes and verifies the demo host
 password through the configured service-role key so browser login uses a real
 Supabase Auth password flow. If the demo host is missing, setup creates the auth
-user, profile, and weekday availability needed by isolated E2E specs.
+user, profile, default schedule, and weekday availability needed by isolated E2E specs.
 
 The CI `Dashboard E2E` job installs Chromium, starts local Supabase, resets and
 seeds the database, exports the local Supabase env vars, runs

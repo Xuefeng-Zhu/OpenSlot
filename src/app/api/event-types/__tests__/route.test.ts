@@ -5,6 +5,11 @@ import { DELETE, PATCH } from '../[id]/route'
 const mocks = vi.hoisted(() => ({
   getUser: vi.fn(),
   profile: { id: 'profile-1' } as { id: string } | null,
+  scheduleLookupFilters: [] as Array<{ column: string; value: unknown }>,
+  scheduleLookupResult: {
+    id: '33333333-3333-4333-8333-333333333333',
+  } as Record<string, unknown> | null,
+  scheduleLookupError: null as { code?: string; message: string } | null,
   eventTypeInsertPayload: null as Record<string, unknown> | null,
   eventTypeInsertError: null as { code?: string; message: string } | null,
   eventTypeUpdatePayload: null as Record<string, unknown> | null,
@@ -79,6 +84,22 @@ function createTableMock(table: string) {
     }
   }
 
+  if (table === 'schedules') {
+    const builder = {
+      select: () => builder,
+      eq: (column: string, value: unknown) => {
+        mocks.scheduleLookupFilters.push({ column, value })
+        return builder
+      },
+      single: async () => ({
+        data: mocks.scheduleLookupResult,
+        error: mocks.scheduleLookupError,
+      }),
+    }
+
+    return builder
+  }
+
   throw new Error(`Unexpected table: ${table}`)
 }
 
@@ -92,6 +113,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }))
 
 const validBody = {
+  schedule_id: '33333333-3333-4333-8333-333333333333',
   title: 'Intro Call',
   slug: 'intro-call',
   description: 'A quick call to connect.',
@@ -125,6 +147,11 @@ describe('POST /api/event-types', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
     mocks.profile = { id: 'profile-1' }
+    mocks.scheduleLookupFilters = []
+    mocks.scheduleLookupResult = {
+      id: '33333333-3333-4333-8333-333333333333',
+    }
+    mocks.scheduleLookupError = null
     mocks.eventTypeInsertPayload = null
     mocks.eventTypeInsertError = null
     mocks.eventTypeUpdatePayload = null
@@ -155,6 +182,7 @@ describe('POST /api/event-types', () => {
     })
     expect(mocks.eventTypeInsertPayload).toMatchObject({
       user_id: 'profile-1',
+      schedule_id: '33333333-3333-4333-8333-333333333333',
       title: 'Intro Call',
       slug: 'intro-call',
       description: 'A quick call to connect.',
@@ -271,12 +299,36 @@ describe('POST /api/event-types', () => {
       },
     })
   })
+
+  it('rejects schedules that do not belong to the profile', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+    mocks.scheduleLookupResult = null
+    mocks.scheduleLookupError = { code: 'PGRST116', message: 'No rows found' }
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(404)
+    expect(data).toEqual({
+      success: false,
+      error: 'Schedule not found',
+    })
+    expect(mocks.eventTypeInsertPayload).toBeNull()
+  })
 })
 
 describe('PATCH /api/event-types/[id]', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
     mocks.profile = { id: 'profile-1' }
+    mocks.scheduleLookupFilters = []
+    mocks.scheduleLookupResult = {
+      id: '33333333-3333-4333-8333-333333333333',
+    }
+    mocks.scheduleLookupError = null
     mocks.eventTypeInsertPayload = null
     mocks.eventTypeInsertError = null
     mocks.eventTypeUpdatePayload = null
@@ -322,6 +374,7 @@ describe('PATCH /api/event-types/[id]', () => {
     expect(mocks.eventTypeUpdatePayload).toMatchObject({
       title: 'Updated Intro Call',
       slug: 'updated-intro-call',
+      schedule_id: '33333333-3333-4333-8333-333333333333',
       video_provider: null,
       reminder_enabled: true,
       reminder_minutes_before: 60,
@@ -427,6 +480,11 @@ describe('DELETE /api/event-types/[id]', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
     mocks.profile = { id: 'profile-1' }
+    mocks.scheduleLookupFilters = []
+    mocks.scheduleLookupResult = {
+      id: '33333333-3333-4333-8333-333333333333',
+    }
+    mocks.scheduleLookupError = null
     mocks.eventTypeInsertPayload = null
     mocks.eventTypeInsertError = null
     mocks.eventTypeUpdatePayload = null

@@ -8,7 +8,9 @@ import {
 } from '@/lib/validations/onboarding'
 
 type OnboardingWriteClient = {
-  from: (table: 'profiles' | 'event_types' | 'availability_rules') => any
+  from: (
+    table: 'profiles' | 'schedules' | 'event_types' | 'availability_rules'
+  ) => any
 }
 
 /**
@@ -104,12 +106,54 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const { data: existingSchedule, error: scheduleLookupError } =
+      await writeClient
+        .from('schedules')
+        .select('id')
+        .eq('user_id', profileId)
+        .eq('is_default', true)
+        .maybeSingle()
+
+    if (scheduleLookupError) {
+      console.error('Error loading onboarding schedule:', scheduleLookupError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to save schedule' },
+        { status: 500 }
+      )
+    }
+
+    let scheduleId = existingSchedule?.id as string | undefined
+
+    if (!scheduleId) {
+      const { data: savedSchedule, error: scheduleError } = await writeClient
+        .from('schedules')
+        .insert({
+          user_id: profileId,
+          name: 'Default schedule',
+          timezone,
+          is_default: true,
+        })
+        .select('id')
+        .single()
+
+      if (scheduleError || !savedSchedule?.id) {
+        console.error('Error saving onboarding schedule:', scheduleError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to save schedule' },
+          { status: 500 }
+        )
+      }
+
+      scheduleId = savedSchedule.id
+    }
+
     const { data: savedEventType, error: eventTypeError } =
       await writeClient
         .from('event_types')
         .upsert(
           {
             user_id: profileId,
+            schedule_id: scheduleId,
             title: eventType.title,
             slug: eventSlug,
             description: '',
@@ -152,6 +196,7 @@ export async function POST(request: NextRequest) {
     const rules = buildOnboardingAvailabilityRules(availability).map((rule) => ({
       ...rule,
       user_id: profileId,
+      schedule_id: scheduleId,
       timezone,
     }))
 

@@ -92,15 +92,16 @@ export function computeAvailableSlots(
     bufferAfterMinutes,
     minNoticeMinutes,
     maxBookingDaysAhead,
+    scheduleTimezone,
   } = input
 
   const now = new Date()
   const earliestStart = addMinutes(now, minNoticeMinutes)
   const latestStart = addDays(now, maxBookingDaysAhead)
 
-  // Step 1: Determine the host's timezone and weekday for the requested date
-  // Use the timezone from the first rule, or fall back to UTC
-  const hostTimezone = rules.length > 0 ? rules[0].timezone : 'UTC'
+  // Step 1: Determine the host schedule timezone and weekday for the requested date.
+  const hostTimezone =
+    scheduleTimezone ?? rules[0]?.timezone ?? overrides[0]?.timezone ?? 'UTC'
 
   // Determine the weekday for the requested date in the host's timezone
   // Parse the date as noon local time to avoid DST edge cases at midnight
