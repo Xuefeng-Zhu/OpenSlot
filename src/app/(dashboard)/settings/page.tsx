@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
-import { listCalendarConnectionSummaries } from "@/lib/calendar/connections";
+import {
+  loadDashboardCalendarConnections,
+  loadDashboardWebhookEndpoints,
+} from "@/lib/dashboard/integration-load-state";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { SettingsClient } from "./settings-client";
 import type { Tables } from "@/lib/types/database";
 import type { SettingsFormValues } from "@/lib/validations/settings";
-import { listWebhookEndpointSummaries } from "@/lib/webhooks/endpoints";
 
 const defaultTimezone = "UTC";
 
@@ -62,26 +64,19 @@ export default async function SettingsPage() {
     notifyReminder: typedSettings?.notify_reminder ?? true,
   };
 
-  const calendarConnections = await listCalendarConnectionSummaries(
-    createAdminClient(),
-    typedProfile.id
-  ).catch((error) => {
-    console.error("Error loading calendar connections:", error);
-    return [];
-  });
-  const webhookEndpoints = await listWebhookEndpointSummaries(
-    createAdminClient(),
-    typedProfile.id
-  ).catch((error) => {
-    console.error("Error loading webhook endpoints:", error);
-    return [];
-  });
+  const adminClient = createAdminClient();
+  const [calendarConnections, webhookEndpoints] = await Promise.all([
+    loadDashboardCalendarConnections(adminClient, typedProfile.id),
+    loadDashboardWebhookEndpoints(adminClient, typedProfile.id),
+  ]);
 
   return (
     <SettingsClient
       initialSettings={initialSettings}
-      calendarConnections={calendarConnections}
-      webhookEndpoints={webhookEndpoints}
+      calendarConnections={calendarConnections.data}
+      calendarConnectionsLoadFailed={calendarConnections.loadFailed}
+      webhookEndpoints={webhookEndpoints.data}
+      webhookEndpointsLoadFailed={webhookEndpoints.loadFailed}
     />
   );
 }

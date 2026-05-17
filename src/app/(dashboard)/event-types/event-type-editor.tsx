@@ -35,6 +35,7 @@ interface EventTypeEditorProps {
   hostName: string;
   initialEventType?: EditableEventType;
   calendarConnections?: CalendarConnectionSummary[];
+  calendarConnectionsLoadFailed?: boolean;
 }
 
 const initialOpenSections: Record<FormSectionId, boolean> = {
@@ -56,6 +57,7 @@ export function EventTypeEditor({
   hostName,
   initialEventType,
   calendarConnections = [],
+  calendarConnectionsLoadFailed = false,
 }: EventTypeEditorProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -77,7 +79,7 @@ export function EventTypeEditor({
     selectLocation,
     buildPayload,
   } = useEventTypeEditorState(initialEventType);
-  const selectedVideoHealth = values.video_provider
+  const selectedVideoHealth = !calendarConnectionsLoadFailed && values.video_provider
     ? videoProviderHealth(values.video_provider, calendarConnections)
     : null;
 
@@ -226,6 +228,16 @@ export function EventTypeEditor({
               }".`
         }
       />
+
+      {calendarConnectionsLoadFailed ? (
+        <div
+          className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+          role="alert"
+        >
+          Calendar connection status could not be loaded. Event type settings
+          remain editable, but video provider readiness may be incomplete.
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="lg:col-span-3 space-y-4">
