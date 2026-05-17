@@ -54,6 +54,30 @@ describe('profileSchema', () => {
       expect(result.success).toBe(false)
     })
   })
+
+  describe('public metadata boundary lengths', () => {
+    it('accepts optional public profile metadata at maximum length', () => {
+      const result = profileSchema.safeParse({
+        ...validProfile,
+        public_headline: 'A'.repeat(80),
+        public_bio: 'B'.repeat(280),
+        response_time_label: 'C'.repeat(80),
+      })
+
+      expect(result.success).toBe(true)
+    })
+
+    it('rejects optional public profile metadata above maximum length', () => {
+      const result = profileSchema.safeParse({
+        ...validProfile,
+        public_headline: 'A'.repeat(81),
+        public_bio: 'B'.repeat(281),
+        response_time_label: 'C'.repeat(81),
+      })
+
+      expect(result.success).toBe(false)
+    })
+  })
 })
 
 describe('eventTypeSchema', () => {

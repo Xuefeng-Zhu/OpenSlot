@@ -18,6 +18,9 @@ export interface Database {
           username: string | null
           avatar_url: string | null
           default_timezone: string
+          public_headline: string | null
+          public_bio: string | null
+          response_time_label: string | null
           created_at: string
           updated_at: string
         }
@@ -29,6 +32,9 @@ export interface Database {
           username?: string | null
           avatar_url?: string | null
           default_timezone?: string
+          public_headline?: string | null
+          public_bio?: string | null
+          response_time_label?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -40,6 +46,9 @@ export interface Database {
           username?: string | null
           avatar_url?: string | null
           default_timezone?: string
+          public_headline?: string | null
+          public_bio?: string | null
+          response_time_label?: string | null
           created_at?: string
           updated_at?: string
         }

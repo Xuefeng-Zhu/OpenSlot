@@ -65,6 +65,18 @@ export const profileSchema = z.object({
   default_timezone: z
     .string()
     .refine(isValidTimezone, { message: 'Please select a valid timezone' }),
+  public_headline: z
+    .string()
+    .max(80, 'Headline must be 80 characters or less')
+    .optional(),
+  public_bio: z
+    .string()
+    .max(280, 'Bio must be 280 characters or less')
+    .optional(),
+  response_time_label: z
+    .string()
+    .max(80, 'Response time must be 80 characters or less')
+    .optional(),
 })
 
 export type ProfileFormValues = z.infer<typeof profileSchema>
