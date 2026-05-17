@@ -125,16 +125,16 @@ export function TopBar({
             <div className="flex items-center justify-between gap-2 px-2 py-1.5">
               <DropdownMenuLabel className="p-0">Notifications</DropdownMenuLabel>
               {unseenCount > 0 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={markAllAsRead}
+                <DropdownMenuItem
+                  onSelect={(event) => {
+                    event.preventDefault()
+                    void markAllAsRead()
+                  }}
                   disabled={markingRead}
-                  className="h-7 px-2"
+                  className="h-7 cursor-pointer px-2 py-1 text-xs font-medium"
                 >
                   {markingRead ? 'Marking...' : 'Mark all as read'}
-                </Button>
+                </DropdownMenuItem>
               )}
             </div>
             {notificationItems.length > 0 ? (

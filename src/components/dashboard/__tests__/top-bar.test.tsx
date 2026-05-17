@@ -101,7 +101,7 @@ describe('TopBar', () => {
         ctrlKey: false,
       }
     )
-    fireEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark all as read' }))
 
     await waitFor(() => {
       expect(
@@ -117,7 +117,7 @@ describe('TopBar', () => {
     })
     expect(screen.getByText('Booking cancelled')).toBeDefined()
     expect(screen.getByText('New booking confirmed')).toBeDefined()
-    expect(screen.queryByRole('button', { name: 'Mark all as read' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: 'Mark all as read' })).toBeNull()
   })
 
   it('restores the unread badge when marking notifications read fails', async () => {
@@ -138,7 +138,7 @@ describe('TopBar', () => {
         ctrlKey: false,
       }
     )
-    fireEvent.click(await screen.findByRole('button', { name: 'Mark all as read' }))
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Mark all as read' }))
 
     expect((await screen.findByRole('alert')).textContent).toBe(
       'Could not mark as read. Try again.'
@@ -149,7 +149,7 @@ describe('TopBar', () => {
         name: 'Notifications (2 unread)',
       })
     ).toBeDefined()
-    expect(screen.getByRole('button', { name: 'Mark all as read' })).toBeDefined()
+    expect(screen.getByRole('menuitem', { name: 'Mark all as read' })).toBeDefined()
   })
 })
 
