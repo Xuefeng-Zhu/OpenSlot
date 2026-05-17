@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { fromZonedTime } from 'date-fns-tz'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import type { VideoProvider } from '@/lib/calendar/video-providers'
@@ -8,9 +9,24 @@ import { refreshCalendarAccessToken } from './oauth'
 type ProviderConnectionRow = Tables<'provider_connections'>
 type ProviderCalendarRow = Tables<'provider_calendars'>
 
+const TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000
+const AVAILABILITY_REFRESH_INTERVAL_MS = 5 * 60 * 1000
+const DEFAULT_BUSY_SYNC_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
+
+type AvailabilityRefreshConnection = Pick<
+  ProviderConnectionRow,
+  'id' | 'status' | 'last_synced_at' | 'updated_at'
+>
+
 export interface SyncCalendarConnectionsResult {
   checked: number
   synced: number
+  failed: number
+}
+
+export interface RefreshCalendarAvailabilityResult {
+  checked: number
+  refreshed: number
   failed: number
 }
 
@@ -68,8 +84,8 @@ interface GoogleEventsResponse {
     status?: string
     transparency?: string
     etag?: string
-    start?: { dateTime?: string; date?: string }
-    end?: { dateTime?: string; date?: string }
+    start?: { dateTime?: string; date?: string; timeZone?: string }
+    end?: { dateTime?: string; date?: string; timeZone?: string }
   }>
   nextPageToken?: string
 }
@@ -122,8 +138,6 @@ interface MicrosoftEventResponse {
   }
 }
 
-const TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000
-
 /**
  * Syncs a bounded set of active or previously errored calendar connections.
  * Each connection is isolated so one provider failure increments the failure
@@ -170,7 +184,8 @@ export async function syncActiveCalendarConnections(
 export async function syncCalendarsForConnection(
   adminClient: SupabaseClient<Database>,
   connectionId: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  options: { windowStart?: string; windowEnd?: string } = {}
 ): Promise<{ calendars: number }> {
   const connection = await loadProviderConnection(adminClient, connectionId)
 
@@ -187,7 +202,10 @@ export async function syncCalendarsForConnection(
       adminClient,
       connection.id
     )
-    const busyWindow = syncWindow()
+    const busyWindow =
+      options.windowStart && options.windowEnd
+        ? { start: options.windowStart, end: options.windowEnd }
+        : syncWindow()
     await syncBusyCache({
       adminClient,
       connection,
@@ -219,6 +237,54 @@ export async function syncCalendarsForConnection(
       .eq('id', connection.id)
     throw error
   }
+}
+
+/**
+ * Refreshes calendar busy cache for the requested host when the cache is stale
+ * or the requested range falls beyond the normal rolling sync window.
+ */
+export async function refreshCalendarAvailabilityForHost(
+  adminClient: SupabaseClient<Database>,
+  profileId: string,
+  rangeStart: string,
+  rangeEnd: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<RefreshCalendarAvailabilityResult> {
+  const { data, error } = await adminClient
+    .from('provider_connections')
+    .select('id, status, last_synced_at, updated_at')
+    .eq('profile_id', profileId)
+    .in('status', ['active', 'error'])
+
+  if (error) {
+    throw new Error(`Failed to load calendar connections: ${error.message}`)
+  }
+
+  const connections = (data ?? []) as AvailabilityRefreshConnection[]
+  const result: RefreshCalendarAvailabilityResult = {
+    checked: connections.length,
+    refreshed: 0,
+    failed: 0,
+  }
+  const nowMs = Date.now()
+
+  for (const connection of connections) {
+    if (!shouldRefreshAvailabilityCache(connection, rangeEnd, nowMs)) {
+      continue
+    }
+
+    try {
+      await syncCalendarsForConnection(adminClient, connection.id, fetchImpl, {
+        windowStart: rangeStart,
+        windowEnd: rangeEnd,
+      })
+      result.refreshed += 1
+    } catch {
+      result.failed += 1
+    }
+  }
+
+  return result
 }
 
 /**
@@ -659,6 +725,7 @@ async function syncBusyCache({
       provider: connection.provider as CalendarProvider,
       accessToken,
       externalCalendarId: calendar.external_calendar_id,
+      calendarTimezone: calendar.timezone ?? 'UTC',
       windowStart,
       windowEnd,
       fetchImpl,
@@ -668,8 +735,8 @@ async function syncBusyCache({
       .from('external_busy_cache')
       .delete()
       .eq('provider_calendar_id', calendar.id)
-      .gte('start_at', windowStart)
       .lt('start_at', windowEnd)
+      .gt('end_at', windowStart)
 
     const { error: deleteError } = await deleteQuery
 
@@ -706,6 +773,7 @@ async function listProviderBusyEvents({
   provider,
   accessToken,
   externalCalendarId,
+  calendarTimezone,
   windowStart,
   windowEnd,
   fetchImpl,
@@ -713,6 +781,7 @@ async function listProviderBusyEvents({
   provider: CalendarProvider
   accessToken: string
   externalCalendarId: string
+  calendarTimezone: string
   windowStart: string
   windowEnd: string
   fetchImpl: typeof fetch
@@ -721,6 +790,7 @@ async function listProviderBusyEvents({
     ? listGoogleBusyEvents({
         accessToken,
         externalCalendarId,
+        calendarTimezone,
         windowStart,
         windowEnd,
         fetchImpl,
@@ -737,12 +807,14 @@ async function listProviderBusyEvents({
 async function listGoogleBusyEvents({
   accessToken,
   externalCalendarId,
+  calendarTimezone,
   windowStart,
   windowEnd,
   fetchImpl,
 }: {
   accessToken: string
   externalCalendarId: string
+  calendarTimezone: string
   windowStart: string
   windowEnd: string
   fetchImpl: typeof fetch
@@ -779,8 +851,8 @@ async function listGoogleBusyEvents({
         continue
       }
 
-      const startAt = googleEventTime(item.start)
-      const endAt = googleEventTime(item.end)
+      const startAt = googleEventTime(item.start, calendarTimezone)
+      const endAt = googleEventTime(item.end, calendarTimezone)
 
       if (!startAt || !endAt || startAt >= endAt) {
         continue
@@ -876,7 +948,7 @@ function isTokenExpiring(connection: ProviderConnectionRow): boolean {
 
 function syncWindow(): { start: string; end: string } {
   const start = new Date()
-  const end = new Date(start.getTime() + 90 * 24 * 60 * 60 * 1000)
+  const end = new Date(start.getTime() + DEFAULT_BUSY_SYNC_WINDOW_MS)
 
   return {
     start: start.toISOString(),
@@ -884,12 +956,33 @@ function syncWindow(): { start: string; end: string } {
   }
 }
 
-function googleEventTime(value?: {
-  dateTime?: string
-  date?: string
-}): string | null {
-  const rawValue = value?.dateTime ?? value?.date
-  return rawValue ? new Date(rawValue).toISOString() : null
+function googleEventTime(
+  value: { dateTime?: string; date?: string; timeZone?: string } | undefined,
+  calendarTimezone: string
+): string | null {
+  if (!value) {
+    return null
+  }
+
+  if (value.dateTime) {
+    if (hasDateTimeOffset(value.dateTime)) {
+      return new Date(value.dateTime).toISOString()
+    }
+
+    return fromZonedTime(
+      value.dateTime,
+      value.timeZone ?? calendarTimezone
+    ).toISOString()
+  }
+
+  if (value.date) {
+    return fromZonedTime(
+      `${value.date}T00:00:00`,
+      value.timeZone ?? calendarTimezone
+    ).toISOString()
+  }
+
+  return null
 }
 
 /**
@@ -922,6 +1015,52 @@ function googleConferenceUrl(data: GoogleEventResponse): string | null {
   )
 
   return videoEntryPoint?.uri ?? data.hangoutLink ?? null
+}
+
+function shouldRefreshAvailabilityCache(
+  connection: AvailabilityRefreshConnection,
+  rangeEnd: string,
+  nowMs: number
+): boolean {
+  const lastSyncedMs = timestampMs(connection.last_synced_at)
+
+  if (connection.status === 'error') {
+    const lastAttemptMs = timestampMs(connection.updated_at)
+    if (
+      lastAttemptMs !== null &&
+      nowMs - lastAttemptMs < AVAILABILITY_REFRESH_INTERVAL_MS
+    ) {
+      return false
+    }
+  }
+
+  if (lastSyncedMs === null) {
+    return true
+  }
+
+  const requestedEndMs = timestampMs(rangeEnd)
+
+  if (
+    requestedEndMs !== null &&
+    requestedEndMs > lastSyncedMs + DEFAULT_BUSY_SYNC_WINDOW_MS
+  ) {
+    return true
+  }
+
+  return nowMs - lastSyncedMs >= AVAILABILITY_REFRESH_INTERVAL_MS
+}
+
+function timestampMs(value: string | null): number | null {
+  if (!value) {
+    return null
+  }
+
+  const timestamp = new Date(value).getTime()
+  return Number.isFinite(timestamp) ? timestamp : null
+}
+
+function hasDateTimeOffset(value: string): boolean {
+  return /(?:z|[+-]\d\d:\d\d)$/i.test(value)
 }
 
 async function parseProviderJson<T>(response: Response): Promise<T> {

@@ -2,7 +2,89 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createProviderCalendarEvent,
   deleteProviderCalendarEvent,
+  refreshCalendarAvailabilityForHost,
+  syncCalendarsForConnection,
 } from '../provider-sync'
+
+vi.mock('@/lib/security/token-encryption', () => ({
+  decryptToken: vi.fn(() => 'access-token'),
+  encryptToken: vi.fn((value: string) => `encrypted:${value}`),
+}))
+
+function createSyncQuery({
+  table,
+  resultFor,
+}: {
+  table: string
+  resultFor: (query: {
+    table: string
+    operation: string | null
+    payload: unknown
+    filters: Array<{ column: string; value: unknown }>
+  }) => { data: unknown; error: { message: string } | null }
+}) {
+  const state: {
+    table: string
+    operation: string | null
+    payload: unknown
+    filters: Array<{ column: string; value: unknown }>
+  } = {
+    table,
+    operation: null,
+    payload: null,
+    filters: [],
+  }
+  const query: any = {
+    select: vi.fn(() => {
+      state.operation = 'select'
+      return query
+    }),
+    update: vi.fn((payload: unknown) => {
+      state.operation = 'update'
+      state.payload = payload
+      return query
+    }),
+    insert: vi.fn((payload: unknown) => {
+      state.operation = 'insert'
+      state.payload = payload
+      return query
+    }),
+    delete: vi.fn(() => {
+      state.operation = 'delete'
+      return query
+    }),
+    eq: vi.fn((column: string, value: unknown) => {
+      state.filters.push({ column, value })
+      return query
+    }),
+    gt: vi.fn((column: string, value: unknown) => {
+      state.filters.push({ column, value })
+      return query
+    }),
+    gte: vi.fn((column: string, value: unknown) => {
+      state.filters.push({ column, value })
+      return query
+    }),
+    in: vi.fn((column: string, value: unknown) => {
+      state.filters.push({ column, value })
+      return query
+    }),
+    limit: vi.fn(() => query),
+    lt: vi.fn((column: string, value: unknown) => {
+      state.filters.push({ column, value })
+      return query
+    }),
+    single: vi.fn(async () => resultFor(state)),
+    then: (
+      resolve: (
+        value: { data: unknown; error: { message: string } | null }
+      ) => unknown,
+      reject?: (reason: unknown) => unknown
+    ) => Promise.resolve(resultFor(state)).then(resolve, reject),
+  }
+
+  return query
+}
 
 describe('calendar provider event sync', () => {
   it('creates Google Calendar events and returns provider references', async () => {
@@ -159,5 +241,155 @@ describe('calendar provider event sync', () => {
         fetchImpl: fetchImpl as typeof fetch,
       })
     ).resolves.toBeUndefined()
+  })
+
+  it('stores Google all-day busy events in the provider calendar timezone', async () => {
+    const insertedBusyRows: unknown[] = []
+    const connection = {
+      id: 'connection-1',
+      profile_id: 'profile-1',
+      provider: 'google',
+      account_email: 'host@example.com',
+      scopes: [],
+      access_token_encrypted: 'encrypted-access-token',
+      refresh_token_encrypted: null,
+      token_expires_at: '2099-01-01T00:00:00.000Z',
+      status: 'active',
+      metadata: {},
+      connected_at: '2026-06-01T00:00:00.000Z',
+      last_synced_at: null,
+      last_error: null,
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const calendar = {
+      id: 'calendar-1',
+      connection_id: 'connection-1',
+      external_calendar_id: 'primary',
+      summary: 'Primary',
+      timezone: 'America/Los_Angeles',
+      is_primary: true,
+      use_for_availability: true,
+      use_for_writes: true,
+      metadata: {},
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const adminClient = {
+      from: vi.fn((table: string) =>
+        createSyncQuery({
+          table,
+          resultFor: (query) => {
+            if (query.table === 'provider_connections') {
+              return { data: query.operation === 'select' ? connection : null, error: null }
+            }
+
+            if (query.table === 'provider_calendars') {
+              return { data: [calendar], error: null }
+            }
+
+            if (
+              query.table === 'external_busy_cache' &&
+              query.operation === 'insert'
+            ) {
+              insertedBusyRows.push(...((query.payload as unknown[]) ?? []))
+            }
+
+            return { data: null, error: null }
+          },
+        })
+      ),
+    }
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'primary',
+                summary: 'Primary',
+                timeZone: 'America/Los_Angeles',
+                primary: true,
+                accessRole: 'owner',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'all-day-busy',
+                start: { date: '2026-06-15' },
+                end: { date: '2026-06-16' },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+
+    await syncCalendarsForConnection(
+      adminClient as any,
+      'connection-1',
+      fetchImpl as typeof fetch,
+      {
+        windowStart: '2026-06-14T00:00:00.000Z',
+        windowEnd: '2026-06-17T00:00:00.000Z',
+      }
+    )
+
+    expect(insertedBusyRows).toEqual([
+      expect.objectContaining({
+        provider_calendar_id: 'calendar-1',
+        source_event_id: 'all-day-busy',
+        start_at: '2026-06-15T07:00:00.000Z',
+        end_at: '2026-06-16T07:00:00.000Z',
+      }),
+    ])
+  })
+
+  it('skips on-demand availability refresh when the cached window is fresh', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'))
+
+    try {
+      const fetchImpl = vi.fn()
+      const adminClient = {
+        from: vi.fn((table: string) =>
+          createSyncQuery({
+            table,
+            resultFor: () => ({
+              data: [
+                {
+                  id: 'connection-1',
+                  status: 'active',
+                  last_synced_at: '2026-06-01T11:58:00.000Z',
+                  updated_at: '2026-06-01T11:58:00.000Z',
+                },
+              ],
+              error: null,
+            }),
+          })
+        ),
+      }
+
+      const result = await refreshCalendarAvailabilityForHost(
+        adminClient as any,
+        'profile-1',
+        '2026-06-15T00:00:00.000Z',
+        '2026-06-16T00:00:00.000Z',
+        fetchImpl as typeof fetch
+      )
+
+      expect(result).toEqual({ checked: 1, refreshed: 0, failed: 0 })
+      expect(fetchImpl).not.toHaveBeenCalled()
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

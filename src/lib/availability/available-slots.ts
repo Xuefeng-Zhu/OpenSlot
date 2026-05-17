@@ -6,6 +6,7 @@ import type {
   AvailabilityRule,
   TimeSlot,
 } from './types'
+import { refreshCalendarAvailabilityForHost } from '@/lib/calendar/provider-sync'
 import type { Database, Tables } from '@/lib/types/database'
 
 type AdminClient = SupabaseClient<Database>
@@ -74,6 +75,7 @@ export async function loadAvailableSlotsForDate({
     date,
     guestTimezone,
     eventType: eventTypeResult.eventType,
+    refreshExternalCalendars: true,
   })
 }
 
@@ -126,7 +128,21 @@ export async function validateHoldSlotRequest({
     }
   }
 
-  for (const date of candidateAvailabilityDates(start)) {
+  const candidateDates = candidateAvailabilityDates(start)
+  const refreshRange = mergedConflictLookupRange(
+    candidateDates,
+    eventTypeResult.eventType.buffer_before_minutes,
+    eventTypeResult.eventType.buffer_after_minutes
+  )
+
+  await refreshCalendarAvailabilityForHost(
+    supabase,
+    hostUserId,
+    refreshRange.start,
+    refreshRange.end
+  )
+
+  for (const date of candidateDates) {
     const slotsResult = await computeSlotsForDate({
       supabase,
       hostUserId,
@@ -208,6 +224,7 @@ async function computeSlotsForDate({
   date,
   guestTimezone,
   eventType,
+  refreshExternalCalendars = false,
 }: {
   supabase: AdminClient
   hostUserId: string
@@ -215,12 +232,22 @@ async function computeSlotsForDate({
   date: string
   guestTimezone: string
   eventType: EventTypeAvailabilityConfig
+  refreshExternalCalendars?: boolean
 }): Promise<AvailableSlotsResult> {
   const conflictLookupRange = paddedConflictLookupRange(
     date,
     eventType.buffer_before_minutes,
     eventType.buffer_after_minutes
   )
+
+  if (refreshExternalCalendars) {
+    await refreshCalendarAvailabilityForHost(
+      supabase,
+      hostUserId,
+      conflictLookupRange.start,
+      conflictLookupRange.end
+    )
+  }
 
   const { data: rulesData, error: rulesError } = await supabase
     .from('availability_rules')
@@ -404,7 +431,7 @@ async function fetchExternalBusySlots({
     .from('provider_connections')
     .select('id')
     .eq('profile_id', hostUserId)
-    .eq('status', 'active')
+    .in('status', ['active', 'error'])
 
   if (connectionsError) {
     return { slots: [], error: 'Failed to fetch calendar connections' }
@@ -495,6 +522,23 @@ function candidateAvailabilityDates(start: Date): string[] {
   )
 
   return [...new Set(dates)]
+}
+
+function mergedConflictLookupRange(
+  dates: string[],
+  bufferBeforeMinutes: number,
+  bufferAfterMinutes: number
+): { start: string; end: string } {
+  const ranges = dates.map((date) =>
+    paddedConflictLookupRange(date, bufferBeforeMinutes, bufferAfterMinutes)
+  )
+  const starts = ranges.map((range) => new Date(range.start).getTime())
+  const ends = ranges.map((range) => new Date(range.end).getTime())
+
+  return {
+    start: new Date(Math.min(...starts)).toISOString(),
+    end: new Date(Math.max(...ends)).toISOString(),
+  }
 }
 
 function isExactSlotMatch(slot: TimeSlot, start: Date, end: Date): boolean {
