@@ -118,11 +118,13 @@ const COMMON_TIMEZONES = [
   "Africa/Johannesburg",
 ];
 
+const DEFAULT_TIMEZONE = "UTC";
+
 function getBrowserTimezone(): string {
   try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
   } catch {
-    return "UTC";
+    return DEFAULT_TIMEZONE;
   }
 }
 
@@ -137,7 +139,7 @@ export function SlotPicker({
   rescheduleContext,
 }: SlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [timezone, setTimezone] = useState<string>("");
+  const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -309,7 +311,7 @@ export function SlotPicker({
   // Ensure the timezone list includes the browser timezone
   const timezoneOptions = COMMON_TIMEZONES.includes(timezone)
     ? COMMON_TIMEZONES
-    : [timezone, ...COMMON_TIMEZONES];
+    : [timezone, ...COMMON_TIMEZONES].filter(Boolean);
 
   // If booking is confirmed, show the confirmation page
   if (flowState.step === "confirmed") {
