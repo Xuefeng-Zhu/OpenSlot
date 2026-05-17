@@ -1166,6 +1166,20 @@ export interface Database {
         }
         Returns: Database['public']['Tables']['webhook_deliveries']['Row'][]
       }
+      set_default_schedule: {
+        Args: {
+          p_user_id: string
+          p_schedule_id: string
+          p_name?: string | null
+          p_update_name?: boolean
+        }
+        Returns: {
+          id: string
+          name: string
+          timezone: string
+          is_default: boolean
+        }[]
+      }
       reschedule_booking_with_hold: {
         Args: {
           p_reschedule_token: string

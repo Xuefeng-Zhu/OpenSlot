@@ -61,29 +61,32 @@ export async function PATCH(
     const now = new Date().toISOString()
 
     if (parsed.data.isDefault) {
-      const { error: clearDefaultError } = await adminClient
-        .from('schedules')
-        .update({ is_default: false, updated_at: now })
-        .eq('user_id', auth.profile.id)
-        .eq('is_default', true)
+      const { data: schedule, error } = await adminClient
+        .rpc('set_default_schedule', {
+          p_user_id: auth.profile.id,
+          p_schedule_id: id,
+          p_name: parsed.data.name ?? null,
+          p_update_name: parsed.data.name !== undefined,
+        })
+        .single()
 
-      if (clearDefaultError) {
-        console.error('Error clearing default schedule:', clearDefaultError)
+      if (error) {
+        console.error('Error updating default schedule:', error)
         return NextResponse.json(
           { success: false, error: 'Failed to update default schedule' },
           { status: 500 }
         )
       }
+
+      return NextResponse.json({ success: true, schedule })
     }
 
     const patch: {
       name?: string
-      is_default?: boolean
       updated_at: string
     } = { updated_at: now }
 
     if (parsed.data.name !== undefined) patch.name = parsed.data.name
-    if (parsed.data.isDefault) patch.is_default = true
 
     const { data: schedule, error } = await adminClient
       .from('schedules')

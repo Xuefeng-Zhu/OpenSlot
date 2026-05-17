@@ -9,10 +9,12 @@ const mocks = vi.hoisted(() => ({
   savedProfileId: 'profile-1',
   existingScheduleId: null as string | null,
   scheduleInsertPayload: null as Record<string, unknown> | null,
+  scheduleUpdatePayload: null as Record<string, unknown> | null,
   savedScheduleId: 'schedule-1',
   eventTypePayload: null as Record<string, unknown> | null,
   eventTypeOptions: null as Record<string, unknown> | null,
   deletedAvailabilityForUser: '',
+  deletedAvailabilityForSchedule: '',
   insertedAvailability: [] as Array<Record<string, unknown>>,
 }))
 
@@ -83,15 +85,43 @@ function createTableMock(table: string) {
           }),
         }
       },
+      update: (payload: Record<string, unknown>) => {
+        mocks.scheduleUpdatePayload = payload
+        return {
+          eq: () => ({
+            eq: () => ({
+              select: () => ({
+                single: async () => ({
+                  data: { id: mocks.existingScheduleId },
+                  error: null,
+                }),
+              }),
+            }),
+          }),
+        }
+      },
     }
   }
 
   if (table === 'availability_rules') {
     return {
       delete: () => ({
-        eq: async (_column: string, userId: string) => {
-          mocks.deletedAvailabilityForUser = userId
-          return { error: null }
+        eq: (column: string, value: string) => {
+          if (column === 'user_id') mocks.deletedAvailabilityForUser = value
+          if (column === 'schedule_id') mocks.deletedAvailabilityForSchedule = value
+
+          return {
+            eq: async (nextColumn: string, nextValue: string) => {
+              if (nextColumn === 'user_id') {
+                mocks.deletedAvailabilityForUser = nextValue
+              }
+              if (nextColumn === 'schedule_id') {
+                mocks.deletedAvailabilityForSchedule = nextValue
+              }
+
+              return { error: null }
+            },
+          }
         },
       }),
       insert: async (payload: Array<Record<string, unknown>>) => {
@@ -156,10 +186,12 @@ describe('POST /api/onboarding', () => {
     mocks.savedProfileId = 'profile-1'
     mocks.existingScheduleId = null
     mocks.scheduleInsertPayload = null
+    mocks.scheduleUpdatePayload = null
     mocks.savedScheduleId = 'schedule-1'
     mocks.eventTypePayload = null
     mocks.eventTypeOptions = null
     mocks.deletedAvailabilityForUser = ''
+    mocks.deletedAvailabilityForSchedule = ''
     mocks.insertedAvailability = []
   })
 
@@ -203,6 +235,7 @@ describe('POST /api/onboarding', () => {
     })
     expect(mocks.eventTypeOptions).toEqual({ onConflict: 'user_id,slug' })
     expect(mocks.deletedAvailabilityForUser).toBe('profile-1')
+    expect(mocks.deletedAvailabilityForSchedule).toBe('schedule-1')
     expect(mocks.insertedAvailability).toEqual([
       {
         user_id: 'profile-1',
@@ -214,6 +247,33 @@ describe('POST /api/onboarding', () => {
         timezone: 'America/Los_Angeles',
       },
     ])
+  })
+
+  it('updates an existing default schedule timezone during onboarding reuse', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1', email: 'sarah@example.com' } },
+      error: null,
+    })
+    mocks.existingScheduleId = 'schedule-existing'
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mocks.scheduleInsertPayload).toBeNull()
+    expect(mocks.scheduleUpdatePayload).toMatchObject({
+      timezone: 'America/Los_Angeles',
+      updated_at: expect.any(String),
+    })
+    expect(mocks.eventTypePayload).toMatchObject({
+      schedule_id: 'schedule-existing',
+    })
+    expect(mocks.deletedAvailabilityForSchedule).toBe('schedule-existing')
+    expect(mocks.insertedAvailability[0]).toMatchObject({
+      schedule_id: 'schedule-existing',
+      timezone: 'America/Los_Angeles',
+    })
   })
 
   it('rejects unauthenticated onboarding saves', async () => {

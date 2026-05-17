@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   scheduleInsertPayload: null as Record<string, unknown> | null,
   scheduleUpdates: [] as Record<string, unknown>[],
   scheduleDeletes: 0,
+  rpcCalls: [] as Array<{ name: string; args: Record<string, unknown> }>,
+  rpcResults: [] as Array<{ data: unknown; error: unknown }>,
 }))
 
 function createQuery(result: Record<string, unknown>) {
@@ -76,6 +78,15 @@ vi.mock('@/lib/supabase/admin', () => ({
       mocks.adminTables.push(table)
       return query
     },
+    rpc: (name: string, args: Record<string, unknown>) => {
+      mocks.rpcCalls.push({ name, args })
+      const result = mocks.rpcResults.shift()
+      if (!result) throw new Error('Unexpected admin RPC')
+
+      return {
+        single: async () => result,
+      }
+    },
   })),
 }))
 
@@ -105,6 +116,8 @@ describe('availability schedule routes', () => {
     mocks.scheduleInsertPayload = null
     mocks.scheduleUpdates = []
     mocks.scheduleDeletes = 0
+    mocks.rpcCalls = []
+    mocks.rpcResults = []
   })
 
   it('creates a non-default schedule for the authenticated profile', async () => {
@@ -141,8 +154,9 @@ describe('availability schedule routes', () => {
         data: { id: 'schedule-2', is_default: false },
         error: null,
       }),
-      createQuery({ data: [], error: null }),
-      createQuery({
+    ]
+    mocks.rpcResults = [
+      {
         data: {
           id: 'schedule-2',
           name: 'Sales calls',
@@ -150,7 +164,7 @@ describe('availability schedule routes', () => {
           is_default: true,
         },
         error: null,
-      }),
+      },
     ]
 
     const response = await PATCH(
@@ -161,8 +175,18 @@ describe('availability schedule routes', () => {
 
     expect(response.status).toBe(200)
     expect(data.schedule.is_default).toBe(true)
-    expect(mocks.scheduleUpdates[0]).toMatchObject({ is_default: false })
-    expect(mocks.scheduleUpdates[1]).toMatchObject({ is_default: true })
+    expect(mocks.scheduleUpdates).toHaveLength(0)
+    expect(mocks.rpcCalls).toEqual([
+      {
+        name: 'set_default_schedule',
+        args: {
+          p_user_id: 'profile-1',
+          p_schedule_id: 'schedule-2',
+          p_name: null,
+          p_update_name: false,
+        },
+      },
+    ])
   })
 
   it('blocks deleting schedules assigned to event types', async () => {

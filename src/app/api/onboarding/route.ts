@@ -124,7 +124,24 @@ export async function POST(request: NextRequest) {
 
     let scheduleId = existingSchedule?.id as string | undefined
 
-    if (!scheduleId) {
+    if (scheduleId) {
+      const { data: updatedSchedule, error: scheduleUpdateError } =
+        await writeClient
+          .from('schedules')
+          .update({ timezone, updated_at: now })
+          .eq('id', scheduleId)
+          .eq('user_id', profileId)
+          .select('id')
+          .single()
+
+      if (scheduleUpdateError || !updatedSchedule?.id) {
+        console.error('Error updating onboarding schedule:', scheduleUpdateError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to save schedule' },
+          { status: 500 }
+        )
+      }
+    } else {
       const { data: savedSchedule, error: scheduleError } = await writeClient
         .from('schedules')
         .insert({
@@ -184,6 +201,7 @@ export async function POST(request: NextRequest) {
       .from('availability_rules')
       .delete()
       .eq('user_id', profileId)
+      .eq('schedule_id', scheduleId)
 
     if (deleteRulesError) {
       console.error('Error clearing onboarding availability:', deleteRulesError)

@@ -100,7 +100,7 @@ const authenticatedPageCases: PageSmokeCase[] = [
     name: "availability",
     path: "/availability",
     heading: "Availability",
-    visibleText: ["Weekly availability", "America/New York"],
+    visibleText: ["Weekly hours", "America/New York"],
   },
   {
     name: "settings",
