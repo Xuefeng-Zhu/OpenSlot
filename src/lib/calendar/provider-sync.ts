@@ -1038,6 +1038,10 @@ function shouldRefreshAvailabilityCache(
     return true
   }
 
+  if (nowMs - lastSyncedMs < AVAILABILITY_REFRESH_INTERVAL_MS) {
+    return false
+  }
+
   const requestedEndMs = timestampMs(rangeEnd)
 
   if (
@@ -1047,7 +1051,7 @@ function shouldRefreshAvailabilityCache(
     return true
   }
 
-  return nowMs - lastSyncedMs >= AVAILABILITY_REFRESH_INTERVAL_MS
+  return true
 }
 
 function timestampMs(value: string | null): number | null {

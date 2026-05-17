@@ -353,7 +353,7 @@ describe('calendar provider event sync', () => {
     ])
   })
 
-  it('skips on-demand availability refresh when the cached window is fresh', async () => {
+  it('skips far-future on-demand availability refresh when the cache is fresh', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'))
 
@@ -381,8 +381,8 @@ describe('calendar provider event sync', () => {
       const result = await refreshCalendarAvailabilityForHost(
         adminClient as any,
         'profile-1',
-        '2026-06-15T00:00:00.000Z',
-        '2026-06-16T00:00:00.000Z',
+        '2026-09-30T00:00:00.000Z',
+        '2026-10-01T00:00:00.000Z',
         fetchImpl as typeof fetch
       )
 
