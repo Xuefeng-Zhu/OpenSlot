@@ -4,6 +4,19 @@ import {
   validateHoldSlotRequest,
 } from '../available-slots'
 
+const mocks = vi.hoisted(() => ({
+  refreshCalendarAvailabilityForHost: vi.fn(async () => ({
+    checked: 0,
+    refreshed: 0,
+    failed: 0,
+  })),
+}))
+
+vi.mock('@/lib/calendar/provider-sync', () => ({
+  refreshCalendarAvailabilityForHost:
+    mocks.refreshCalendarAvailabilityForHost,
+}))
+
 const hostUserId = '22222222-2222-4222-8222-222222222222'
 const eventTypeId = '11111111-1111-4111-8111-111111111111'
 
@@ -95,6 +108,7 @@ function eventTypeQuery(overrides: Record<string, unknown> = {}) {
 
 describe('validateHoldSlotRequest', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'))
   })
@@ -119,6 +133,12 @@ describe('validateHoldSlotRequest', () => {
     })
 
     expect(result).toEqual({ success: true })
+    expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalledWith(
+      supabase,
+      hostUserId,
+      '2025-01-04T00:00:00.000Z',
+      '2025-01-08T23:59:59.999Z'
+    )
     expect(eventQuery.eq).toHaveBeenCalledWith('id', eventTypeId)
     expect(eventQuery.eq).toHaveBeenCalledWith('user_id', hostUserId)
     expect(eventQuery.eq).toHaveBeenCalledWith('is_active', true)
@@ -215,12 +235,37 @@ describe('validateHoldSlotRequest', () => {
 
 describe('loadAvailableSlotsForDate', () => {
   beforeEach(() => {
+    vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2025-01-01T00:00:00.000Z'))
   })
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('refreshes external calendar availability before reading cached busy slots', async () => {
+    const eventQuery = eventTypeQuery()
+    const supabase = createSupabaseClient([
+      eventQuery,
+      ...availabilityQuerySet(),
+    ])
+
+    const result = await loadAvailableSlotsForDate({
+      supabase: supabase as any,
+      hostUserId,
+      eventTypeId,
+      date: '2025-01-06',
+      guestTimezone: 'America/New_York',
+    })
+
+    expect(result.success).toBe(true)
+    expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalledWith(
+      supabase,
+      hostUserId,
+      '2025-01-05T00:00:00.000Z',
+      '2025-01-07T23:59:59.999Z'
+    )
   })
 
   it('uses the event type schedule to choose availability rules', async () => {
