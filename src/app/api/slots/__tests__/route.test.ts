@@ -5,10 +5,20 @@ const mocks = vi.hoisted(() => ({
   adminClient: {
     from: vi.fn(),
   },
+  refreshCalendarAvailabilityForHost: vi.fn(async () => ({
+    checked: 0,
+    refreshed: 0,
+    failed: 0,
+  })),
 }))
 
 vi.mock('@/lib/supabase/admin', () => ({
   createAdminClient: vi.fn(() => mocks.adminClient),
+}))
+
+vi.mock('@/lib/calendar/provider-sync', () => ({
+  refreshCalendarAvailabilityForHost:
+    mocks.refreshCalendarAvailabilityForHost,
 }))
 
 function createQuery(result: {
@@ -173,7 +183,10 @@ describe('GET /api/slots', () => {
       'profile_id',
       '22222222-2222-4222-8222-222222222222'
     )
-    expect(connectionsQuery.eq).toHaveBeenCalledWith('status', 'active')
+    expect(connectionsQuery.in).toHaveBeenCalledWith('status', [
+      'active',
+      'error',
+    ])
     expect(calendarsQuery.in).toHaveBeenCalledWith('connection_id', [
       'connection-1',
     ])
