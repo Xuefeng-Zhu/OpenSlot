@@ -1,22 +1,31 @@
-import { BookingSummaryCard } from "@/components/booking/booking-summary-card";
 import {
-  type EventTypeEditorFormState,
-  locationPreviewDetails,
-  locationPreviewType,
-  type VideoProviderHealth,
-} from "../event-type-editor-model";
+  SlotPicker,
+  type SlotPickerEventType,
+  type SlotPickerHostProfile,
+} from "@/components/booking/slot-picker";
+import { PublicSchedulePreviewShell } from "@/components/booking/public-schedule-preview-shell";
+import { type EventTypeEditorFormState } from "../event-type-editor-model";
 
 interface EventTypePreviewProps {
-  hostName: string;
+  mode: "create" | "edit";
+  eventTypeId?: string;
+  hostProfile: SlotPickerHostProfile;
   values: EventTypeEditorFormState;
-  selectedVideoHealth: VideoProviderHealth | null;
 }
 
 export function EventTypePreview({
-  hostName,
+  mode,
+  eventTypeId,
+  hostProfile,
   values,
-  selectedVideoHealth,
 }: EventTypePreviewProps) {
+  const previewEventType = toPreviewEventType(
+    values,
+    hostProfile.id,
+    eventTypeId
+  );
+  const shouldRenderLiveFlow = mode === "edit" && eventTypeId && values.is_active;
+
   return (
     <div className="sticky top-6">
       <div className="mb-3 flex items-center justify-between">
@@ -24,32 +33,48 @@ export function EventTypePreview({
           Live preview
         </h2>
       </div>
-      <BookingSummaryCard
-        hostName={hostName}
-        eventTitle={values.title || "Event Title"}
-        description={values.description}
-        urlSlug={values.slug}
-        visibility={
-          values.is_active ? "Visible to guests" : "Hidden from guests"
-        }
-        duration={values.duration_minutes}
-        bufferBefore={values.buffer_before_minutes}
-        bufferAfter={values.buffer_after_minutes}
-        minNotice={values.min_notice_minutes}
-        maxDaysAhead={values.max_booking_days_ahead}
-        timezone={Intl.DateTimeFormat().resolvedOptions().timeZone}
-        showTimezone={false}
-        locationType={locationPreviewType(
-          values.location_type,
-          values.video_provider
+      <div className="max-h-[calc(100vh-8rem)] overflow-y-auto rounded-lg border border-border bg-background p-4">
+        {shouldRenderLiveFlow ? (
+          <SlotPicker
+            eventType={previewEventType}
+            hostProfile={hostProfile}
+            layout="embedded"
+          />
+        ) : (
+          <PublicSchedulePreviewShell
+            eventType={previewEventType}
+            hostProfile={hostProfile}
+            layout="embedded"
+            unavailableDescription={
+              mode === "create"
+                ? "Save this event type to load bookable times."
+                : "Make this event type visible to load bookable times."
+            }
+          />
         )}
-        locationDetails={locationPreviewDetails(
-          values.location_type,
-          values.location_value,
-          selectedVideoHealth?.message
-        )}
-        questions={values.invitee_questions}
-      />
+      </div>
     </div>
   );
+}
+
+function toPreviewEventType(
+  values: EventTypeEditorFormState,
+  hostUserId: string,
+  eventTypeId?: string
+): SlotPickerEventType {
+  const locationType = values.location_type;
+
+  return {
+    id: eventTypeId ?? "preview-event-type",
+    title: values.title.trim() || "Event Title",
+    slug: values.slug.trim() || "event-title",
+    description: values.description.trim(),
+    duration_minutes: values.duration_minutes,
+    location_type: locationType,
+    location_value: values.location_value.trim() || null,
+    video_provider:
+      locationType === "video_provider" ? values.video_provider : null,
+    invitee_questions: values.invitee_questions,
+    user_id: hostUserId,
+  };
 }
