@@ -5,7 +5,7 @@ import {
   EventTypeEditor,
 } from "../../event-type-editor";
 import { Button } from "@/components/ui/button";
-import { listCalendarConnectionSummaries } from "@/lib/calendar/connections";
+import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/types/database";
@@ -106,20 +106,18 @@ export default async function EditEventTypePage({
     reminder_host_enabled: eventType.reminder_host_enabled,
   };
 
-  const calendarConnections = await listCalendarConnectionSummaries(
+  const calendarConnections = await loadDashboardCalendarConnections(
     createAdminClient(),
     profile.id
-  ).catch((error) => {
-    console.error("Error loading calendar connections:", error);
-    return [];
-  });
+  );
 
   return (
     <EventTypeEditor
       mode="edit"
       hostName={profile.name}
       initialEventType={editableEventType}
-      calendarConnections={calendarConnections}
+      calendarConnections={calendarConnections.data}
+      calendarConnectionsLoadFailed={calendarConnections.loadFailed}
     />
   );
 }

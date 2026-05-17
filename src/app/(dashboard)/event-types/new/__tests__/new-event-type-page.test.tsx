@@ -76,4 +76,20 @@ describe("NewEventTypePage editor", () => {
       screen.getByText("Select at least one reminder recipient")
     ).toBeDefined();
   });
+
+  it("surfaces calendar connection load failures", () => {
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostName="Sarah Chen"
+        calendarConnectionsLoadFailed
+      />
+    );
+
+    expect(
+      screen.getByText(
+        /Calendar connection status could not be loaded/
+      )
+    ).toBeDefined();
+  });
 });

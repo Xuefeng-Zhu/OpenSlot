@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import {
   User,
   Settings2,
@@ -41,7 +41,9 @@ import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 interface SettingsClientProps {
   initialSettings: SettingsFormValues;
   calendarConnections: CalendarConnectionSummary[];
+  calendarConnectionsLoadFailed?: boolean;
   webhookEndpoints: WebhookEndpointSummary[];
+  webhookEndpointsLoadFailed?: boolean;
 }
 
 type SaveAction = "account" | "preferences" | "notifications";
@@ -61,7 +63,9 @@ const webhookEventOptions = [
 export function SettingsClient({
   initialSettings,
   calendarConnections,
+  calendarConnectionsLoadFailed = false,
   webhookEndpoints: initialWebhookEndpoints,
+  webhookEndpointsLoadFailed = false,
 }: SettingsClientProps) {
   const { toast } = useToast();
   const [savedSettings, setSavedSettings] = useState(initialSettings);
@@ -118,9 +122,11 @@ export function SettingsClient({
   const microsoftConnection = calendarConnections.find(
     (connection) => connection.provider === "microsoft"
   );
-  const videoProviderReadiness = videoProviderOptions.map((provider) =>
-    getVideoProviderReadiness(provider.id, calendarConnections)
-  );
+  const videoProviderReadiness = calendarConnectionsLoadFailed
+    ? []
+    : videoProviderOptions.map((provider) =>
+        getVideoProviderReadiness(provider.id, calendarConnections)
+      );
 
   const saveSettings = async (action: SaveAction) => {
     const nextSettings = currentSettings();
@@ -632,7 +638,13 @@ export function SettingsClient({
                   Integrations
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-4">
+                {calendarConnectionsLoadFailed ? (
+                  <IntegrationLoadWarning>
+                    Calendar connection status could not be loaded. Existing
+                    connections may not appear here.
+                  </IntegrationLoadWarning>
+                ) : null}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="rounded-md border border-border p-4">
                     <div className="flex items-start justify-between gap-4">
@@ -648,7 +660,10 @@ export function SettingsClient({
                         </div>
                       </div>
                       <Badge variant={googleConnection ? "default" : "secondary"}>
-                        {connectionBadgeText(googleConnection)}
+                        {connectionBadgeText(
+                          googleConnection,
+                          calendarConnectionsLoadFailed
+                        )}
                       </Badge>
                     </div>
                     {googleConnection && (
@@ -688,7 +703,10 @@ export function SettingsClient({
                         </div>
                       </div>
                       <Badge variant={microsoftConnection ? "default" : "secondary"}>
-                        {connectionBadgeText(microsoftConnection)}
+                        {connectionBadgeText(
+                          microsoftConnection,
+                          calendarConnectionsLoadFailed
+                        )}
                       </Badge>
                     </div>
                     {microsoftConnection && (
@@ -712,7 +730,31 @@ export function SettingsClient({
                     </Button>
                   </div>
 
-                  {videoProviderReadiness.map((health) => (
+                  {calendarConnectionsLoadFailed ? (
+                    <div className="rounded-md border border-border p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                            <Video className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              Video provider readiness
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Generated meeting links
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">Unavailable</Badge>
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Calendar connection status did not load, so video link
+                        readiness cannot be verified.
+                      </p>
+                    </div>
+                  ) : (
+                    videoProviderReadiness.map((health) => (
                     <div
                       key={health.provider}
                       className="rounded-md border border-border p-4"
@@ -737,7 +779,8 @@ export function SettingsClient({
                         {health.description}
                       </p>
                     </div>
-                  ))}
+                    ))
+                  )}
 
                   <div className="rounded-md border border-border p-4">
                     <div className="flex items-start justify-between gap-4">
@@ -767,6 +810,13 @@ export function SettingsClient({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
+                {webhookEndpointsLoadFailed ? (
+                  <IntegrationLoadWarning>
+                    Webhook endpoints could not be loaded. Existing endpoints
+                    may not appear here.
+                  </IntegrationLoadWarning>
+                ) : null}
+
                 {newWebhookSecret && (
                   <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
                     <Label htmlFor="webhook-secret">Signing secret</Label>
@@ -850,7 +900,8 @@ export function SettingsClient({
                 </Button>
 
                 <div className="space-y-3">
-                  {webhookEndpoints.length === 0 ? (
+                  {webhookEndpoints.length === 0 &&
+                  !webhookEndpointsLoadFailed ? (
                     <EmptyState
                       icon={<Webhook className="h-6 w-6" aria-hidden="true" />}
                       heading="No webhook endpoints configured."
@@ -932,7 +983,14 @@ export function SettingsClient({
   );
 }
 
-function connectionBadgeText(connection?: CalendarConnectionSummary): string {
+function connectionBadgeText(
+  connection: CalendarConnectionSummary | undefined,
+  loadFailed = false
+): string {
+  if (!connection && loadFailed) {
+    return "Unavailable";
+  }
+
   if (!connection) {
     return "Not connected";
   }
@@ -946,6 +1004,17 @@ function connectionBadgeText(connection?: CalendarConnectionSummary): string {
   }
 
   return "Disconnected";
+}
+
+function IntegrationLoadWarning({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+      role="alert"
+    >
+      {children}
+    </div>
+  );
 }
 
 function webhookEventLabel(eventType: string): string {

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { EventTypeEditor } from "../event-type-editor";
-import { listCalendarConnectionSummaries } from "@/lib/calendar/connections";
+import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/types/database";
@@ -31,19 +31,17 @@ export default async function NewEventTypePage() {
     redirect("/onboarding");
   }
 
-  const calendarConnections = await listCalendarConnectionSummaries(
+  const calendarConnections = await loadDashboardCalendarConnections(
     createAdminClient(),
     profile.id
-  ).catch((error) => {
-    console.error("Error loading calendar connections:", error);
-    return [];
-  });
+  );
 
   return (
     <EventTypeEditor
       mode="create"
       hostName={profile.name}
-      calendarConnections={calendarConnections}
+      calendarConnections={calendarConnections.data}
+      calendarConnectionsLoadFailed={calendarConnections.loadFailed}
     />
   );
 }

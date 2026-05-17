@@ -84,4 +84,29 @@ describe("SettingsClient", () => {
     expect(screen.queryByLabelText("Signing secret")).toBeNull();
     expect(screen.getByText("No webhook endpoints configured.")).toBeDefined();
   });
+
+  it("surfaces integration load failures without empty configured states", () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        calendarConnectionsLoadFailed
+        webhookEndpoints={[]}
+        webhookEndpointsLoadFailed
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
+
+    expect(
+      screen.getByText(/Calendar connection status could not be loaded/)
+    ).toBeDefined();
+    expect(
+      screen.getByText(/Webhook endpoints could not be loaded/)
+    ).toBeDefined();
+    expect(screen.queryByText("No webhook endpoints configured.")).toBeNull();
+    expect(screen.getAllByText("Unavailable").length).toBeGreaterThanOrEqual(
+      2
+    );
+  });
 });
