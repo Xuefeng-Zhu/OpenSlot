@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventTypeEditor } from "../../event-type-editor";
 
 const push = vi.fn();
@@ -8,13 +8,24 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push }),
 }));
 
+const hostProfile = {
+  id: "host-1",
+  name: "Sarah Chen",
+  username: "sarah",
+  avatar_url: null,
+};
+
 describe("NewEventTypePage editor", () => {
   beforeEach(() => {
     push.mockClear();
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("clears field-level validation errors when corrected", () => {
-    render(<EventTypeEditor mode="create" hostName="Sarah Chen" />);
+    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -36,7 +47,7 @@ describe("NewEventTypePage editor", () => {
   });
 
   it("lets hosts add a structured invitee question", () => {
-    render(<EventTypeEditor mode="create" hostName="Sarah Chen" />);
+    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
 
     fireEvent.click(
       screen.getByRole("button", { name: /Invitee Questions/ })
@@ -51,7 +62,7 @@ describe("NewEventTypePage editor", () => {
   });
 
   it("validates reminder recipient controls", () => {
-    render(<EventTypeEditor mode="create" hostName="Sarah Chen" />);
+    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Reminders" }));
     fireEvent.click(
@@ -81,7 +92,7 @@ describe("NewEventTypePage editor", () => {
     render(
       <EventTypeEditor
         mode="create"
-        hostName="Sarah Chen"
+        hostProfile={hostProfile}
         calendarConnectionsLoadFailed
       />
     );
@@ -91,5 +102,26 @@ describe("NewEventTypePage editor", () => {
         /Calendar connection status could not be loaded/
       )
     ).toBeDefined();
+  });
+
+  it("renders an unsaved public schedule shell without requesting availability", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<EventTypeEditor mode="create" hostProfile={hostProfile} />);
+
+    expect(screen.getByText("Event Title")).toBeDefined();
+    expect(screen.getByText("Sarah Chen")).toBeDefined();
+    expect(screen.getAllByText("30 min").length).toBeGreaterThan(0);
+    expect(screen.getByText("Select a date")).toBeDefined();
+    expect(screen.getByText("Available times")).toBeDefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "QA Coffee Chat" },
+    });
+
+    expect(screen.getByText("QA Coffee Chat")).toBeDefined();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

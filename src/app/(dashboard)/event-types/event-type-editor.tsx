@@ -27,12 +27,13 @@ import {
   videoProviderHealth,
 } from "./event-type-editor-model";
 import { useEventTypeEditorState } from "./use-event-type-editor-state";
+import type { SlotPickerHostProfile } from "@/components/booking/slot-picker";
 
 export type { EditableEventType } from "./event-type-editor-model";
 
 interface EventTypeEditorProps {
   mode: "create" | "edit";
-  hostName: string;
+  hostProfile: SlotPickerHostProfile;
   initialEventType?: EditableEventType;
   calendarConnections?: CalendarConnectionSummary[];
   calendarConnectionsLoadFailed?: boolean;
@@ -54,7 +55,7 @@ const initialOpenSections: Record<FormSectionId, boolean> = {
  */
 export function EventTypeEditor({
   mode,
-  hostName,
+  hostProfile,
   initialEventType,
   calendarConnections = [],
   calendarConnectionsLoadFailed = false,
@@ -82,6 +83,10 @@ export function EventTypeEditor({
   const selectedVideoHealth = !calendarConnectionsLoadFailed && values.video_provider
     ? videoProviderHealth(values.video_provider, calendarConnections)
     : null;
+  const editorFormId =
+    mode === "edit" && initialEventType
+      ? `event-type-editor-${initialEventType.id}`
+      : "event-type-editor-new";
 
   const toggleSection = (id: FormSectionId) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -217,7 +222,7 @@ export function EventTypeEditor({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="space-y-6">
       <PageHeader
         title={mode === "create" ? "Create event type" : "Edit event type"}
         description={
@@ -240,7 +245,11 @@ export function EventTypeEditor({
       ) : null}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        <div className="lg:col-span-3 space-y-4">
+        <form
+          id={editorFormId}
+          onSubmit={handleSubmit}
+          className="lg:col-span-3 space-y-4"
+        >
           {FORM_SECTIONS.map((section) => (
             <EventTypeSectionCard
               key={section.id}
@@ -251,13 +260,14 @@ export function EventTypeEditor({
               {renderSection(section.id)}
             </EventTypeSectionCard>
           ))}
-        </div>
+        </form>
 
         <div className="lg:col-span-2">
           <EventTypePreview
-            hostName={hostName}
+            mode={mode}
+            eventTypeId={initialEventType?.id}
+            hostProfile={hostProfile}
             values={values}
-            selectedVideoHealth={selectedVideoHealth}
           />
         </div>
       </div>
@@ -275,10 +285,10 @@ export function EventTypeEditor({
         <Button type="button" variant="outline" onClick={handleCancel}>
           Cancel
         </Button>
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" form={editorFormId} disabled={isSubmitting}>
           {isSubmitting ? "Saving..." : "Save"}
         </Button>
       </div>
-    </form>
+    </div>
   );
 }

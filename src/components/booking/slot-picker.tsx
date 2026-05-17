@@ -19,13 +19,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, getInitials } from "@/components/ui/avatar";
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
 import { EmptyState } from "@/components/shared/empty-state";
-import { videoProviderLabel } from "@/lib/calendar/video-providers";
+import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
+import { cn } from "@/lib/utils";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 interface TimeSlot {
@@ -33,7 +32,7 @@ interface TimeSlot {
   end: string;
 }
 
-interface EventTypeInfo {
+export interface SlotPickerEventType {
   id: string;
   title: string;
   slug: string;
@@ -46,7 +45,7 @@ interface EventTypeInfo {
   user_id: string;
 }
 
-interface HostProfile {
+export interface SlotPickerHostProfile {
   id: string;
   name: string;
   username: string;
@@ -54,8 +53,9 @@ interface HostProfile {
 }
 
 interface SlotPickerProps {
-  eventType: EventTypeInfo;
-  hostProfile: HostProfile;
+  eventType: SlotPickerEventType;
+  hostProfile: SlotPickerHostProfile;
+  layout?: "public" | "embedded";
   rescheduleContext?: {
     token: string;
     guestName: string;
@@ -136,6 +136,7 @@ function getBrowserTimezone(): string {
 export function SlotPicker({
   eventType,
   hostProfile,
+  layout = "public",
   rescheduleContext,
 }: SlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -341,30 +342,10 @@ export function SlotPicker({
   return (
     <div className="mx-auto max-w-4xl">
       {/* Event type header */}
-      <div className="mb-8 flex flex-col items-center text-center">
-        <Avatar
-          src={hostProfile.avatar_url}
-          alt={`${hostProfile.name}'s avatar`}
-          fallback={getInitials(hostProfile.name) || "?"}
-          size="lg"
-          className="mb-3"
-        />
-        <p className="text-muted-foreground text-sm">{hostProfile.name}</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-          {eventType.title}
-        </h1>
-        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
-          <Badge variant="secondary">{eventType.duration_minutes} min</Badge>
-          <Badge variant="outline">
-            {formatEventLocation(eventType)}
-          </Badge>
-        </div>
-        {eventType.description && (
-          <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
-            {eventType.description}
-          </p>
-        )}
-      </div>
+      <BookingPageEventHeader
+        eventType={eventType}
+        hostProfile={hostProfile}
+      />
 
       {/* Timezone selector */}
       <div className="mb-6 flex flex-col items-stretch gap-2 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-center">
@@ -389,7 +370,12 @@ export function SlotPicker({
       </div>
 
       {/* Date picker and slots */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+      <div
+        className={cn(
+          "grid grid-cols-1 gap-6",
+          layout === "public" && "md:grid-cols-2"
+        )}
+      >
         {/* Calendar */}
         <Card>
           <CardHeader>
@@ -511,24 +497,4 @@ export function SlotPicker({
       )}
     </div>
   );
-}
-
-function formatEventLocation(eventType: EventTypeInfo): string {
-  const generatedVideoLabel = videoProviderLabel(eventType.video_provider);
-  if (generatedVideoLabel) return generatedVideoLabel;
-
-  switch (eventType.location_type) {
-    case "online":
-      return "Online";
-    case "phone":
-      return "Phone";
-    case "in_person":
-      return "In Person";
-    case "custom":
-      return "Custom";
-    case "video_provider":
-      return "Video";
-    default:
-      return eventType.location_type;
-  }
 }

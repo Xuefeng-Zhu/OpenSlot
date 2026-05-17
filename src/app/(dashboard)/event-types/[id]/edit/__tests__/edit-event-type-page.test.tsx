@@ -31,6 +31,13 @@ const strategySession: EditableEventType = {
   reminder_host_enabled: false,
 };
 
+const hostProfile = {
+  id: "host-1",
+  name: "Sarah Chen",
+  username: "sarah",
+  avatar_url: null,
+};
+
 describe("EditEventTypePage editor", () => {
   beforeEach(() => {
     push.mockClear();
@@ -40,7 +47,7 @@ describe("EditEventTypePage editor", () => {
     render(
       <EventTypeEditor
         mode="edit"
-        hostName="Sarah Chen"
+        hostProfile={hostProfile}
         initialEventType={strategySession}
       />
     );
@@ -50,6 +57,10 @@ describe("EditEventTypePage editor", () => {
     ).toBeDefined();
     expect(screen.getByText("Sarah Chen")).toBeDefined();
     expect(screen.getAllByText("60 min").length).toBeGreaterThan(0);
+    expect(screen.getByText("Select a date")).toBeDefined();
+    expect(screen.getByText("Available times")).toBeDefined();
+    expect(screen.queryByText("Visibility")).toBeNull();
+    expect(screen.queryByText("Buffer before")).toBeNull();
     expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
       "Strategy session"
     );
@@ -84,7 +95,7 @@ describe("EditEventTypePage editor", () => {
     render(
       <EventTypeEditor
         mode="edit"
-        hostName="Sarah Chen"
+        hostProfile={hostProfile}
         initialEventType={strategySession}
       />
     );
@@ -118,7 +129,7 @@ describe("EditEventTypePage editor", () => {
     render(
       <EventTypeEditor
         mode="edit"
-        hostName="Sarah Chen"
+        hostProfile={hostProfile}
         initialEventType={strategySession}
         calendarConnections={[
           {

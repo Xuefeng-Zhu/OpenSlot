@@ -18,13 +18,13 @@ export default async function NewEventTypePage() {
 
   const { data: profileData } = await supabase
     .from("profiles")
-    .select("id, name, username")
+    .select("id, name, username, avatar_url")
     .eq("auth_user_id", user.id)
     .single();
 
   const profile = profileData as Pick<
     Tables<"profiles">,
-    "id" | "name" | "username"
+    "id" | "name" | "username" | "avatar_url"
   > | null;
 
   if (!profile?.username) {
@@ -39,7 +39,12 @@ export default async function NewEventTypePage() {
   return (
     <EventTypeEditor
       mode="create"
-      hostName={profile.name}
+      hostProfile={{
+        id: profile.id,
+        name: profile.name,
+        username: profile.username,
+        avatar_url: profile.avatar_url,
+      }}
       calendarConnections={calendarConnections.data}
       calendarConnectionsLoadFailed={calendarConnections.loadFailed}
     />
