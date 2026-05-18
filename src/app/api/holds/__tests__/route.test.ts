@@ -145,7 +145,6 @@ describe('POST /api/holds', () => {
         scope: 'create-hold',
         limit: 10,
         windowSeconds: 300,
-        identifierParts: [validBody.hostUserId, validBody.eventTypeId],
       },
     })
   })
@@ -259,11 +258,15 @@ describe('POST /api/holds', () => {
     expect(data.rateLimit.remaining).toBe(0)
     expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
     expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
-    expect(mocks.completeIdempotentRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        response: expect.objectContaining({ status: 429 }),
-      })
-    )
+    expect(mocks.abandonIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      entry: {
+        scope: 'create-hold',
+        key: idempotencyKey,
+        requestHash: 'request-hash',
+      },
+    })
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
   })
 
   it('requires a valid Turnstile token before creating a hold when configured', async () => {

@@ -11,7 +11,6 @@ import {
 import {
   consumePublicRateLimit,
   publicRateLimitResponse,
-  publicRateLimitResponseBody,
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -98,17 +97,11 @@ export async function POST(request: NextRequest) {
         scope: 'create-hold',
         limit: 10,
         windowSeconds: 5 * 60,
-        identifierParts: [hostUserId, eventTypeId],
       },
     })
 
     if (!rateLimit.allowed) {
-      await cacheIdempotentResponse(
-        adminClient,
-        idempotencyEntry,
-        publicRateLimitResponseBody(rateLimit),
-        rateLimit.status
-      )
+      await abandonIdempotentMarker(adminClient, idempotencyEntry)
       return publicRateLimitResponse(rateLimit)
     }
 

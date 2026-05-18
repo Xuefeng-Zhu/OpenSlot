@@ -173,6 +173,15 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
     expect(response.headers.get('Retry-After')).toBe('40')
     expect(data.rateLimit.remaining).toBe(0)
     expect(mocks.cancelBooking).not.toHaveBeenCalled()
+    expect(mocks.abandonIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      entry: {
+        scope: 'cancel-booking',
+        key: idempotencyKey,
+        requestHash: 'cancel-request-hash',
+      },
+    })
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
   })
 
   it('requires Turnstile before cancelling when verification is configured', async () => {

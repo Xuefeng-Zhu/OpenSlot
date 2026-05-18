@@ -13,7 +13,6 @@ import {
 import {
   consumePublicRateLimit,
   publicRateLimitResponse,
-  publicRateLimitResponseBody,
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { Json } from '@/lib/types/database'
@@ -99,12 +98,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!rateLimit.allowed) {
-      await cacheIdempotentResponse(
-        adminClient,
-        idempotencyEntry,
-        publicRateLimitResponseBody(rateLimit),
-        rateLimit.status
-      )
+      await abandonIdempotentMarker(adminClient, idempotencyEntry)
       return publicRateLimitResponse(rateLimit)
     }
 

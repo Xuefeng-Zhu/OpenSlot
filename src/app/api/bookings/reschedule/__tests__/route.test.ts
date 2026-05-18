@@ -147,6 +147,15 @@ describe('POST /api/bookings/reschedule', () => {
   })
 
   it('rate limits fresh reschedule requests before the reschedule engine', async () => {
+    mocks.resolveIdempotencyKey.mockReturnValue({ ok: true, key: 'idem-1' })
+    mocks.beginIdempotentRequest.mockResolvedValue({
+      type: 'started',
+      entry: {
+        scope: 'reschedule-booking',
+        key: 'idem-1',
+        requestHash: 'request-hash',
+      },
+    })
     mocks.consumePublicRateLimit.mockResolvedValue({
       allowed: false,
       status: 429,
@@ -164,6 +173,15 @@ describe('POST /api/bookings/reschedule', () => {
     expect(response.headers.get('Retry-After')).toBe('35')
     expect(data.rateLimit.remaining).toBe(0)
     expect(rescheduleBooking).not.toHaveBeenCalled()
+    expect(mocks.abandonIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      entry: {
+        scope: 'reschedule-booking',
+        key: 'idem-1',
+        requestHash: 'request-hash',
+      },
+    })
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
   })
 
   it('requires Turnstile before rescheduling when verification is configured', async () => {

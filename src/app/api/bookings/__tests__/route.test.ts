@@ -213,11 +213,15 @@ describe('POST /api/bookings idempotency', () => {
     expect(response.headers.get('Retry-After')).toBe('45')
     expect(data.rateLimit.remaining).toBe(0)
     expect(mocks.confirmBooking).not.toHaveBeenCalled()
-    expect(mocks.completeIdempotentRequest).toHaveBeenCalledWith(
-      expect.objectContaining({
-        response: expect.objectContaining({ status: 429 }),
-      })
-    )
+    expect(mocks.abandonIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      entry: {
+        scope: 'confirm-booking',
+        key: idempotencyKey,
+        requestHash: 'request-hash',
+      },
+    })
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
   })
 
   it('requires Turnstile before confirming when verification is configured', async () => {
