@@ -16,6 +16,7 @@ import {
   parseInviteeAnswers,
 } from '@/lib/validations/invitee-questions'
 import type { Json } from '@/lib/types/database'
+import { verifyFinalProviderAvailability } from '@/lib/calendar/final-availability'
 
 /**
  * Confirms a booking from an active hold.
@@ -66,7 +67,9 @@ export async function confirmBooking(
 
   const { data: eventTypeData, error: eventTypeError } = await adminClient
     .from('event_types')
-    .select('location_type, location_value, video_provider, invitee_questions')
+    .select(
+      'location_type, location_value, video_provider, invitee_questions, buffer_before_minutes, buffer_after_minutes'
+    )
     .eq('id', hold.event_type_id)
     .single()
 
@@ -76,7 +79,12 @@ export async function confirmBooking(
 
   const eventType = eventTypeData as Pick<
     Tables<'event_types'>,
-    'location_type' | 'location_value' | 'video_provider' | 'invitee_questions'
+    | 'location_type'
+    | 'location_value'
+    | 'video_provider'
+    | 'invitee_questions'
+    | 'buffer_before_minutes'
+    | 'buffer_after_minutes'
   >
   const conferenceProvider =
     eventType.location_type === 'video_provider' ? eventType.video_provider : null
@@ -91,6 +99,18 @@ export async function confirmBooking(
       success: false,
       error: 'Booking answers validation failed.',
     }
+  }
+
+  const finalAvailability = await verifyFinalProviderAvailability(adminClient, {
+    hostUserId: hold.host_user_id,
+    startAt: hold.start_at,
+    endAt: hold.end_at,
+    bufferBeforeMinutes: eventType.buffer_before_minutes,
+    bufferAfterMinutes: eventType.buffer_after_minutes,
+  })
+
+  if (!finalAvailability.success) {
+    return { success: false, error: finalAvailability.error }
   }
 
   // Step 3: Insert booking (exclusion constraint provides final guard against double-booking)

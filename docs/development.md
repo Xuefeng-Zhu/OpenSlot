@@ -44,6 +44,13 @@ Calendar integration development also needs provider OAuth credentials and
 `CALENDAR_TOKEN_ENCRYPTION_SECRET`. `MICROSOFT_CALENDAR_TENANT` defaults to
 `common`.
 
+Calendar watch callbacks use `NEXT_PUBLIC_APP_URL` to register
+`/api/calendar/webhooks/google` and `/api/calendar/webhooks/microsoft` with the
+providers. Production provider apps must use an HTTPS app URL. Set
+`CALENDAR_FINAL_AVAILABILITY_CHECK=stale` to live-check provider free/busy
+before booking confirmation whenever cache or watch health is stale; leave it
+unset or set to `off` to disable that final check.
+
 To configure calendar OAuth credentials locally:
 
 ```bash

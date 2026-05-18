@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET, POST } from '../route'
 import { syncActiveCalendarConnections } from '@/lib/calendar/provider-sync'
+import { maintainCalendarWatches } from '@/lib/calendar/watches'
 
 const mocks = vi.hoisted(() => ({
   adminClient: { id: 'admin-client' },
@@ -14,6 +15,10 @@ vi.mock('@/lib/calendar/provider-sync', () => ({
   syncActiveCalendarConnections: vi.fn(),
 }))
 
+vi.mock('@/lib/calendar/watches', () => ({
+  maintainCalendarWatches: vi.fn(),
+}))
+
 describe('/api/calendar/sync', () => {
   const originalCalendarSecret = process.env.CALENDAR_SYNC_SECRET
   const originalCronSecret = process.env.CRON_SECRET
@@ -25,6 +30,12 @@ describe('/api/calendar/sync', () => {
     vi.mocked(syncActiveCalendarConnections).mockResolvedValue({
       checked: 2,
       synced: 2,
+      failed: 0,
+    })
+    vi.mocked(maintainCalendarWatches).mockResolvedValue({
+      checked: 3,
+      ensured: 2,
+      skipped: 1,
       failed: 0,
     })
   })
@@ -64,11 +75,18 @@ describe('/api/calendar/sync', () => {
       checked: 2,
       synced: 2,
       failed: 0,
+      watches: {
+        checked: 3,
+        ensured: 2,
+        skipped: 1,
+        failed: 0,
+      },
     })
     expect(syncActiveCalendarConnections).toHaveBeenCalledWith(
       mocks.adminClient,
       7
     )
+    expect(maintainCalendarWatches).toHaveBeenCalledWith(mocks.adminClient, 7)
   })
 
   it('accepts Vercel cron GET requests authenticated by CRON_SECRET', async () => {
@@ -86,5 +104,6 @@ describe('/api/calendar/sync', () => {
       mocks.adminClient,
       4
     )
+    expect(maintainCalendarWatches).toHaveBeenCalledWith(mocks.adminClient, 4)
   })
 })

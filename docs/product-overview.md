@@ -36,9 +36,9 @@ These areas have important implementation notes:
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
 | Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo. |
 | Reminders | Event types can schedule one pre-meeting reminder through the outbox worker. Cancelled/rescheduled bookings are rechecked and skipped before email send. |
-| Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, provider availability conflict checks, and provider event writes exist. Provider watch/subscription renewal and callback handlers are not implemented yet. |
+| Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, provider availability conflict checks, provider event writes, provider watch/subscription callbacks, and watch renewal exist. |
 | Video links | Google Meet and Microsoft Teams links are generated asynchronously by the calendar outbox worker after booking confirmation. Bookings remain confirmed if provider setup or provider calls fail, and the failure is surfaced for retry/repair. |
-| Provider availability | Synced `external_busy_cache` rows are consumed by public slot computation for calendars marked `use_for_availability`. |
+| Provider availability | Synced `external_busy_cache` rows are consumed by public slot computation for calendars marked `use_for_availability`; optional final live provider checks can protect confirmation when cache/watch health is stale. |
 
 Keep these boundaries explicit when adding user-facing docs or release notes.
 

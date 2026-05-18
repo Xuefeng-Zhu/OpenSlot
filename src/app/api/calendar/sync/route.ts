@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncActiveCalendarConnections } from '@/lib/calendar/provider-sync'
+import { maintainCalendarWatches } from '@/lib/calendar/watches'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
@@ -39,12 +40,11 @@ async function runCalendarSync(
     )
   }
 
-  const result = await syncActiveCalendarConnections(
-    createAdminClient(),
-    options.limit
-  )
+  const adminClient = createAdminClient()
+  const result = await syncActiveCalendarConnections(adminClient, options.limit)
+  const watches = await maintainCalendarWatches(adminClient, options.limit)
 
-  return NextResponse.json({ success: true, ...result })
+  return NextResponse.json({ success: true, ...result, watches })
 }
 
 function normalizeLimit(value: unknown): number | undefined {

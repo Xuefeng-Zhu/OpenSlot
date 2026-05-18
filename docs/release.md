@@ -96,6 +96,8 @@ MICROSOFT_CALENDAR_CLIENT_SECRET=...
 MICROSOFT_CALENDAR_TENANT=common
 CALENDAR_TOKEN_ENCRYPTION_SECRET=...
 CALENDAR_SYNC_SECRET=...
+CALENDAR_FINAL_AVAILABILITY_CHECK=stale
+CALENDAR_STALE_AFTER_MINUTES=10
 EMAIL_PROVIDER=console
 EMAIL_FROM="OpenSlot <bookings@example.com>"
 RESEND_API_KEY=...
@@ -105,6 +107,13 @@ MAILEROO_API_KEY=...
 `NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, and `CALENDAR_SYNC_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
 
 `CALENDAR_TOKEN_ENCRYPTION_SECRET` encrypts stored per-user OAuth access and refresh tokens before persistence. Use a high-entropy server-only value and keep it stable across deploys.
+
+Calendar watch callbacks are registered from `NEXT_PUBLIC_APP_URL`; production
+Google/Microsoft apps must point to the HTTPS `/api/calendar/webhooks/google`
+and `/api/calendar/webhooks/microsoft` routes. Set
+`CALENDAR_FINAL_AVAILABILITY_CHECK=stale` when production booking confirmation
+should fail closed and live-check provider free/busy if calendar cache or watch
+health is stale.
 
 Generated Google Meet and Microsoft Teams links depend on the existing Google/Microsoft calendar OAuth credentials and writable provider calendars. No separate Zoom or video-provider secret is required for the v1 video integration.
 
@@ -143,7 +152,8 @@ release after backup and monitoring checks.
 
 The committed schedules run once daily so Hobby preview deployments pass
 Vercel's Cron limits. Production deployments that need lower-latency
-notifications, reminders, webhook delivery, or calendar busy-cache refreshes should use a
+notifications, reminders, webhook delivery, calendar busy-cache refreshes, or
+calendar watch renewal should use a
 Vercel plan or an external scheduler that supports the desired cadence. Vercel
 sends `CRON_SECRET` as a bearer token when that project environment variable is
 configured. Non-Vercel deployments should configure an equivalent scheduler that
@@ -210,7 +220,6 @@ repository back in sync.
 These are not present in the current repository:
 
 - Infrastructure-as-code for deploy targets, scheduler ownership, and secrets.
-- Calendar provider webhook/watch renewal handlers.
 - Error monitoring.
 
 Document the chosen platform and secrets management before first production deployment.
