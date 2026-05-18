@@ -160,6 +160,30 @@ export async function completeIdempotentRequest({
   }
 }
 
+/**
+ * Removes an in-progress marker for a request that failed before any mutation
+ * happened, allowing the same key to be retried with corrected preflight data.
+ */
+export async function abandonIdempotentRequest({
+  adminClient,
+  entry,
+}: {
+  adminClient: SupabaseClient<Database>
+  entry: IdempotencyEntry
+}): Promise<void> {
+  const { error } = await adminClient
+    .from('request_idempotency')
+    .delete()
+    .eq('scope', entry.scope)
+    .eq('idempotency_key', entry.key)
+    .eq('request_hash', entry.requestHash)
+    .eq('status', 'in_progress')
+
+  if (error) {
+    console.error('Error abandoning idempotent request:', error)
+  }
+}
+
 function normalizeIdempotencyKey(value: string | undefined): string | null {
   if (value === undefined) return null
 

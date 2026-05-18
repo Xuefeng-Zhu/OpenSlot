@@ -22,6 +22,9 @@ OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
 CRON_SECRET=...
 CALENDAR_SYNC_SECRET=...
+HOLD_EXPIRY_PROCESS_SECRET=...
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
+TURNSTILE_SECRET_KEY=...
 ```
 
 Calendar OAuth:
@@ -88,14 +91,17 @@ Important safeguards:
 - `/api/holds` checks overlapping active holds and confirmed bookings.
 - `/api/holds` creates the hold through `create_slot_hold_with_reservation()`, which inserts `slot_holds` and `host_reservations` in one database transaction.
 - `/api/slots` validates that the event type is active and belongs to the requested host before using service-role reads to compute availability.
+- `/api/slots`, `/api/holds`, `/api/bookings`, `/api/bookings/reschedule`, and `/api/bookings/[id]/cancel` consume DB-backed public rate limits before expensive reads or guest mutations. Rate-limit identifiers are hashed before storage.
+- Public booking mutations verify Cloudflare Turnstile tokens when `TURNSTILE_SECRET_KEY` is configured. Unconfigured environments skip Turnstile enforcement.
 - `confirmBooking()` rejects expired or reused holds.
 - `bookings.no_overlapping_bookings` prevents overlapping confirmed bookings at the database level.
 - `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings.
-- Booking confirmation, cancellation, and rescheduling accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
+- Hold creation, booking confirmation, cancellation, and rescheduling accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
 - Booking confirmation, cancellation, and rescheduling enqueue ID-based side-effect events in `outbox_events`; workers should fetch sensitive booking details server-side instead of duplicating guest contact data in the payload.
 - `/api/outbox/process` requires `OUTBOX_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to process leased outbox rows.
 - `/api/webhooks/process` requires `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to process leased webhook delivery rows.
 - `/api/calendar/sync` requires `CALENDAR_SYNC_SECRET` or `CRON_SECRET` in production and uses service-role code to refresh provider calendar metadata and busy-cache rows.
+- `/api/holds/expire` requires `HOLD_EXPIRY_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to expire stale holds and hold reservations.
 - Booking confirmation, cancellation, and rescheduling append ID-based audit events in `booking_events`.
 - Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 - Rescheduling page lookup and writes use `reschedule_token` plus a fresh hold token; `reschedule_booking_with_hold()` performs the old/new booking transition and reservation updates in one database transaction.
@@ -114,7 +120,7 @@ The default email provider logs messages to the console. `EMAIL_PROVIDER=resend`
 
 `next.config.js` applies browser hardening headers to all routes:
 
-- Content Security Policy defaults to same-origin scripts, styles, forms, workers, and manifests; blocks inline script attributes, object content, and framed content; denies embedding with `frame-ancestors 'none'`; allows Supabase HTTP/WebSocket connections; and permits image/media loading from HTTPS so profile avatars and public assets still render.
+- Content Security Policy defaults to same-origin scripts, styles, forms, workers, and manifests; blocks inline script attributes and object content; denies embedding with `frame-ancestors 'none'`; allows Supabase HTTP/WebSocket connections plus Cloudflare Turnstile challenge script/frame/connect origins; and permits image/media loading from HTTPS so profile avatars and public assets still render.
 - Local development adds `localhost`/`127.0.0.1` HTTP and WebSocket allowances plus `unsafe-eval` for the Next.js development runtime. Production omits `unsafe-eval` and adds `upgrade-insecure-requests`.
 - Production adds HSTS with `max-age=63072000; includeSubDomains`.
 - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` are set alongside the CSP.

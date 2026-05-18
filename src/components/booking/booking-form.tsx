@@ -27,6 +27,10 @@ import {
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
+import {
+  isTurnstileEnabled,
+  TurnstileWidget,
+} from "@/components/booking/turnstile-widget";
 
 const COMMON_TIMEZONES = [
   "America/New_York",
@@ -109,6 +113,8 @@ export function BookingForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => createIdempotencyKey());
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(
     Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
   );
@@ -116,6 +122,7 @@ export function BookingForm({
     () => createConfirmBookingFormSchema(inviteeQuestions),
     [inviteeQuestions]
   );
+  const turnstileRequired = isTurnstileEnabled();
 
   const {
     register,
@@ -165,6 +172,11 @@ export function BookingForm({
   }, []);
 
   const onSubmit = async (data: ConfirmBookingFormValues) => {
+    if (turnstileRequired && !turnstileToken) {
+      setError("Please complete the verification challenge before continuing.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
@@ -186,6 +198,7 @@ export function BookingForm({
           notes: data.notes || undefined,
           answers: data.answers ?? {},
           idempotencyKey,
+          turnstileToken: turnstileToken ?? undefined,
         }),
         }
       );
@@ -226,6 +239,10 @@ export function BookingForm({
     } catch {
       setError("Unable to confirm booking. Please try again.");
     } finally {
+      if (turnstileRequired) {
+        setTurnstileToken(null);
+        setTurnstileResetKey((key) => key + 1);
+      }
       setSubmitting(false);
     }
   };
@@ -496,6 +513,12 @@ export function BookingForm({
             )}
           </div>
 
+          <TurnstileWidget
+            action={rescheduleToken ? "reschedule" : "confirm"}
+            resetKey={turnstileResetKey}
+            onTokenChange={setTurnstileToken}
+          />
+
           {/* Error message */}
           {error && (
             <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
@@ -507,7 +530,11 @@ export function BookingForm({
           <Button
             type="submit"
             className="w-full"
-            disabled={submitting || timeRemaining <= 0}
+            disabled={
+              submitting ||
+              timeRemaining <= 0 ||
+              (turnstileRequired && !turnstileToken)
+            }
           >
             {submitting
               ? "Confirming..."

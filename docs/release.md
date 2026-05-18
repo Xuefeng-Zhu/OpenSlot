@@ -89,6 +89,7 @@ NEXT_PUBLIC_APP_URL=https://your-production-origin.example
 OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
 CRON_SECRET=...
+HOLD_EXPIRY_PROCESS_SECRET=...
 GOOGLE_CALENDAR_CLIENT_ID=...
 GOOGLE_CALENDAR_CLIENT_SECRET=...
 MICROSOFT_CALENDAR_CLIENT_ID=...
@@ -98,13 +99,19 @@ CALENDAR_TOKEN_ENCRYPTION_SECRET=...
 CALENDAR_SYNC_SECRET=...
 CALENDAR_FINAL_AVAILABILITY_CHECK=stale
 CALENDAR_STALE_AFTER_MINUTES=10
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
+TURNSTILE_SECRET_KEY=...
 EMAIL_PROVIDER=console
 EMAIL_FROM="OpenSlot <bookings@example.com>"
 RESEND_API_KEY=...
 MAILEROO_API_KEY=...
 ```
 
-`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, and `CALENDAR_SYNC_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, and `HOLD_EXPIRY_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+
+Set both `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to enforce
+Cloudflare Turnstile on public booking mutations. Leave them unset for local
+development or deployments that intentionally skip bot protection.
 
 `CALENDAR_TOKEN_ENCRYPTION_SECRET` encrypts stored per-user OAuth access and refresh tokens before persistence. Use a high-entropy server-only value and keep it stable across deploys.
 
@@ -149,6 +156,7 @@ release after backup and monitoring checks.
 - `GET /api/outbox/process`
 - `GET /api/webhooks/process`
 - `GET /api/calendar/sync`
+- `GET /api/holds/expire`
 
 The committed schedules run once daily so Hobby preview deployments pass
 Vercel's Cron limits. Production deployments that need lower-latency
@@ -158,6 +166,10 @@ Vercel plan or an external scheduler that supports the desired cadence. Vercel
 sends `CRON_SECRET` as a bearer token when that project environment variable is
 configured. Non-Vercel deployments should configure an equivalent scheduler that
 calls the same routes with `Authorization: Bearer <secret>`.
+
+The committed hold-expiry schedule is daily for compatibility with the rest of
+the Vercel cron config. Production deployments should call `/api/holds/expire`
+every 1-5 minutes when scheduler limits allow it so stale holds release promptly.
 
 The outbox worker must run for generated conference links and booking notification emails to complete. Video-provider bookings remain confirmed while conference link creation is pending or retrying.
 

@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadAvailableSlotsForDate } from '@/lib/availability/available-slots'
+import {
+  consumePublicRateLimit,
+  publicRateLimitResponse,
+} from '@/lib/security/rate-limit'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /**
@@ -43,8 +47,23 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    const adminClient = createAdminClient()
+    const rateLimit = await consumePublicRateLimit({
+      request,
+      adminClient,
+      config: {
+        scope: 'list-slots',
+        limit: 120,
+        windowSeconds: 60,
+      },
+    })
+
+    if (!rateLimit.allowed) {
+      return publicRateLimitResponse(rateLimit)
+    }
+
     const slotsResult = await loadAvailableSlotsForDate({
-      supabase: createAdminClient(),
+      supabase: adminClient,
       hostUserId,
       eventTypeId,
       date,

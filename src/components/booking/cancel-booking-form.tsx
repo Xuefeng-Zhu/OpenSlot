@@ -13,6 +13,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  isTurnstileEnabled,
+  TurnstileWidget,
+} from "@/components/booking/turnstile-widget";
 
 interface CancelBookingFormProps {
   bookingId: string;
@@ -51,6 +55,9 @@ export function CancelBookingForm({
   const [cancelReason, setCancelReason] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [idempotencyKey] = useState(() => createIdempotencyKey());
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const turnstileRequired = isTurnstileEnabled();
 
   function formatDateTime(isoString: string): string {
     const date = new Date(isoString);
@@ -73,6 +80,12 @@ export function CancelBookingForm({
   }
 
   async function handleCancel() {
+    if (turnstileRequired && !turnstileToken) {
+      setErrorMessage("Please complete the verification challenge before cancelling.");
+      setState("error");
+      return;
+    }
+
     setState("cancelling");
     setErrorMessage("");
 
@@ -87,6 +100,7 @@ export function CancelBookingForm({
           cancellationToken,
           cancelReason: cancelReason.trim() || undefined,
           idempotencyKey,
+          turnstileToken: turnstileToken ?? undefined,
         }),
       });
 
@@ -103,6 +117,11 @@ export function CancelBookingForm({
     } catch {
       setErrorMessage("An unexpected error occurred. Please try again.");
       setState("error");
+    } finally {
+      if (turnstileRequired) {
+        setTurnstileToken(null);
+        setTurnstileResetKey((key) => key + 1);
+      }
     }
   }
 
@@ -223,6 +242,12 @@ export function CancelBookingForm({
           />
         </div>
 
+        <TurnstileWidget
+          action="cancel"
+          resetKey={turnstileResetKey}
+          onTokenChange={setTurnstileToken}
+        />
+
         {/* Error message */}
         {state === "error" && errorMessage && (
           <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
@@ -237,7 +262,10 @@ export function CancelBookingForm({
             variant="destructive"
             className="flex-1"
             onClick={handleCancel}
-            disabled={state === "cancelling"}
+            disabled={
+              state === "cancelling" ||
+              (turnstileRequired && !turnstileToken)
+            }
           >
             {state === "cancelling" ? "Cancelling..." : "Yes, cancel booking"}
           </Button>

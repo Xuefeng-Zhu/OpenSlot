@@ -33,8 +33,11 @@ npm run test -- src/lib/calendar/__tests__/connections.test.ts
 npm run test -- src/lib/calendar/__tests__/oauth.test.ts
 npm run test -- src/lib/calendar/__tests__/provider-sync.test.ts
 npm run test -- src/lib/security/__tests__/token-encryption.test.ts
+npm run test -- src/lib/security/__tests__/rate-limit.test.ts
+npm run test -- src/lib/security/__tests__/turnstile.test.ts
 npm run test -- src/lib/email/__tests__/email.test.ts
 npm run test -- src/app/api/calendar/sync/__tests__/route.test.ts
+npm run test -- src/app/api/holds/expire/__tests__/route.test.ts
 npm run test -- src/lib/idempotency/__tests__/request-idempotency.test.ts
 npm run test -- src/app/api/outbox/process/__tests__/route.test.ts
 npm run test -- src/app/api/webhooks/process/__tests__/route.test.ts
@@ -63,12 +66,13 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/app/api/webhooks/process/__tests__/` covers webhook worker trigger authorization and batch options.
 - `src/app/api/webhooks/endpoints/__tests__/` covers webhook endpoint creation/listing without exposing secrets.
 - `src/lib/calendar/__tests__/` covers safe calendar connection summaries, OAuth URL/token helpers, provider watch/subscription validation, stale-cache final availability checks, and provider event API adapters including generated Meet/Teams links.
-- `src/lib/security/__tests__/token-encryption.test.ts` covers OAuth token encryption round trips.
+- `src/lib/security/__tests__/` covers OAuth token encryption, public rate-limit request hashing/response metadata, and optional Turnstile verification.
 - `src/lib/email/__tests__/email.test.ts` covers booking lifecycle/reminder templates, generated conference link rendering, console delivery, and the Resend/Maileroo provider adapters.
 - `src/app/api/calendar/sync/__tests__/` covers calendar sync worker trigger authorization and batch options.
 - `src/app/api/settings/__tests__/` covers authenticated settings persistence and account deletion.
-- `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC and conflict mapping.
-- `src/app/api/slots/__tests__/` covers service-role slot reads, active host/event scoping, and external busy-cache filtering.
+- `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC, idempotency replay/conflict handling, public rate limiting, Turnstile preflight, and conflict mapping.
+- `src/app/api/holds/expire/__tests__/` covers stale hold expiry worker authorization and bounded batch options.
+- `src/app/api/slots/__tests__/` covers service-role slot reads, public rate limiting, active host/event scoping, and external busy-cache filtering.
 - `src/lib/validations/__tests__/` covers Zod schemas.
 - `src/components/ui/__tests__/` covers accessibility and focus behavior.
 - Dashboard/public page property tests cover rendering invariants and UI helpers.

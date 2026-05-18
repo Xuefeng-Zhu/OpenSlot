@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   adminClient: {
     from: vi.fn(),
   },
+  consumePublicRateLimit: vi.fn(),
   refreshCalendarAvailabilityForHost: vi.fn(async () => ({
     checked: 0,
     refreshed: 0,
@@ -20,6 +21,17 @@ vi.mock('@/lib/calendar/provider-sync', () => ({
   refreshCalendarAvailabilityForHost:
     mocks.refreshCalendarAvailabilityForHost,
 }))
+
+vi.mock('@/lib/security/rate-limit', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/security/rate-limit')>(
+    '@/lib/security/rate-limit'
+  )
+
+  return {
+    ...actual,
+    consumePublicRateLimit: mocks.consumePublicRateLimit,
+  }
+})
 
 function createQuery(result: {
   data: unknown
@@ -56,6 +68,12 @@ describe('GET /api/slots', () => {
     vi.clearAllMocks()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-01T00:00:00Z'))
+    mocks.consumePublicRateLimit.mockResolvedValue({
+      allowed: true,
+      limit: 120,
+      remaining: 119,
+      resetAt: '2026-06-01T00:01:00.000Z',
+    })
   })
 
   afterEach(() => {
@@ -119,6 +137,35 @@ describe('GET /api/slots', () => {
       '22222222-2222-4222-8222-222222222222'
     )
     expect(eventTypeQuery.eq).toHaveBeenCalledWith('is_active', true)
+    expect(mocks.consumePublicRateLimit).toHaveBeenCalledWith({
+      request: expect.any(Request),
+      adminClient: mocks.adminClient,
+      config: {
+        scope: 'list-slots',
+        limit: 120,
+        windowSeconds: 60,
+      },
+    })
+  })
+
+  it('rate limits slot lookups before computing availability', async () => {
+    mocks.consumePublicRateLimit.mockResolvedValue({
+      allowed: false,
+      status: 429,
+      error: 'Too many requests. Please retry after the rate limit resets.',
+      limit: 120,
+      remaining: 0,
+      resetAt: '2026-06-01T00:01:00.000Z',
+      retryAfterSeconds: 30,
+    })
+
+    const response = await GET(slotsRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('30')
+    expect(data.rateLimit.remaining).toBe(0)
+    expect(mocks.adminClient.from).not.toHaveBeenCalled()
   })
 
   it('excludes slots that overlap synced external calendar busy cache rows', async () => {

@@ -48,14 +48,20 @@ Browser UI
 Public event page
   -> SlotPicker
   -> GET /api/slots
+  -> consume_public_rate_limit()
   -> load host availability, confirmed bookings, active holds, and provider busy cache
   -> computeAvailableSlots()
   -> POST /api/holds
+  -> request_idempotency check/cache when an idempotency key is supplied
+  -> consume_public_rate_limit()
+  -> optional Turnstile verification when configured
   -> create_slot_hold_with_reservation()
   -> slot_holds insert + host_reservations insert
   -> BookingForm
   -> POST /api/bookings
   -> request_idempotency check/cache when an idempotency key is supplied
+  -> consume_public_rate_limit()
+  -> optional Turnstile verification when configured
   -> confirmBooking()
   -> validate structured answers against event_types.invitee_questions
   -> bookings insert with event-type location/answer snapshot + hold status update + host_reservations hold-to-booking conversion
@@ -72,6 +78,8 @@ Public event page
   -> /booking/cancel/[token]
   -> POST /api/bookings/[id]/cancel
   -> request_idempotency check/cache when an idempotency key is supplied
+  -> consume_public_rate_limit()
+  -> optional Turnstile verification when configured
   -> cancelBooking()
   -> host_reservations cancellation
   -> booking_events append
@@ -81,6 +89,7 @@ Public event page
   -> /booking/reschedule/[token]
   -> POST /api/holds for the replacement slot
   -> POST /api/bookings/reschedule
+  -> request_idempotency, rate-limit, and optional Turnstile preflight
   -> reschedule_booking_with_hold()
   -> old booking status = rescheduled + new confirmed booking insert
   -> booking_events append + contacts upsert + outbox_events enqueue
@@ -88,6 +97,13 @@ Public event page
 ```
 
 The final anti-double-booking guard for confirmed bookings is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`. Active hold and booking reservation races are guarded by `host_reservations_no_overlap` in `supabase/migrations/20260508062648_add_host_reservations.sql`.
+
+Public slot, hold, booking confirmation, cancellation, and rescheduling routes
+use DB-backed fixed-window rate limits through `public_rate_limits` and
+`consume_public_rate_limit()`. Public booking mutations also verify Cloudflare
+Turnstile tokens when `TURNSTILE_SECRET_KEY` is configured. The database stores
+hashed rate-limit identifiers only, not raw IP addresses, user agents, emails,
+or booking tokens.
 
 Event types can enable one pre-meeting reminder. Booking confirmation and
 rescheduling read the event type reminder policy and enqueue a deterministic
@@ -157,16 +173,18 @@ Migrations are in `supabase/migrations/`:
 - `20260514072605_add_invitee_questions.sql`: event type invitee question JSON, booking answer snapshots, and answer-aware reschedule RPC.
 - `20260514000000_add_event_type_reminders.sql`: per-event-type pre-meeting reminder policy fields.
 - `20260517044810_add_availability_schedules.sql`: host-owned named schedules, event type schedule assignment, schedule-scoped availability rules/overrides, and schedule RLS/grants.
+- `20260518141155_public_booking_hardening.sql`: public rate-limit ledger/RPC and scheduled stale hold expiry RPC.
 
 ## API Routes
 
 | Route | Auth | Main module |
 | --- | --- | --- |
 | `GET /api/slots` | Public route, service-role read after active host/event validation | `src/lib/availability/compute-slots.ts` |
-| `POST /api/holds` | Public token/slot operation, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
-| `POST /api/bookings` | Hold token operation, optional idempotency key, service role write | `src/lib/booking/confirm.ts` |
-| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, service role write | `src/lib/booking/cancel.ts` |
-| `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, service role RPC | `src/lib/booking/reschedule.ts` |
+| `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
+| `POST /api/bookings` | Hold token operation, optional idempotency key, public rate limit, optional Turnstile, service role write | `src/lib/booking/confirm.ts` |
+| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, public rate limit, optional Turnstile, service role write | `src/lib/booking/cancel.ts` |
+| `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, public rate limit, optional Turnstile, service role RPC | `src/lib/booking/reschedule.ts` |
+| `GET/POST /api/holds/expire` | Bearer-token stale hold expiry worker | `src/lib/booking/hold-expiry.ts` |
 | `DELETE /api/contacts/[id]` | Authenticated host contact anonymization scoped to own profile | `src/lib/contacts/contacts.ts` |
 | `GET/POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
 | `PATCH/DELETE /api/settings` | Authenticated host settings and account deletion | `src/app/api/settings/route.ts` |
@@ -189,7 +207,7 @@ Migrations are in `supabase/migrations/`:
 Detailed target/current gaps are tracked in [System Design Gap Analysis](system-design-gaps.md).
 
 - `docs/system-design.md` describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` for those surfaces. This is acceptable for the MVP because it maximizes local code reuse and keeps deployment simple, but it couples high-risk public/provider endpoints to the web app runtime instead of isolating them in the Supabase function runtime with separate secrets and lifecycle.
-- Vercel Cron triggers are configured for outbox, webhook, and calendar sync workers. The committed schedules are daily for Hobby deployment compatibility; production environments that need faster processing still need an upgraded Vercel plan or equivalent scheduler configuration.
+- Vercel Cron triggers are configured for outbox, webhook, calendar sync, and hold-expiry workers. The committed schedules are daily for Hobby deployment compatibility; production environments that need faster processing still need an upgraded Vercel plan or equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
 - Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, provider event writes, provider watch/subscription callbacks, watch renewal, optional stale-cache live confirmation checks, and generated Google Meet/Microsoft Teams links are implemented for Google and Microsoft.
 - There is no realtime sync in the UI.

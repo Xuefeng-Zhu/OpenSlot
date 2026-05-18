@@ -3,12 +3,19 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { confirmBookingSchema } from '@/lib/validations/booking'
 import { confirmBooking } from '@/lib/booking/confirm'
 import {
+  abandonIdempotentRequest,
   beginIdempotentRequest,
   completeIdempotentRequest,
   hashRequestPayload,
   resolveIdempotencyKey,
   type IdempotencyEntry,
 } from '@/lib/idempotency/request-idempotency'
+import {
+  consumePublicRateLimit,
+  publicRateLimitResponse,
+  publicRateLimitResponseBody,
+} from '@/lib/security/rate-limit'
+import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { Json } from '@/lib/types/database'
 
 /**
@@ -43,7 +50,7 @@ export async function POST(request: NextRequest) {
     }
 
     adminClient = createAdminClient()
-    const { idempotencyKey, ...bookingInput } = parsed.data
+    const { idempotencyKey, turnstileToken, ...bookingInput } = parsed.data
 
     const keyResult = resolveIdempotencyKey(
       idempotencyKey,
@@ -76,6 +83,39 @@ export async function POST(request: NextRequest) {
       }
 
       idempotencyEntry = idempotency.entry
+    }
+
+    const rateLimit = await consumePublicRateLimit({
+      request,
+      adminClient,
+      config: {
+        scope: 'confirm-booking',
+        limit: 20,
+        windowSeconds: 5 * 60,
+      },
+    })
+
+    if (!rateLimit.allowed) {
+      await cacheIdempotentResponse(
+        adminClient,
+        idempotencyEntry,
+        publicRateLimitResponseBody(rateLimit),
+        rateLimit.status
+      )
+      return publicRateLimitResponse(rateLimit)
+    }
+
+    const turnstile = await verifyTurnstileToken({
+      request,
+      token: turnstileToken,
+    })
+
+    if (!turnstile.ok) {
+      await abandonIdempotentMarker(adminClient, idempotencyEntry)
+      return NextResponse.json(
+        { success: false, error: turnstile.error },
+        { status: turnstile.status }
+      )
     }
 
     // Delegate to the booking confirmation engine
@@ -114,6 +154,15 @@ async function cacheIdempotentResponse(
     entry,
     response: { body: body as Json, status },
   })
+}
+
+async function abandonIdempotentMarker(
+  adminClient: ReturnType<typeof createAdminClient> | null,
+  entry: IdempotencyEntry | null
+) {
+  if (!adminClient || !entry) return
+
+  await abandonIdempotentRequest({ adminClient, entry })
 }
 
 /**
