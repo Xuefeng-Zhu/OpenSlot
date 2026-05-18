@@ -80,9 +80,12 @@ export async function verifyFinalProviderAvailability(
     new Date(endAt).getTime() + bufferAfterMinutes * 60 * 1000
   ).toISOString()
   const calendarsByConnection = groupByConnection(calendars)
+  const connectionsWithAvailabilityCalendars = connections.filter(
+    (connection) => (calendarsByConnection.get(connection.id)?.length ?? 0) > 0
+  )
 
   try {
-    for (const connection of connections) {
+    for (const connection of connectionsWithAvailabilityCalendars) {
       const accessToken = await getFreshAccessToken(
         adminClient,
         connection,

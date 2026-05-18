@@ -115,6 +115,38 @@ describe('verifyFinalProviderAvailability', () => {
     expect(listProviderBusyEvents).toHaveBeenCalled()
   })
 
+  it('does not refresh tokens for unrelated connections without availability calendars', async () => {
+    const unrelatedConnection = {
+      ...connection,
+      id: 'connection-without-availability',
+      provider: 'microsoft',
+      access_token_encrypted: null,
+      refresh_token_encrypted: null,
+    }
+    const adminClient = clientForHealth({
+      connections: [
+        { ...connection, last_synced_at: '2026-06-01T13:00:00.000Z' },
+        unrelatedConnection,
+      ],
+    })
+
+    const result = await verifyFinalProviderAvailability(adminClient as any, {
+      hostUserId: 'profile-1',
+      startAt: '2026-06-01T14:00:00.000Z',
+      endAt: '2026-06-01T14:30:00.000Z',
+      bufferBeforeMinutes: 0,
+      bufferAfterMinutes: 0,
+    })
+
+    expect(result).toEqual({ success: true, checked: true, reason: 'verified' })
+    expect(getFreshAccessToken).toHaveBeenCalledTimes(1)
+    expect(getFreshAccessToken).toHaveBeenCalledWith(
+      adminClient,
+      expect.objectContaining({ id: 'connection-1' }),
+      expect.any(Function)
+    )
+  })
+
   it('rejects stale slots that overlap live provider busy events', async () => {
     vi.mocked(listProviderBusyEvents).mockResolvedValueOnce([
       {
@@ -173,10 +205,12 @@ describe('verifyFinalProviderAvailability', () => {
 
 function clientForHealth({
   connection: connectionRow = connection,
+  connections,
   calendarRows = [calendar],
   watchRows = [watch],
 }: {
   connection?: Record<string, unknown>
+  connections?: Record<string, unknown>[]
   calendarRows?: Record<string, unknown>[]
   watchRows?: Record<string, unknown>[]
 }) {
@@ -186,7 +220,7 @@ function clientForHealth({
         table,
         resultFor: (queryTable) => {
           if (queryTable === 'provider_connections') {
-            return { data: [connectionRow], error: null }
+            return { data: connections ?? [connectionRow], error: null }
           }
 
           if (queryTable === 'provider_calendars') {
