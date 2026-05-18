@@ -7,6 +7,12 @@ const mocks = vi.hoisted(() => ({
     rpc: vi.fn(),
   },
   validateHoldSlotRequest: vi.fn(),
+  beginIdempotentRequest: vi.fn(),
+  completeIdempotentRequest: vi.fn(),
+  abandonIdempotentRequest: vi.fn(),
+  hashRequestPayload: vi.fn(() => 'request-hash'),
+  consumePublicRateLimit: vi.fn(),
+  verifyTurnstileToken: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -17,6 +23,35 @@ vi.mock('@/lib/availability/available-slots', () => ({
   validateHoldSlotRequest: mocks.validateHoldSlotRequest,
 }))
 
+vi.mock('@/lib/idempotency/request-idempotency', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/idempotency/request-idempotency')
+  >('@/lib/idempotency/request-idempotency')
+
+  return {
+    ...actual,
+    beginIdempotentRequest: mocks.beginIdempotentRequest,
+    completeIdempotentRequest: mocks.completeIdempotentRequest,
+    abandonIdempotentRequest: mocks.abandonIdempotentRequest,
+    hashRequestPayload: mocks.hashRequestPayload,
+  }
+})
+
+vi.mock('@/lib/security/rate-limit', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/security/rate-limit')>(
+    '@/lib/security/rate-limit'
+  )
+
+  return {
+    ...actual,
+    consumePublicRateLimit: mocks.consumePublicRateLimit,
+  }
+})
+
+vi.mock('@/lib/security/turnstile', () => ({
+  verifyTurnstileToken: mocks.verifyTurnstileToken,
+}))
+
 const validBody = {
   eventTypeId: '11111111-1111-4111-8111-111111111111',
   hostUserId: '22222222-2222-4222-8222-222222222222',
@@ -25,11 +60,17 @@ const validBody = {
   guestEmail: 'guest@example.com',
 }
 
-function requestWithJson(body: unknown) {
+const idempotencyKey = 'hold-key-1'
+
+function requestWithJson(
+  body: unknown,
+  headers: Record<string, string> = {}
+) {
   return new Request('http://localhost/api/holds', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      ...headers,
     },
     body: JSON.stringify(body),
   })
@@ -39,6 +80,23 @@ describe('POST /api/holds', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.adminClient.rpc.mockReset()
+    mocks.beginIdempotentRequest.mockResolvedValue({
+      type: 'started',
+      entry: {
+        scope: 'create-hold',
+        key: idempotencyKey,
+        requestHash: 'request-hash',
+      },
+    })
+    mocks.completeIdempotentRequest.mockResolvedValue(undefined)
+    mocks.abandonIdempotentRequest.mockResolvedValue(undefined)
+    mocks.consumePublicRateLimit.mockResolvedValue({
+      allowed: true,
+      limit: 10,
+      remaining: 9,
+      resetAt: '2025-01-15T14:05:00.000Z',
+    })
+    mocks.verifyTurnstileToken.mockResolvedValue({ ok: true, enforced: false })
     mocks.validateHoldSlotRequest.mockResolvedValue({ success: true })
     mocks.adminClient.rpc.mockReturnValue({
       single: vi.fn().mockResolvedValue({
@@ -80,6 +138,157 @@ describe('POST /api/holds', () => {
         p_expires_at: expect.any(String),
       })
     )
+    expect(mocks.consumePublicRateLimit).toHaveBeenCalledWith({
+      request: expect.any(Request),
+      adminClient: mocks.adminClient,
+      config: {
+        scope: 'create-hold',
+        limit: 10,
+        windowSeconds: 300,
+      },
+    })
+  })
+
+  it('records a fresh idempotent hold request and caches the response', async () => {
+    const response = await POST(
+      requestWithJson(
+        { ...validBody, idempotencyKey },
+        { 'Idempotency-Key': idempotencyKey }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(mocks.hashRequestPayload).toHaveBeenCalledWith(validBody)
+    expect(mocks.beginIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      scope: 'create-hold',
+      key: idempotencyKey,
+      requestHash: 'request-hash',
+    })
+    expect(mocks.completeIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      entry: {
+        scope: 'create-hold',
+        key: idempotencyKey,
+        requestHash: 'request-hash',
+      },
+      response: {
+        body: data,
+        status: 201,
+      },
+    })
+  })
+
+  it('replays a cached hold response before rate limiting or mutation work', async () => {
+    mocks.beginIdempotentRequest.mockResolvedValue({
+      type: 'replay',
+      response: {
+        status: 201,
+        body: {
+          holdId: 'cached-hold',
+          holdToken: 'cached-token',
+          expiresAt: '2025-01-15T14:05:00.000Z',
+        },
+      },
+    })
+
+    const response = await POST(
+      requestWithJson(
+        { ...validBody, idempotencyKey },
+        { 'Idempotency-Key': idempotencyKey }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(data.holdId).toBe('cached-hold')
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
+  })
+
+  it('returns an idempotency conflict for reused keys with different payloads', async () => {
+    mocks.beginIdempotentRequest.mockResolvedValue({
+      type: 'conflict',
+      response: {
+        status: 409,
+        body: {
+          success: false,
+          error: 'Idempotency key was already used for a different request',
+        },
+      },
+    })
+
+    const response = await POST(
+      requestWithJson(
+        { ...validBody, idempotencyKey },
+        { 'Idempotency-Key': idempotencyKey }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data.error).toContain('different request')
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
+  })
+
+  it('rate limits fresh hold requests before availability validation', async () => {
+    mocks.consumePublicRateLimit.mockResolvedValue({
+      allowed: false,
+      status: 429,
+      error: 'Too many requests. Please retry after the rate limit resets.',
+      limit: 10,
+      remaining: 0,
+      resetAt: '2025-01-15T14:05:00.000Z',
+      retryAfterSeconds: 60,
+    })
+
+    const response = await POST(
+      requestWithJson(
+        { ...validBody, idempotencyKey },
+        { 'Idempotency-Key': idempotencyKey }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(429)
+    expect(response.headers.get('Retry-After')).toBe('60')
+    expect(data.rateLimit.remaining).toBe(0)
+    expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
+    expect(mocks.abandonIdempotentRequest).toHaveBeenCalledWith({
+      adminClient: mocks.adminClient,
+      entry: {
+        scope: 'create-hold',
+        key: idempotencyKey,
+        requestHash: 'request-hash',
+      },
+    })
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
+  })
+
+  it('requires a valid Turnstile token before creating a hold when configured', async () => {
+    mocks.verifyTurnstileToken.mockResolvedValue({
+      ok: false,
+      status: 400,
+      error: 'Verification challenge failed',
+    })
+
+    const response = await POST(
+      requestWithJson(
+        { ...validBody, idempotencyKey, turnstileToken: 'bad-token' },
+        { 'Idempotency-Key': idempotencyKey }
+      ) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toContain('challenge')
+    expect(mocks.abandonIdempotentRequest).toHaveBeenCalled()
+    expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
   })
 
   it('rejects a slot that is not in computed availability before calling the RPC', async () => {

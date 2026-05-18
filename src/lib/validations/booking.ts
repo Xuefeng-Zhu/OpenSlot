@@ -13,6 +13,12 @@ const idempotencyKeySchema = z
   .regex(/^[A-Za-z0-9._:-]+$/, 'Idempotency key contains unsupported characters')
   .optional()
 
+const turnstileTokenSchema = z
+  .string()
+  .min(1, 'Verification token is required when provided')
+  .max(4096, 'Verification token is too long')
+  .optional()
+
 /**
  * Schema for creating a slot hold.
  * Used by POST /api/holds to validate the request body.
@@ -23,6 +29,8 @@ export const createHoldSchema = z.object({
   startAt: z.string().datetime({ message: 'Start time must be a valid ISO 8601 datetime' }),
   endAt: z.string().datetime({ message: 'End time must be a valid ISO 8601 datetime' }),
   guestEmail: z.string().email('Must be a valid email address'),
+  idempotencyKey: idempotencyKeySchema,
+  turnstileToken: turnstileTokenSchema,
 })
 
 export type CreateHoldInput = z.infer<typeof createHoldSchema>
@@ -39,6 +47,7 @@ export const confirmBookingSchema = z.object({
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
   answers: inviteeAnswerRecordSchema.optional(),
   idempotencyKey: idempotencyKeySchema,
+  turnstileToken: turnstileTokenSchema,
 })
 
 export type ConfirmBookingInput = z.infer<typeof confirmBookingSchema>
@@ -51,6 +60,7 @@ export const cancelBookingSchema = z.object({
   cancellationToken: z.string().uuid('Cancellation token must be a valid UUID'),
   cancelReason: z.string().max(500, 'Cancel reason must be 500 characters or less').optional(),
   idempotencyKey: idempotencyKeySchema,
+  turnstileToken: turnstileTokenSchema,
 })
 
 export type CancelBookingSchemaInput = z.infer<typeof cancelBookingSchema>
@@ -68,6 +78,7 @@ export const rescheduleBookingSchema = z.object({
   notes: z.string().max(1000, 'Notes must be 1000 characters or less').optional(),
   answers: inviteeAnswerRecordSchema.optional(),
   idempotencyKey: idempotencyKeySchema,
+  turnstileToken: turnstileTokenSchema,
 })
 
 export type RescheduleBookingSchemaInput = z.infer<typeof rescheduleBookingSchema>

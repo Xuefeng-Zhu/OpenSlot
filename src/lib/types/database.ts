@@ -1081,6 +1081,45 @@ export interface Database {
         }
         Relationships: []
       }
+      public_rate_limits: {
+        Row: {
+          id: string
+          scope: string
+          identifier_hash: string
+          window_start: string
+          window_seconds: number
+          limit_count: number
+          request_count: number
+          expires_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          scope: string
+          identifier_hash: string
+          window_start: string
+          window_seconds: number
+          limit_count: number
+          request_count?: number
+          expires_at: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          scope?: string
+          identifier_hash?: string
+          window_start?: string
+          window_seconds?: number
+          limit_count?: number
+          request_count?: number
+          expires_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       outbox_events: {
         Row: {
           id: string
@@ -1165,6 +1204,32 @@ export interface Database {
           p_max_attempts?: number
         }
         Returns: Database['public']['Tables']['webhook_deliveries']['Row'][]
+      }
+      consume_public_rate_limit: {
+        Args: {
+          p_scope: string
+          p_identifier_hash: string
+          p_limit_count: number
+          p_window_seconds: number
+          p_now?: string
+        }
+        Returns: {
+          allowed: boolean
+          limit_count: number
+          remaining: number
+          reset_at: string
+          retry_after_seconds: number
+        }[]
+      }
+      expire_stale_slot_holds: {
+        Args: {
+          p_limit?: number
+          p_now?: string
+        }
+        Returns: {
+          expired_holds: number
+          expired_reservations: number
+        }[]
       }
       set_default_schedule: {
         Args: {

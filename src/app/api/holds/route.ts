@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateHoldSlotRequest } from '@/lib/availability/available-slots'
+import {
+  abandonIdempotentRequest,
+  beginIdempotentRequest,
+  completeIdempotentRequest,
+  hashRequestPayload,
+  resolveIdempotencyKey,
+  type IdempotencyEntry,
+} from '@/lib/idempotency/request-idempotency'
+import {
+  consumePublicRateLimit,
+  publicRateLimitResponse,
+} from '@/lib/security/rate-limit'
+import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createAdminClient } from '@/lib/supabase/admin'
+import type { Json } from '@/lib/types/database'
 import { createHoldSchema } from '@/lib/validations/booking'
 
 /**
@@ -15,6 +29,9 @@ import { createHoldSchema } from '@/lib/validations/booking'
  * Uses a service-role RPC to create the hold and host reservation atomically.
  */
 export async function POST(request: NextRequest) {
+  let adminClient: ReturnType<typeof createAdminClient> | null = null
+  let idempotencyEntry: IdempotencyEntry | null = null
+
   try {
     const body = await request.json()
 
@@ -27,17 +44,79 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { eventTypeId, hostUserId, startAt, endAt, guestEmail } = parsed.data
+    adminClient = createAdminClient()
+    const { idempotencyKey, turnstileToken, ...holdInput } = parsed.data
+    const { eventTypeId, hostUserId, startAt, endAt, guestEmail } = holdInput
+
+    const keyResult = resolveIdempotencyKey(
+      idempotencyKey,
+      request.headers.get('Idempotency-Key')
+    )
+
+    if (!keyResult.ok) {
+      return NextResponse.json(
+        { success: false, error: keyResult.error },
+        { status: 400 }
+      )
+    }
+
+    if (keyResult.key) {
+      const idempotency = await beginIdempotentRequest({
+        adminClient,
+        scope: 'create-hold',
+        key: keyResult.key,
+        requestHash: hashRequestPayload(holdInput),
+      })
+
+      if (
+        idempotency.type === 'replay' ||
+        idempotency.type === 'conflict' ||
+        idempotency.type === 'error'
+      ) {
+        return NextResponse.json(idempotency.response.body, {
+          status: idempotency.response.status,
+        })
+      }
+
+      idempotencyEntry = idempotency.entry
+    }
 
     // Validate that startAt is before endAt
     if (new Date(startAt) >= new Date(endAt)) {
+      await abandonIdempotentMarker(adminClient, idempotencyEntry)
       return NextResponse.json(
         { error: 'Start time must be before end time' },
         { status: 400 }
       )
     }
 
-    const adminClient = createAdminClient()
+    const rateLimit = await consumePublicRateLimit({
+      request,
+      adminClient,
+      config: {
+        scope: 'create-hold',
+        limit: 10,
+        windowSeconds: 5 * 60,
+      },
+    })
+
+    if (!rateLimit.allowed) {
+      await abandonIdempotentMarker(adminClient, idempotencyEntry)
+      return publicRateLimitResponse(rateLimit)
+    }
+
+    const turnstile = await verifyTurnstileToken({
+      request,
+      token: turnstileToken,
+    })
+
+    if (!turnstile.ok) {
+      await abandonIdempotentMarker(adminClient, idempotencyEntry)
+      return NextResponse.json(
+        { success: false, error: turnstile.error },
+        { status: turnstile.status }
+      )
+    }
 
     const slotValidation = await validateHoldSlotRequest({
       supabase: adminClient,
@@ -48,6 +127,12 @@ export async function POST(request: NextRequest) {
     })
 
     if (!slotValidation.success) {
+      await cacheIdempotentResponse(
+        adminClient,
+        idempotencyEntry,
+        { error: slotValidation.error },
+        slotValidation.status
+      )
       return NextResponse.json(
         { error: slotValidation.error },
         { status: slotValidation.status }
@@ -71,46 +156,79 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       if (insertError.code === '23P01' || insertError.code === '23505') {
+        const response = {
+          error:
+            'This time slot is currently held by another guest. Please select a different time.',
+        }
+        await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 409)
         return NextResponse.json(
-          { error: 'This time slot is currently held by another guest. Please select a different time.' },
+          response,
           { status: 409 }
         )
       }
 
       if (insertError.code === 'P0002') {
-        return NextResponse.json(
-          { error: 'Event type not found' },
-          { status: 404 }
-        )
+        const response = { error: 'Event type not found' }
+        await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 404)
+        return NextResponse.json(response, { status: 404 })
       }
 
       if (insertError.code === '22023') {
+        const response = {
+          error:
+            'This time slot is no longer available. Please select a different time.',
+        }
+        await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 409)
         return NextResponse.json(
-          { error: 'This time slot is no longer available. Please select a different time.' },
+          response,
           { status: 409 }
         )
       }
 
       console.error('Error creating hold:', insertError)
-      return NextResponse.json(
-        { error: 'Failed to create hold' },
-        { status: 500 }
-      )
+      const response = { error: 'Failed to create hold' }
+      await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 500)
+      return NextResponse.json(response, { status: 500 })
     }
 
-    return NextResponse.json(
-      {
-        holdId: hold.hold_id,
-        holdToken: hold.hold_token,
-        expiresAt: hold.expires_at,
-      },
-      { status: 201 }
-    )
+    const response = {
+      holdId: hold.hold_id,
+      holdToken: hold.hold_token,
+      expiresAt: hold.expires_at,
+    }
+    await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 201)
+    return NextResponse.json(response, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/holds:', error)
+    const response = { error: 'Internal server error' }
+    await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 500)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      response,
       { status: 500 }
     )
   }
+}
+
+async function cacheIdempotentResponse(
+  adminClient: ReturnType<typeof createAdminClient> | null,
+  entry: IdempotencyEntry | null,
+  body: unknown,
+  status: number
+) {
+  if (!adminClient || !entry) return
+
+  await completeIdempotentRequest({
+    adminClient,
+    entry,
+    response: { body: body as Json, status },
+  })
+}
+
+async function abandonIdempotentMarker(
+  adminClient: ReturnType<typeof createAdminClient> | null,
+  entry: IdempotencyEntry | null
+) {
+  if (!adminClient || !entry) return
+
+  await abandonIdempotentRequest({ adminClient, entry })
 }

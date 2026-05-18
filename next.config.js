@@ -10,6 +10,8 @@ const SUPABASE_CONNECT_SOURCES = [
   'wss://*.supabase.co',
 ];
 
+const TURNSTILE_SOURCES = ['https://challenges.cloudflare.com'];
+
 function compactSources(sources) {
   return Array.from(new Set(sources.filter(Boolean)));
 }
@@ -63,10 +65,11 @@ function buildContentSecurityPolicy({ isProduction }) {
     'base-uri': ["'self'"],
     'object-src': ["'none'"],
     'frame-ancestors': ["'none'"],
-    'frame-src': ["'none'"],
+    'frame-src': TURNSTILE_SOURCES,
     'form-action': ["'self'"],
     'script-src': compactSources([
       "'self'",
+      ...TURNSTILE_SOURCES,
       "'unsafe-inline'",
       isProduction ? null : "'unsafe-eval'",
     ]),
@@ -77,6 +80,7 @@ function buildContentSecurityPolicy({ isProduction }) {
     'connect-src': compactSources([
       "'self'",
       ...SUPABASE_CONNECT_SOURCES,
+      ...TURNSTILE_SOURCES,
       supabaseOrigin,
       supabaseRealtimeOrigin,
       ...(isProduction ? [] : LOCAL_DEVELOPMENT_CONNECT_SOURCES),

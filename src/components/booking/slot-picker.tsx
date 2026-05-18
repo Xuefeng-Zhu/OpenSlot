@@ -22,6 +22,10 @@ import {
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
+import {
+  isTurnstileEnabled,
+  TurnstileWidget,
+} from "@/components/booking/turnstile-widget";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
 import { cn } from "@/lib/utils";
@@ -146,9 +150,14 @@ export function SlotPicker({
   const [error, setError] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [holdLoading, setHoldLoading] = useState(false);
+  const [holdTurnstileToken, setHoldTurnstileToken] = useState<string | null>(
+    null
+  );
+  const [holdTurnstileResetKey, setHoldTurnstileResetKey] = useState(0);
   const [flowState, setFlowState] = useState<BookingFlowState>({
     step: "select-slot",
   });
+  const turnstileRequired = isTurnstileEnabled();
 
   useEffect(() => {
     setTimezone(getBrowserTimezone());
@@ -219,21 +228,32 @@ export function SlotPicker({
   }
 
   async function handleSlotSelect(slot: TimeSlot) {
+    if (turnstileRequired && !holdTurnstileToken) {
+      setError("Please complete the verification challenge before selecting a time.");
+      return;
+    }
+
     setSelectedSlot(slot);
     setHoldLoading(true);
     setError(null);
+    const idempotencyKey = createIdempotencyKey();
 
     try {
       // Create a hold on the selected slot
       const response = await fetch("/api/holds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
+        },
         body: JSON.stringify({
           eventTypeId: eventType.id,
           hostUserId: hostProfile.id,
           startAt: slot.start,
           endAt: slot.end,
           guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
+          idempotencyKey,
+          turnstileToken: holdTurnstileToken ?? undefined,
         }),
       });
 
@@ -268,6 +288,10 @@ export function SlotPicker({
       setError("Unable to hold slot. Please try again.");
       setSelectedSlot(null);
     } finally {
+      if (turnstileRequired) {
+        setHoldTurnstileToken(null);
+        setHoldTurnstileResetKey((key) => key + 1);
+      }
       setHoldLoading(false);
     }
   }
@@ -453,17 +477,27 @@ export function SlotPicker({
             )}
 
             {selectedDate && !loading && !error && slots.length > 0 && (
-              <div className="grid max-h-[400px] grid-cols-2 gap-2 overflow-y-auto pr-1">
-                {slots.map((slot) => (
-                  <TimeSlotButton
-                    key={slot.start}
-                    time={formatSlotTime(slot.start)}
-                    selected={selectedSlot?.start === slot.start}
-                    onClick={() => handleSlotSelect(slot)}
-                    disabled={holdLoading}
-                    loading={holdLoading && selectedSlot?.start === slot.start}
-                  />
-                ))}
+              <div className="space-y-3">
+                <TurnstileWidget
+                  action="hold"
+                  resetKey={holdTurnstileResetKey}
+                  onTokenChange={setHoldTurnstileToken}
+                />
+                <div className="grid max-h-[400px] grid-cols-2 gap-2 overflow-y-auto pr-1">
+                  {slots.map((slot) => (
+                    <TimeSlotButton
+                      key={slot.start}
+                      time={formatSlotTime(slot.start)}
+                      selected={selectedSlot?.start === slot.start}
+                      onClick={() => handleSlotSelect(slot)}
+                      disabled={
+                        holdLoading ||
+                        (turnstileRequired && !holdTurnstileToken)
+                      }
+                      loading={holdLoading && selectedSlot?.start === slot.start}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>
@@ -497,4 +531,12 @@ export function SlotPicker({
       )}
     </div>
   );
+}
+
+function createIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

@@ -12,6 +12,10 @@
     {
       "path": "/api/calendar/sync",
       "schedule": "30 0 * * *"
+    },
+    {
+      "path": "/api/holds/expire",
+      "schedule": "45 0 * * *"
     }
   ]
 }

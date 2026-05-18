@@ -37,8 +37,13 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. It is used by `src/lib/supabase/admin.ts`.
 
 Worker routes can run without secrets outside production. Set
-`OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, or
-`CRON_SECRET` when testing bearer-token protection locally or deploying.
+`OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,
+`CALENDAR_SYNC_SECRET`, `HOLD_EXPIRY_PROCESS_SECRET`, or `CRON_SECRET` when
+testing bearer-token protection locally or deploying.
+
+Public booking mutation routes enforce Cloudflare Turnstile only when both
+`NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` are configured.
+Leave them unset for normal local development.
 
 Calendar integration development also needs provider OAuth credentials and
 `CALENDAR_TOKEN_ENCRYPTION_SECRET`. `MICROSOFT_CALENDAR_TENANT` defaults to

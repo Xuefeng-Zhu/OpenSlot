@@ -11,7 +11,11 @@ export type WorkerAuthResult =
  */
 export function authorizeWorkerRequest(
   request: NextRequest,
-  specificSecretName: 'OUTBOX_PROCESS_SECRET' | 'WEBHOOK_PROCESS_SECRET' | 'CALENDAR_SYNC_SECRET'
+  specificSecretName:
+    | 'OUTBOX_PROCESS_SECRET'
+    | 'WEBHOOK_PROCESS_SECRET'
+    | 'CALENDAR_SYNC_SECRET'
+    | 'HOLD_EXPIRY_PROCESS_SECRET'
 ): WorkerAuthResult {
   const configuredSecrets = [
     process.env[specificSecretName],
