@@ -8,6 +8,7 @@ import {
   type CalendarProvider,
 } from '@/lib/calendar/oauth'
 import { syncCalendarsForConnection } from '@/lib/calendar/provider-sync'
+import { ensureCalendarWatchesForConnection } from '@/lib/calendar/watches'
 import { encryptToken } from '@/lib/security/token-encryption'
 import {
   CALENDAR_OAUTH_STATE_COOKIE,
@@ -104,6 +105,7 @@ export async function GET(
     })
 
     await syncCalendarsForConnection(adminClient, connection.id)
+    await ensureCalendarWatchesForConnection(adminClient, connection.id)
 
     return redirectToSettings(request, 'connected', provider)
   } catch (error) {

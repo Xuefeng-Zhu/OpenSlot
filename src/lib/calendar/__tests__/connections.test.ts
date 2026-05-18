@@ -52,6 +52,26 @@ describe('listCalendarConnectionSummaries', () => {
           }
         }
 
+        if (table === 'provider_watches') {
+          return {
+            select: () => ({
+              in: async (_column: string, values: string[]) => ({
+                data: [
+                  {
+                    connection_id: values[0],
+                    external_calendar_id: 'primary',
+                    status: 'active',
+                    expiration_at: '2026-05-15T00:00:00.000Z',
+                    last_sync_at: '2026-05-08T01:00:00.000Z',
+                    last_error: null,
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          }
+        }
+
         throw new Error(`Unexpected table: ${table}`)
       }),
     } as any
@@ -79,6 +99,12 @@ describe('listCalendarConnectionSummaries', () => {
             isPrimary: true,
             useForAvailability: true,
             useForWrites: true,
+            watch: {
+              status: 'active',
+              expiresAt: '2026-05-15T00:00:00.000Z',
+              lastSyncAt: '2026-05-08T01:00:00.000Z',
+              lastError: null,
+            },
           },
         ],
       },

@@ -173,7 +173,9 @@ Migrations are in `supabase/migrations/`:
 | `GET /api/calendar/connections` | Authenticated host, safe server-side calendar connection summaries | `src/lib/calendar/connections.ts` |
 | `GET /api/calendar/oauth/[provider]/start` | Authenticated host calendar OAuth redirect | `src/lib/calendar/oauth.ts` |
 | `GET /api/calendar/oauth/[provider]/callback` | Authenticated host calendar OAuth callback | `src/lib/calendar/oauth.ts` |
-| `GET/POST /api/calendar/sync` | Bearer-token provider calendar/busy-cache sync worker | `src/lib/calendar/provider-sync.ts` |
+| `GET/POST /api/calendar/sync` | Bearer-token provider calendar/busy-cache sync and watch renewal worker | `src/lib/calendar/provider-sync.ts`, `src/lib/calendar/watches.ts` |
+| `POST /api/calendar/webhooks/google` | Google Calendar watch callback validation and busy-cache refresh | `src/lib/calendar/watches.ts` |
+| `GET/POST /api/calendar/webhooks/microsoft` | Microsoft Graph subscription validation and busy-cache refresh | `src/lib/calendar/watches.ts` |
 | `GET/POST /api/webhooks/endpoints` | Authenticated host webhook endpoint management | `src/app/api/webhooks/endpoints/route.ts` |
 | `PATCH/DELETE /api/webhooks/endpoints/[id]` | Authenticated host webhook endpoint management scoped to own profile | `src/app/api/webhooks/endpoints/[id]/route.ts` |
 | `GET/POST /api/webhooks/process` | Bearer-token webhook delivery worker trigger, service role write | `src/lib/webhooks/deliveries.ts` |
@@ -189,7 +191,7 @@ Detailed target/current gaps are tracked in [System Design Gap Analysis](system-
 - `docs/system-design.md` describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` for those surfaces. This is acceptable for the MVP because it maximizes local code reuse and keeps deployment simple, but it couples high-risk public/provider endpoints to the web app runtime instead of isolating them in the Supabase function runtime with separate secrets and lifecycle.
 - Vercel Cron triggers are configured for outbox, webhook, and calendar sync workers. The committed schedules are daily for Hobby deployment compatibility; production environments that need faster processing still need an upgraded Vercel plan or equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
-- Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, provider event writes, and generated Google Meet/Microsoft Teams links are implemented for Google and Microsoft. Provider watch/subscription renewal and provider webhook callbacks are not implemented yet.
+- Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, provider event writes, provider watch/subscription callbacks, watch renewal, optional stale-cache live confirmation checks, and generated Google Meet/Microsoft Teams links are implemented for Google and Microsoft.
 - There is no realtime sync in the UI.
 
 ## Related Docs

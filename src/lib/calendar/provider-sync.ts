@@ -11,7 +11,7 @@ type ProviderCalendarRow = Tables<'provider_calendars'>
 
 const TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000
 const AVAILABILITY_REFRESH_INTERVAL_MS = 5 * 60 * 1000
-const DEFAULT_BUSY_SYNC_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
+export const DEFAULT_BUSY_SYNC_WINDOW_MS = 90 * 24 * 60 * 60 * 1000
 
 type AvailabilityRefreshConnection = Pick<
   ProviderConnectionRow,
@@ -57,7 +57,7 @@ interface ProviderCalendarSummary {
   metadata: Json
 }
 
-interface ProviderBusyEvent {
+export interface ProviderBusyEvent {
   sourceEventId: string
   startAt: string
   endAt: string
@@ -285,6 +285,52 @@ export async function refreshCalendarAvailabilityForHost(
   }
 
   return result
+}
+
+/**
+ * Refreshes a single provider calendar's busy cache for a requested window.
+ * Provider watch callbacks use this narrower path so one changed calendar does
+ * not force a full account calendar-list sync.
+ */
+export async function refreshProviderCalendarBusyCache({
+  adminClient,
+  connectionId,
+  externalCalendarId,
+  windowStart,
+  windowEnd,
+  fetchImpl = fetch,
+}: {
+  adminClient: SupabaseClient<Database>
+  connectionId: string
+  externalCalendarId: string
+  windowStart: string
+  windowEnd: string
+  fetchImpl?: typeof fetch
+}): Promise<void> {
+  const connection = await loadProviderConnection(adminClient, connectionId)
+  const accessToken = await getFreshAccessToken(adminClient, connection, fetchImpl)
+
+  const { data: calendarData, error: calendarError } = await adminClient
+    .from('provider_calendars')
+    .select('*')
+    .eq('connection_id', connectionId)
+    .eq('external_calendar_id', externalCalendarId)
+    .eq('use_for_availability', true)
+    .single()
+
+  if (calendarError || !calendarData) {
+    throw new Error(`Availability calendar not found: ${externalCalendarId}`)
+  }
+
+  await syncBusyCache({
+    adminClient,
+    connection,
+    accessToken,
+    calendars: [calendarData as ProviderCalendarRow],
+    windowStart,
+    windowEnd,
+    fetchImpl,
+  })
 }
 
 /**
@@ -769,7 +815,7 @@ async function syncBusyCache({
   }
 }
 
-async function listProviderBusyEvents({
+export async function listProviderBusyEvents({
   provider,
   accessToken,
   externalCalendarId,

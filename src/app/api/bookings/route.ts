@@ -134,6 +134,12 @@ function getErrorStatus(error?: string): number {
   if (error.includes('booked by someone else') || error.includes('slot taken')) {
     return 409 // Conflict
   }
+  if (error.includes('conflicts with a connected calendar event')) {
+    return 409
+  }
+  if (error.includes('Could not verify connected calendar availability')) {
+    return 503
+  }
 
   return 500
 }

@@ -11,6 +11,7 @@ import {
 } from '@/lib/reservations/host-reservations'
 import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from '../events'
+import { verifyFinalProviderAvailability } from '@/lib/calendar/final-availability'
 
 // Mock email send functions so they don't interfere with tests
 vi.mock('@/lib/email/send', () => ({
@@ -42,6 +43,14 @@ vi.mock('@/lib/contacts/contacts', () => ({
 
 vi.mock('../events', () => ({
   appendBookingEvent: vi.fn().mockResolvedValue(true),
+}))
+
+vi.mock('@/lib/calendar/final-availability', () => ({
+  verifyFinalProviderAvailability: vi.fn().mockResolvedValue({
+    success: true,
+    checked: false,
+    reason: 'disabled',
+  }),
 }))
 
 /**
@@ -96,6 +105,8 @@ describe('confirmBooking', () => {
     location_value: 'https://example.com/meeting',
     video_provider: null,
     invitee_questions: [],
+    buffer_before_minutes: 0,
+    buffer_after_minutes: 0,
   }
 
   beforeEach(() => {
@@ -114,6 +125,11 @@ describe('confirmBooking', () => {
     vi.mocked(expireHoldReservation).mockResolvedValue(true)
     vi.mocked(upsertContactFromBooking).mockResolvedValue(null)
     vi.mocked(appendBookingEvent).mockResolvedValue(true)
+    vi.mocked(verifyFinalProviderAvailability).mockResolvedValue({
+      success: true,
+      checked: false,
+      reason: 'disabled',
+    })
     mockClient = createMockClient()
   })
 
@@ -204,6 +220,13 @@ describe('confirmBooking', () => {
         booking_answers: [],
       })
     )
+    expect(verifyFinalProviderAvailability).toHaveBeenCalledWith(mockClient, {
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+      bufferBeforeMinutes: 0,
+      bufferAfterMinutes: 0,
+    })
   })
 
   it('validates and snapshots structured invitee answers', async () => {
@@ -322,6 +345,42 @@ describe('confirmBooking', () => {
 
     expect(result.success).toBe(false)
     expect(result.error).toContain('booked by someone else')
+  })
+
+  it('rejects confirmation when the final provider check finds a calendar conflict', async () => {
+    vi.mocked(verifyFinalProviderAvailability).mockResolvedValueOnce({
+      success: false,
+      status: 409,
+      error:
+        'This slot conflicts with a connected calendar event. Please select a different time.',
+    })
+    mockClient.single
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({ data: eventTypeLocation, error: null })
+
+    const result = await confirmBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('connected calendar event')
+    expect(mockClient.insert).not.toHaveBeenCalled()
+  })
+
+  it('rejects confirmation when stale calendar state cannot be verified', async () => {
+    vi.mocked(verifyFinalProviderAvailability).mockResolvedValueOnce({
+      success: false,
+      status: 503,
+      error:
+        'Could not verify connected calendar availability. Please try again.',
+    })
+    mockClient.single
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({ data: eventTypeLocation, error: null })
+
+    const result = await confirmBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('Could not verify connected calendar')
+    expect(mockClient.insert).not.toHaveBeenCalled()
   })
 
   it('updates hold status to confirmed after successful booking', async () => {

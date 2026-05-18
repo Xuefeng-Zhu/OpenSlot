@@ -160,6 +160,12 @@ describe("EditEventTypePage editor", () => {
                 isPrimary: true,
                 useForAvailability: true,
                 useForWrites: true,
+                watch: {
+                  status: "active",
+                  expiresAt: "2026-05-15T00:00:00.000Z",
+                  lastSyncAt: "2026-05-08T01:00:00.000Z",
+                  lastError: null,
+                },
               },
             ],
           },
