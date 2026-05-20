@@ -47,10 +47,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Prefer service-role writes because onboarding may create the first profile
+    // Prefer service-key writes because onboarding may create the first profile
     // before authenticated RLS policies can resolve profile ownership.
     const writeClient = (
-      process.env.SUPABASE_SERVICE_ROLE_KEY ? createAdminClient() : supabase
+      process.env.BUTTERBASE_API_KEY ? createAdminClient() : supabase
     ) as OnboardingWriteClient
     const { profile, availability, eventType, timezone } = parsed.data
     const now = new Date().toISOString()
@@ -91,7 +91,7 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error:
-            'Failed to save profile. Apply migration 011_allow_profile_insert.sql or configure SUPABASE_SERVICE_ROLE_KEY.',
+            'Failed to save profile. Check Butterbase schema/RLS or configure BUTTERBASE_API_KEY.',
         },
         { status: 500 }
       )

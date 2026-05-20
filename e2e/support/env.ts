@@ -1,27 +1,28 @@
 import { loadEnvConfig } from "@next/env";
 
 export interface E2EEnv {
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-  supabaseServiceRoleKey: string;
+  butterbaseAppId: string;
+  butterbaseApiUrl: string;
+  butterbaseApiKey: string;
 }
 
 export function loadE2EEnv(): E2EEnv {
   loadEnvConfig(process.cwd());
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const butterbaseAppId = process.env.NEXT_PUBLIC_BUTTERBASE_APP_ID;
+  const butterbaseApiUrl =
+    process.env.NEXT_PUBLIC_BUTTERBASE_API_URL ?? "https://api.butterbase.ai";
+  const butterbaseApiKey = process.env.BUTTERBASE_API_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+  if (!butterbaseAppId || !butterbaseApiKey) {
     throw new Error(
-      "E2E tests require NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY."
+      "E2E tests require NEXT_PUBLIC_BUTTERBASE_APP_ID and BUTTERBASE_API_KEY."
     );
   }
 
   return {
-    supabaseUrl,
-    supabaseAnonKey,
-    supabaseServiceRoleKey,
+    butterbaseAppId,
+    butterbaseApiUrl,
+    butterbaseApiKey,
   };
 }

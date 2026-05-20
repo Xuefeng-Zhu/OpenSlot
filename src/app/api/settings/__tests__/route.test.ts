@@ -174,7 +174,7 @@ describe('DELETE /api/settings', () => {
     mocks.deleteUser.mockResolvedValue({ error: null })
   })
 
-  it('deletes the authenticated Supabase user', async () => {
+  it('deletes the authenticated Butterbase user', async () => {
     const response = await DELETE()
     const data = await response.json()
 

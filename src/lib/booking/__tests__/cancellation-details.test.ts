@@ -128,7 +128,7 @@ describe('getCancellationDetails', () => {
     })
   })
 
-  it('does not query Supabase for malformed tokens', async () => {
+  it('does not query the backend for malformed tokens', async () => {
     const client = createMockClient({})
 
     const result = await getCancellationDetails('not-a-token', client as any)

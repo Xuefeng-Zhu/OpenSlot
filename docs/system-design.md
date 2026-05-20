@@ -1,5 +1,10 @@
 # Supabase Architecture for a Multi-Tenant Scheduling Platform
 
+> Historical context: this document predates the Butterbase cutover and is kept
+> as design research for the original Supabase-first direction. Current runtime
+> architecture lives in [architecture.md](architecture.md) and backend provider
+> portability lives in [backend-portability.md](backend-portability.md).
+
 ## Executive summary
 
 A Supabase-first architecture is a credible foundation for a Calendly- or Cal.com-like product if you treat Postgres as the authoritative source of booking state, Row Level Security as the tenant boundary, and Edge Functions as the only public write path for unauthenticated booking operations, third-party callbacks, and payment/calendar webhooks. Supabase natively covers authentication, authorization, database access, realtime subscriptions, file storage, queues, cron jobs, secrets, logs, metrics, backups, regional deployment, custom API domains, and enterprise SSO primitives.

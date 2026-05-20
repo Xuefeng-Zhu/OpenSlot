@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Tables } from '@/lib/types/database'
 
 type ProfileLookupClient = {
@@ -53,7 +53,7 @@ export async function getAuthenticatedAvailabilityProfile(
 }
 
 export async function loadOwnedSchedule(
-  supabase: SupabaseClient<Database>,
+  supabase: BackendCompatClient<Database>,
   scheduleId: string,
   userId: string
 ): Promise<

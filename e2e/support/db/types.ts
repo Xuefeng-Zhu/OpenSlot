@@ -1,7 +1,7 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { BackendCompatClient } from "../../../src/lib/backend/compat/query-client";
 import type { Database, Tables } from "../../../src/lib/types/database";
 
-export type E2EAdminClient = SupabaseClient<Database>;
+export type E2EAdminClient = BackendCompatClient<Database>;
 
 export interface DemoProfile {
   id: string;

@@ -140,7 +140,7 @@ export async function scheduleBelongsToProfile(
 }
 
 /**
- * Detects unique-slug constraint failures across Supabase/Postgres error shapes.
+ * Detects unique-slug constraint failures across backend/Postgres error shapes.
  * Route handlers use this to return a field-level 409 instead of a generic write
  * failure when hosts reuse an event type URL slug.
  */

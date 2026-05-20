@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,73 +15,27 @@ import {
 } from "@/components/ui/card";
 
 export default function ResetPasswordPage() {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [checkingSession, setCheckingSession] = useState(true);
-  const [canUpdatePassword, setCanUpdatePassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    let active = true;
-
-    async function prepareRecoverySession() {
-      const supabase = createClient();
-      const code = new URLSearchParams(window.location.search).get("code");
-      const hashParams = new URLSearchParams(
-        window.location.hash.replace(/^#/, "")
-      );
-      const isRecoveryHash = hashParams.get("type") === "recovery";
-
-      if (!code && !isRecoveryHash) {
-        if (active) {
-          setError("Open the password reset link from your email to continue.");
-          setCheckingSession(false);
-        }
-        return;
-      }
-
-      let exchangeFailed = false;
-
-      if (code) {
-        const { error: exchangeError } =
-          await supabase.auth.exchangeCodeForSession(code);
-
-        if (exchangeError) {
-          // Recovery codes are single-use, so a refresh can fail here after
-          // the first load already established a valid recovery session.
-          exchangeFailed = true;
-        }
-      }
-
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (active) {
-        setCanUpdatePassword(!!session);
-        if (!session) {
-          setError(
-            exchangeFailed
-              ? "This password reset link is invalid or has expired."
-              : "Open the password reset link from your email to continue."
-          );
-        }
-        setCheckingSession(false);
-      }
-    }
-
-    prepareRecoverySession();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (!email.trim()) {
+      setError("Email is required.");
+      return;
+    }
+
+    if (!code.trim()) {
+      setError("Reset code is required.");
+      return;
+    }
 
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
@@ -96,19 +49,26 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({
-      password,
+    const response = await fetch("/api/auth/reset-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        code: code.trim(),
+        password,
+      }),
     });
+    const result = await response.json().catch(() => ({}));
 
     setLoading(false);
 
-    if (updateError) {
-      setError("Unable to update password. Please request a new reset link.");
+    if (!response.ok || !result.success) {
+      setError(result.error ?? "Unable to update password. Please request a new code.");
       return;
     }
 
     setSuccess(true);
+    setCode("");
     setPassword("");
     setConfirmPassword("");
   }
@@ -119,7 +79,7 @@ export default function ResetPasswordPage() {
         <CardHeader>
           <CardTitle>Choose a new password</CardTitle>
           <CardDescription>
-            Your new password must be at least 8 characters.
+            Enter the reset code from your email and choose a new password.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit} noValidate>
@@ -134,44 +94,60 @@ export default function ResetPasswordPage() {
                 {error}
               </div>
             )}
-            {checkingSession ? (
-              <p className="text-sm text-muted-foreground">
-                Checking reset link...
-              </p>
-            ) : (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="password">New password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="new-password"
-                    disabled={!canUpdatePassword || success}
-                    aria-invalid={!!error}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm new password</Label>
-                  <Input
-                    id="confirm-password"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    autoComplete="new-password"
-                    disabled={!canUpdatePassword || success}
-                    aria-invalid={!!error}
-                  />
-                </div>
-              </>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                disabled={success}
+                aria-invalid={!!error}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="code">Reset code</Label>
+              <Input
+                id="code"
+                inputMode="numeric"
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                autoComplete="one-time-code"
+                disabled={success}
+                aria-invalid={!!error}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">New password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+                disabled={success}
+                aria-invalid={!!error}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm new password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                disabled={success}
+                aria-invalid={!!error}
+              />
+            </div>
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button
               type="submit"
               className="w-full"
-              disabled={checkingSession || !canUpdatePassword || success || loading}
+              disabled={success || loading}
             >
               {loading ? "Updating..." : "Update password"}
             </Button>

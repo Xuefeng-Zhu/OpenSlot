@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { fromZonedTime } from 'date-fns-tz'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
@@ -144,7 +144,7 @@ interface MicrosoftEventResponse {
  * count without preventing later connections from syncing.
  */
 export async function syncActiveCalendarConnections(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   limit = 25
 ): Promise<SyncCalendarConnectionsResult> {
   const { data, error } = await adminClient
@@ -182,7 +182,7 @@ export async function syncActiveCalendarConnections(
  * and marks the connection active or errored based on the provider outcome.
  */
 export async function syncCalendarsForConnection(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string,
   fetchImpl: typeof fetch = fetch,
   options: { windowStart?: string; windowEnd?: string } = {}
@@ -244,7 +244,7 @@ export async function syncCalendarsForConnection(
  * or the requested range falls beyond the normal rolling sync window.
  */
 export async function refreshCalendarAvailabilityForHost(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string,
   rangeStart: string,
   rangeEnd: string,
@@ -300,7 +300,7 @@ export async function refreshProviderCalendarBusyCache({
   windowEnd,
   fetchImpl = fetch,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   connectionId: string
   externalCalendarId: string
   windowStart: string
@@ -339,7 +339,7 @@ export async function refreshProviderCalendarBusyCache({
  * replacement credentials are encrypted back into storage.
  */
 export async function getFreshAccessToken(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connection: ProviderConnectionRow,
   fetchImpl: typeof fetch = fetch
 ): Promise<string> {
@@ -569,7 +569,7 @@ export async function deleteProviderCalendarEvent({
 }
 
 async function loadProviderConnection(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string
 ): Promise<ProviderConnectionRow> {
   const { data, error } = await adminClient
@@ -669,7 +669,7 @@ async function listMicrosoftCalendars(
 }
 
 async function upsertProviderCalendars(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string,
   calendars: ProviderCalendarSummary[]
 ): Promise<void> {
@@ -728,7 +728,7 @@ async function upsertProviderCalendars(
 }
 
 async function loadAvailabilityCalendars(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string
 ): Promise<ProviderCalendarRow[]> {
   const { data, error } = await adminClient
@@ -758,7 +758,7 @@ async function syncBusyCache({
   windowEnd,
   fetchImpl,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   connection: ProviderConnectionRow
   accessToken: string
   calendars: ProviderCalendarRow[]

@@ -19,16 +19,16 @@ describe("ForgotPasswordPage", () => {
     window.history.pushState({}, "", "/forgot-password");
   });
 
-  it("requires an email before requesting a reset link", () => {
+  it("requires an email before requesting a reset code", () => {
     render(<ForgotPasswordPage />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
 
     expect(screen.getByText("Email is required.")).toBeDefined();
     expect(resetPasswordForEmail).not.toHaveBeenCalled();
   });
 
-  it("requests a password reset email with the reset route as redirect", async () => {
+  it("requests a password reset code email with the reset route as redirect", async () => {
     resetPasswordForEmail.mockResolvedValue({ error: null });
 
     render(<ForgotPasswordPage />);
@@ -36,7 +36,7 @@ describe("ForgotPasswordPage", () => {
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: " sarah@example.com " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
 
     await waitFor(() => {
       expect(resetPasswordForEmail).toHaveBeenCalledWith("sarah@example.com", {
@@ -46,12 +46,12 @@ describe("ForgotPasswordPage", () => {
 
     expect(
       screen.getByText(
-        "If an account exists for that email, a reset link is on its way."
+        "If an account exists for that email, a reset code is on its way."
       )
     ).toBeDefined();
   });
 
-  it("shows a safe generic error when Supabase rejects the reset request", async () => {
+  it("shows a safe generic error when the backend rejects the reset request", async () => {
     resetPasswordForEmail.mockResolvedValue({
       error: new Error("rate limited"),
     });
@@ -61,7 +61,7 @@ describe("ForgotPasswordPage", () => {
     fireEvent.change(screen.getByLabelText("Email"), {
       target: { value: "sarah@example.com" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Send reset link" }));
+    fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
 
     expect(
       await screen.findByText("Unable to send reset email. Please try again.")

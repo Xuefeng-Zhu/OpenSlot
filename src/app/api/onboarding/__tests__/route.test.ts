@@ -309,7 +309,7 @@ describe('POST /api/onboarding', () => {
     expect(data).toEqual({
       success: false,
       error:
-        'Failed to save profile. Apply migration 011_allow_profile_insert.sql or configure SUPABASE_SERVICE_ROLE_KEY.',
+        'Failed to save profile. Check Butterbase schema/RLS or configure BUTTERBASE_API_KEY.',
     })
   })
 })

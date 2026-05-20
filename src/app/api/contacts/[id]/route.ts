@@ -11,7 +11,7 @@ interface ContactRouteProps {
 const contactIdSchema = z.string().uuid()
 
 /**
- * Resolves the current session to a profile id before service-role contact
+ * Resolves the current session to a profile id before service-key contact
  * writes, so a guessed contact id cannot cross tenant boundaries.
  */
 async function getAuthenticatedProfileId() {

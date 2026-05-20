@@ -1,33 +1,22 @@
-import { createClient, type User } from "@supabase/supabase-js";
+import { createButterbaseBackend } from "../src/lib/backend/butterbase/adapter";
 import { demoHost } from "./demo-data";
+import { createE2EAdminClient } from "./support/db/client";
 import { loadE2EEnv } from "./support/env";
-import type { Database } from "../src/lib/types/database";
+import type { E2EAdminClient } from "./support/db/types";
 
 export default async function globalSetup() {
   const env = loadE2EEnv();
-
-  const adminClient = createClient<Database>(
-    env.supabaseUrl,
-    env.supabaseServiceRoleKey,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    }
-  );
-
-  const demoAuthUserId = await ensureDemoAuthUser(adminClient);
-  await ensureDemoProfile(adminClient, demoAuthUserId);
-
-  const authClient = createClient(env.supabaseUrl, env.supabaseAnonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
+  const adminClient = createE2EAdminClient();
+  const backend = createButterbaseBackend({
+    appId: env.butterbaseAppId,
+    apiUrl: env.butterbaseApiUrl,
+    apiKey: env.butterbaseApiKey,
   });
 
-  const { error: signInError } = await authClient.auth.signInWithPassword({
+  const demoAuthUserId = await ensureDemoAuthUser(backend);
+  await ensureDemoProfile(adminClient, demoAuthUserId);
+
+  const { error: signInError } = await backend.auth.signInWithPassword({
     email: demoHost.email,
     password: demoHost.password,
   });
@@ -38,92 +27,37 @@ export default async function globalSetup() {
     );
   }
 
-  await authClient.auth.signOut();
 }
 
 async function ensureDemoAuthUser(
-  adminClient: ReturnType<typeof createClient<Database>>
+  backend: ReturnType<typeof createButterbaseBackend>
 ): Promise<string> {
-  const attributes = {
+  const signup = await backend.auth.signUp({
     email: demoHost.email,
     password: demoHost.password,
-    email_confirm: true,
-    app_metadata: {
-      provider: "email",
-      providers: ["email"],
-    },
-  };
+    displayName: "Demo User",
+  });
 
-  const { data: seededUserData, error: seededUpdateError } =
-    await adminClient.auth.admin.updateUserById(
-      demoHost.authUserId,
-      attributes
-    );
-
-  if (!seededUpdateError && seededUserData.user) {
-    return seededUserData.user.id;
+  if (!signup.error) {
+    return signup.data.id;
   }
 
-  if (!isMissingAuthUserError(seededUpdateError)) {
+  const signin = await backend.auth.signInWithPassword({
+    email: demoHost.email,
+    password: demoHost.password,
+  });
+
+  if (signin.error) {
     throw new Error(
-      `Could not refresh seeded demo auth credentials: ${
-        seededUpdateError?.message ?? "missing user"
-      }`
+      `Could not create or verify demo auth credentials: ${signin.error.message}`
     );
   }
 
-  const existingUser = await findAuthUserByEmail(adminClient, demoHost.email);
-
-  if (existingUser) {
-    const { data, error } = await adminClient.auth.admin.updateUserById(
-      existingUser.id,
-      attributes
-    );
-
-    if (error || !data.user) {
-      throw new Error(
-        `Could not refresh demo auth credentials: ${error?.message ?? "missing user"}`
-      );
-    }
-
-    return data.user.id;
-  }
-
-  const { data, error } = await adminClient.auth.admin.createUser(attributes);
-
-  if (error || !data.user) {
-    throw new Error(
-      `Could not create demo auth credentials: ${error?.message ?? "missing user"}`
-    );
-  }
-
-  return data.user.id;
-}
-
-async function findAuthUserByEmail(
-  adminClient: ReturnType<typeof createClient<Database>>,
-  email: string
-): Promise<User | null> {
-  for (let page = 1; page <= 10; page += 1) {
-    const { data, error } = await adminClient.auth.admin.listUsers({
-      page,
-      perPage: 100,
-    });
-
-    if (error) {
-      throw new Error(`Could not list auth users: ${error.message}`);
-    }
-
-    const user = data.users.find((item) => item.email === email);
-    if (user) return user;
-    if (data.users.length < 100) return null;
-  }
-
-  return null;
+  return signin.data.user.id;
 }
 
 async function ensureDemoProfile(
-  adminClient: ReturnType<typeof createClient<Database>>,
+  adminClient: E2EAdminClient,
   authUserId: string
 ) {
   const profileId = await upsertDemoProfile(adminClient, authUserId);
@@ -132,7 +66,7 @@ async function ensureDemoProfile(
 }
 
 async function upsertDemoProfile(
-  adminClient: ReturnType<typeof createClient<Database>>,
+  adminClient: E2EAdminClient,
   authUserId: string
 ): Promise<string> {
   const profileValues = {
@@ -179,7 +113,7 @@ async function upsertDemoProfile(
 }
 
 async function findDemoProfile(
-  adminClient: ReturnType<typeof createClient<Database>>,
+  adminClient: E2EAdminClient,
   authUserId: string
 ): Promise<{ id: string } | null> {
   const byAuthUser = await adminClient
@@ -208,7 +142,7 @@ async function findDemoProfile(
 }
 
 async function ensureDefaultSchedule(
-  adminClient: ReturnType<typeof createClient<Database>>,
+  adminClient: E2EAdminClient,
   profileId: string
 ): Promise<string> {
   const { data: existingSchedule, error: lookupError } = await adminClient
@@ -245,7 +179,7 @@ async function ensureDefaultSchedule(
 }
 
 async function ensureWeekdayAvailability(
-  adminClient: ReturnType<typeof createClient<Database>>,
+  adminClient: E2EAdminClient,
   profileId: string,
   scheduleId: string
 ) {
@@ -278,14 +212,4 @@ async function ensureWeekdayAvailability(
   if (insertError) {
     throw new Error(`Could not create demo availability: ${insertError.message}`);
   }
-}
-
-function isMissingAuthUserError(error: unknown): boolean {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    "message" in error &&
-    typeof error.message === "string" &&
-    error.message.toLowerCase().includes("user not found")
-  );
 }

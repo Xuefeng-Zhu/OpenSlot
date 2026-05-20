@@ -1,7 +1,7 @@
 -- Provider-portable SQL reference for OpenSlot backend adapters.
 --
--- This file is not executed by the current Supabase CI lane. It records the
--- database invariants that any Butterbase or InsForge adapter must preserve
+-- This file is not executed directly by CI. It records the database invariants
+-- that any Butterbase or InsForge adapter must preserve
 -- when translating schema JSON, migrations, or serverless transaction code.
 
 CREATE EXTENSION IF NOT EXISTS btree_gist;

@@ -5,7 +5,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 ## Current Product Capabilities
 
 - Public landing page at `/`.
-- Email/password authentication through Supabase.
+- Email/password authentication through Butterbase.
 - Onboarding setup that persists public profile basics, initial weekly availability, and a first active event type.
 - Profile settings with public username and default timezone.
 - Public host profile page at `/<username>`.
@@ -47,10 +47,10 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 ### Host Setup
 
 1. User signs up or logs in.
-2. Supabase trigger creates a profile shell.
+2. OpenSlot provisions a Butterbase-backed profile shell.
 3. User completes `/onboarding`, which saves profile, availability, and an initial event type.
 4. User can later update profile at `/profile` and availability at `/availability`.
-5. Event type dashboard management reads and writes Supabase event types; public pages read active event types from Supabase.
+5. Event type dashboard management reads and writes Butterbase event types; public pages read active event types through server-side Butterbase access.
 
 ### Guest Booking
 
@@ -67,7 +67,7 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 ### Host Booking Management
 
 1. Host opens `/bookings`.
-2. Server page fetches host bookings from Supabase.
+2. Server page fetches host bookings from Butterbase.
 3. Client view categorizes bookings locally.
 4. Host can open booking details to review notes and structured answer summaries.
 5. Host can cancel upcoming bookings through `/api/bookings/[id]/cancel`.
@@ -75,7 +75,7 @@ Keep these boundaries explicit when adding user-facing docs or release notes.
 ### Host Contact Management
 
 1. Host opens `/contacts`.
-2. Server page fetches host contacts and bookings from Supabase.
+2. Server page fetches host contacts and bookings from Butterbase.
 3. Client view searches contacts by name, email, timezone, and event type.
 4. Host opens a contact profile to review confirmed, cancelled, and rescheduled booking history.
 5. Host can anonymize a contact through `/api/contacts/[id]`, which scrubs matching booking guest display data while preserving meeting records.

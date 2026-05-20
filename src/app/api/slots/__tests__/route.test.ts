@@ -80,7 +80,7 @@ describe('GET /api/slots', () => {
     vi.useRealTimers()
   })
 
-  it('uses the service-role client and scopes the event type to the host', async () => {
+  it('uses the service-key client and scopes the event type to the host', async () => {
     const eventTypeQuery = createQuery({
       data: {
         duration_minutes: 30,

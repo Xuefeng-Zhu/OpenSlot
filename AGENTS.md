@@ -4,14 +4,14 @@ Operational guide for coding agents and human contributors working in this repos
 
 ## Project Overview
 
-OpenSlot is an MVP scheduling app. Hosts can authenticate with Supabase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
+OpenSlot is an MVP scheduling app. Hosts can authenticate with Butterbase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Supabase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, contact profiles/history, outbox processing, calendar provider sync, webhook endpoint dashboard management, and webhook delivery processing.
+Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Butterbase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, contact profiles/history, outbox processing, calendar provider sync, webhook endpoint dashboard management, and webhook delivery processing.
 
 ## Tech Stack
 
 - Next.js 16 App Router with React 18 and TypeScript strict mode.
-- Supabase Auth, Postgres, RLS, and service-role API writes.
+- Butterbase Auth, REST data APIs, Postgres/RLS, and server-only service-key writes.
 - Tailwind CSS and shadcn-style local UI primitives in `src/components/ui/`.
 - React Hook Form and Zod for forms that are wired to validation schemas.
 - `date-fns` and `date-fns-tz` for time and timezone handling.
@@ -36,12 +36,15 @@ src/lib/email/                   Email templates and console provider
 src/lib/idempotency/             Request idempotency helpers for retry-safe mutations
 src/lib/outbox/                  Internal side-effect event enqueue helpers
 src/lib/reservations/            Host reservation mirror helpers
-src/lib/supabase/                Browser, server, and admin Supabase clients
+src/lib/backend/                 Backend ports, Butterbase adapter, compatibility client
+src/lib/supabase/                Legacy shims delegating to the backend runtime
 src/lib/validations/             Zod schemas
 src/lib/utils/                   Slug and timezone helpers
-src/proxy.ts                     Supabase session refresh and dashboard redirect proxy
-supabase/migrations/             Database schema, indexes, RLS, trigger
-supabase/seed.sql                Local demo data
+src/proxy.ts                     Butterbase session refresh and dashboard redirect proxy
+backend/sql/                     Provider-portable SQL invariants
+backend/butterbase/              Butterbase schema/function artifacts
+supabase/migrations/             Historical PostgreSQL migration source
+supabase/seed.sql                Historical local demo data reference
 docs/                            Contributor and architecture documentation
 ```
 
@@ -63,17 +66,12 @@ npm run verify
 npm run oauth:calendar
 ```
 
-Supabase CLI commands used by the project:
-
-```bash
-supabase start
-supabase db reset --local
-supabase db push --local
-supabase db push --linked --dry-run
-supabase db push --linked
-```
-
-GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to `main` and pull requests targeting `main`. It runs `npm ci`, `npm audit --audit-level=moderate`, `npm run lint`, `npm run typecheck`, `npm run test`, `npm run build`, and Supabase migration validation with `supabase db start`, `supabase db reset --local --no-seed`, and `supabase db lint --local --fail-on error`. Vercel worker cron config exists in `vercel.json`.
+GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to
+`main` and pull requests targeting `main`. It runs `npm ci`,
+`npm audit --audit-level=moderate`, `npm run lint`, `npm run typecheck`,
+`npm run test`, and `npm run build`. The Dashboard E2E job runs against a
+configured Butterbase test app when repository secrets are present. Vercel
+worker cron config exists in `vercel.json`.
 
 ## Setup Instructions
 
@@ -92,9 +90,9 @@ GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to 
 3. Fill in:
 
    ```env
-   NEXT_PUBLIC_SUPABASE_URL=...
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-   SUPABASE_SERVICE_ROLE_KEY=...
+   NEXT_PUBLIC_BUTTERBASE_APP_ID=...
+   NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
+   BUTTERBASE_API_KEY=...
    NEXT_PUBLIC_APP_URL=http://localhost:3000
    OUTBOX_PROCESS_SECRET=...
    WEBHOOK_PROCESS_SECRET=...
@@ -112,24 +110,9 @@ GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to 
    MAILEROO_API_KEY=...
    ```
 
-4. For local Supabase development, start the stack and reset the local database
-   from migrations plus `supabase/seed.sql`:
-
-   ```bash
-   supabase start
-   supabase db reset --local
-   ```
-
-   For a linked staging or production project, review the pending migrations
-   before applying them:
-
-   ```bash
-   supabase db push --linked --dry-run
-   supabase db push --linked
-   ```
-
-   Add `--include-seed` only when seed data should be applied to that linked
-   project.
+4. Ensure the configured Butterbase app has the OpenSlot schema, RLS policies,
+   and functions described by `backend/sql/provider-portability.sql` and
+   `backend/butterbase/`.
 
 5. Start the app:
 
@@ -137,7 +120,7 @@ GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to 
    npm run dev
    ```
 
-The landing page can render without Supabase credentials. Authenticated dashboard routes, public booking data, API routes, and booking writes require valid Supabase configuration.
+The landing page can render without Butterbase credentials. Authenticated dashboard routes, public booking data, API routes, and booking writes require valid Butterbase configuration.
 
 ## Development Workflow
 
@@ -193,10 +176,10 @@ The full test suite may print `Not implemented: navigation to another Document` 
 
 OpenSlot is server-first for data access and booking integrity:
 
-- Server Components fetch profile, event type, availability, and bookings data through `createServerSupabaseClient()`.
+- Server Components fetch profile, event type, availability, and bookings data through backend clients backed by Butterbase.
 - Client Components manage form and interaction state, then call route handlers for mutations.
 - Public slot lookup uses `/api/slots`.
-- Guest hold creation uses `/api/holds` and the `create_slot_hold_with_reservation()` RPC.
+- Guest hold creation uses `/api/holds` and the `create-slot-hold` backend function.
 - Booking confirmation uses `/api/bookings`.
 - Booking confirmation, cancellation, and rescheduling support optional idempotency keys through request bodies or the `Idempotency-Key` header.
 - Booking confirmation, cancellation, and rescheduling enqueue outbox events for provider writes, notifications, and tenant webhooks.
@@ -214,8 +197,8 @@ Database integrity is part of the architecture:
 - `bookings.no_overlapping_bookings` is a PostgreSQL exclusion constraint that prevents overlapping confirmed bookings per host.
 - `host_reservations_no_overlap` is a PostgreSQL exclusion constraint that prevents overlapping active holds/bookings per host.
 - RLS is enabled on all app tables.
-- Data API grants are explicit; public pages and slot reads use server-side service-role code instead of direct anon table access.
-- API routes that need guest writes use the service role client and token-based authorization.
+- Data API grants are explicit; public pages and slot reads use server-side service-key code instead of direct anon table access.
+- API routes that need guest writes use the server backend client and token-based authorization.
 
 See [docs/architecture.md](docs/architecture.md) for more detail.
 
@@ -241,7 +224,8 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend or Maileroo when configured.
-- `src/lib/supabase/admin.ts`: service role client. Never use this from client components.
+- `src/lib/backend/`: provider-neutral backend ports plus the active Butterbase adapter and compatibility client.
+- `src/lib/supabase/admin.ts`: legacy server-only shim. Never use this from client components.
 - `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
 
 ## State Management and Data Flow
@@ -252,20 +236,20 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - Mutations typically go through API routes, except some dashboard prototype pages that use local state or mock data.
 - Dashboard event type creation, updates, and deletion go through `/api/event-types`.
 - Availability editing keeps a saved baseline in component state, computes diffs, and posts a batch payload to `/api/availability`.
-- Slot holds, host reservations, and bookings are stored in Supabase; holds expire after 5 minutes and are lazily marked expired during hold creation or confirmation.
+- Slot holds, host reservations, and bookings are stored in Butterbase; holds expire after 5 minutes and are lazily marked expired during hold creation or confirmation.
 - Confirming a booking converts the hold reservation into a booking reservation; cancelling a booking cancels the booking reservation.
 - Rescheduling uses a new hold plus the original `reschedule_token`; the database RPC updates the old booking, inserts the new booking, and updates host reservations in one transaction.
 - Booking confirmation, cancellation, and rescheduling forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
 - Confirmed and cancelled bookings append ID-based rows to `outbox_events`; notification emails are sent by the outbox processor.
 - Confirmed, cancelled, and rescheduled bookings append ID-based rows to `booking_events` for audit/replay.
 - Confirmed, cancelled, and rescheduled bookings maintain host-scoped `contacts` rows keyed by normalized email hash. Contact list and profile pages derive visible email/history from booking rows.
-- Contact anonymization marks the contact deleted and scrubs matching booking guest fields, notes, and cancellation reason through a service-role RPC.
+- Contact anonymization marks the contact deleted and scrubs matching booking guest fields, notes, and cancellation reason through a server-side backend function.
 - Tenant webhook outbox events create `webhook_deliveries`; delivery workers sign requests with endpoint secrets and retry non-2xx or network failures.
 
 ## Storage and Sync Behavior
 
-- Persistent storage is Supabase Postgres.
-- Supabase Auth sessions are stored in cookies through `@supabase/ssr`.
+- Persistent storage is Butterbase/Postgres.
+- Butterbase Auth sessions are stored in HTTP-only OpenSlot cookies.
 - There is no realtime sync in the current UI.
 - There is no client-side offline persistence.
 - Calendar provider tokens and webhook secrets are stored only in server-only tables without direct anon/authenticated grants.
@@ -274,11 +258,11 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 
 ## Security and Privacy Considerations
 
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` to client code.
+- Never expose `BUTTERBASE_API_KEY` to client code.
 - Public environment variables must be limited to values safe for browsers.
 - Guest booking and cancellation APIs rely on random tokens (`hold_token`, `cancellation_token`) as authorization.
-- Public profile/event pages render through server-side service-role reads and return selected fields only.
-- Public slot computation uses a service-role route after validating the requested event type is active and belongs to the host.
+- Public profile/event pages render through server-side service-key reads and return selected fields only.
+- Public slot computation uses a service-key route after validating the requested event type is active and belongs to the host.
 - Booking data includes guest names, emails, notes, timezones, and cancellation tokens. Do not log or expose these casually.
 - Keep outbox payloads narrow and ID-based unless a worker truly needs denormalized data.
 - Email templates interpolate user-provided values into HTML. Review escaping/sanitization before adding a real email provider.
@@ -289,7 +273,7 @@ See [docs/security.md](docs/security.md).
 
 - Quote paths containing route groups or dynamic segments in shell commands, for example `'src/app/(dashboard)/dashboard/page.tsx'`.
 - Do not assume every visible dashboard surface is live. Settings still has prototype/mock portions.
-- Dashboard event type list/new/edit pages are backed by Supabase through server-loaded data and `/api/event-types` mutations.
+- Dashboard event type list/new/edit pages are backed by Butterbase through server-loaded data and `/api/event-types` mutations.
 - `src/app/booking/cancel/[token]/page.tsx` uses the cancellation token to load safe booking details server-side before rendering `src/components/booking/cancel-booking-form.tsx`.
 - If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.
 - Do not remove the booking exclusion constraint or weaken hold conflict checks without a replacement concurrency guard.
@@ -300,11 +284,11 @@ See [docs/security.md](docs/security.md).
 ## Safe-Change Guidelines
 
 - For booking, availability, auth, and RLS changes, add or update tests.
-- Keep service role usage inside server-only modules and route handlers.
+- Keep service-key usage inside server-only modules and route handlers.
 - Prefer extending existing schemas and helpers over duplicating validation.
 - Avoid speculative rewrites of large dashboard components.
 - Keep public behavior changes explicit in docs and tests.
-- For database changes, add a new migration rather than editing applied migrations unless the project explicitly decides to squash/reset.
+- For backend schema changes, update provider-owned schema/function artifacts and keep `backend/sql/provider-portability.sql` aligned.
 
 ## Release and Build Notes
 
@@ -335,7 +319,7 @@ See [docs/release.md](docs/release.md).
 - Slot computation and timezone logic.
 - Booking confirmation, cancellation, and rescheduling engines.
 - Hold expiration and conflict handling.
-- Supabase RLS and service role boundaries.
+- Butterbase RLS and service-key boundaries.
 - Public profile/event pages and public API endpoints.
 - Database migrations, especially constraints and policies.
 - Email HTML templates before a real provider is added.

@@ -54,7 +54,7 @@ vi.mock('@/lib/calendar/final-availability', () => ({
 }))
 
 /**
- * Creates a mock Supabase client that simulates the chained query builder pattern.
+ * Creates a mock backend client that simulates the chained query builder pattern.
  * Each method returns `this` to allow chaining, except terminal methods like `single()`.
  */
 function createMockClient() {
@@ -226,6 +226,47 @@ describe('confirmBooking', () => {
       endAt: '2025-01-15T14:30:00Z',
       bufferBeforeMinutes: 0,
       bufferAfterMinutes: 0,
+    })
+  })
+
+  it('uses the backend confirm function when the client supports RPCs', async () => {
+    const rpcSingle = vi.fn().mockResolvedValue({
+      data: {
+        booking_id: createdBooking.id,
+        cancellation_token: createdBooking.cancellation_token,
+        reschedule_token: createdBooking.reschedule_token,
+        conference_status: createdBooking.conference_status,
+        conference_url: createdBooking.conference_url,
+      },
+      error: null,
+    })
+    mockClient.rpc = vi.fn(() => ({ single: rpcSingle }))
+    mockClient.single
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({ data: eventTypeLocation, error: null })
+
+    const result = await confirmBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(result.bookingId).toBe('booking-id-1')
+    expect(mockClient.rpc).toHaveBeenCalledWith(
+      'confirm_booking',
+      expect.objectContaining({
+        p_hold_token: validInput.holdToken,
+        p_guest_name: validInput.guestName,
+        p_guest_email: validInput.guestEmail,
+        p_conference_status: 'not_required',
+      })
+    )
+    expect(mockClient.insert).not.toHaveBeenCalled()
+    expect(mockClient.update).not.toHaveBeenCalledWith({ status: 'confirmed' })
+    expect(convertHoldReservationToBooking).not.toHaveBeenCalled()
+    expect(enqueueBookingConfirmedOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
     })
   })
 
