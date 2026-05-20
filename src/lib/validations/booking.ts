@@ -101,3 +101,7 @@ export function createConfirmBookingFormSchema(
 export type ConfirmBookingFormValues = z.infer<
   ReturnType<typeof createConfirmBookingFormSchema>
 >
+
+export type ConfirmBookingFormInputValues = z.input<
+  ReturnType<typeof createConfirmBookingFormSchema>
+>

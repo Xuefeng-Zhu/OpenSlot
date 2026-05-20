@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import {
   createConfirmBookingFormSchema,
+  type ConfirmBookingFormInputValues,
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
@@ -130,7 +131,7 @@ export function BookingForm({
     setValue,
     watch,
     formState: { errors },
-  } = useForm<ConfirmBookingFormValues>({
+  } = useForm<ConfirmBookingFormInputValues, unknown, ConfirmBookingFormValues>({
     resolver: zodResolver(bookingFormSchema),
     defaultValues: {
       guestName: initialGuest?.name ?? "",
