@@ -17,6 +17,7 @@ export interface ButterbaseHttpClientConfig {
   appId: string
   apiUrl: string
   apiKey?: string
+  functionSecret?: string
   accessToken?: string
   fetchImpl?: typeof fetch
 }
@@ -34,6 +35,7 @@ export class ButterbaseHttpClient {
   readonly appId: string
   private readonly apiUrl: string
   private readonly apiKey?: string
+  private readonly functionSecret?: string
   private readonly accessToken?: string
   private readonly fetchImpl: typeof fetch
 
@@ -41,6 +43,7 @@ export class ButterbaseHttpClient {
     this.appId = config.appId
     this.apiUrl = config.apiUrl.replace(/\/+$/, '')
     this.apiKey = config.apiKey
+    this.functionSecret = config.functionSecret
     this.accessToken = config.accessToken
     this.fetchImpl = config.fetchImpl ?? fetch
   }
@@ -113,6 +116,10 @@ export class ButterbaseHttpClient {
 
   appPath(path: string): string {
     return path.replace('{app_id}', this.appId)
+  }
+
+  functionAccessToken(): string | undefined {
+    return this.functionSecret ?? this.apiKey
   }
 
   private url(path: string): string {

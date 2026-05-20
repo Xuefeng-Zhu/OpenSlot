@@ -1,5 +1,5 @@
-import { createHash } from 'node:crypto'
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/
@@ -66,9 +66,7 @@ export function resolveIdempotencyKey(
  * same even when clients send properties in a different order.
  */
 export function hashRequestPayload(payload: unknown): string {
-  return createHash('sha256')
-    .update(stableStringify(payload))
-    .digest('hex')
+  return sha256Hex(stableStringify(payload))
 }
 
 /**

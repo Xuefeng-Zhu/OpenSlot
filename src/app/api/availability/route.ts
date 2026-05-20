@@ -19,6 +19,8 @@ import {
  * Request body: { rules, overrides, deletedRuleIds, deletedOverrideIds, timezone }
  * Response: { success: true } or { success: false, error: string }
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

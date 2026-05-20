@@ -13,7 +13,7 @@ import {
  * When Butterbase env vars are missing, public pages still render but dashboard
  * requests are sent to login instead of failing during backend client creation.
  */
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
     request: {
       headers: request.headers,

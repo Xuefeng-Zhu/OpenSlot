@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * Microsoft Graph validates webhook endpoints by requiring the validationToken
  * query value to be returned as text/plain before subscriptions become active.
  */
+export const runtime = 'edge'
+
 export async function GET(request: NextRequest) {
   const validationToken = new URL(request.url).searchParams.get('validationToken')
 

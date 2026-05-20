@@ -41,6 +41,8 @@ async function getAuthenticatedProfileId() {
 /**
  * Soft-anonymizes a host-owned contact and matching booking display fields.
  */
+export const runtime = 'edge'
+
 export async function DELETE(
   _request: NextRequest,
   { params }: ContactRouteProps

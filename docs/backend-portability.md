@@ -35,13 +35,15 @@ Butterbase is the first adapter. It expects:
 NEXT_PUBLIC_BUTTERBASE_APP_ID=app_openslot
 NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
 BUTTERBASE_API_KEY=...
+BUTTERBASE_FUNCTION_SECRET=...
 ```
 
 `BUTTERBASE_API_KEY` is server-only. It must never be exposed through
 `NEXT_PUBLIC_*` variables or sent to browser code.
 Browser auth and data calls go through OpenSlot route handlers so Butterbase
 tokens remain in HTTP-only cookies. Trusted server-only callers use
-`BUTTERBASE_API_KEY` for service operations.
+`BUTTERBASE_API_KEY` for data service operations and
+`BUTTERBASE_FUNCTION_SECRET` for backend function invocation.
 
 ## Provider Switch Checklist
 

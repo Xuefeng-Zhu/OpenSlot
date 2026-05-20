@@ -6,6 +6,8 @@ import {
   sessionResponse,
 } from '../_shared'
 
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const email = typeof body?.email === 'string' ? body.email.trim() : ''

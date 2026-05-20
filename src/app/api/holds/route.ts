@@ -28,6 +28,8 @@ import { createHoldSchema } from '@/lib/validations/booking'
  *
  * Uses a service-key RPC to create the hold and host reservation atomically.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null

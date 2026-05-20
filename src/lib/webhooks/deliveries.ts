@@ -1,5 +1,5 @@
-import { createHmac } from 'node:crypto'
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { hmacSha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
 
 type OutboxEventRow = Tables<'outbox_events'>
@@ -301,9 +301,7 @@ async function markWebhookDeliveryFailed(
 }
 
 function signWebhookPayload(secret: string, timestamp: string, body: string) {
-  return createHmac('sha256', secret)
-    .update(`${timestamp}.${body}`)
-    .digest('hex')
+  return hmacSha256Hex(secret, `${timestamp}.${body}`)
 }
 
 function retryDelayForAttempt(attemptNo: number, maxAttempts: number): number {

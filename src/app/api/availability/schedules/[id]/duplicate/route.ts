@@ -13,6 +13,8 @@ interface DuplicateScheduleRouteContext {
  * Duplicates an owned schedule's weekly rules and date-specific overrides.
  * Event type assignments are intentionally not copied to the new schedule.
  */
+export const runtime = 'edge'
+
 export async function POST(
   request: NextRequest,
   { params }: DuplicateScheduleRouteContext

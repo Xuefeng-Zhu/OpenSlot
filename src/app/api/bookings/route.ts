@@ -28,6 +28,8 @@ import type { Json } from '@/lib/types/database'
  * Uses the service key client to bypass RLS for bookings and slot_holds tables.
  * The hold token serves as the authorization mechanism (guest operation).
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null

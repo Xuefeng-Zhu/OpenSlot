@@ -107,6 +107,7 @@ describe('Butterbase backend adapter', () => {
       appId: 'app_openslot',
       apiUrl: 'https://api.butterbase.ai',
       apiKey: 'service-key',
+      functionSecret: 'function-secret',
       fetchImpl,
     })
 
@@ -132,7 +133,7 @@ describe('Butterbase backend adapter', () => {
       })
     )
     expect(requestHeaders(fetchImpl).get('Authorization')).toBe(
-      'Bearer service-key'
+      'Bearer function-secret'
     )
   })
 })

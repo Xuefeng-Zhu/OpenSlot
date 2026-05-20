@@ -46,7 +46,7 @@ Browser UI
 - `src/lib/backend/server.ts` creates cookie-aware Butterbase clients for Server Components and route handlers.
 - `src/lib/backend/compat/query-client.ts` provides the temporary fluent query compatibility layer used during the cutover.
 - `src/lib/backend/butterbase/*` contains the provider adapter and low-level HTTP client.
-- `src/proxy.ts` refreshes Butterbase sessions. The dashboard route group also enforces auth in `src/app/(dashboard)/layout.tsx`.
+- `src/middleware.ts` refreshes Butterbase sessions. The dashboard route group also enforces auth in `src/app/(dashboard)/layout.tsx`.
 - Browser auth/data calls go through OpenSlot route handlers so provider tokens remain in HTTP-only cookies.
 
 ## Booking Flow

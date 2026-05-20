@@ -11,6 +11,8 @@ const allowedTables = new Set([
   'user_settings',
 ])
 
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const accessToken = await currentBackendAccessToken()
   if (!accessToken) {

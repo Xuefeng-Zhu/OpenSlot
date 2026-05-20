@@ -19,6 +19,13 @@ import {
   AvailabilityDayRow,
   type TimeInterval,
 } from "@/components/dashboard/availability-day-row";
+import {
+  defaultVideoProvider,
+  isVideoProvider,
+  videoProviderOptions,
+  type VideoProvider,
+} from "@/lib/calendar/video-providers";
+import type { EventLocationType } from "@/lib/validations/event-type";
 
 const STEPS = [
   { label: "Create public profile", icon: User },
@@ -50,7 +57,9 @@ interface AvailabilityData {
 interface EventTypeData {
   title: string;
   duration: string;
-  location: string;
+  locationType: EventLocationType;
+  locationValue: string;
+  videoProvider: VideoProvider | null;
 }
 
 interface ProfileValidationErrors {
@@ -65,7 +74,9 @@ interface AvailabilityValidationErrors {
 
 interface EventTypeValidationErrors {
   title?: string;
-  location?: string;
+  locationType?: string;
+  locationValue?: string;
+  videoProvider?: string;
 }
 
 interface OnboardingValidationErrors {
@@ -176,8 +187,15 @@ function validateEventType(data: EventTypeData): EventTypeValidationErrors {
     errors.title = "Enter a title for this event type.";
   }
 
-  if (!data.location.trim()) {
-    errors.location = "Enter where this meeting will happen.";
+  if (data.locationType === "video_provider") {
+    if (!data.videoProvider) {
+      errors.videoProvider = "Choose a video provider.";
+    }
+  } else if (
+    ["phone", "in_person", "custom"].includes(data.locationType) &&
+    !data.locationValue.trim()
+  ) {
+    errors.locationValue = "Enter location details.";
   }
 
   return errors;
@@ -205,6 +223,27 @@ function getBrowserTimezone(): string {
   } catch {
     return "UTC";
   }
+}
+
+function isLocationType(value: string): value is EventLocationType {
+  return ["online", "phone", "in_person", "custom", "video_provider"].includes(
+    value
+  );
+}
+
+function getLocationSelectValue(data: EventTypeData) {
+  if (data.locationType === "video_provider") {
+    return data.videoProvider ?? defaultVideoProvider;
+  }
+
+  return data.locationType;
+}
+
+function getLocationPlaceholder(locationType: EventLocationType) {
+  if (locationType === "phone") return "e.g. +1 555 123 4567";
+  if (locationType === "in_person") return "e.g. 123 Market Street";
+  if (locationType === "custom") return "e.g. https://example.com/meeting";
+  return "e.g. Online meeting details";
 }
 
 /**
@@ -236,7 +275,9 @@ export default function OnboardingPage() {
   const [eventTypeData, setEventTypeData] = React.useState<EventTypeData>({
     title: "",
     duration: "30",
-    location: "",
+    locationType: "online",
+    locationValue: "",
+    videoProvider: null,
   });
 
   const handleProfileChange = (data: ProfileData) => {
@@ -626,6 +667,30 @@ function StepEventType({
   errors: EventTypeValidationErrors;
   onChange: (data: EventTypeData) => void;
 }) {
+  const handleLocationSelectChange = (
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    const value = event.target.value;
+
+    if (isVideoProvider(value)) {
+      onChange({
+        ...data,
+        locationType: "video_provider",
+        locationValue: "",
+        videoProvider: value,
+      });
+      return;
+    }
+
+    if (isLocationType(value)) {
+      onChange({
+        ...data,
+        locationType: value,
+        videoProvider: null,
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -673,23 +738,61 @@ function StepEventType({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="eventLocation">Location</Label>
-          <Input
-            id="eventLocation"
-            value={data.location}
-            onChange={(e) => onChange({ ...data, location: e.target.value })}
-            placeholder="Online meeting, phone call, or in person"
-            aria-invalid={!!errors.location}
+          <Label htmlFor="eventLocationType">Location type</Label>
+          <select
+            id="eventLocationType"
+            value={getLocationSelectValue(data)}
+            onChange={handleLocationSelectChange}
+            className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            aria-invalid={!!errors.locationType || !!errors.videoProvider}
             aria-describedby={
-              errors.location ? "eventLocation-error" : undefined
+              errors.locationType || errors.videoProvider
+                ? "eventLocationType-error"
+                : undefined
             }
-          />
-          {errors.location && (
-            <p id="eventLocation-error" className="text-sm text-destructive">
-              {errors.location}
+          >
+            <option value="custom">Custom link</option>
+            <option value="phone">Phone</option>
+            <option value="in_person">In Person</option>
+            {videoProviderOptions.map((provider) => (
+              <option key={provider.id} value={provider.id}>
+                {provider.label}
+              </option>
+            ))}
+            <option value="online">Online (manual)</option>
+          </select>
+          {(errors.locationType || errors.videoProvider) && (
+            <p id="eventLocationType-error" className="text-sm text-destructive">
+              {errors.locationType ?? errors.videoProvider}
             </p>
           )}
         </div>
+
+        {data.locationType !== "video_provider" && (
+          <div className="space-y-2">
+            <Label htmlFor="eventLocationValue">Location details</Label>
+            <Input
+              id="eventLocationValue"
+              value={data.locationValue}
+              onChange={(e) =>
+                onChange({ ...data, locationValue: e.target.value })
+              }
+              placeholder={getLocationPlaceholder(data.locationType)}
+              aria-invalid={!!errors.locationValue}
+              aria-describedby={
+                errors.locationValue ? "eventLocationValue-error" : undefined
+              }
+            />
+            {errors.locationValue && (
+              <p
+                id="eventLocationValue-error"
+                className="text-sm text-destructive"
+              >
+                {errors.locationValue}
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

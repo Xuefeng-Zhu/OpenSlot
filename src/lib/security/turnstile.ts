@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { getClientIp } from '@/lib/security/rate-limit'
+import { randomUuid } from '@/lib/security/edge-crypto'
 
 const TURNSTILE_SITEVERIFY_URL =
   'https://challenges.cloudflare.com/turnstile/v0/siteverify'
@@ -46,7 +46,7 @@ export async function verifyTurnstileToken({
       secret,
       response: normalizedToken,
       remoteip: getClientIp(request),
-      idempotency_key: randomUUID(),
+      idempotency_key: randomUuid(),
     })
 
     const response = await fetch(TURNSTILE_SITEVERIFY_URL, {

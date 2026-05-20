@@ -8,6 +8,8 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
  * The route is secret-protected because handlers can send email, write calendar
  * events, and enqueue tenant webhook deliveries.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const body = await safeJson(request)
   return runOutboxProcessor(request, body)

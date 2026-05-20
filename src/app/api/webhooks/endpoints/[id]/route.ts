@@ -41,6 +41,8 @@ async function getAuthenticatedProfileId() {
  * Undefined fields are ignored, while nullable description values normalize to
  * the empty string used by the database/UI contract.
  */
+export const runtime = 'edge'
+
 export async function PATCH(
   request: NextRequest,
   { params }: WebhookEndpointRouteProps

@@ -22,6 +22,8 @@ import type { Json } from '@/lib/types/database'
  * Supports idempotency so browser retries do not create duplicate replacement
  * bookings or replay side effects with a different request body.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null

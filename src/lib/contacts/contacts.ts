@@ -1,5 +1,5 @@
-import { createHash } from 'crypto'
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Tables } from '@/lib/types/database'
 
 export interface ContactBookingInput {
@@ -34,9 +34,7 @@ export function normalizeContactEmail(email: string): string {
  * storing another raw email column alongside booking guest details.
  */
 export function hashContactEmail(email: string): string {
-  return createHash('sha256')
-    .update(normalizeContactEmail(email), 'utf8')
-    .digest('hex')
+  return sha256Hex(normalizeContactEmail(email))
 }
 
 /**

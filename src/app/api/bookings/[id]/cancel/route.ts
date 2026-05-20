@@ -31,6 +31,8 @@ import type { Json } from '@/lib/types/database'
  * Note: The [id] in the route path is for RESTful convention. The actual
  * lookup uses the cancellationToken from the request body.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null

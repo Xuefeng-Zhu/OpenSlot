@@ -22,7 +22,9 @@ const validOnboardingInput = {
   eventType: {
     title: 'Intro Call',
     duration: '30',
-    location: 'Zoom',
+    locationType: 'custom',
+    locationValue: 'Zoom',
+    videoProvider: null,
   },
   timezone: 'America/Los_Angeles',
 }
@@ -51,9 +53,42 @@ describe('onboardingSchema', () => {
       },
     ])
     expect(result.data.eventType.duration).toBe(30)
+    expect(result.data.eventType.locationType).toBe('custom')
+    expect(result.data.eventType.locationValue).toBe('Zoom')
     expect(buildOnboardingEventSlug(result.data.eventType.title)).toBe(
       'intro-call'
     )
+  })
+
+  it('allows generated video locations with a provider', () => {
+    const result = onboardingSchema.safeParse({
+      ...validOnboardingInput,
+      eventType: {
+        ...validOnboardingInput.eventType,
+        locationType: 'video_provider',
+        locationValue: '',
+        videoProvider: 'google_meet',
+      },
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.data.eventType.videoProvider).toBe('google_meet')
+  })
+
+  it('rejects custom, phone, and in-person locations without details', () => {
+    const result = onboardingSchema.safeParse({
+      ...validOnboardingInput,
+      eventType: {
+        ...validOnboardingInput.eventType,
+        locationType: 'custom',
+        locationValue: '',
+        videoProvider: null,
+      },
+    })
+
+    expect(result.success).toBe(false)
   })
 
   it('rejects onboarding with no bookable availability', () => {

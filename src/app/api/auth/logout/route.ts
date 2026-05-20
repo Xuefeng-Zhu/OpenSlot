@@ -2,6 +2,8 @@ import { createBackendRuntime } from '@/lib/backend/runtime'
 import { currentBackendAccessToken } from '@/lib/backend/server'
 import { signOutResponse } from '../_shared'
 
+export const runtime = 'edge'
+
 export async function POST() {
   const accessToken = await currentBackendAccessToken()
 
