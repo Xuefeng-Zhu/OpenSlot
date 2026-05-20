@@ -45,10 +45,14 @@ describe('booking form resolver', () => {
     )
 
     expect(result.values).toEqual({})
-    expect(result.errors.answers?.topic?.message).toBe(
+    const answerErrors = result.errors.answers as
+      | Record<string, { message?: string }>
+      | undefined
+
+    expect(answerErrors?.topic?.message).toBe(
       'This question is required'
     )
-    expect(result.errors.answers?.['meeting-type']?.message).toBe(
+    expect(answerErrors?.['meeting-type']?.message).toBe(
       'Choose one of the available options'
     )
   })

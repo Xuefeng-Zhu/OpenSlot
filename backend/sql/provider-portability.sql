@@ -1,0 +1,38 @@
+-- Provider-portable SQL reference for OpenSlot backend adapters.
+--
+-- This file is not executed by the current Supabase CI lane. It records the
+-- database invariants that any Butterbase or InsForge adapter must preserve
+-- when translating schema JSON, migrations, or serverless transaction code.
+
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- Confirmed bookings cannot overlap for the same host.
+ALTER TABLE bookings
+  ADD CONSTRAINT no_overlapping_bookings
+  EXCLUDE USING gist (
+    host_user_id WITH =,
+    tstzrange(start_at, end_at) WITH &&
+  ) WHERE (status = 'confirmed');
+
+-- Active holds and active bookings share one collision ledger.
+ALTER TABLE host_reservations
+  ADD CONSTRAINT host_reservations_no_overlap
+  EXCLUDE USING gist (
+    host_user_id WITH =,
+    tstzrange(start_at, end_at) WITH &&
+  ) WHERE (status = 'active');
+
+-- Provider adapters must expose equivalent transaction entrypoints:
+-- - create-slot-hold
+-- - confirm-booking
+-- - cancel-booking
+-- - reschedule-booking
+-- - claim-outbox-events
+-- - claim-webhook-deliveries
+-- - consume-public-rate-limit
+-- - expire-stale-slot-holds
+--
+-- These can be implemented as database functions, edge/serverless functions
+-- that run SQL in a transaction, or provider-native atomic operations. REST-only
+-- multi-step writes are not an acceptable substitute for these paths.

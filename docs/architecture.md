@@ -2,6 +2,12 @@
 
 OpenSlot is a Next.js App Router application with Supabase-backed persistence and server-first data loading for sensitive flows.
 
+Provider portability is now documented separately in
+[docs/backend-portability.md](backend-portability.md). New backend-provider
+work should go through `src/lib/backend/` ports so Butterbase and future
+InsForge adapters do not leak into route handlers, React components, or domain
+services.
+
 ## High-Level Layers
 
 ```text
