@@ -6,6 +6,8 @@ import {
 import { createBackendCompatClient } from '@/lib/backend/compat/query-client'
 import { authError, authJson } from '../_shared'
 
+export const runtime = 'edge'
+
 export async function PATCH(request: NextRequest) {
   const accessToken = await currentBackendAccessToken()
   if (!accessToken) {

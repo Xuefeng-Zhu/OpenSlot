@@ -355,7 +355,7 @@ export async function getFreshAccessToken(
     throw new Error('Calendar connection has no refresh token')
   }
 
-  const refreshToken = decryptToken(connection.refresh_token_encrypted)
+  const refreshToken = await decryptToken(connection.refresh_token_encrypted)
   const tokens = await refreshCalendarAccessToken({
     provider: connection.provider as CalendarProvider,
     refreshToken,
@@ -366,8 +366,8 @@ export async function getFreshAccessToken(
   await adminClient
     .from('provider_connections')
     .update({
-      access_token_encrypted: encryptToken(tokens.accessToken),
-      refresh_token_encrypted: encryptToken(nextRefreshToken),
+      access_token_encrypted: await encryptToken(tokens.accessToken),
+      refresh_token_encrypted: await encryptToken(nextRefreshToken),
       token_expires_at: tokens.expiresAt,
       scopes: tokens.scopes,
       last_error: null,

@@ -41,6 +41,8 @@ async function getAuthenticatedProfileId() {
  * Returns safe webhook endpoint summaries for the authenticated profile.
  * Signing secrets are deliberately omitted after creation.
  */
+export const runtime = 'edge'
+
 export async function GET() {
   try {
     const auth = await getAuthenticatedProfileId()

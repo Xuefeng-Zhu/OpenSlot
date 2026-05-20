@@ -6,6 +6,8 @@ import {
 } from '@/lib/backend/server'
 import { authError, authJson, ensureProfileForAuthUser } from '../_shared'
 
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null)
   const code = typeof body?.code === 'string' ? body.code.trim() : ''

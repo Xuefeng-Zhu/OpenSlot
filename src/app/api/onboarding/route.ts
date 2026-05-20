@@ -18,6 +18,8 @@ type OnboardingWriteClient = {
  * The flow upserts the profile and starter event type, then replaces onboarding
  * availability rules so repeated submissions produce the same baseline setup.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

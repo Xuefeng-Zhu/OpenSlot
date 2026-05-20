@@ -8,6 +8,8 @@ import { listCalendarConnectionSummaries } from '@/lib/calendar/connections'
  * The response is dashboard-facing metadata only; encrypted OAuth credentials
  * remain hidden in server-only tables.
  */
+export const runtime = 'edge'
+
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient()

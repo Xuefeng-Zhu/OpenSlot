@@ -8,6 +8,8 @@ import { getAuthenticatedAvailabilityProfile } from '../availability-route-utils
  * Creates a named availability schedule owned by the authenticated host.
  * New schedules are non-default until explicitly promoted.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

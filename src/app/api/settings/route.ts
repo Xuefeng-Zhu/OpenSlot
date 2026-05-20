@@ -44,6 +44,8 @@ async function getAuthenticatedProfile() {
  * Email changes go through backend auth on the client before this route persists
  * the app profile and user_settings rows.
  */
+export const runtime = 'edge'
+
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await getAuthenticatedProfile()

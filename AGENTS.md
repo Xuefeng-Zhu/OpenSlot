@@ -40,7 +40,7 @@ src/lib/backend/                 Backend ports, Butterbase adapter, compatibilit
 src/lib/supabase/                Legacy shims delegating to the backend runtime
 src/lib/validations/             Zod schemas
 src/lib/utils/                   Slug and timezone helpers
-src/proxy.ts                     Butterbase session refresh and dashboard redirect proxy
+src/middleware.ts                Butterbase session refresh and dashboard redirect middleware
 backend/sql/                     Provider-portable SQL invariants
 backend/butterbase/              Butterbase schema/function artifacts
 supabase/migrations/             Historical PostgreSQL migration source
@@ -167,7 +167,7 @@ The full test suite may print `Not implemented: navigation to another Document` 
 - Keep critical booking logic in pure or service-like modules under `src/lib/booking/` and `src/lib/availability/`.
 - Use `date-fns-tz` helpers for timezone-sensitive scheduling logic.
 - Document important behavior with concise comments:
-  - Use JSDoc/TSDoc above exported TypeScript functions in `src/lib/`, `src/app/api/`, and `src/proxy.ts`, especially when they cross module boundaries or perform side effects.
+  - Use JSDoc/TSDoc above exported TypeScript functions in `src/lib/`, `src/app/api/`, and `src/middleware.ts`, especially when they cross module boundaries or perform side effects.
   - Add comments for complex business logic, non-obvious data transforms, retry/idempotency behavior, security boundaries, provider integrations, and stateful client workflows.
   - Avoid comments that restate obvious code or annotate simple presentational components.
 - Preserve existing style in touched files. The codebase currently mixes semicolon and no-semicolon styles by area.
@@ -226,7 +226,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend or Maileroo when configured.
 - `src/lib/backend/`: provider-neutral backend ports plus the active Butterbase adapter and compatibility client.
 - `src/lib/supabase/admin.ts`: legacy server-only shim. Never use this from client components.
-- `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
+- `src/middleware.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
 
 ## State Management and Data Flow
 

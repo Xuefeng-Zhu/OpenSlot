@@ -7,6 +7,8 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
  * Expires stale slot holds from a worker POST body.
  * The route is secret-protected because it mutates booking availability state.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   return runHoldExpiry(request, {

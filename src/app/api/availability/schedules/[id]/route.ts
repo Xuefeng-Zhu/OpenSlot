@@ -14,6 +14,8 @@ interface ScheduleRouteContext {
 /**
  * Renames a host schedule and/or promotes it to the host default schedule.
  */
+export const runtime = 'edge'
+
 export async function PATCH(
   request: NextRequest,
   { params }: ScheduleRouteContext

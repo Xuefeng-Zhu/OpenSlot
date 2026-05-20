@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 import type { Database } from '@/lib/types/database'
 
 export interface PublicRateLimitConfig {
@@ -130,8 +130,7 @@ export function getClientIp(request: NextRequest): string {
 }
 
 function hashRateLimitIdentifier(parts: Array<string | null | undefined>): string {
-  return createHash('sha256')
-    .update('openslot:public-rate-limit:v1')
-    .update(parts.map((part) => part ?? '').join('\n'))
-    .digest('hex')
+  return sha256Hex(
+    `openslot:public-rate-limit:v1${parts.map((part) => part ?? '').join('\n')}`
+  )
 }

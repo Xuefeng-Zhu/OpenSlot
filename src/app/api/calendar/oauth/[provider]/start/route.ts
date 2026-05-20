@@ -1,4 +1,3 @@
-import { randomBytes } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
 import {
@@ -11,6 +10,7 @@ import {
   calendarCallbackUrl,
   encodeCalendarOAuthState,
 } from '@/lib/calendar/oauth-state'
+import { randomBase64Url } from '@/lib/security/edge-crypto'
 
 interface CalendarOAuthRouteContext {
   params: Promise<{ provider: string }>
@@ -21,6 +21,8 @@ interface CalendarOAuthRouteContext {
  * Stores provider, profile, and random state in an HTTP-only cookie so the
  * callback can reject cross-profile or replayed authorization responses.
  */
+export const runtime = 'edge'
+
 export async function GET(
   request: NextRequest,
   { params }: CalendarOAuthRouteContext
@@ -45,7 +47,7 @@ export async function GET(
       )
     }
 
-    const state = randomBytes(24).toString('base64url')
+    const state = randomBase64Url(24)
     const redirectUri = calendarCallbackUrl(request, provider)
     const authorizationUrl = buildCalendarAuthorizationUrl({
       provider,

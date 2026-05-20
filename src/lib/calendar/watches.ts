@@ -1,5 +1,10 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import {
+  constantTimeEqual,
+  randomBase64Url,
+  randomHex,
+  sha256Hex,
+} from '@/lib/security/edge-crypto'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import {
@@ -715,15 +720,15 @@ function providerHeaders(accessToken: string): HeadersInit {
 }
 
 function randomWatchId(prefix: string): string {
-  return `${prefix}-${randomBytes(16).toString('hex')}`
+  return `${prefix}-${randomHex(16)}`
 }
 
 function randomSecret(): string {
-  return randomBytes(24).toString('base64url')
+  return randomBase64Url(24)
 }
 
 function hashSecret(value: string): string {
-  return createHash('sha256').update(value).digest('hex')
+  return sha256Hex(value)
 }
 
 function verifyMetadataSecret(
@@ -737,13 +742,7 @@ function verifyMetadataSecret(
   }
 
   const actual = hashSecret(value)
-  const expectedBuffer = Buffer.from(expected)
-  const actualBuffer = Buffer.from(actual)
-
-  return (
-    expectedBuffer.length === actualBuffer.length &&
-    timingSafeEqual(expectedBuffer, actualBuffer)
-  )
+  return constantTimeEqual(expected, actual)
 }
 
 function metadataObject(metadata: Json | undefined): Record<string, Json> {
