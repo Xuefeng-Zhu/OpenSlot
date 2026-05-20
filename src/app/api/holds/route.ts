@@ -31,6 +31,20 @@ import { createHoldSchema } from '@/lib/validations/booking'
  */
 export const runtime = 'edge'
 
+type HoldResponse = {
+  holdId: string
+  holdToken: string
+  expiresAt: string
+}
+
+type HoldCreationResult =
+  | { success: true; response: HoldResponse }
+  | { success: false; response: { error: string }; status: number }
+
+type OptimisticHoldResult =
+  | { success: true; response: HoldResponse }
+  | { success: false; retryWithRpc: true }
+
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null
@@ -160,59 +174,47 @@ export async function POST(request: NextRequest) {
     // host_reservations row, whose exclusion constraint is the final race guard.
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
-    const { data: hold, error: insertError } = await adminClient
-      .rpc('create_slot_hold_with_reservation', {
-        p_event_type_id: eventTypeId,
-        p_host_user_id: hostUserId,
-        p_start_at: startAt,
-        p_end_at: endAt,
-        p_guest_email: guestEmail,
-        p_expires_at: expiresAt,
+    let holdCreation: HoldCreationResult | null = null
+
+    if (slotTokenResult?.ok === true) {
+      const optimisticHold = await createOptimisticHold({
+        adminClient,
+        eventTypeId,
+        hostUserId,
+        startAt,
+        endAt,
+        guestEmail,
+        expiresAt,
       })
-      .single()
 
-    if (insertError) {
-      if (insertError.code === '23P01' || insertError.code === '23505') {
-        const response = {
-          error:
-            'This time slot is currently held by another guest. Please select a different time.',
-        }
-        await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 409)
-        return NextResponse.json(
-          response,
-          { status: 409 }
-        )
+      if (optimisticHold.success) {
+        holdCreation = optimisticHold
       }
-
-      if (insertError.code === 'P0002') {
-        const response = { error: 'Event type not found' }
-        await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 404)
-        return NextResponse.json(response, { status: 404 })
-      }
-
-      if (insertError.code === '22023') {
-        const response = {
-          error:
-            'This time slot is no longer available. Please select a different time.',
-        }
-        await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 409)
-        return NextResponse.json(
-          response,
-          { status: 409 }
-        )
-      }
-
-      console.error('Error creating hold:', insertError)
-      const response = { error: 'Failed to create hold' }
-      await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 500)
-      return NextResponse.json(response, { status: 500 })
     }
 
-    const response = {
-      holdId: hold.hold_id,
-      holdToken: hold.hold_token,
-      expiresAt: hold.expires_at,
+    holdCreation ??= await createHoldWithReservationRpc({
+      adminClient,
+      eventTypeId,
+      hostUserId,
+      startAt,
+      endAt,
+      guestEmail,
+      expiresAt,
+    })
+
+    if (!holdCreation.success) {
+      await cacheIdempotentResponse(
+        adminClient,
+        idempotencyEntry,
+        holdCreation.response,
+        holdCreation.status
+      )
+      return NextResponse.json(holdCreation.response, {
+        status: holdCreation.status,
+      })
     }
+
+    const response = holdCreation.response
     await cacheIdempotentResponse(adminClient, idempotencyEntry, response, 201)
     return NextResponse.json(response, { status: 201 })
   } catch (error) {
@@ -224,6 +226,166 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+async function createOptimisticHold({
+  adminClient,
+  eventTypeId,
+  hostUserId,
+  startAt,
+  endAt,
+  guestEmail,
+  expiresAt,
+}: {
+  adminClient: ReturnType<typeof createAdminClient>
+  eventTypeId: string
+  hostUserId: string
+  startAt: string
+  endAt: string
+  guestEmail: string
+  expiresAt: string
+}): Promise<OptimisticHoldResult> {
+  const holdId = crypto.randomUUID()
+  const holdToken = crypto.randomUUID()
+
+  const [reservationResult, holdResult] = await Promise.all([
+    adminClient
+      .from('host_reservations')
+      .insert({
+        host_user_id: hostUserId,
+        source: 'hold',
+        source_id: holdId,
+        start_at: startAt,
+        end_at: endAt,
+        status: 'active',
+        expires_at: expiresAt,
+      })
+      .single(),
+    adminClient
+      .from('slot_holds')
+      .insert({
+        id: holdId,
+        event_type_id: eventTypeId,
+        host_user_id: hostUserId,
+        start_at: startAt,
+        end_at: endAt,
+        guest_email: guestEmail,
+        hold_token: holdToken,
+        expires_at: expiresAt,
+        status: 'active',
+      })
+      .single(),
+  ])
+
+  if (reservationResult.error || holdResult.error) {
+    await cleanupOptimisticReservation(adminClient, holdId)
+    await cleanupOptimisticHold(adminClient, holdId)
+    return { success: false, retryWithRpc: true }
+  }
+
+  return {
+    success: true,
+    response: {
+      holdId,
+      holdToken,
+      expiresAt,
+    },
+  }
+}
+
+async function createHoldWithReservationRpc({
+  adminClient,
+  eventTypeId,
+  hostUserId,
+  startAt,
+  endAt,
+  guestEmail,
+  expiresAt,
+}: {
+  adminClient: ReturnType<typeof createAdminClient>
+  eventTypeId: string
+  hostUserId: string
+  startAt: string
+  endAt: string
+  guestEmail: string
+  expiresAt: string
+}): Promise<HoldCreationResult> {
+  const { data: hold, error: insertError } = await adminClient
+    .rpc('create_slot_hold_with_reservation', {
+      p_event_type_id: eventTypeId,
+      p_host_user_id: hostUserId,
+      p_start_at: startAt,
+      p_end_at: endAt,
+      p_guest_email: guestEmail,
+      p_expires_at: expiresAt,
+    })
+    .single()
+
+  if (insertError) {
+    if (insertError.code === '23P01' || insertError.code === '23505') {
+      return {
+        success: false,
+        status: 409,
+        response: {
+          error:
+            'This time slot is currently held by another guest. Please select a different time.',
+        },
+      }
+    }
+
+    if (insertError.code === 'P0002') {
+      return {
+        success: false,
+        status: 404,
+        response: { error: 'Event type not found' },
+      }
+    }
+
+    if (insertError.code === '22023') {
+      return {
+        success: false,
+        status: 409,
+        response: {
+          error:
+            'This time slot is no longer available. Please select a different time.',
+        },
+      }
+    }
+
+    console.error('Error creating hold:', insertError)
+    return {
+      success: false,
+      status: 500,
+      response: { error: 'Failed to create hold' },
+    }
+  }
+
+  return {
+    success: true,
+    response: {
+      holdId: hold.hold_id,
+      holdToken: hold.hold_token,
+      expiresAt: hold.expires_at,
+    },
+  }
+}
+
+async function cleanupOptimisticReservation(
+  adminClient: ReturnType<typeof createAdminClient>,
+  holdId: string
+) {
+  await adminClient
+    .from('host_reservations')
+    .delete()
+    .eq('source', 'hold')
+    .eq('source_id', holdId)
+}
+
+async function cleanupOptimisticHold(
+  adminClient: ReturnType<typeof createAdminClient>,
+  holdId: string
+) {
+  await adminClient.from('slot_holds').delete().eq('id', holdId)
 }
 
 async function cacheIdempotentResponse(
