@@ -36,6 +36,7 @@ import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 interface TimeSlot {
   start: string;
   end: string;
+  slotToken?: string;
 }
 
 export interface SlotPickerEventType {
@@ -263,6 +264,7 @@ export function SlotPicker({
           guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
           idempotencyKey,
           turnstileToken: holdTurnstileToken ?? undefined,
+          slotToken: slot.slotToken,
         }),
       });
 

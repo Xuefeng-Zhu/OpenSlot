@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadAvailableSlotsForDate } from '@/lib/availability/available-slots'
+import { addSlotHoldTokens } from '@/lib/availability/slot-token'
 import {
   consumePublicRateLimit,
   publicRateLimitResponse,
@@ -79,7 +80,13 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ slots: slotsResult.slots })
+    const slots = await addSlotHoldTokens({
+      slots: slotsResult.slots,
+      hostUserId,
+      eventTypeId,
+    })
+
+    return NextResponse.json({ slots })
   } catch (error) {
     console.error('Error computing available slots:', error)
     return NextResponse.json(

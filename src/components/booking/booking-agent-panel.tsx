@@ -21,6 +21,7 @@ interface TimeSlot {
   start: string;
   end: string;
   label?: string;
+  slotToken?: string;
 }
 
 interface BookingAgentPanelProps {
@@ -29,11 +30,11 @@ interface BookingAgentPanelProps {
   hostUserId: string;
   timezone: string;
   selectedDate?: string;
-  selectedSlot?: { start: string; end: string } | null;
+  selectedSlot?: { start: string; end: string; slotToken?: string } | null;
   rescheduleToken?: string;
   holdDisabled?: boolean;
   holdDisabledReason?: string;
-  onSelectSlot: (slot: { start: string; end: string }) => void;
+  onSelectSlot: (slot: { start: string; end: string; slotToken?: string }) => void;
   onDraftChange: (draft: BookingAgentDraft) => void;
 }
 

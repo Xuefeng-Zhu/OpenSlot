@@ -256,6 +256,7 @@ describe('GET /api/slots', () => {
       {
         start: '2026-06-15T13:30:00.000Z',
         end: '2026-06-15T14:00:00.000Z',
+        slotToken: expect.any(String),
       },
     ])
     expect(connectionsQuery.eq).toHaveBeenCalledWith(

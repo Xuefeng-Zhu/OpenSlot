@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadAvailableSlotsForDate } from '@/lib/availability/available-slots'
+import { addSlotHoldTokens } from '@/lib/availability/slot-token'
 import {
   runBookingAgentFallbackTurn,
   runBookingAgentTurn,
@@ -101,14 +102,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const loadSlots: RunBookingAgentInput['loadSlots'] = ({ date, timezone }) =>
-      loadAvailableSlotsForDate({
+    const loadSlots: RunBookingAgentInput['loadSlots'] = async ({
+      date,
+      timezone,
+    }) => {
+      const result = await loadAvailableSlotsForDate({
         supabase: adminClient,
         hostUserId: parsed.data.hostUserId,
         eventTypeId: parsed.data.eventTypeId,
         date,
         guestTimezone: timezone,
       })
+
+      if (!result.success) return result
+
+      return {
+        success: true,
+        slots: await addSlotHoldTokens({
+          slots: result.slots,
+          hostUserId: parsed.data.hostUserId,
+          eventTypeId: parsed.data.eventTypeId,
+        }),
+      }
+    }
 
     try {
       const result = await runBookingAgentTurn({

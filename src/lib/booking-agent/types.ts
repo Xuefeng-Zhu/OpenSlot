@@ -11,6 +11,7 @@ export const bookingAgentSlotSchema = z.object({
   start: z.string().datetime(),
   end: z.string().datetime(),
   label: z.string().min(1).max(120).optional(),
+  slotToken: z.string().min(1).max(4096).optional(),
 })
 
 export const bookingAgentDraftSchema = z
