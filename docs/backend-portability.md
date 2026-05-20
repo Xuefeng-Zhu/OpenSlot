@@ -1,8 +1,8 @@
 # Backend Portability
 
-OpenSlot keeps backend providers behind `src/lib/backend/` so Butterbase can be
-the first replacement backend without making a future InsForge move another
-app-wide rewrite.
+OpenSlot keeps backend providers behind `src/lib/backend/`. Butterbase is now
+the active backend runtime, and the same boundary keeps a future InsForge move
+from becoming another app-wide rewrite.
 
 ## Boundary
 
@@ -11,9 +11,12 @@ app-wide rewrite.
 - Butterbase code belongs under `src/lib/backend/butterbase/`.
 - A future InsForge adapter should live under `src/lib/backend/insforge/` and
   implement the same auth, data, function, and transaction ports.
-- Atomic booking paths must run through `BackendTransactionsPort`; do not rebuild
-  hold, confirm, cancel, reschedule, or worker-claim logic with ad hoc REST
-  sequences.
+- Atomic booking paths must run through backend function/transaction entrypoints;
+  do not rebuild hold, confirm, cancel, reschedule, or worker-claim logic with
+  ad hoc browser-visible REST sequences.
+- Legacy `src/lib/supabase/*` modules are compatibility shims only. They do not
+  import Supabase packages and should disappear as app code moves to
+  `@/lib/backend/*` names.
 
 ## Provider Contracts
 
@@ -36,8 +39,9 @@ BUTTERBASE_API_KEY=...
 
 `BUTTERBASE_API_KEY` is server-only. It must never be exposed through
 `NEXT_PUBLIC_*` variables or sent to browser code.
-Data-port reads and writes default to caller/user authentication; trusted
-server-only callers must opt into service credentials with `serviceRole: true`.
+Browser auth and data calls go through OpenSlot route handlers so Butterbase
+tokens remain in HTTP-only cookies. Trusted server-only callers use
+`BUTTERBASE_API_KEY` for service operations.
 
 ## Provider Switch Checklist
 

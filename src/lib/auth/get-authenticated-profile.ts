@@ -5,7 +5,7 @@ export type AuthenticatedProfileResult =
   | { ok: false; status: 401 | 404; error: string }
 
 /**
- * Resolves the current Supabase auth user to the app profile record.
+ * Resolves the current Butterbase auth user to the app profile record.
  * Returns typed error states instead of throwing so route handlers can map auth
  * and onboarding failures to stable HTTP responses.
  */

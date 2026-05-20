@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 import type { CancelBookingInput, CancelBookingResult } from './types'
 import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
@@ -20,7 +20,7 @@ import { appendBookingEvent } from './events'
  */
 export async function cancelBooking(
   input: CancelBookingInput,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ): Promise<CancelBookingResult> {
   const { cancellationToken, cancelReason } = input
 
@@ -38,6 +38,46 @@ export async function cancelBooking(
   // Step 2: Check if already cancelled
   if (booking.status === 'cancelled') {
     return { success: false, error: 'Booking has already been cancelled' }
+  }
+
+  const functionResult = await cancelBookingWithBackendFunction(adminClient, {
+    cancellationToken,
+    cancelReason,
+  })
+
+  if (functionResult.attempted) {
+    if (!functionResult.success) {
+      return { success: false, error: functionResult.error }
+    }
+
+    await appendBookingEvent(adminClient, {
+      bookingId: booking.id,
+      eventType: 'booking.cancelled',
+      actorType: 'guest',
+      payload: {
+        eventTypeId: booking.event_type_id,
+        hostUserId: booking.host_user_id,
+        startAt: booking.start_at,
+        endAt: booking.end_at,
+        cancelReasonProvided: Boolean(cancelReason),
+      },
+    })
+
+    await touchContactForBookingEvent(adminClient, {
+      hostUserId: booking.host_user_id,
+      guestEmail: booking.guest_email,
+    })
+
+    await enqueueBookingCancelledOutbox(adminClient, {
+      bookingId: booking.id,
+      eventTypeId: booking.event_type_id,
+      hostUserId: booking.host_user_id,
+      startAt: booking.start_at,
+      endAt: booking.end_at,
+      cancelReasonProvided: Boolean(cancelReason),
+    })
+
+    return { success: true }
   }
 
   // Step 3: Update booking status to cancelled
@@ -85,4 +125,38 @@ export async function cancelBooking(
   })
 
   return { success: true }
+}
+
+type CancelFunctionResult =
+  | { attempted: false }
+  | { attempted: true; success: true }
+  | { attempted: true; success: false; error: string }
+
+async function cancelBookingWithBackendFunction(
+  adminClient: BackendCompatClient<Database>,
+  input: {
+    cancellationToken: string
+    cancelReason?: string
+  }
+): Promise<CancelFunctionResult> {
+  if (typeof adminClient.rpc !== 'function') return { attempted: false }
+
+  const { error } = await adminClient.rpc('cancel_booking', {
+    p_cancellation_token: input.cancellationToken,
+    p_cancel_reason: input.cancelReason ?? null,
+  })
+
+  if (error) {
+    console.error('Error cancelling booking through backend function:', error)
+    return {
+      attempted: true,
+      success: false,
+      error: 'Failed to cancel booking',
+    }
+  }
+
+  return {
+    attempted: true,
+    success: true,
+  }
 }

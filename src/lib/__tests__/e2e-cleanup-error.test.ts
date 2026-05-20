@@ -13,12 +13,12 @@ describe("E2E cleanup failure reporting", () => {
     message: "permission denied for table contacts",
     code: "42501",
     details: "RLS blocked the delete",
-    hint: "use a service role client",
+    hint: "use a service key client",
   };
 
-  it("formats failures with action, table, filter, and Supabase metadata", () => {
+  it("formats failures with action, table, filter, and backend metadata", () => {
     expect(formatCleanupFailure(failure)).toBe(
-      "[delete contacts] host_user_id=profile-id and email_hash in (hash): permission denied for table contacts (code=42501; details=RLS blocked the delete; hint=use a service role client)"
+      "[delete contacts] host_user_id=profile-id and email_hash in (hash): permission denied for table contacts (code=42501; details=RLS blocked the delete; hint=use a service key client)"
     );
   });
 

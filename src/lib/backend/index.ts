@@ -30,3 +30,4 @@ export {
   atomicBackendFunctions,
   backendFunctionSlugs,
 } from './functions'
+export { createBackendRuntime } from './runtime'

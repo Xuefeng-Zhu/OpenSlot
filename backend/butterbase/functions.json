@@ -1,0 +1,64 @@
+{
+  "functions": [
+    {
+      "name": "create-slot-hold",
+      "operation": "createSlotHold",
+      "transactionRequired": true
+    },
+    {
+      "name": "confirm-booking",
+      "operation": "confirmBooking",
+      "transactionRequired": true
+    },
+    {
+      "name": "cancel-booking",
+      "operation": "cancelBooking",
+      "transactionRequired": true
+    },
+    {
+      "name": "reschedule-booking",
+      "operation": "rescheduleBooking",
+      "transactionRequired": true
+    },
+    {
+      "name": "claim-outbox-events",
+      "operation": "claimOutboxEvents",
+      "transactionRequired": true
+    },
+    {
+      "name": "claim-webhook-deliveries",
+      "operation": "claimWebhookDeliveries",
+      "transactionRequired": true
+    },
+    {
+      "name": "consume-public-rate-limit",
+      "operation": "consumePublicRateLimit",
+      "transactionRequired": true
+    },
+    {
+      "name": "expire-stale-slot-holds",
+      "operation": "expireStaleSlotHolds",
+      "transactionRequired": true
+    },
+    {
+      "name": "set-default-schedule",
+      "operation": "setDefaultSchedule",
+      "transactionRequired": true
+    },
+    {
+      "name": "anonymize-contact-bookings",
+      "operation": "anonymizeContactBookings",
+      "transactionRequired": true
+    },
+    {
+      "name": "update-auth-user",
+      "operation": "updateAuthUser",
+      "transactionRequired": false
+    },
+    {
+      "name": "delete-auth-user",
+      "operation": "deleteAuthUser",
+      "transactionRequired": false
+    }
+  ]
+}

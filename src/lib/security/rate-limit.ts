@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 
 export interface PublicRateLimitConfig {
@@ -39,7 +39,7 @@ export async function consumePublicRateLimit({
   config,
 }: {
   request: NextRequest
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   config: PublicRateLimitConfig
 }): Promise<PublicRateLimitResult> {
   const identifierHash = hashRateLimitIdentifier([

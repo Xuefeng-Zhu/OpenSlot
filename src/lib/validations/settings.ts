@@ -4,7 +4,7 @@ import { isValidTimezone } from '@/lib/validations/profile'
 /**
  * Settings payload shared by the dashboard form and PATCH /api/settings.
  * Auth-sensitive changes like password updates stay outside this schema and go
- * through Supabase Auth directly.
+ * through Butterbase Auth directly.
  */
 export const settingsSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),

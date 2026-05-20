@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import type { OutboxEventType } from '@/lib/outbox/outbox'
@@ -45,7 +45,7 @@ interface CalendarBookingDetails {
  * not retain stale event references when a booking moves.
  */
 export async function processCalendarOutboxEvent(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   event: OutboxEventRow
 ): Promise<void> {
   const eventType = event.event_type as OutboxEventType
@@ -87,7 +87,7 @@ export async function processCalendarOutboxEvent(
  * provider write has already been recorded.
  */
 export async function createCalendarEventsForBooking(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string
 ): Promise<{ created: number; skipped: number }> {
   const booking = await loadCalendarBookingDetails(adminClient, bookingId)
@@ -212,7 +212,7 @@ export async function createCalendarEventsForBooking(
  * provider reports the event is already gone.
  */
 export async function cancelCalendarEventsForBooking(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string
 ): Promise<{ cancelled: number }> {
   const { data, error } = await adminClient
@@ -268,7 +268,7 @@ export async function cancelCalendarEventsForBooking(
 }
 
 async function loadCalendarBookingDetails(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string
 ): Promise<CalendarBookingDetails> {
   const { data, error } = await adminClient
@@ -315,7 +315,7 @@ async function loadCalendarBookingDetails(
 }
 
 async function loadCalendarWriteTargets(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string
 ) {
   const { data: connectionsData, error: connectionsError } = await adminClient
@@ -354,7 +354,7 @@ async function loadCalendarWriteTargets(
 }
 
 async function loadCalendarTargetByCalendarId(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   providerCalendarId: string
 ) {
   const { data: calendarData, error: calendarError } = await adminClient
@@ -385,7 +385,7 @@ async function loadCalendarTargetByCalendarId(
 }
 
 async function loadActiveCalendarRef(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string,
   providerCalendarId: string
 ): Promise<CalendarEventRefRow | null> {
@@ -443,7 +443,7 @@ function calendarTargetsForBooking(
 }
 
 async function updateBookingConference(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string,
   update: {
     status: 'ready' | 'setup_required' | 'failed'

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Json, Tables } from '@/lib/types/database'
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/
@@ -84,7 +84,7 @@ export async function beginIdempotentRequest({
   requestHash,
   ttlHours = DEFAULT_TTL_HOURS,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   scope: string
   key: string
   requestHash: string
@@ -139,7 +139,7 @@ export async function completeIdempotentRequest({
   entry,
   response,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   entry: IdempotencyEntry
   response: CachedIdempotencyResponse
 }): Promise<void> {
@@ -168,7 +168,7 @@ export async function abandonIdempotentRequest({
   adminClient,
   entry,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   entry: IdempotencyEntry
 }): Promise<void> {
   const { error } = await adminClient

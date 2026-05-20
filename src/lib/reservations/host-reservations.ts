@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 
 /**
@@ -7,7 +7,7 @@ import type { Database } from '@/lib/types/database'
  * host reservation exclusion constraint no longer blocks the old time range.
  */
 export async function expireHoldReservation(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   holdId: string
 ): Promise<boolean> {
   return updateReservationStatus(adminClient, {
@@ -23,7 +23,7 @@ export async function expireHoldReservation(
  * and later reconciliation can release the correct reservation row.
  */
 export async function convertHoldReservationToBooking(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   {
     holdId,
     bookingId,
@@ -62,7 +62,7 @@ export async function convertHoldReservationToBooking(
  * callers get a boolean and errors are logged with reservation context.
  */
 export async function cancelBookingReservation(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string
 ): Promise<boolean> {
   return updateReservationStatus(adminClient, {
@@ -73,7 +73,7 @@ export async function cancelBookingReservation(
 }
 
 async function updateReservationStatus(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   {
     source,
     sourceId,

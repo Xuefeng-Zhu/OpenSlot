@@ -1,14 +1,16 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { createBackendRuntime } from '@/lib/backend/runtime'
 import {
-  applyAuthSessionPersistence,
+  BACKEND_ACCESS_TOKEN_COOKIE,
+  BACKEND_REFRESH_TOKEN_COOKIE,
+  backendSessionCookies,
   shouldKeepAuthSession,
-} from '@/lib/supabase/auth-cookie-persistence'
+} from '@/lib/backend/session'
 
 /**
- * Refreshes Supabase auth cookies and protects dashboard routes at the edge.
- * When Supabase env vars are missing, public pages still render but dashboard
- * requests are sent to login instead of failing during client creation.
+ * Refreshes Butterbase auth cookies and protects dashboard routes.
+ * When Butterbase env vars are missing, public pages still render but dashboard
+ * requests are sent to login instead of failing during backend client creation.
  */
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({
@@ -17,69 +19,53 @@ export async function proxy(request: NextRequest) {
     },
   })
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    if (request.nextUrl.pathname.startsWith('/dashboard')) {
-      const loginUrl = new URL('/login', request.url)
-      return NextResponse.redirect(loginUrl)
-    }
-
-    return response
+  if (!process.env.NEXT_PUBLIC_BUTTERBASE_APP_ID) {
+    return redirectDashboardToLogin(request) ?? response
   }
 
   const keepSignedIn = shouldKeepAuthSession(
     (name) => request.cookies.get(name)?.value
   )
+  const accessToken = request.cookies.get(BACKEND_ACCESS_TOKEN_COOKIE)?.value
+  const refreshToken = request.cookies.get(BACKEND_REFRESH_TOKEN_COOKIE)?.value
+  let authenticated = false
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(
-          cookiesToSet: {
-            name: string
-            value: string
-            options: CookieOptions
-          }[]
-        ) {
-          const authCookies = applyAuthSessionPersistence(
-            cookiesToSet,
-            keepSignedIn
-          )
+  if (accessToken) {
+    const backend = createBackendRuntime({ accessToken })
+    const user = await backend.auth.getCurrentUser(accessToken)
+    authenticated = !user.error && !!user.data
+  }
 
-          authCookies.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          )
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          authCookies.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
+  if (!authenticated && refreshToken) {
+    const backend = createBackendRuntime()
+    const refreshed = await backend.auth.refreshSession(refreshToken)
+
+    if (!refreshed.error) {
+      authenticated = true
+      response = NextResponse.next({
+        request: {
+          headers: request.headers,
         },
-      },
+      })
+      for (const cookie of backendSessionCookies(refreshed.data, keepSignedIn)) {
+        response.cookies.set(cookie.name, cookie.value, cookie.options)
+      }
     }
-  )
+  }
 
-  // Refresh the auth session to keep it alive
-  const { data: { user } } = await supabase.auth.getUser()
-
-  // Protect /dashboard routes - redirect unauthenticated users to login
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
-    const returnUrl = encodeURIComponent(request.nextUrl.pathname)
-    const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url)
-    return NextResponse.redirect(loginUrl)
+  if (!authenticated) {
+    return redirectDashboardToLogin(request) ?? response
   }
 
   return response
+}
+
+function redirectDashboardToLogin(request: NextRequest) {
+  if (!request.nextUrl.pathname.startsWith('/dashboard')) return null
+
+  const returnUrl = encodeURIComponent(request.nextUrl.pathname)
+  const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url)
+  return NextResponse.redirect(loginUrl)
 }
 
 /**
@@ -88,13 +74,6 @@ export async function proxy(request: NextRequest) {
  */
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder assets (images, etc.)
-     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

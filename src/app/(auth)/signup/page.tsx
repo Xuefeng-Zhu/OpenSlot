@@ -30,6 +30,8 @@ export default function SignupPage() {
   const hasMinLength = password.length >= 8;
   const hasNumber = /\d/.test(password);
   const hasLowercase = /[a-z]/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasSpecial = /[^A-Za-z0-9]/.test(password);
 
   function validate(): boolean {
     const newErrors: typeof errors = {};
@@ -46,8 +48,15 @@ export default function SignupPage() {
 
     if (!password) {
       newErrors.password = "Password is required.";
-    } else if (password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters.";
+    } else if (
+      !hasMinLength ||
+      !hasNumber ||
+      !hasLowercase ||
+      !hasUppercase ||
+      !hasSpecial
+    ) {
+      newErrors.password =
+        "Password must include uppercase, lowercase, number, and special characters.";
     }
 
     setErrors(newErrors);
@@ -235,6 +244,14 @@ export default function SignupPage() {
                 <span className={`flex items-center gap-1 text-xs ${hasLowercase ? "text-success" : "text-muted-foreground"}`}>
                   <Check className="h-3 w-3" aria-hidden="true" />
                   Includes a lowercase letter
+                </span>
+                <span className={`flex items-center gap-1 text-xs ${hasUppercase ? "text-success" : "text-muted-foreground"}`}>
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                  Includes an uppercase letter
+                </span>
+                <span className={`flex items-center gap-1 text-xs ${hasSpecial ? "text-success" : "text-muted-foreground"}`}>
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                  Includes a special character
                 </span>
               </div>
             </div>

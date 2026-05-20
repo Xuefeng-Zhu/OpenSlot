@@ -26,7 +26,7 @@ import { createHoldSchema } from '@/lib/validations/booking'
  * Request body: { eventTypeId, hostUserId, startAt, endAt, guestEmail }
  * Response: { holdId, holdToken, expiresAt } or error
  *
- * Uses a service-role RPC to create the hold and host reservation atomically.
+ * Uses a service-key RPC to create the hold and host reservation atomically.
  */
 export async function POST(request: NextRequest) {
   let adminClient: ReturnType<typeof createAdminClient> | null = null

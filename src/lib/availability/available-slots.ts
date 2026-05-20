@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { addDays } from 'date-fns'
 import { computeAvailableSlots } from './compute-slots'
 import type {
@@ -9,7 +9,7 @@ import type {
 import { refreshCalendarAvailabilityForHost } from '@/lib/calendar/provider-sync'
 import type { Database, Tables } from '@/lib/types/database'
 
-type AdminClient = SupabaseClient<Database>
+type AdminClient = BackendCompatClient<Database>
 
 type AvailableSlotsFailure = {
   success: false

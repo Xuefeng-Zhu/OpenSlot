@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 
 export interface ExpireStaleHoldsResult {
@@ -14,7 +14,7 @@ export async function expireStaleSlotHolds({
   adminClient,
   limit,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   limit: number
 }): Promise<ExpireStaleHoldsResult> {
   const { data, error } = await adminClient

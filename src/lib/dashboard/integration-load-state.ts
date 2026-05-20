@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import {
   listCalendarConnectionSummaries,
   type CalendarConnectionSummary,
@@ -32,7 +32,7 @@ export async function loadDashboardIntegrationSummaries<T>(
 }
 
 export function loadDashboardCalendarConnections(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string
 ): Promise<DashboardIntegrationLoadResult<CalendarConnectionSummary>> {
   return loadDashboardIntegrationSummaries('calendar connections', () =>
@@ -41,7 +41,7 @@ export function loadDashboardCalendarConnections(
 }
 
 export function loadDashboardWebhookEndpoints(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string
 ): Promise<DashboardIntegrationLoadResult<WebhookEndpointSummary>> {
   return loadDashboardIntegrationSummaries('webhook endpoints', () =>

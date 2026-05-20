@@ -15,7 +15,7 @@ For a short GitHub-facing checklist, see [../CONTRIBUTING.md](../CONTRIBUTING.md
 
 - Prefer focused PR-sized changes.
 - Do not add dependencies unless the benefit is clear and documented.
-- Do not move service-role logic into client code.
+- Do not move service-key logic into client code.
 - Add or update tests for behavior changes.
 - Update docs for setup, command, architecture, security, or user-flow changes.
 - Do not document future features as implemented.

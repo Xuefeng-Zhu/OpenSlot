@@ -25,7 +25,7 @@ import type { Json } from '@/lib/types/database'
  * Request body: { cancellationToken: string, cancelReason?: string, idempotencyKey?: string }
  * Response: { success: true } or { success: false, error: string }
  *
- * Uses the service role client to bypass RLS for bookings table.
+ * Uses the service key client to bypass RLS for bookings table.
  * The cancellation token serves as the authorization mechanism (guest operation).
  *
  * Note: The [id] in the route path is for RESTful convention. The actual
