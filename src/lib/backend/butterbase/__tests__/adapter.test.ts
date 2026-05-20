@@ -49,6 +49,59 @@ describe('Butterbase backend adapter', () => {
     expect(requestHeaders(fetchImpl).get('Authorization')).toBeNull()
   })
 
+  it('maps current user responses from Butterbase auth', async () => {
+    const fetchImpl = mockFetch({
+      user: {
+        id: 'auth-user-1',
+        email: 'host@example.com',
+        email_verified: true,
+        display_name: 'Host',
+        avatar_url: null,
+      },
+    })
+    const backend = createButterbaseBackend({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.butterbase.ai',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    const result = await backend.auth.getCurrentUser('caller-token')
+
+    expect(result.error).toBeNull()
+    expect(result.data).toMatchObject({
+      id: 'auth-user-1',
+      email: 'host@example.com',
+      emailVerified: true,
+      displayName: 'Host',
+    })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.butterbase.ai/auth/app_openslot/me',
+      expect.anything()
+    )
+    expect(requestHeaders(fetchImpl).get('Authorization')).toBe(
+      'Bearer caller-token'
+    )
+  })
+
+  it('treats empty current user responses as unauthorized', async () => {
+    const fetchImpl = mockFetch(null)
+    const backend = createButterbaseBackend({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.butterbase.ai',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    const result = await backend.auth.getCurrentUser('stale-token')
+
+    expect(result.data).toBeNull()
+    expect(result.error).toMatchObject({
+      message: 'Unauthorized',
+      status: 401,
+    })
+  })
+
   it('maps data list filters to Butterbase REST query parameters', async () => {
     const fetchImpl = mockFetch([])
     const backend = createButterbaseBackend({

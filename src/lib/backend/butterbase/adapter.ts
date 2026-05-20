@@ -28,6 +28,7 @@ import type {
   PublicRateLimitDecision,
   PublicRateLimitInput,
 } from '../ports'
+import { backendFailure } from '../ports'
 import type {
   BackendInsert,
   BackendRow,
@@ -76,13 +77,20 @@ class ButterbaseAuthPort implements BackendAuthPort {
   constructor(private readonly client: ButterbaseHttpClient) {}
 
   async getCurrentUser(accessToken?: string) {
-    const result = await this.client.result<ButterbaseAuthUser>({
+    const result = await this.client.result<unknown>({
       path: `/auth/${this.client.appId}/me`,
       auth: accessToken ? 'none' : 'user',
       accessToken,
     })
 
-    return mapResult(result, mapUser)
+    if (result.error) return result
+
+    const user = normalizeAuthUser(result.data)
+    if (!user) {
+      return backendFailure({ message: 'Unauthorized', status: 401 })
+    }
+
+    return { data: mapUser(user), error: null }
   }
 
   async signInWithPassword(input: { email: string; password: string }) {
@@ -371,6 +379,22 @@ function mapUser(user: ButterbaseAuthUser) {
     displayName: user.display_name,
     avatarUrl: user.avatar_url,
   }
+}
+
+function normalizeAuthUser(value: unknown): ButterbaseAuthUser | null {
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  const candidate =
+    record.user && typeof record.user === 'object'
+      ? (record.user as Record<string, unknown>)
+      : record
+
+  if (typeof candidate.id !== 'string' || candidate.id.length === 0) {
+    return null
+  }
+
+  return candidate as unknown as ButterbaseAuthUser
 }
 
 function mapSession(session: ButterbaseAuthSession) {
