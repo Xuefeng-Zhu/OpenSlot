@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
-export const runtime = "edge";
-
 export const metadata: Metadata = {
   title: "OpenSlot - Share availability. Book time. Stay in sync.",
   description:
