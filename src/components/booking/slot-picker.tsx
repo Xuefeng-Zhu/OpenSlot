@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { AlertCircle, CalendarDays, Clock3 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,12 @@ interface BookingResult {
   eventTitle: string;
 }
 
+type SlotsByDate = Record<string, TimeSlot[]>;
+
+interface FetchSlotsOptions {
+  force?: boolean;
+}
+
 type BookingFlowState =
   | { step: "select-slot" }
   | { step: "booking-form"; hold: HoldInfo; slot: TimeSlot }
@@ -127,6 +133,7 @@ const COMMON_TIMEZONES = [
 ];
 
 const DEFAULT_TIMEZONE = "UTC";
+const SLOT_PREFETCH_DAYS = 60;
 
 function getBrowserTimezone(): string {
   try {
@@ -150,6 +157,8 @@ export function SlotPicker({
 }: SlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
+  const [timezoneReady, setTimezoneReady] = useState(false);
+  const [slotsByDate, setSlotsByDate] = useState<SlotsByDate>({});
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -171,22 +180,34 @@ export function SlotPicker({
 
   useEffect(() => {
     setTimezone(getBrowserTimezone());
+    setTimezoneReady(true);
   }, []);
 
-  const fetchSlots = useCallback(
-    async (date: Date, tz: string) => {
-      setLoading(true);
-      setError(null);
-      setSlots([]);
-      setSelectedSlot(null);
+  const fetchSlotWindow = useCallback(
+    async (anchorDate: Date, tz: string, applyDate?: Date) => {
+      const startDate = format(anchorDate, "yyyy-MM-dd");
+      const endDate = format(
+        addDays(anchorDate, SLOT_PREFETCH_DAYS - 1),
+        "yyyy-MM-dd"
+      );
+      const applyDateString = applyDate
+        ? format(applyDate, "yyyy-MM-dd")
+        : null;
+      const shouldApply = Boolean(applyDateString);
 
-      const dateStr = format(date, "yyyy-MM-dd");
+      if (shouldApply) {
+        setLoading(true);
+        setError(null);
+        setSlots([]);
+        setSelectedSlot(null);
+      }
 
       try {
         const params = new URLSearchParams({
           hostUserId: hostProfile.id,
           eventTypeId: eventType.id,
-          date: dateStr,
+          startDate,
+          endDate,
           timezone: tz,
         });
 
@@ -194,30 +215,68 @@ export function SlotPicker({
 
         if (!response.ok) {
           const data = await response.json().catch(() => null);
-          setError(
-            data?.error || "Failed to fetch available slots. Please try again."
-          );
+          if (shouldApply) {
+            setError(
+              data?.error || "Failed to fetch available slots. Please try again."
+            );
+          }
           return;
         }
 
         const data = await response.json();
-        setSlots(data.slots ?? []);
+        const nextSlotsByDate = (data.slotsByDate ?? {}) as SlotsByDate;
+
+        setSlotsByDate((current) => ({
+          ...current,
+          ...nextSlotsByDate,
+        }));
+
+        if (applyDateString) {
+          setSlots(nextSlotsByDate[applyDateString] ?? []);
+        }
       } catch {
-        setError(
-          "Unable to load available slots. The service may be temporarily unavailable."
-        );
+        if (shouldApply) {
+          setError(
+            "Unable to load available slots. The service may be temporarily unavailable."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (shouldApply) {
+          setLoading(false);
+        }
       }
     },
     [hostProfile.id, eventType.id]
   );
 
+  const fetchSlots = useCallback(
+    async (date: Date, tz: string, options: FetchSlotsOptions = {}) => {
+      const dateStr = format(date, "yyyy-MM-dd");
+
+      if (!options.force && hasSlotsForDate(slotsByDate, dateStr)) {
+        setError(null);
+        setSlots(slotsByDate[dateStr] ?? []);
+        setSelectedSlot(null);
+        setLoading(false);
+        return;
+      }
+
+      await fetchSlotWindow(date, tz, date);
+    },
+    [fetchSlotWindow, slotsByDate]
+  );
+
   useEffect(() => {
-    if (selectedDate && timezone) {
+    if (timezoneReady && timezone) {
+      void fetchSlotWindow(new Date(), timezone);
+    }
+  }, [timezoneReady, timezone, fetchSlotWindow]);
+
+  useEffect(() => {
+    if (timezoneReady && selectedDate && timezone) {
       fetchSlots(selectedDate, timezone);
     }
-  }, [selectedDate, timezone, fetchSlots]);
+  }, [selectedDate, timezone, timezoneReady, fetchSlots]);
 
   function handleDateSelect(date: Date | undefined) {
     setSelectedDate(date);
@@ -230,6 +289,8 @@ export function SlotPicker({
 
   function handleTimezoneChange(tz: string) {
     setTimezone(tz);
+    setSlotsByDate({});
+    setSlots([]);
     setSelectedSlot(null);
     // Reset flow state when changing timezone
     if (flowState.step !== "confirmed") {
@@ -273,7 +334,7 @@ export function SlotPicker({
             "This slot has been taken by another guest. Please select a different time.";
           setSelectedSlot(null);
           if (selectedDate) {
-            await fetchSlots(selectedDate, timezone);
+            await fetchSlots(selectedDate, timezone, { force: true });
           }
           setError(conflictMessage);
           return;
@@ -316,7 +377,7 @@ export function SlotPicker({
     setFlowState({ step: "select-slot" });
     // Refresh slots to show updated availability
     if (selectedDate) {
-      fetchSlots(selectedDate, timezone);
+      fetchSlots(selectedDate, timezone, { force: true });
     }
   }
 
@@ -328,7 +389,7 @@ export function SlotPicker({
     setFlowState({ step: "select-slot" });
     // Refresh slots to show updated availability
     if (selectedDate) {
-      fetchSlots(selectedDate, timezone);
+      fetchSlots(selectedDate, timezone, { force: true });
     }
   }
 
@@ -467,7 +528,7 @@ export function SlotPicker({
                   className="mt-3"
                   onClick={() => {
                     setError(null);
-                    fetchSlots(selectedDate, timezone);
+                    fetchSlots(selectedDate, timezone, { force: true });
                   }}
                 >
                   Try Again
@@ -565,4 +626,8 @@ export function SlotPicker({
       )}
     </div>
   );
+}
+
+function hasSlotsForDate(slotsByDate: SlotsByDate, date: string): boolean {
+  return Object.prototype.hasOwnProperty.call(slotsByDate, date);
 }

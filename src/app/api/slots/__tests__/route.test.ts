@@ -63,6 +63,19 @@ function slotsRequest() {
   return new Request(`http://localhost/api/slots?${params.toString()}`)
 }
 
+function slotRangeRequest(overrides: Record<string, string> = {}) {
+  const params = new URLSearchParams({
+    hostUserId: '22222222-2222-4222-8222-222222222222',
+    eventTypeId: '11111111-1111-4111-8111-111111111111',
+    startDate: '2026-06-15',
+    endDate: '2026-06-16',
+    timezone: 'America/New_York',
+    ...overrides,
+  })
+
+  return new Request(`http://localhost/api/slots?${params.toString()}`)
+}
+
 describe('GET /api/slots', () => {
   beforeEach(() => {
     mocks.adminClient.from.mockReset()
@@ -171,6 +184,92 @@ describe('GET /api/slots', () => {
     expect(response.status).toBe(429)
     expect(response.headers.get('Retry-After')).toBe('30')
     expect(data.rateLimit.remaining).toBe(0)
+    expect(mocks.adminClient.from).not.toHaveBeenCalled()
+  })
+
+  it('returns slots for an inclusive date range with hold tokens', async () => {
+    const eventTypeQuery = createQuery({
+      data: {
+        duration_minutes: 30,
+        buffer_before_minutes: 0,
+        buffer_after_minutes: 0,
+        min_notice_minutes: 0,
+        max_booking_days_ahead: 365,
+        schedule_id: 'schedule-1',
+        user_id: '22222222-2222-4222-8222-222222222222',
+        is_active: true,
+      },
+      error: null,
+    })
+    const scheduleQuery = createQuery({
+      data: {
+        id: 'schedule-1',
+        timezone: 'America/New_York',
+      },
+      error: null,
+    })
+    const rulesQuery = createQuery({
+      data: [
+        {
+          id: 'rule-1',
+          user_id: '22222222-2222-4222-8222-222222222222',
+          schedule_id: 'schedule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '10:00',
+          timezone: 'America/New_York',
+          is_active: true,
+        },
+      ],
+      error: null,
+    })
+    const overridesQuery = createQuery({ data: [], error: null })
+    const bookingsQuery = createQuery({ data: [], error: null })
+    const holdsQuery = createQuery({ data: [], error: null })
+
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventTypeQuery)
+      .mockReturnValueOnce(scheduleQuery)
+      .mockReturnValueOnce(rulesQuery)
+      .mockReturnValueOnce(overridesQuery)
+      .mockReturnValueOnce(bookingsQuery)
+      .mockReturnValueOnce(holdsQuery)
+
+    const response = await GET(slotRangeRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.slotsByDate).toEqual({
+      '2026-06-15': [
+        {
+          start: '2026-06-15T13:00:00.000Z',
+          end: '2026-06-15T13:30:00.000Z',
+          slotToken: expect.any(String),
+        },
+        {
+          start: '2026-06-15T13:30:00.000Z',
+          end: '2026-06-15T14:00:00.000Z',
+          slotToken: expect.any(String),
+        },
+      ],
+      '2026-06-16': [],
+    })
+    expect(overridesQuery.in).toHaveBeenCalledWith('date', [
+      '2026-06-15',
+      '2026-06-16',
+    ])
+    expect(mocks.adminClient.from).toHaveBeenCalledTimes(6)
+  })
+
+  it('rejects unbounded slot range lookups before rate limiting', async () => {
+    const response = await GET(
+      slotRangeRequest({ endDate: '2026-08-31' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Date range cannot exceed 60 days.')
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
     expect(mocks.adminClient.from).not.toHaveBeenCalled()
   })
 

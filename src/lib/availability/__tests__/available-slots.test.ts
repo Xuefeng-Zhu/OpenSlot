@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   loadAvailableSlotsForDate,
+  loadAvailableSlotsForDateRange,
   validateHoldSlotRequest,
 } from '../available-slots'
 
@@ -352,5 +353,76 @@ describe('loadAvailableSlotsForDate', () => {
         },
       ],
     })
+  })
+
+  it('loads a date range with shared provider reads', async () => {
+    const eventQuery = eventTypeQuery()
+    const scheduleQuery = createQuery({
+      data: { id: 'schedule-1', timezone: 'America/New_York' },
+      error: null,
+    })
+    const rulesQuery = createQuery({
+      data: [
+        {
+          id: 'rule-1',
+          user_id: hostUserId,
+          schedule_id: 'schedule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '10:00',
+          timezone: 'America/New_York',
+          is_active: true,
+        },
+      ],
+      error: null,
+    })
+    const overridesQuery = createQuery({ data: [], error: null })
+    const bookingsQuery = createQuery({ data: [], error: null })
+    const holdsQuery = createQuery({ data: [], error: null })
+    const supabase = createSupabaseClient([
+      eventQuery,
+      scheduleQuery,
+      rulesQuery,
+      overridesQuery,
+      bookingsQuery,
+      holdsQuery,
+    ])
+
+    const result = await loadAvailableSlotsForDateRange({
+      supabase: supabase as any,
+      hostUserId,
+      eventTypeId,
+      startDate: '2025-01-06',
+      endDate: '2025-01-07',
+      guestTimezone: 'America/New_York',
+    })
+
+    expect(result).toEqual({
+      success: true,
+      slotsByDate: {
+        '2025-01-06': [
+          {
+            start: '2025-01-06T14:00:00.000Z',
+            end: '2025-01-06T14:30:00.000Z',
+          },
+          {
+            start: '2025-01-06T14:30:00.000Z',
+            end: '2025-01-06T15:00:00.000Z',
+          },
+        ],
+        '2025-01-07': [],
+      },
+    })
+    expect(supabase.from).toHaveBeenCalledTimes(6)
+    expect(overridesQuery.in).toHaveBeenCalledWith('date', [
+      '2025-01-06',
+      '2025-01-07',
+    ])
+    expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalledWith(
+      supabase,
+      hostUserId,
+      '2025-01-05T00:00:00.000Z',
+      '2025-01-08T23:59:59.999Z'
+    )
   })
 })

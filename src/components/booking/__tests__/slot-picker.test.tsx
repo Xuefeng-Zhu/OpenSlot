@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SlotPicker } from '../slot-picker'
@@ -28,9 +28,17 @@ const hostProfile: SlotPickerProps['hostProfile'] = {
 describe('SlotPicker', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
-  it('renders with a valid timezone before browser detection succeeds', () => {
+  it('renders with a valid timezone before browser detection succeeds', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => {
+      return new Response(JSON.stringify({ slotsByDate: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
     vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(
       () =>
         ({
@@ -44,5 +52,8 @@ describe('SlotPicker', () => {
 
     expect(screen.getByLabelText('Timezone')).toBeDefined()
     expect(screen.getByText('UTC')).toBeDefined()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(String(fetchMock.mock.calls[0][0])).toContain('startDate=')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('endDate=')
   })
 })
