@@ -73,9 +73,27 @@ export function createClient(options: CreateClientOptions = {}) {
         })
       },
       async exchangeCodeForSession(code: string) {
-        return postAuth<BackendCompatSession>('/api/auth/reset-password', {
-          code,
+        const response = await fetch('/api/auth/exchange-code', {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ code }),
         })
+        const body = await response.json().catch(() => ({}))
+
+        if (!response.ok || body.success === false) {
+          return {
+            data: null,
+            error: responseError(body, response.status),
+          }
+        }
+
+        return {
+          data: body.session ?? null,
+          error: null,
+        }
       },
       async getUser() {
         const response = await fetch('/api/auth/session', {

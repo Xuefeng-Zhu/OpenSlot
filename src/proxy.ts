@@ -4,6 +4,7 @@ import {
   BACKEND_ACCESS_TOKEN_COOKIE,
   BACKEND_REFRESH_TOKEN_COOKIE,
   backendSessionCookies,
+  type BackendCookieToSet,
   shouldKeepAuthSession,
 } from '@/lib/backend/session'
 
@@ -42,12 +43,13 @@ export async function proxy(request: NextRequest) {
 
     if (!refreshed.error) {
       authenticated = true
+      const refreshedCookies = backendSessionCookies(refreshed.data, keepSignedIn)
       response = NextResponse.next({
         request: {
-          headers: request.headers,
+          headers: requestHeadersWithBackendCookies(request, refreshedCookies),
         },
       })
-      for (const cookie of backendSessionCookies(refreshed.data, keepSignedIn)) {
+      for (const cookie of refreshedCookies) {
         response.cookies.set(cookie.name, cookie.value, cookie.options)
       }
     }
@@ -66,6 +68,36 @@ function redirectDashboardToLogin(request: NextRequest) {
   const returnUrl = encodeURIComponent(request.nextUrl.pathname)
   const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url)
   return NextResponse.redirect(loginUrl)
+}
+
+function requestHeadersWithBackendCookies(
+  request: NextRequest,
+  cookiesToSet: BackendCookieToSet[]
+) {
+  const headers = new Headers(request.headers)
+  headers.set('cookie', mergeCookieHeader(headers.get('cookie'), cookiesToSet))
+  return headers
+}
+
+function mergeCookieHeader(
+  cookieHeader: string | null,
+  cookiesToSet: BackendCookieToSet[]
+) {
+  const cookies = new Map<string, string>()
+
+  for (const cookie of cookieHeader?.split(';') ?? []) {
+    const [name, ...valueParts] = cookie.trim().split('=')
+    if (!name) continue
+    cookies.set(name, valueParts.join('='))
+  }
+
+  for (const cookie of cookiesToSet) {
+    cookies.set(cookie.name, cookie.value)
+  }
+
+  return Array.from(cookies.entries())
+    .map(([name, value]) => `${name}=${value}`)
+    .join('; ')
 }
 
 /**
