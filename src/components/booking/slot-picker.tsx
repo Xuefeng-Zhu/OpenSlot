@@ -246,7 +246,6 @@ export function SlotPicker({
     setSelectedSlot(slot);
     setHoldLoading(true);
     setError(null);
-    const idempotencyKey = createIdempotencyKey();
 
     try {
       // Create a hold on the selected slot
@@ -254,7 +253,6 @@ export function SlotPicker({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
           eventTypeId: eventType.id,
@@ -262,7 +260,6 @@ export function SlotPicker({
           startAt: slot.start,
           endAt: slot.end,
           guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
-          idempotencyKey,
           turnstileToken: holdTurnstileToken ?? undefined,
           slotToken: slot.slotToken,
         }),
@@ -568,12 +565,4 @@ export function SlotPicker({
       )}
     </div>
   );
-}
-
-function createIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }

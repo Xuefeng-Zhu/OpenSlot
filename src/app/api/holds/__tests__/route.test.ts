@@ -156,6 +156,8 @@ describe('POST /api/holds', () => {
         windowSeconds: 300,
       },
     })
+    expect(mocks.beginIdempotentRequest).not.toHaveBeenCalled()
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
   })
 
   it('records a fresh idempotent hold request and caches the response', async () => {
