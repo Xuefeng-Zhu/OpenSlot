@@ -2,6 +2,7 @@ import { Calendar, Clock, User } from "lucide-react";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SlotPicker } from "@/components/booking/slot-picker";
+import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
 import type { Tables } from "@/lib/types/database";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
 
@@ -99,6 +100,7 @@ export default async function RescheduleBookingPage({
           username: profile.username,
           avatar_url: profile.avatar_url,
         }}
+        bookingAgentEnabled={isBookingAgentConfigured()}
         rescheduleContext={{
           token,
           guestName: booking.guest_name,

@@ -54,6 +54,8 @@ Browser UI
 ```text
 Public event page
   -> SlotPicker
+  -> optional POST /api/booking-agent/message
+  -> Butterbase model gateway suggests dates/times without mutating bookings
   -> GET /api/slots
   -> consume_public_rate_limit()
   -> load host availability, confirmed bookings, active holds, and provider busy cache
@@ -193,6 +195,7 @@ belong under `backend/butterbase/`:
 
 | Route | Auth | Main module |
 | --- | --- | --- |
+| `POST /api/booking-agent/message` | Public ephemeral assistant turn, service-key read, public rate limit, Butterbase AI gateway call | `src/lib/booking-agent/agent.ts` |
 | `GET /api/slots` | Public route, service-key read after active host/event validation | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service-key function with reservation guard | `src/app/api/holds/route.ts` |
 | `POST /api/bookings` | Hold token operation, optional idempotency key, public rate limit, optional Turnstile, service-key write | `src/lib/booking/confirm.ts` |

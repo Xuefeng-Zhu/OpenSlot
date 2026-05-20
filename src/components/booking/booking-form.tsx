@@ -27,6 +27,7 @@ import {
   type ConfirmBookingFormInputValues,
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
+import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 import {
   isTurnstileEnabled,
@@ -77,6 +78,7 @@ interface BookingFormProps {
     email: string;
     timezone: string;
   };
+  initialDraft?: BookingAgentDraft;
   onConfirmed: (result: {
     bookingId: string;
     cancellationToken: string;
@@ -107,6 +109,7 @@ export function BookingForm({
   inviteeQuestions,
   rescheduleToken,
   initialGuest,
+  initialDraft,
   onConfirmed,
   onHoldExpired,
   onSlotTaken,
@@ -138,11 +141,15 @@ export function BookingForm({
       ConfirmBookingFormValues
     >,
     defaultValues: {
-      guestName: initialGuest?.name ?? "",
-      guestEmail: initialGuest?.email ?? "",
-      guestTimezone: initialGuest?.timezone ?? timezone,
-      notes: "",
-      answers: defaultAnswerValues(inviteeQuestions),
+      guestName: initialGuest?.name ?? initialDraft?.guestName ?? "",
+      guestEmail: initialGuest?.email ?? initialDraft?.guestEmail ?? "",
+      guestTimezone:
+        initialGuest?.timezone ?? initialDraft?.guestTimezone ?? timezone,
+      notes: initialDraft?.notes ?? "",
+      answers: {
+        ...defaultAnswerValues(inviteeQuestions),
+        ...(initialDraft?.answers ?? {}),
+      },
     },
   });
 
