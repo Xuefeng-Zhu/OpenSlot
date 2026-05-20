@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AppIcon } from "@/components/shared/app-icon";
 
+export const runtime = "edge";
+
 export default function PublicLayout({
   children,
 }: {

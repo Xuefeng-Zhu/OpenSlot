@@ -22,6 +22,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import type { Tables } from '@/lib/types/database'
 import { normalizeInviteeQuestions } from '@/lib/validations/invitee-questions'
 
+export const runtime = 'edge'
+
 type AdminClient = ReturnType<typeof createAdminClient>
 
 type BookingAgentEventType = Pick<

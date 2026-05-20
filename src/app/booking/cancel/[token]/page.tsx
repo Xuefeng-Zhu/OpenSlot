@@ -9,6 +9,8 @@ import {
   type CancellationBookingDetails,
 } from "@/lib/booking/cancellation-details";
 
+export const runtime = "edge";
+
 interface CancelBookingPageProps {
   params: Promise<{ token: string }>;
 }

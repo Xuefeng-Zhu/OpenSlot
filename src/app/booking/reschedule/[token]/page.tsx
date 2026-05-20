@@ -6,6 +6,8 @@ import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
 import type { Tables } from "@/lib/types/database";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
 
+export const runtime = "edge";
+
 interface ReschedulePageProps {
   params: Promise<{ token: string }>;
 }
