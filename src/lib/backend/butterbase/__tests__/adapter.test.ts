@@ -20,6 +20,7 @@ describe('Butterbase backend adapter', () => {
       appId: 'app_openslot',
       apiUrl: 'https://api.butterbase.ai',
       apiKey: 'service-key',
+      accessToken: 'caller-token',
       fetchImpl,
     })
 
@@ -54,6 +55,7 @@ describe('Butterbase backend adapter', () => {
       appId: 'app_openslot',
       apiUrl: 'https://api.butterbase.ai',
       apiKey: 'service-key',
+      accessToken: 'caller-token',
       fetchImpl,
     })
 
@@ -72,6 +74,23 @@ describe('Butterbase backend adapter', () => {
     expect(url).toContain('order=created_at.desc')
     expect(url).toContain('limit=10')
     expect(url).toContain('offset=20')
+    expect(requestHeaders(fetchImpl).get('Authorization')).toBe(
+      'Bearer caller-token'
+    )
+  })
+
+  it('uses service credentials for explicit service-role data calls', async () => {
+    const fetchImpl = mockFetch([])
+    const backend = createButterbaseBackend({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.butterbase.ai',
+      apiKey: 'service-key',
+      accessToken: 'caller-token',
+      fetchImpl,
+    })
+
+    await backend.data.list('profiles', { serviceRole: true })
+
     expect(requestHeaders(fetchImpl).get('Authorization')).toBe(
       'Bearer service-key'
     )

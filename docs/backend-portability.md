@@ -36,6 +36,8 @@ BUTTERBASE_API_KEY=...
 
 `BUTTERBASE_API_KEY` is server-only. It must never be exposed through
 `NEXT_PUBLIC_*` variables or sent to browser code.
+Data-port reads and writes default to caller/user authentication; trusted
+server-only callers must opt into service credentials with `serviceRole: true`.
 
 ## Provider Switch Checklist
 

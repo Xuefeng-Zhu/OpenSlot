@@ -55,13 +55,23 @@ export interface BackendFilter {
   value: BackendFilterValue
 }
 
-export interface BackendListOptions {
+export interface BackendDataAuthOptions {
+  accessToken?: string
+  serviceRole?: boolean
+}
+
+export interface BackendReadOptions extends BackendDataAuthOptions {
   select?: string
+}
+
+export interface BackendListOptions extends BackendReadOptions {
   filters?: BackendFilter[]
   order?: string
   limit?: number
   offset?: number
 }
+
+export type BackendWriteOptions = BackendDataAuthOptions
 
 export interface BackendUser {
   id: string
@@ -110,20 +120,23 @@ export interface BackendDataPort {
   getById<TTable extends BackendTable>(
     table: TTable,
     id: string,
-    options?: Pick<BackendListOptions, 'select'>
+    options?: BackendReadOptions
   ): Promise<BackendResult<BackendRow<TTable>>>
   insert<TTable extends BackendTable>(
     table: TTable,
-    row: BackendInsert<TTable>
+    row: BackendInsert<TTable>,
+    options?: BackendWriteOptions
   ): Promise<BackendResult<BackendRow<TTable>>>
   update<TTable extends BackendTable>(
     table: TTable,
     id: string,
-    patch: BackendUpdate<TTable>
+    patch: BackendUpdate<TTable>,
+    options?: BackendWriteOptions
   ): Promise<BackendResult<BackendRow<TTable>>>
   remove<TTable extends BackendTable>(
     table: TTable,
-    id: string
+    id: string,
+    options?: BackendWriteOptions
   ): Promise<BackendResult<{ success: true }>>
 }
 

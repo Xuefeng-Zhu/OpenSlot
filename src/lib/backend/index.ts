@@ -1,13 +1,17 @@
 export type {
   BackendAuthPort,
+  BackendDataAuthOptions,
   BackendDataPort,
   BackendError,
   BackendFilter,
   BackendFunctionName,
   BackendFunctionsPort,
+  BackendListOptions,
   BackendPorts,
+  BackendReadOptions,
   BackendResult,
   BackendTransactionsPort,
+  BackendWriteOptions,
 } from './ports'
 export { backendFailure, backendSuccess } from './ports'
 export type {

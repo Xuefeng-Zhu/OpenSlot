@@ -12,12 +12,15 @@ import type { Json, Tables } from '@/lib/types/database'
 import { backendFunctionSlugs } from '../functions'
 import type {
   BackendAuthPort,
+  BackendDataAuthOptions,
   BackendDataPort,
   BackendFunctionRequest,
   BackendFunctionsPort,
   BackendListOptions,
   BackendPorts,
+  BackendReadOptions,
   BackendResult,
+  BackendWriteOptions,
   BackendTransactionsPort,
   ClaimWorkerOptions,
   ExpireStaleSlotHoldsInput,
@@ -168,49 +171,57 @@ class ButterbaseDataPort implements BackendDataPort {
   ): Promise<BackendResult<Array<BackendRow<TTable>>>> {
     return this.client.result<Array<BackendRow<TTable>>>({
       path: this.tablePath(table, options),
+      ...dataRequestAuth(options),
     })
   }
 
   async getById<TTable extends BackendTable>(
     table: TTable,
     id: string,
-    options: Pick<BackendListOptions, 'select'> = {}
+    options: BackendReadOptions = {}
   ): Promise<BackendResult<BackendRow<TTable>>> {
     return this.client.result<BackendRow<TTable>>({
       path: this.rowPath(table, id, options),
+      ...dataRequestAuth(options),
     })
   }
 
   async insert<TTable extends BackendTable>(
     table: TTable,
-    row: BackendInsert<TTable>
+    row: BackendInsert<TTable>,
+    options: BackendWriteOptions = {}
   ): Promise<BackendResult<BackendRow<TTable>>> {
     return this.client.result<BackendRow<TTable>, BackendInsert<TTable>>({
       method: 'POST',
       path: `/v1/${this.client.appId}/${table}`,
       body: row,
+      ...dataRequestAuth(options),
     })
   }
 
   async update<TTable extends BackendTable>(
     table: TTable,
     id: string,
-    patch: BackendUpdate<TTable>
+    patch: BackendUpdate<TTable>,
+    options: BackendWriteOptions = {}
   ): Promise<BackendResult<BackendRow<TTable>>> {
     return this.client.result<BackendRow<TTable>, BackendUpdate<TTable>>({
       method: 'PATCH',
       path: `/v1/${this.client.appId}/${table}/${encodeURIComponent(id)}`,
       body: patch,
+      ...dataRequestAuth(options),
     })
   }
 
   async remove<TTable extends BackendTable>(
     table: TTable,
-    id: string
+    id: string,
+    options: BackendWriteOptions = {}
   ): Promise<BackendResult<{ success: true }>> {
     return this.client.result<{ success: true }>({
       method: 'DELETE',
       path: `/v1/${this.client.appId}/${table}/${encodeURIComponent(id)}`,
+      ...dataRequestAuth(options),
     })
   }
 
@@ -239,7 +250,7 @@ class ButterbaseDataPort implements BackendDataPort {
   private rowPath<TTable extends BackendTable>(
     table: TTable,
     id: string,
-    options: Pick<BackendListOptions, 'select'>
+    options: BackendReadOptions
   ): string {
     const params = new URLSearchParams()
     if (options.select) params.set('select', options.select)
@@ -249,6 +260,18 @@ class ButterbaseDataPort implements BackendDataPort {
       query ? `?${query}` : ''
     }`
   }
+}
+
+function dataRequestAuth(options: BackendDataAuthOptions): {
+  auth: 'none' | 'service' | 'user'
+  accessToken?: string
+} {
+  if (options.serviceRole) return { auth: 'service' }
+  if (options.accessToken) {
+    return { auth: 'none', accessToken: options.accessToken }
+  }
+
+  return { auth: 'user' }
 }
 
 class ButterbaseFunctionsPort implements BackendFunctionsPort {

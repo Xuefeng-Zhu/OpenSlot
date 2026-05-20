@@ -3,6 +3,7 @@ import type { BackendPorts, BackendFunctionName } from './ports'
 import {
   backendFailure,
   backendSuccess,
+  type BackendFilterValue,
   type BackendFunctionRequest,
   type BackendListOptions,
   type BackendResult,
@@ -201,9 +202,108 @@ function matchesFilters(
   return (options.filters ?? []).every((filter) => {
     const value = row[filter.column]
 
-    if (filter.operator === 'eq') return value === filter.value
-    if (filter.operator === 'neq') return value !== filter.value
-    if (filter.operator === 'is') return value === filter.value
-    return true
+    switch (filter.operator) {
+      case 'eq':
+        return value === filter.value
+      case 'neq':
+        return value !== filter.value
+      case 'is':
+        return value === filter.value
+      case 'gt':
+        return compareFilterValues(value, filter.value) > 0
+      case 'gte':
+        return compareFilterValues(value, filter.value) >= 0
+      case 'lt':
+        return compareFilterValues(value, filter.value) < 0
+      case 'lte':
+        return compareFilterValues(value, filter.value) <= 0
+      case 'in':
+        return matchesInFilter(value, filter.value)
+      case 'like':
+        return matchesLikeFilter(value, filter.value, true)
+      case 'ilike':
+        return matchesLikeFilter(value, filter.value, false)
+      case 'fts':
+        throw new Error('Unsupported fake backend filter operator: fts')
+      default: {
+        const operator: never = filter.operator
+        throw new Error(`Unsupported fake backend filter operator: ${operator}`)
+      }
+    }
   })
+}
+
+function compareFilterValues(
+  rowValue: unknown,
+  filterValue: BackendFilterValue
+): number {
+  if (typeof rowValue === 'number' && typeof filterValue === 'number') {
+    return rowValue - filterValue
+  }
+
+  if (typeof rowValue === 'string' && typeof filterValue === 'string') {
+    return rowValue.localeCompare(filterValue)
+  }
+
+  throw new Error(
+    `Unsupported fake backend comparison between ${typeof rowValue} and ${filterValueDescription(
+      filterValue
+    )}`
+  )
+}
+
+function matchesInFilter(
+  rowValue: unknown,
+  filterValue: BackendFilterValue
+): boolean {
+  if (!Array.isArray(filterValue)) {
+    throw new Error('Fake backend in filters require an array value')
+  }
+
+  return filterValue.some((candidate) => candidate === rowValue)
+}
+
+function matchesLikeFilter(
+  rowValue: unknown,
+  filterValue: BackendFilterValue,
+  caseSensitive: boolean
+): boolean {
+  if (typeof filterValue !== 'string') {
+    throw new Error('Fake backend like filters require string values')
+  }
+
+  if (rowValue === null || rowValue === undefined) return false
+
+  if (typeof rowValue !== 'string') {
+    throw new Error('Fake backend like filters require string values')
+  }
+
+  return likePatternToRegExp(filterValue, caseSensitive).test(rowValue)
+}
+
+function likePatternToRegExp(pattern: string, caseSensitive: boolean): RegExp {
+  let source = '^'
+
+  for (const character of pattern) {
+    if (character === '%') {
+      source += '.*'
+    } else if (character === '_') {
+      source += '.'
+    } else {
+      source += escapeRegExp(character)
+    }
+  }
+
+  source += '$'
+  return new RegExp(source, caseSensitive ? undefined : 'i')
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function filterValueDescription(value: BackendFilterValue): string {
+  if (Array.isArray(value)) return 'array'
+  if (value === null) return 'null'
+  return typeof value
 }
