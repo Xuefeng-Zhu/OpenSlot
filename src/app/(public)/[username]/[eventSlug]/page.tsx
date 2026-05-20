@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Tables } from "@/lib/types/database";
 import { SlotPicker } from "@/components/booking/slot-picker";
+import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
 
 interface BookingPageProps {
@@ -67,6 +68,7 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
         username: profile.username!,
         avatar_url: profile.avatar_url,
       }}
+      bookingAgentEnabled={isBookingAgentConfigured()}
     />
   );
 }

@@ -22,6 +22,7 @@ import {
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
+import { BookingAgentPanel } from "@/components/booking/booking-agent-panel";
 import {
   isTurnstileEnabled,
   TurnstileWidget,
@@ -29,6 +30,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
 import { cn } from "@/lib/utils";
+import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 interface TimeSlot {
@@ -60,6 +62,7 @@ interface SlotPickerProps {
   eventType: SlotPickerEventType;
   hostProfile: SlotPickerHostProfile;
   layout?: "public" | "embedded";
+  bookingAgentEnabled?: boolean;
   rescheduleContext?: {
     token: string;
     guestName: string;
@@ -141,6 +144,7 @@ export function SlotPicker({
   eventType,
   hostProfile,
   layout = "public",
+  bookingAgentEnabled = false,
   rescheduleContext,
 }: SlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -154,10 +158,15 @@ export function SlotPicker({
     null
   );
   const [holdTurnstileResetKey, setHoldTurnstileResetKey] = useState(0);
+  const [agentDraft, setAgentDraft] = useState<BookingAgentDraft>({});
   const [flowState, setFlowState] = useState<BookingFlowState>({
     step: "select-slot",
   });
   const turnstileRequired = isTurnstileEnabled();
+  const selectedDateString = selectedDate
+    ? format(selectedDate, "yyyy-MM-dd")
+    : undefined;
+  const showBookingAgent = bookingAgentEnabled && layout === "public";
 
   useEffect(() => {
     setTimezone(getBrowserTimezone());
@@ -502,7 +511,32 @@ export function SlotPicker({
             )}
           </CardContent>
         </Card>
+
       </div>
+
+      {showBookingAgent && (
+        <BookingAgentPanel
+          mode={rescheduleContext ? "reschedule" : "booking"}
+          eventTypeId={eventType.id}
+          hostUserId={hostProfile.id}
+          timezone={timezone}
+          selectedDate={selectedDateString}
+          selectedSlot={selectedSlot}
+          rescheduleToken={rescheduleContext?.token}
+          holdDisabled={
+            holdLoading || (turnstileRequired && !holdTurnstileToken)
+          }
+          holdDisabledReason={
+            turnstileRequired && !holdTurnstileToken
+              ? "Complete the verification challenge before holding a time."
+              : "Please wait while this time is being held."
+          }
+          onSelectSlot={handleSlotSelect}
+          onDraftChange={(draft) =>
+            setAgentDraft((current) => ({ ...current, ...draft }))
+          }
+        />
+      )}
 
       {/* Booking form (shown after hold is created) */}
       {flowState.step === "booking-form" && (
@@ -524,6 +558,7 @@ export function SlotPicker({
                 }
               : undefined
           }
+          initialDraft={agentDraft}
           onConfirmed={handleBookingConfirmed}
           onHoldExpired={handleHoldExpired}
           onSlotTaken={handleSlotTaken}

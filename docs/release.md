@@ -94,6 +94,7 @@ CALENDAR_FINAL_AVAILABILITY_CHECK=stale
 CALENDAR_STALE_AFTER_MINUTES=10
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
 TURNSTILE_SECRET_KEY=...
+BOOKING_AGENT_MODEL=deepseek/deepseek-v4-flash
 EMAIL_PROVIDER=console
 EMAIL_FROM="OpenSlot <bookings@example.com>"
 RESEND_API_KEY=...
@@ -116,6 +117,12 @@ should fail closed and live-check provider free/busy if calendar cache or watch
 health is stale.
 
 Generated Google Meet and Microsoft Teams links depend on the existing Google/Microsoft calendar OAuth credentials and writable provider calendars. No separate Zoom or video-provider secret is required for the v1 video integration.
+
+The public booking assistant is enabled when `BUTTERBASE_API_KEY` is present and
+uses the Butterbase AI gateway with `deepseek/deepseek-v4-flash` by default.
+Ensure the Butterbase app AI configuration allows that model before enabling it
+in production. Set `BOOKING_AGENT_MODEL` only to make an intentional deployment
+override.
 
 Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking and reminder emails through Resend. Set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY` to send through Maileroo. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
 
