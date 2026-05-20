@@ -65,7 +65,9 @@ function slotsRequest() {
 
 describe('GET /api/slots', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    mocks.adminClient.from.mockReset()
+    mocks.consumePublicRateLimit.mockReset()
+    mocks.refreshCalendarAvailabilityForHost.mockReset()
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-01T00:00:00Z'))
     mocks.consumePublicRateLimit.mockResolvedValue({
@@ -73,6 +75,11 @@ describe('GET /api/slots', () => {
       limit: 120,
       remaining: 119,
       resetAt: '2026-06-01T00:01:00.000Z',
+    })
+    mocks.refreshCalendarAvailabilityForHost.mockResolvedValue({
+      checked: 0,
+      refreshed: 0,
+      failed: 0,
     })
   })
 
@@ -125,7 +132,6 @@ describe('GET /api/slots', () => {
       .mockReturnValueOnce(emptyQuery)
       .mockReturnValueOnce(emptyQuery)
       .mockReturnValueOnce(emptyQuery)
-      .mockReturnValueOnce(emptyQuery)
 
     const response = await GET(slotsRequest() as any)
     const data = await response.json()
@@ -169,6 +175,12 @@ describe('GET /api/slots', () => {
   })
 
   it('excludes slots that overlap synced external calendar busy cache rows', async () => {
+    mocks.refreshCalendarAvailabilityForHost.mockResolvedValueOnce({
+      checked: 1,
+      refreshed: 0,
+      failed: 0,
+    })
+
     const eventTypeQuery = createQuery({
       data: {
         duration_minutes: 30,

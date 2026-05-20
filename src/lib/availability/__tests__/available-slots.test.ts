@@ -56,14 +56,16 @@ function availabilityQuerySet({
   bookings = [],
   holds = [],
   connections = [],
+  includeConnectionQuery = false,
 }: {
   rules?: unknown[]
   overrides?: unknown[]
   bookings?: unknown[]
   holds?: unknown[]
   connections?: unknown[]
+  includeConnectionQuery?: boolean
 } = {}) {
-  return [
+  const queries = [
     createQuery({
       data: { id: 'schedule-1', timezone: 'America/New_York' },
       error: null,
@@ -72,8 +74,13 @@ function availabilityQuerySet({
     createQuery({ data: overrides, error: null }),
     createQuery({ data: bookings, error: null }),
     createQuery({ data: holds, error: null }),
-    createQuery({ data: connections, error: null }),
   ]
+
+  if (includeConnectionQuery) {
+    queries.push(createQuery({ data: connections, error: null }))
+  }
+
+  return queries
 }
 
 function createSupabaseClient(queries: any[]) {

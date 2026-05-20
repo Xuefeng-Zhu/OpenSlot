@@ -6,7 +6,10 @@ import type {
   AvailabilityRule,
   TimeSlot,
 } from './types'
-import { refreshCalendarAvailabilityForHost } from '@/lib/calendar/provider-sync'
+import {
+  refreshCalendarAvailabilityForHost,
+  type RefreshCalendarAvailabilityResult,
+} from '@/lib/calendar/provider-sync'
 import type { Database, Tables } from '@/lib/types/database'
 
 type AdminClient = BackendCompatClient<Database>
@@ -141,7 +144,7 @@ export async function validateHoldSlotRequest({
     eventTypeResult.eventType.buffer_after_minutes
   )
 
-  await refreshCalendarAvailabilityForHost(
+  const refreshResult = await refreshCalendarAvailabilityForHost(
     supabase,
     hostUserId,
     refreshRange.start,
@@ -156,6 +159,7 @@ export async function validateHoldSlotRequest({
       date,
       guestTimezone: 'UTC',
       eventType: eventTypeResult.eventType,
+      skipExternalBusyLookup: refreshResult.checked === 0,
     })
 
     if (!slotsResult.success) {
@@ -231,6 +235,7 @@ async function computeSlotsForDate({
   guestTimezone,
   eventType,
   refreshExternalCalendars = false,
+  skipExternalBusyLookup = false,
 }: {
   supabase: AdminClient
   hostUserId: string
@@ -239,6 +244,7 @@ async function computeSlotsForDate({
   guestTimezone: string
   eventType: EventTypeAvailabilityConfig
   refreshExternalCalendars?: boolean
+  skipExternalBusyLookup?: boolean
 }): Promise<AvailableSlotsResult> {
   const scheduleResult = await loadScheduleAvailabilityConfig({
     supabase,
@@ -256,21 +262,65 @@ async function computeSlotsForDate({
     eventType.buffer_after_minutes
   )
 
-  if (refreshExternalCalendars) {
-    await refreshCalendarAvailabilityForHost(
-      supabase,
-      hostUserId,
-      conflictLookupRange.start,
-      conflictLookupRange.end
-    )
-  }
+  const refreshPromise = refreshExternalCalendars
+    ? refreshCalendarAvailabilityForHost(
+        supabase,
+        hostUserId,
+        conflictLookupRange.start,
+        conflictLookupRange.end
+      )
+    : Promise.resolve<RefreshCalendarAvailabilityResult | null>(null)
 
-  const { data: rulesData, error: rulesError } = await supabase
+  const rulesPromise = supabase
     .from('availability_rules')
-    .select('id, user_id, schedule_id, weekday, start_time, end_time, timezone, is_active')
+    .select(
+      'id, user_id, schedule_id, weekday, start_time, end_time, timezone, is_active'
+    )
     .eq('user_id', hostUserId)
     .eq('schedule_id', scheduleResult.schedule.id)
     .eq('is_active', true)
+
+  const overridesPromise = supabase
+    .from('availability_overrides')
+    .select(
+      'id, user_id, schedule_id, date, start_time, end_time, timezone, is_available, reason'
+    )
+    .eq('user_id', hostUserId)
+    .eq('schedule_id', scheduleResult.schedule.id)
+    .eq('date', date)
+
+  const bookingsPromise = supabase
+    .from('bookings')
+    .select('start_at, end_at')
+    .eq('host_user_id', hostUserId)
+    .eq('status', 'confirmed')
+    .lte('start_at', conflictLookupRange.end)
+    .gte('end_at', conflictLookupRange.start)
+
+  const nowISO = new Date().toISOString()
+
+  const holdsPromise = supabase
+    .from('slot_holds')
+    .select('start_at, end_at')
+    .eq('host_user_id', hostUserId)
+    .eq('status', 'active')
+    .gt('expires_at', nowISO)
+    .lte('start_at', conflictLookupRange.end)
+    .gte('end_at', conflictLookupRange.start)
+
+  const [
+    refreshResult,
+    { data: rulesData, error: rulesError },
+    { data: overridesData, error: overridesError },
+    { data: bookingsData, error: bookingsError },
+    { data: holdsData, error: holdsError },
+  ] = await Promise.all([
+    refreshPromise,
+    rulesPromise,
+    overridesPromise,
+    bookingsPromise,
+    holdsPromise,
+  ])
 
   if (rulesError) {
     return {
@@ -280,15 +330,6 @@ async function computeSlotsForDate({
     }
   }
 
-  const { data: overridesData, error: overridesError } = await supabase
-    .from('availability_overrides')
-    .select(
-      'id, user_id, schedule_id, date, start_time, end_time, timezone, is_available, reason'
-    )
-    .eq('user_id', hostUserId)
-    .eq('schedule_id', scheduleResult.schedule.id)
-    .eq('date', date)
-
   if (overridesError) {
     return {
       success: false,
@@ -296,14 +337,6 @@ async function computeSlotsForDate({
       error: 'Failed to fetch availability overrides',
     }
   }
-
-  const { data: bookingsData, error: bookingsError } = await supabase
-    .from('bookings')
-    .select('start_at, end_at')
-    .eq('host_user_id', hostUserId)
-    .eq('status', 'confirmed')
-    .lte('start_at', conflictLookupRange.end)
-    .gte('end_at', conflictLookupRange.start)
 
   if (bookingsError) {
     return {
@@ -313,17 +346,6 @@ async function computeSlotsForDate({
     }
   }
 
-  const nowISO = new Date().toISOString()
-
-  const { data: holdsData, error: holdsError } = await supabase
-    .from('slot_holds')
-    .select('start_at, end_at')
-    .eq('host_user_id', hostUserId)
-    .eq('status', 'active')
-    .gt('expires_at', nowISO)
-    .lte('start_at', conflictLookupRange.end)
-    .gte('end_at', conflictLookupRange.start)
-
   if (holdsError) {
     return {
       success: false,
@@ -332,13 +354,18 @@ async function computeSlotsForDate({
     }
   }
 
+  const shouldSkipExternalBusyLookup =
+    skipExternalBusyLookup || refreshResult?.checked === 0
+
   const { slots: externalBusySlots, error: externalBusyError } =
-    await fetchExternalBusySlots({
-      supabase,
-      hostUserId,
-      rangeStart: conflictLookupRange.start,
-      rangeEnd: conflictLookupRange.end,
-    })
+    shouldSkipExternalBusyLookup
+      ? { slots: [], error: null }
+      : await fetchExternalBusySlots({
+          supabase,
+          hostUserId,
+          rangeStart: conflictLookupRange.start,
+          rangeEnd: conflictLookupRange.end,
+        })
 
   if (externalBusyError) {
     return {
