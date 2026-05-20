@@ -2,6 +2,7 @@ export interface ButterbaseBackendConfig {
   appId: string
   apiUrl: string
   apiKey?: string
+  functionSecret?: string
   accessToken?: string
   fetchImpl?: typeof fetch
 }
@@ -24,6 +25,8 @@ export function resolveButterbaseConfig(
     appId,
     apiUrl,
     apiKey: overrides.apiKey ?? process.env.BUTTERBASE_API_KEY,
+    functionSecret:
+      overrides.functionSecret ?? process.env.BUTTERBASE_FUNCTION_SECRET,
     accessToken: overrides.accessToken,
     fetchImpl: overrides.fetchImpl,
   }

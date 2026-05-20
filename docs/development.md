@@ -31,11 +31,14 @@ Minimum app variables:
 NEXT_PUBLIC_BUTTERBASE_APP_ID=app_...
 NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
 BUTTERBASE_API_KEY=bb_sk_...
+BUTTERBASE_FUNCTION_SECRET=...
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
 Keep `BUTTERBASE_API_KEY` server-only. It is used by server route handlers and
 the Butterbase adapter under `src/lib/backend/butterbase/`.
+Keep `BUTTERBASE_FUNCTION_SECRET` separate from `BUTTERBASE_API_KEY`; it is the
+server-only bearer token OpenSlot sends when invoking Butterbase functions.
 
 Worker routes can run without secrets outside production. Set
 `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,

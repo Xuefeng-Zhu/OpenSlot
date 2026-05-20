@@ -14,6 +14,9 @@ artifacts that must exist in the configured Butterbase app.
   `/v1/{app_id}/fn/{function_name}` for atomic booking and worker operations.
 - Service key: `BUTTERBASE_API_KEY` stays server-only and maps to the
   provider service role that can bypass RLS.
+- Function secret: `BUTTERBASE_FUNCTION_SECRET` is a separate server-only
+  bearer token. Deploy it to each Butterbase function as
+  `OPEN_SLOT_FUNCTION_SECRET`.
 
 ## Required Functions
 

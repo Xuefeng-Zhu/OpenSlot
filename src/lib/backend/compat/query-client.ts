@@ -641,7 +641,10 @@ export class BackendRpcBuilder<TData = any>
     const result = await this.httpClient.request<unknown>({
       method: 'POST',
       path: `/v1/${this.httpClient.appId}/fn/${mapped.slug}`,
-      auth: mapped.serviceRole ? 'service' : this.authMode,
+      auth: mapped.serviceRole ? 'none' : this.authMode,
+      accessToken: mapped.serviceRole
+        ? this.httpClient.functionAccessToken()
+        : undefined,
       body: mapped.body,
     })
 
@@ -723,7 +726,8 @@ async function invokeCompatFunction<TResponse = { success: true }>(
   return requestAsCompat<TResponse>(httpClient, {
     method: 'POST',
     path: `/v1/${httpClient.appId}/fn/${slug}`,
-    auth: 'service',
+    auth: 'none',
+    accessToken: httpClient.functionAccessToken(),
     body,
   })
 }

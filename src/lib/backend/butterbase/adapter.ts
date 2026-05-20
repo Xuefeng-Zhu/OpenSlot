@@ -286,8 +286,8 @@ class ButterbaseFunctionsPort implements BackendFunctionsPort {
     return this.client.result<TResponse, TBody>({
       method: request.method ?? 'POST',
       path: `/v1/${this.client.appId}/fn/${slug}`,
-      auth: request.serviceRole ? 'service' : request.accessToken ? 'none' : 'service',
-      accessToken: request.accessToken,
+      auth: 'none',
+      accessToken: request.accessToken ?? this.client.functionAccessToken(),
       headers: request.headers,
       body: request.body,
     })
