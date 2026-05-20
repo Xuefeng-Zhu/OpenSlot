@@ -1,3 +1,5 @@
+import { addDays, format } from 'date-fns'
+import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 import type { TimeSlot } from '@/lib/availability/types'
 import type {
   BookingAgentEventContext,
@@ -10,6 +12,17 @@ import type {
 import { bookingAgentModelActionSchema } from './types'
 
 const MAX_SUGGESTED_SLOTS = 6
+const WEEKDAYS = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
+} as const
+
+type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'any'
 
 export interface RunBookingAgentInput {
   request: BookingAgentRequest
@@ -22,6 +35,12 @@ export interface RunBookingAgentInput {
     | { success: true; slots: TimeSlot[] }
     | { success: false; error: string; status: number }
   >
+}
+
+export interface RunBookingAgentFallbackInput {
+  request: BookingAgentRequest
+  loadSlots: RunBookingAgentInput['loadSlots']
+  now?: Date
 }
 
 export async function runBookingAgentTurn({
@@ -98,6 +117,72 @@ export async function runBookingAgentTurn({
           )} times. Try another date or a wider time window.`,
     suggestedSlots,
     draft: compactDraft(action.draft),
+    nextAction: suggestedSlots.length > 0 ? 'show_slots' : 'ask_preference',
+  }
+}
+
+/**
+ * Provides a narrow deterministic fallback for common slot-search phrases when
+ * the model gateway is temporarily unavailable or blocked by billing/config.
+ */
+export async function runBookingAgentFallbackTurn({
+  request,
+  loadSlots,
+  now = new Date(),
+}: RunBookingAgentFallbackInput): Promise<BookingAgentResponse> {
+  const search = inferAvailabilitySearch(request, now)
+
+  if (!search) {
+    return {
+      success: true,
+      reply:
+        'The AI model is temporarily unavailable, but you can still pick a date below. Tell me a specific day like "next Friday" and I can check openings directly.',
+      suggestedSlots: [],
+      nextAction: 'ask_preference',
+    }
+  }
+
+  const slotsResult = await loadSlots({
+    date: search.date,
+    timezone: search.timezone,
+  })
+
+  if (!slotsResult.success) {
+    return {
+      success: true,
+      reply:
+        'The AI model is temporarily unavailable, and I could not load openings for that date. Please choose a date from the calendar below.',
+      suggestedSlots: [],
+      nextAction: 'ask_preference',
+    }
+  }
+
+  const suggestedSlots = filterByTimeOfDay(
+    slotsResult.slots,
+    search.timezone,
+    search.timeOfDay
+  )
+    .slice(0, MAX_SUGGESTED_SLOTS)
+    .map((slot) => ({
+      ...slot,
+      label: formatSlotLabel(slot, search.timezone),
+    }))
+
+  return {
+    success: true,
+    reply:
+      suggestedSlots.length > 0
+        ? `The AI model is temporarily unavailable, but I checked ${formatSearchDateForReply(
+            search.date,
+            search.timezone
+          )} directly and found these openings.`
+        : `The AI model is temporarily unavailable. I checked ${formatSearchDateForReply(
+            search.date,
+            search.timezone
+          )}, but did not find open ${timeOfDayLabel(
+            search.timeOfDay
+          )} times. Try another date or a wider time window.`,
+    suggestedSlots,
     nextAction: suggestedSlots.length > 0 ? 'show_slots' : 'ask_preference',
   }
 }
@@ -198,7 +283,7 @@ function safeJsonParse(value: string): unknown | null {
 function filterByTimeOfDay(
   slots: TimeSlot[],
   timezone: string,
-  timeOfDay: 'morning' | 'afternoon' | 'evening' | 'any'
+  timeOfDay: TimeOfDay
 ) {
   if (timeOfDay === 'any') return slots
 
@@ -243,8 +328,87 @@ function formatSlotLabel(slot: TimeSlot, timezone: string) {
   return formatter.format(new Date(slot.start))
 }
 
-function timeOfDayLabel(timeOfDay: 'morning' | 'afternoon' | 'evening' | 'any') {
+function timeOfDayLabel(timeOfDay: TimeOfDay) {
   return timeOfDay === 'any' ? 'available' : timeOfDay
+}
+
+function inferAvailabilitySearch(
+  request: BookingAgentRequest,
+  now: Date
+): { date: string; timezone: string; timeOfDay: TimeOfDay } | null {
+  const message = latestUserMessage(request)
+  if (!message) return null
+
+  const timezone = normalizeTimezone(request.timezone, request.timezone)
+  const lowerMessage = message.toLowerCase()
+  const timeOfDay = inferTimeOfDay(lowerMessage)
+  const selectedDate = request.clientState?.selectedDate
+
+  if (
+    selectedDate &&
+    /\b(that|this|selected|same)\s+day\b/.test(lowerMessage)
+  ) {
+    return { date: selectedDate, timezone, timeOfDay }
+  }
+
+  const explicitDate = lowerMessage.match(/\b(20\d{2}-\d{2}-\d{2})\b/)?.[1]
+  if (explicitDate) return { date: explicitDate, timezone, timeOfDay }
+
+  const zonedNow = toZonedTime(now, timezone)
+  if (/\btoday\b/.test(lowerMessage)) {
+    return { date: format(zonedNow, 'yyyy-MM-dd'), timezone, timeOfDay }
+  }
+
+  if (/\btomorrow\b/.test(lowerMessage)) {
+    return {
+      date: format(addDays(zonedNow, 1), 'yyyy-MM-dd'),
+      timezone,
+      timeOfDay,
+    }
+  }
+
+  for (const [weekday, weekdayIndex] of Object.entries(WEEKDAYS)) {
+    if (!new RegExp(`\\b(?:next\\s+)?${weekday}\\b`).test(lowerMessage)) {
+      continue
+    }
+
+    const daysAhead = daysUntilWeekday(zonedNow.getDay(), weekdayIndex)
+    return {
+      date: format(addDays(zonedNow, daysAhead), 'yyyy-MM-dd'),
+      timezone,
+      timeOfDay,
+    }
+  }
+
+  return null
+}
+
+function latestUserMessage(request: BookingAgentRequest) {
+  return [...request.messages]
+    .reverse()
+    .find((message) => message.role === 'user')?.content
+}
+
+function inferTimeOfDay(message: string): TimeOfDay {
+  if (/\bmorning\b/.test(message)) return 'morning'
+  if (/\bafternoon\b/.test(message)) return 'afternoon'
+  if (/\b(evening|night)\b/.test(message)) return 'evening'
+  return 'any'
+}
+
+function daysUntilWeekday(currentWeekday: number, targetWeekday: number) {
+  return (targetWeekday - currentWeekday + 7) % 7 || 7
+}
+
+function formatSearchDateForReply(date: string, timezone: string) {
+  const noon = fromZonedTime(new Date(`${date}T12:00:00`), timezone)
+
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    timeZone: timezone,
+  }).format(noon)
 }
 
 function compactDraft(draft: BookingAgentModelAction['draft']) {

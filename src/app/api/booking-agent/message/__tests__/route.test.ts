@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   },
   consumePublicRateLimit: vi.fn(),
   runBookingAgentTurn: vi.fn(),
+  runBookingAgentFallbackTurn: vi.fn(),
   isBookingAgentConfigured: vi.fn(() => true),
   providerConstructor: vi.fn(),
 }))
@@ -29,6 +30,7 @@ vi.mock('@/lib/security/rate-limit', async () => {
 
 vi.mock('@/lib/booking-agent/agent', () => ({
   runBookingAgentTurn: mocks.runBookingAgentTurn,
+  runBookingAgentFallbackTurn: mocks.runBookingAgentFallbackTurn,
 }))
 
 vi.mock('@/lib/backend/booking-agent-gateway', async () => {
@@ -87,6 +89,12 @@ describe('POST /api/booking-agent/message', () => {
     mocks.runBookingAgentTurn.mockResolvedValue({
       success: true,
       reply: 'I found a few options.',
+      suggestedSlots: [],
+      nextAction: 'ask_preference',
+    })
+    mocks.runBookingAgentFallbackTurn.mockResolvedValue({
+      success: true,
+      reply: 'I checked that date directly.',
       suggestedSlots: [],
       nextAction: 'ask_preference',
     })
@@ -209,6 +217,44 @@ describe('POST /api/booking-agent/message', () => {
 
     expect(response.status).toBe(403)
     expect(data.error).toContain('rejected')
+  })
+
+  it('uses deterministic fallback when the Butterbase gateway requires payment', async () => {
+    const eventQuery = createQuery({
+      data: {
+        id: validBody.eventTypeId,
+        title: 'Discovery Call',
+        description: 'Intro call',
+        duration_minutes: 30,
+        location_type: 'video',
+        location_value: null,
+        invitee_questions: [],
+        user_id: validBody.hostUserId,
+        is_active: true,
+      },
+      error: null,
+    })
+    const profileQuery = createQuery({
+      data: { id: validBody.hostUserId, name: 'Sarah Chen', username: 'sarah' },
+      error: null,
+    })
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventQuery)
+      .mockReturnValueOnce(profileQuery)
+    mocks.runBookingAgentTurn.mockRejectedValue(
+      new BookingAgentGatewayError('Payment required', 402)
+    )
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.reply).toBe('I checked that date directly.')
+    expect(mocks.runBookingAgentFallbackTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining(validBody),
+      })
+    )
   })
 
   it('rejects invalid message payloads', async () => {

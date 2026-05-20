@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { parseModelAction, runBookingAgentTurn } from '../agent'
+import {
+  parseModelAction,
+  runBookingAgentFallbackTurn,
+  runBookingAgentTurn,
+} from '../agent'
 import type { BookingAgentEventContext, BookingAgentRequest } from '../types'
 
 const request: BookingAgentRequest = {
@@ -134,5 +138,41 @@ describe('booking agent orchestration', () => {
       .join('\n')
 
     expect(prompt).not.toContain('33333333-3333-4333-8333-333333333333')
+  })
+
+  it('falls back to deterministic availability for common date phrases', async () => {
+    const loadSlots = vi.fn(async () => ({
+      success: true as const,
+      slots: [
+        {
+          start: '2026-05-22T16:00:00.000Z',
+          end: '2026-05-22T16:30:00.000Z',
+        },
+      ],
+    }))
+
+    const result = await runBookingAgentFallbackTurn({
+      request: {
+        ...request,
+        timezone: 'America/Los_Angeles',
+        messages: [{ role: 'user', content: 'Find a time next Friday' }],
+      },
+      loadSlots,
+      now: new Date('2026-05-20T17:00:00.000Z'),
+    })
+
+    expect(loadSlots).toHaveBeenCalledWith({
+      date: '2026-05-22',
+      timezone: 'America/Los_Angeles',
+    })
+    expect(result.success).toBe(true)
+    expect(result.reply).toContain('temporarily unavailable')
+    expect(result.suggestedSlots).toEqual([
+      {
+        start: '2026-05-22T16:00:00.000Z',
+        end: '2026-05-22T16:30:00.000Z',
+        label: expect.any(String),
+      },
+    ])
   })
 })

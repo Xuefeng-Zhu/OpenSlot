@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { loadAvailableSlotsForDate } from '@/lib/availability/available-slots'
 import {
+  runBookingAgentFallbackTurn,
   runBookingAgentTurn,
   type RunBookingAgentInput,
 } from '@/lib/booking-agent/agent'
@@ -98,21 +99,40 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await runBookingAgentTurn({
-      request: parsed.data,
-      eventContext,
-      provider: new ButterbaseBookingAgentProvider(),
-      loadSlots: ({ date, timezone }) =>
-        loadAvailableSlotsForDate({
-          supabase: adminClient,
-          hostUserId: parsed.data.hostUserId,
-          eventTypeId: parsed.data.eventTypeId,
-          date,
-          guestTimezone: timezone,
-        }),
-    } satisfies RunBookingAgentInput)
+    const loadSlots: RunBookingAgentInput['loadSlots'] = ({ date, timezone }) =>
+      loadAvailableSlotsForDate({
+        supabase: adminClient,
+        hostUserId: parsed.data.hostUserId,
+        eventTypeId: parsed.data.eventTypeId,
+        date,
+        guestTimezone: timezone,
+      })
 
-    return NextResponse.json(result)
+    try {
+      const result = await runBookingAgentTurn({
+        request: parsed.data,
+        eventContext,
+        provider: new ButterbaseBookingAgentProvider(),
+        loadSlots,
+      } satisfies RunBookingAgentInput)
+
+      return NextResponse.json(result)
+    } catch (error) {
+      if (error instanceof BookingAgentGatewayError && error.status === 402) {
+        console.warn('Butterbase AI gateway unavailable for booking assistant', {
+          status: error.status,
+          code: error.code,
+        })
+        return NextResponse.json(
+          await runBookingAgentFallbackTurn({
+            request: parsed.data,
+            loadSlots,
+          })
+        )
+      }
+
+      throw error
+    }
   } catch (error) {
     if (error instanceof BookingAgentGatewayError) {
       const status = error.status && error.status >= 400 ? error.status : 502
