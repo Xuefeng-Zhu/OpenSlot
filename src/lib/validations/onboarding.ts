@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { isValidTimezone } from '@/lib/validations/profile'
 import { generateSlug } from '@/lib/utils/slug'
+import { eventLocationTypes, videoProviders } from '@/lib/validations/event-type'
 
 const timeSchema = z
   .string()
@@ -36,6 +37,32 @@ const availabilitySchema = z.object({
   sunday: dayAvailabilitySchema,
 })
 
+const eventTypeOnboardingSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, 'Title is required')
+    .max(100, 'Title must be 100 characters or less'),
+  duration: z
+    .string()
+    .regex(/^\d+$/, 'Duration must be a whole number')
+    .transform(Number)
+    .pipe(
+      z
+        .number()
+        .int('Duration must be a whole number')
+        .positive('Duration must be positive')
+    ),
+  locationType: z.enum(eventLocationTypes),
+  locationValue: z
+    .string()
+    .trim()
+    .max(200, 'Location details must be 200 characters or less')
+    .optional()
+    .default(''),
+  videoProvider: z.enum(videoProviders).nullable().default(null),
+})
+
 /**
  * Validates the first-run setup bundle submitted by the onboarding wizard.
  * Ensures the host has a public profile, at least one available interval, a
@@ -60,31 +87,43 @@ export const onboardingSchema = z
         ),
     }),
     availability: availabilitySchema,
-    eventType: z.object({
-      title: z
-        .string()
-        .trim()
-        .min(1, 'Title is required')
-        .max(100, 'Title must be 100 characters or less'),
-      duration: z
-        .string()
-        .regex(/^\d+$/, 'Duration must be a whole number')
-        .transform(Number)
-        .pipe(
-          z
-            .number()
-            .int('Duration must be a whole number')
-            .positive('Duration must be positive')
-        ),
-      location: z
-        .string()
-        .trim()
-        .min(1, 'Location is required')
-        .max(200, 'Location must be 200 characters or less'),
-    }),
+    eventType: eventTypeOnboardingSchema,
     timezone: z
       .string()
       .refine(isValidTimezone, { message: 'Please select a valid timezone' }),
+  })
+  .superRefine((data, ctx) => {
+    const { eventType } = data
+
+    if (eventType.locationType === 'video_provider') {
+      if (!eventType.videoProvider) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Choose a video provider',
+          path: ['eventType', 'videoProvider'],
+        })
+      }
+      return
+    }
+
+    if (eventType.videoProvider) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Video provider is only available for generated video locations',
+        path: ['eventType', 'videoProvider'],
+      })
+    }
+
+    if (
+      ['phone', 'in_person', 'custom'].includes(eventType.locationType) &&
+      !eventType.locationValue.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Location details are required',
+        path: ['eventType', 'locationValue'],
+      })
+    }
   })
   .refine(
     (data) =>

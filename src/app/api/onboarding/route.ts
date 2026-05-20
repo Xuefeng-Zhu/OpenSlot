@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
     const { profile, availability, eventType, timezone } = parsed.data
     const now = new Date().toISOString()
     const eventSlug = buildOnboardingEventSlug(eventType.title)
+    const generatedVideoLocation = eventType.locationType === 'video_provider'
 
     const { data: savedProfile, error: saveProfileError } = await writeClient
       .from('profiles')
@@ -181,8 +182,11 @@ export async function POST(request: NextRequest) {
             buffer_after_minutes: 0,
             min_notice_minutes: 60,
             max_booking_days_ahead: 60,
-            location_type: 'custom',
-            location_value: eventType.location,
+            location_type: eventType.locationType,
+            location_value: generatedVideoLocation ? '' : eventType.locationValue,
+            video_provider: generatedVideoLocation
+              ? eventType.videoProvider
+              : null,
             is_active: true,
             updated_at: now,
           },

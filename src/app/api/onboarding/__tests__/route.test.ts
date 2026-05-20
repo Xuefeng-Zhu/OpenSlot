@@ -166,7 +166,9 @@ const validBody = {
   eventType: {
     title: 'Intro Call',
     duration: '30',
-    location: 'Zoom',
+    locationType: 'custom',
+    locationValue: 'Zoom',
+    videoProvider: null,
   },
   timezone: 'America/Los_Angeles',
 }
@@ -231,6 +233,7 @@ describe('POST /api/onboarding', () => {
       duration_minutes: 30,
       location_type: 'custom',
       location_value: 'Zoom',
+      video_provider: null,
       is_active: true,
     })
     expect(mocks.eventTypeOptions).toEqual({ onConflict: 'user_id,slug' })
@@ -273,6 +276,34 @@ describe('POST /api/onboarding', () => {
     expect(mocks.insertedAvailability[0]).toMatchObject({
       schedule_id: 'schedule-existing',
       timezone: 'America/Los_Angeles',
+    })
+  })
+
+  it('persists generated video provider locations from onboarding', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1', email: 'sarah@example.com' } },
+      error: null,
+    })
+
+    const response = await POST(
+      requestWithJson({
+        ...validBody,
+        eventType: {
+          ...validBody.eventType,
+          locationType: 'video_provider',
+          locationValue: 'ignored manual details',
+          videoProvider: 'google_meet',
+        },
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mocks.eventTypePayload).toMatchObject({
+      location_type: 'video_provider',
+      location_value: '',
+      video_provider: 'google_meet',
     })
   })
 

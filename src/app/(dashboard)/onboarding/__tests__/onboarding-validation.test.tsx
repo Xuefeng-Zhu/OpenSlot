@@ -67,13 +67,14 @@ describe("Onboarding validation", () => {
     advanceFromProfile();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
+    fireEvent.change(screen.getByLabelText("Location type"), {
+      target: { value: "custom" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
 
     expect(screen.getByText("Create your first event type")).toBeDefined();
     expect(screen.getByText("Enter a title for this event type.")).toBeDefined();
-    expect(
-      screen.getByText("Enter where this meeting will happen.")
-    ).toBeDefined();
+    expect(screen.getByText("Enter location details.")).toBeDefined();
     expect(screen.queryByText("Share your booking link")).toBeNull();
   });
 
@@ -94,7 +95,10 @@ describe("Onboarding validation", () => {
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "Intro Call" },
     });
-    fireEvent.change(screen.getByLabelText("Location"), {
+    fireEvent.change(screen.getByLabelText("Location type"), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(screen.getByLabelText("Location details"), {
       target: { value: "Zoom" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Finish" }));
@@ -119,12 +123,53 @@ describe("Onboarding validation", () => {
     expect(requestBody.eventType).toEqual({
       title: "Intro Call",
       duration: "30",
-      location: "Zoom",
+      locationType: "custom",
+      locationValue: "Zoom",
+      videoProvider: null,
     });
     expect(requestBody.availability.monday.intervals).toEqual([
       { start: "09:00", end: "17:00" },
     ]);
     expect(screen.getByText("openslot.com/sarah-chen/intro-call")).toBeDefined();
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("uses the event type location selector for generated video locations", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        bookingLink: "/sarah-chen/intro-call",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnboardingPage />);
+    advanceFromProfile();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Intro Call" },
+    });
+    fireEvent.change(screen.getByLabelText("Location type"), {
+      target: { value: "google_meet" },
+    });
+
+    expect(screen.queryByLabelText("Location details")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    await waitFor(() => {
+      expect(screen.getByText("Share your booking link")).toBeDefined();
+    });
+
+    const requestBody = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(requestBody.eventType).toEqual({
+      title: "Intro Call",
+      duration: "30",
+      locationType: "video_provider",
+      locationValue: "",
+      videoProvider: "google_meet",
+    });
   });
 });
