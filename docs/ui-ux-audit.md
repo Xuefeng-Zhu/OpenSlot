@@ -38,5 +38,5 @@
 - Replace settings `window.confirm` calls with accessible app dialogs.
 - Add route-level skeleton loading for dashboard/public booking surfaces.
 - Add authenticated demo fixtures for visual regression testing.
-- Add a graceful local-development fallback for missing Supabase environment variables on public routes.
+- Add a graceful local-development fallback for missing Butterbase environment variables on public routes.
 - Introduce a small dashboard page layout helper for page titles, actions, and filter bars.

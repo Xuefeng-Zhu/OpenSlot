@@ -22,9 +22,9 @@ jobs:
     timeout-minutes: 20
 
     env:
-      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: ci-service-role-key
+      NEXT_PUBLIC_BUTTERBASE_APP_ID: app_ci_placeholder
+      NEXT_PUBLIC_BUTTERBASE_API_URL: https://api.butterbase.ai
+      BUTTERBASE_API_KEY: ci-butterbase-service-key
       NEXT_PUBLIC_APP_URL: http://localhost:3000
       OUTBOX_PROCESS_SECRET: ci-outbox-secret
       WEBHOOK_PROCESS_SECRET: ci-webhook-secret
@@ -67,33 +67,6 @@ jobs:
       - name: Build
         run: npm run build
 
-  database:
-    name: Supabase migrations
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up Supabase CLI
-        uses: supabase/setup-cli@v2
-        with:
-          version: 2.98.2
-
-      - name: Start local database
-        run: supabase db start
-
-      - name: Reset local database from migrations
-        run: supabase db reset --local --no-seed
-
-      - name: Lint local database schema
-        run: supabase db lint --local --fail-on error
-
-      - name: Stop local database
-        if: always()
-        run: supabase stop --no-backup || true
-
   e2e:
     name: Dashboard E2E
     runs-on: ubuntu-latest
@@ -103,6 +76,9 @@ jobs:
       TZ: America/New_York
       PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_BUTTERBASE_APP_ID: ${{ vars.BUTTERBASE_APP_ID }}
+      NEXT_PUBLIC_BUTTERBASE_API_URL: https://api.butterbase.ai
+      BUTTERBASE_API_KEY: ${{ secrets.BUTTERBASE_API_KEY }}
       OUTBOX_PROCESS_SECRET: ci-outbox-secret
       WEBHOOK_PROCESS_SECRET: ci-webhook-secret
       CALENDAR_SYNC_SECRET: ci-calendar-sync-secret
@@ -129,31 +105,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check Butterbase E2E configuration
+        id: butterbase-e2e
+        run: |
+          if [ -z "$NEXT_PUBLIC_BUTTERBASE_APP_ID" ] || [ -z "$BUTTERBASE_API_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Skipping Dashboard E2E because BUTTERBASE_APP_ID or BUTTERBASE_API_KEY is not configured."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install Playwright Chromium
+        if: steps.butterbase-e2e.outputs.configured == 'true'
         run: npx playwright install --with-deps chromium
 
-      - name: Set up Supabase CLI
-        uses: supabase/setup-cli@v2
-        with:
-          version: 2.98.2
-
-      - name: Start local Supabase
-        run: supabase start
-
-      - name: Reset and seed local database
-        run: supabase db reset --local
-
-      - name: Export local Supabase env
-        run: |
-          supabase status -o env \
-            --override-name api.url=NEXT_PUBLIC_SUPABASE_URL \
-            --override-name auth.anon_key=NEXT_PUBLIC_SUPABASE_ANON_KEY \
-            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
-            | sed -E 's/^([^=]+)="(.*)"$/\1=\2/' >> "$GITHUB_ENV"
-
       - name: Run dashboard E2E
+        if: steps.butterbase-e2e.outputs.configured == 'true'
         run: npm run test:e2e
-
-      - name: Stop local Supabase
-        if: always()
-        run: supabase stop --no-backup || true

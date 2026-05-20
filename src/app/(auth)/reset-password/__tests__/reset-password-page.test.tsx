@@ -1,65 +1,51 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ResetPasswordPage from "../page";
 
-const exchangeCodeForSession = vi.fn();
-const getSession = vi.fn();
-const updateUser = vi.fn();
-
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
-    auth: {
-      exchangeCodeForSession,
-      getSession,
-      updateUser,
-    },
-  }),
-}));
+const fetchMock = vi.fn();
 
 describe("ResetPasswordPage", () => {
   beforeEach(() => {
-    exchangeCodeForSession.mockReset();
-    getSession.mockReset();
-    updateUser.mockReset();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("blocks password updates when opened without a recovery link", async () => {
-    window.history.pushState({}, "", "/reset-password");
-    getSession.mockResolvedValue({
-      data: {
-        session: { user: { id: "user-1" } },
-      },
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("requires an email and reset code before submitting", () => {
+    render(<ResetPasswordPage />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(screen.getByText("Email is required.")).toBeDefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "sarah@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(screen.getByText("Reset code is required.")).toBeDefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("posts the reset code and new password for matching inputs", async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
     });
 
     render(<ResetPasswordPage />);
 
-    expect(
-      await screen.findByText(
-        "Open the password reset link from your email to continue."
-      )
-    ).toBeDefined();
-    expect(
-      screen.getByRole("button", { name: "Update password" }).hasAttribute("disabled")
-    ).toBe(true);
-    expect(exchangeCodeForSession).not.toHaveBeenCalled();
-    expect(getSession).not.toHaveBeenCalled();
-  });
-
-  it("exchanges a PKCE code and updates the password for matching inputs", async () => {
-    window.history.pushState({}, "", "/reset-password?code=recovery-code");
-    exchangeCodeForSession.mockResolvedValue({ error: null });
-    getSession.mockResolvedValue({
-      data: {
-        session: { user: { id: "user-1" } },
-      },
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: " sarah@example.com " },
     });
-    updateUser.mockResolvedValue({ error: null });
-
-    render(<ResetPasswordPage />);
-
-    await screen.findByLabelText("New password");
-
+    fireEvent.change(screen.getByLabelText("Reset code"), {
+      target: { value: " 123456 " },
+    });
     fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "correct-horse" },
     });
@@ -69,35 +55,34 @@ describe("ResetPasswordPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     await waitFor(() => {
-      expect(exchangeCodeForSession).toHaveBeenCalledWith("recovery-code");
-      expect(updateUser).toHaveBeenCalledWith({ password: "correct-horse" });
+      expect(fetchMock).toHaveBeenCalledWith("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "sarah@example.com",
+          code: "123456",
+          password: "correct-horse",
+        }),
+      });
     });
 
     expect(screen.getByText("Your password has been updated.")).toBeDefined();
   });
 
-  it("uses an existing recovery session when code exchange already failed", async () => {
-    window.history.pushState({}, "", "/reset-password?code=recovery-code");
-    exchangeCodeForSession.mockResolvedValue({
-      error: new Error("auth code already used"),
+  it("shows the backend reset error when the code is rejected", async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: "Unable to update password." }),
     });
-    getSession.mockResolvedValue({
-      data: {
-        session: { user: { id: "user-1" } },
-      },
-    });
-    updateUser.mockResolvedValue({ error: null });
 
     render(<ResetPasswordPage />);
 
-    await screen.findByLabelText("New password");
-
-    expect(exchangeCodeForSession).toHaveBeenCalledWith("recovery-code");
-    expect(getSession).toHaveBeenCalled();
-    expect(
-      screen.queryByText("This password reset link is invalid or has expired.")
-    ).toBeNull();
-
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "sarah@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Reset code"), {
+      target: { value: "123456" },
+    });
     fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "correct-horse" },
     });
@@ -106,24 +91,20 @@ describe("ResetPasswordPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
-    await waitFor(() => {
-      expect(updateUser).toHaveBeenCalledWith({ password: "correct-horse" });
-    });
+    expect(
+      await screen.findByText("Unable to update password.")
+    ).toBeDefined();
   });
 
-  it("validates password length and confirmation before updating", async () => {
-    window.history.pushState({}, "", "/reset-password?code=recovery-code");
-    exchangeCodeForSession.mockResolvedValue({ error: null });
-    getSession.mockResolvedValue({
-      data: {
-        session: { user: { id: "user-1" } },
-      },
-    });
-
+  it("validates password length and confirmation before updating", () => {
     render(<ResetPasswordPage />);
 
-    await screen.findByLabelText("New password");
-
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "sarah@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Reset code"), {
+      target: { value: "123456" },
+    });
     fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "short" },
     });
@@ -133,7 +114,7 @@ describe("ResetPasswordPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(screen.getByText("Password must be at least 8 characters.")).toBeDefined();
-    expect(updateUser).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("New password"), {
       target: { value: "correct-horse" },
@@ -144,6 +125,6 @@ describe("ResetPasswordPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(screen.getByText("Passwords do not match.")).toBeDefined();
-    expect(updateUser).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

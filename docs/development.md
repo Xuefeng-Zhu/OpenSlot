@@ -5,7 +5,7 @@
 - Node.js 22 LTS or newer is recommended. The current toolchain requires
   Node.js 20.19 or newer.
 - npm. Use the npm version recorded in `package.json` when possible.
-- Supabase project or Supabase CLI for local development.
+- Butterbase app id and service API key for backend-backed local development.
 
 ## Install
 
@@ -28,13 +28,14 @@ cp .env.example .env.local
 Minimum app variables:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_BUTTERBASE_APP_ID=app_...
+NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
+BUTTERBASE_API_KEY=bb_sk_...
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Keep `SUPABASE_SERVICE_ROLE_KEY` server-only. It is used by `src/lib/supabase/admin.ts`.
+Keep `BUTTERBASE_API_KEY` server-only. It is used by server route handlers and
+the Butterbase adapter under `src/lib/backend/butterbase/`.
 
 Worker routes can run without secrets outside production. Set
 `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,
@@ -82,39 +83,13 @@ The Microsoft script uses Azure CLI to create a fresh Entra app registration, co
 
 Email delivery defaults to the console provider. To exercise real email sends locally, set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY`, or set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY`.
 
-## Local Database
+## Backend Schema
 
-With Supabase CLI:
-
-```bash
-supabase start
-supabase db reset --local
-```
-
-`supabase db reset --local` applies all migrations and then loads
-`supabase/seed.sql` because `[db.seed]` is enabled in `supabase/config.toml`.
-Use a migration-only reset when you do not want seed data:
-
-```bash
-supabase db reset --local --no-seed
-```
-
-To apply pending migrations to an already-running local database without
-resetting data:
-
-```bash
-supabase db push --local
-```
-
-For a linked remote project, review the pending migration list before applying
-it:
-
-```bash
-supabase db push --linked --dry-run
-supabase db push --linked
-```
-
-Migrations are ordered SQL files in `supabase/migrations/`. Add new migrations for schema changes.
+Butterbase is the active backend. Keep provider-neutral invariants in
+`backend/sql/provider-portability.sql` and Butterbase-specific schema/function
+artifacts under `backend/butterbase/`. The historical `supabase/migrations/`
+directory remains source material for constraints and table contracts during the
+cutover, but new backend runtime work should not add Supabase-only code paths.
 
 ## App Commands
 
@@ -135,7 +110,7 @@ individual commands while iterating and the combined command before handoff.
 - Use Server Components for initial authenticated data loads.
 - Use Client Components for interactivity and local form state.
 - Route handlers should validate inputs with Zod before writing.
-- Keep service role access inside server-only code.
+- Keep service-key access inside server-only code.
 - Use `@/*` imports instead of long relative paths.
 - Use `Button`, `Card`, `Input`, `Label`, and other primitives from `src/components/ui/`.
 - Use `lucide-react` icons when adding icon UI.

@@ -1,10 +1,17 @@
 # System Design Gap Analysis
 
-This document tracks the gap between the target architecture in [system-design.md](system-design.md) and the current OpenSlot MVP implementation. Some gaps are intentional MVP scope cuts; others are implementation risks to close before treating the system design as production reality.
+This document tracks the gap between the historical Supabase-first target
+architecture in [system-design.md](system-design.md) and the current OpenSlot
+MVP implementation. The app has since cut runtime access over to Butterbase, so
+provider-specific recommendations here should be read as legacy context unless
+they also appear in [backend-portability.md](backend-portability.md) or
+[architecture.md](architecture.md). Some gaps are intentional MVP scope cuts;
+others are implementation risks to close before treating the system design as
+production reality.
 
 ## Summary
 
-The current app has a strong one-on-one scheduling core: Supabase-backed auth/profile/event types, public booking pages, slot computation, five-minute holds, database overlap constraints, idempotent public booking mutations when keys are supplied, public rate limiting, optional Turnstile checks, booking events, outbox processing, scheduled hold expiry, one configurable pre-meeting reminder, calendar OAuth/sync/write support, and signed tenant webhook deliveries.
+The current app has a strong one-on-one scheduling core: Butterbase-backed auth/profile/event types, public booking pages, slot computation, five-minute holds, database overlap constraints, idempotent public booking mutations when keys are supplied, public rate limiting, optional Turnstile checks, booking events, outbox processing, scheduled hold expiry, one configurable pre-meeting reminder, calendar OAuth/sync/write support, and signed tenant webhook deliveries.
 
 The target system design is broader. It assumes organization-scoped tenancy, Edge Functions for risky public/provider boundaries, group and team scheduling, paid bookings, provider watch callbacks, stronger transaction boundaries, Supabase-native queues/cron, realtime dashboard freshness, and enterprise hardening.
 

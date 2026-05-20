@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 
 const DASHBOARD_NOTIFICATION_EVENT_TYPES = [
@@ -49,7 +49,7 @@ export const emptyDashboardNotifications: DashboardNotifications = {
  * not blocked by optional activity data.
  */
 export async function listDashboardNotifications(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string,
   limit = 5
 ): Promise<DashboardNotifications> {

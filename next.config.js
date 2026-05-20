@@ -5,9 +5,9 @@ const LOCAL_DEVELOPMENT_CONNECT_SOURCES = [
   'ws://127.0.0.1:*',
 ];
 
-const SUPABASE_CONNECT_SOURCES = [
-  'https://*.supabase.co',
-  'wss://*.supabase.co',
+const BUTTERBASE_CONNECT_SOURCES = [
+  'https://api.butterbase.ai',
+  'wss://api.butterbase.ai',
 ];
 
 const TURNSTILE_SOURCES = ['https://challenges.cloudflare.com'];
@@ -57,8 +57,11 @@ function serializeContentSecurityPolicy(directives) {
 }
 
 function buildContentSecurityPolicy({ isProduction }) {
-  const supabaseOrigin = originFromEnv(process.env.NEXT_PUBLIC_SUPABASE_URL);
-  const supabaseRealtimeOrigin = websocketOriginFromHttpOrigin(supabaseOrigin);
+  const butterbaseOrigin = originFromEnv(
+    process.env.NEXT_PUBLIC_BUTTERBASE_API_URL
+  );
+  const butterbaseRealtimeOrigin =
+    websocketOriginFromHttpOrigin(butterbaseOrigin);
 
   return serializeContentSecurityPolicy({
     'default-src': ["'self'"],
@@ -79,10 +82,10 @@ function buildContentSecurityPolicy({ isProduction }) {
     'font-src': ["'self'", 'data:'],
     'connect-src': compactSources([
       "'self'",
-      ...SUPABASE_CONNECT_SOURCES,
+      ...BUTTERBASE_CONNECT_SOURCES,
       ...TURNSTILE_SOURCES,
-      supabaseOrigin,
-      supabaseRealtimeOrigin,
+      butterbaseOrigin,
+      butterbaseRealtimeOrigin,
       ...(isProduction ? [] : LOCAL_DEVELOPMENT_CONNECT_SOURCES),
     ]),
     'media-src': ["'self'", 'blob:', 'https:'],

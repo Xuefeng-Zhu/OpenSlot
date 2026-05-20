@@ -79,7 +79,7 @@ describe('Butterbase backend adapter', () => {
     )
   })
 
-  it('uses service credentials for explicit service-role data calls', async () => {
+  it('uses service credentials for explicit service-key data calls', async () => {
     const fetchImpl = mockFetch([])
     const backend = createButterbaseBackend({
       appId: 'app_openslot',

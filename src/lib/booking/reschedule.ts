@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 import type { RescheduleBookingInput, RescheduleBookingResult } from './types'
 import { appendBookingEvent } from './events'
@@ -35,7 +35,7 @@ interface RescheduleRpcRow {
  */
 export async function rescheduleBooking(
   input: RescheduleBookingInput,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ): Promise<RescheduleBookingResult> {
   const { data: existingBookingData, error: existingBookingError } =
     await adminClient

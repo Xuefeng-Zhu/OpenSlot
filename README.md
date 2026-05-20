@@ -22,9 +22,9 @@ Screenshots are not committed yet. Suggested first additions:
 
 ## Features
 
-- Supabase email/password authentication.
+- Butterbase email/password authentication.
 - Host onboarding with profile, availability, and first event type setup.
-- Supabase-backed event type create, edit, pause, delete, and share flows.
+- Butterbase-backed event type create, edit, pause, delete, and share flows.
 - Weekly availability and date overrides with timezone-aware slot generation.
 - Public booking pages at `/{username}` and `/{username}/{eventSlug}`.
 - Five-minute slot holds backed by a host reservation ledger.
@@ -40,7 +40,7 @@ Screenshots are not committed yet. Suggested first additions:
 | --- | --- |
 | App framework | Next.js 16 App Router, React 18 |
 | Language | TypeScript strict mode |
-| Database and auth | Supabase Auth, Postgres, RLS, service-role route handlers |
+| Database and auth | Butterbase Auth, REST data API, Postgres/RLS, service-key route handlers |
 | Styling | Tailwind CSS and local shadcn-style primitives |
 | Forms and validation | React Hook Form and Zod |
 | Dates and timezones | `date-fns` and `date-fns-tz` |
@@ -52,17 +52,16 @@ Screenshots are not committed yet. Suggested first additions:
 OpenSlot is server-first around booking integrity:
 
 - Server Components fetch profiles, event types, availability, bookings, and
-  public booking data through Supabase server clients.
+  public booking data through backend clients backed by Butterbase.
 - Client Components manage form state and call API routes for mutations.
 - Public slot lookup uses `/api/slots`.
-- Guest holds use `/api/holds` and the `create_slot_hold_with_reservation()`
-  database RPC.
+- Guest holds use `/api/holds` and the `create-slot-hold` backend function.
 - Booking confirmation, cancellation, and rescheduling enqueue outbox events
   for provider writes, emails, and tenant webhooks.
 - Worker routes under `/api/outbox/process`, `/api/calendar/sync`, and
   `/api/webhooks/process` are protected by route secrets or `CRON_SECRET`.
-- Supabase RLS and explicit grants keep browser access narrow. Service-role
-  reads/writes stay in server-only modules and route handlers.
+- Butterbase RLS and explicit route boundaries keep browser access narrow.
+  Service-key reads/writes stay in server-only modules and route handlers.
 
 See [docs/architecture.md](docs/architecture.md) for the deeper system map.
 
@@ -83,10 +82,12 @@ src/lib/email/                   Email composition and provider selection
 src/lib/idempotency/             Retry-safe mutation helpers
 src/lib/outbox/                  Internal side-effect queue processing
 src/lib/reservations/            Host reservation mirror helpers
-src/lib/supabase/                Browser, server, and admin Supabase clients
+src/lib/backend/                 Backend ports, Butterbase adapter, compatibility client
+src/lib/supabase/                Legacy shims delegating to the backend runtime
 src/lib/validations/             Zod schemas
-supabase/migrations/             Database schema, indexes, RLS, and RPC migrations
-supabase/seed.sql                Local/demo seed data
+backend/sql/                     Provider-portable SQL invariants
+backend/butterbase/              Butterbase schema/function artifacts
+supabase/migrations/             Historical PostgreSQL migration source
 docs/                            Architecture, development, testing, release docs
 ```
 
@@ -98,7 +99,7 @@ notes and naming conventions.
 - Node.js 22 LTS or newer recommended. The current toolchain requires Node.js
   20.19 or newer.
 - npm. Use `npm ci` for deterministic installs from `package-lock.json`.
-- A Supabase project or the Supabase CLI for local database development.
+- A Butterbase app id and service API key for backend-backed development.
 
 ## Local Setup
 
@@ -114,27 +115,11 @@ notes and naming conventions.
    cp .env.example .env.local
    ```
 
-3. Fill in the required Supabase and app values in `.env.local`.
+3. Fill in the required Butterbase and app values in `.env.local`.
 
-4. For local Supabase development, start the local stack and reset the local
-   database from the committed migrations:
-
-   ```bash
-   supabase start
-   supabase db reset --local
-   ```
-
-   `supabase db reset --local` applies `supabase/migrations/` and then loads
-   `supabase/seed.sql` through the `[db.seed]` config. For linked staging or
-   production projects, review the pending remote migrations first:
-
-   ```bash
-   supabase db push --linked --dry-run
-   supabase db push --linked
-   ```
-
-   Add `--include-seed` only when you intentionally want to apply configured
-   seed data to the linked project.
+4. Ensure the configured Butterbase app has the OpenSlot schema, RLS policies,
+   and functions described by `backend/sql/provider-portability.sql` and
+   `backend/butterbase/`.
 
 5. Start the app:
 
@@ -144,17 +129,17 @@ notes and naming conventions.
 
 6. Open [http://localhost:3000](http://localhost:3000).
 
-The landing page can render without Supabase credentials. Authenticated
+The landing page can render without Butterbase credentials. Authenticated
 dashboard routes, public booking data, API routes, and booking writes require
-valid Supabase configuration.
+valid Butterbase configuration.
 
 ## Environment Variables
 
 | Variable | Required | Notes |
 | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Browser-visible Supabase project URL. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser-visible Supabase anon key. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only key for privileged route handlers. Never expose to client code. |
+| `NEXT_PUBLIC_BUTTERBASE_APP_ID` | Yes | Browser-safe Butterbase app id. |
+| `NEXT_PUBLIC_BUTTERBASE_API_URL` | Yes | Butterbase API base URL, usually `https://api.butterbase.ai`. |
+| `BUTTERBASE_API_KEY` | Yes | Server-only service key for privileged route handlers. Never expose to client code. |
 | `NEXT_PUBLIC_APP_URL` | Yes | Public app origin for links and OAuth callbacks. Use `http://localhost:3000` locally. |
 | `OUTBOX_PROCESS_SECRET` | Production | Protects manual `/api/outbox/process` calls. |
 | `WEBHOOK_PROCESS_SECRET` | Production | Protects manual `/api/webhooks/process` calls. |
@@ -212,8 +197,8 @@ npm run test
 
 Run `npm run build` for route, environment, Next.js, or production-sensitive
 changes. Run `npm run test:e2e` when validating page rendering, authenticated
-dashboard behavior, guest booking, or navigation against local Supabase seed
-data. The full Vitest suite may print `Not implemented: navigation to another
+dashboard behavior, guest booking, or navigation against a configured
+Butterbase test app. The full Vitest suite may print `Not implemented: navigation to another
 Document` from jsdom while still passing.
 
 See [docs/testing.md](docs/testing.md) for targeted test examples and coverage
@@ -221,11 +206,11 @@ guidance.
 
 ## Deployment
 
-GitHub Actions runs the app release gate, Dashboard E2E, npm dependency audit,
-and local Supabase migration validation for pushes and pull requests targeting
+GitHub Actions runs the app release gate, Dashboard E2E when Butterbase secrets
+are configured, and npm dependency audit for pushes and pull requests targeting
 `main`.
-Production deploys still need the environment variables above and database
-migrations applied out of band. `vercel.json` defines cron schedules for
+Production deploys still need the environment variables above and Butterbase
+schema/function artifacts applied out of band. `vercel.json` defines cron schedules for
 outbox, webhook, and calendar sync worker routes. The committed schedules are
 daily for Vercel Hobby compatibility; production environments that need faster
 worker processing should use a plan or scheduler that supports the desired
@@ -250,9 +235,9 @@ OpenSlot handles guest names, emails, notes, timezones, booking times, and
 cancellation/rescheduling tokens. Treat that data as sensitive.
 
 - Never commit `.env.local` or real credentials.
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` or provider secrets to client code.
+- Never expose `BUTTERBASE_API_KEY` or provider secrets to client code.
 - Review [SECURITY.md](SECURITY.md) before changing public APIs, RLS,
-  service-role code, booking integrity logic, or provider integrations.
+  service-key code, booking integrity logic, or provider integrations.
 
 ## Additional Documentation
 

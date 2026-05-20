@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import type { OutboxEventType } from './outbox'
 import {
@@ -18,7 +18,7 @@ type BookingRow = Tables<'bookings'>
 type LoadedBookingDetails = BookingDetails & Pick<BookingRow, 'status'>
 
 export interface ProcessOutboxBatchOptions {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   limit?: number
   maxAttempts?: number
   handlers?: Partial<Record<OutboxEventType, OutboxEventHandler>>
@@ -33,7 +33,7 @@ export interface ProcessOutboxBatchResult {
 
 export type OutboxEventHandler = (
   event: OutboxEventRow,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ) => Promise<void>
 
 const DEFAULT_LIMIT = 10
@@ -95,7 +95,7 @@ export async function processOutboxBatch({
  */
 async function defaultHandler(
   event: OutboxEventRow,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ): Promise<void> {
   switch (event.event_type as OutboxEventType) {
     case 'notifications.requested':
@@ -131,7 +131,7 @@ async function defaultHandler(
 
 async function sendBookingConfirmedNotifications(
   event: OutboxEventRow,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ) {
   const bookingDetails = await loadBookingDetails(
     adminClient,
@@ -145,7 +145,7 @@ async function sendBookingConfirmedNotifications(
 
 async function sendBookingCancelledNotifications(
   event: OutboxEventRow,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ) {
   const bookingDetails = await loadBookingDetails(
     adminClient,
@@ -159,7 +159,7 @@ async function sendBookingCancelledNotifications(
 
 async function sendBookingRescheduledNotifications(
   event: OutboxEventRow,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ) {
   const bookingDetails = await loadBookingDetails(
     adminClient,
@@ -173,7 +173,7 @@ async function sendBookingRescheduledNotifications(
 
 async function sendBookingReminderNotifications(
   event: OutboxEventRow,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ) {
   const reminderRequest = parseReminderOutboxPayload(event.payload)
   const bookingDetails = await loadBookingDetails(
@@ -208,7 +208,7 @@ async function sendBookingReminderNotifications(
 }
 
 async function loadBookingDetails(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   bookingId: string,
   options: { requireReadyConference: boolean }
 ): Promise<LoadedBookingDetails> {
@@ -285,7 +285,7 @@ class ConferenceLinkPendingError extends DeferredOutboxEventError {
 }
 
 async function markOutboxEventCompleted(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   eventId: string
 ): Promise<void> {
   const { error } = await adminClient
@@ -304,7 +304,7 @@ async function markOutboxEventCompleted(
 }
 
 async function markOutboxEventFailed(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   event: OutboxEventRow,
   error: unknown,
   maxAttempts: number
@@ -334,7 +334,7 @@ async function markOutboxEventFailed(
  * attempts, so this writes the count back down while the event waits.
  */
 async function markOutboxEventDeferred(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   event: OutboxEventRow,
   error: DeferredOutboxEventError
 ): Promise<void> {

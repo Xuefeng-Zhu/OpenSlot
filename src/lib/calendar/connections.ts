@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Tables } from '@/lib/types/database'
 
 type ProviderConnectionRow = Pick<
@@ -69,7 +69,7 @@ export interface CalendarWatchSummary {
  * OAuth tokens or provider refresh credentials.
  */
 export async function listCalendarConnectionSummaries(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string
 ): Promise<CalendarConnectionSummary[]> {
   const { data: connectionsData, error: connectionsError } = await adminClient

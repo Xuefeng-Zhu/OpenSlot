@@ -1,13 +1,14 @@
 # E2E Testing
 
 OpenSlot has a committed Playwright E2E lane for the core public, guest, and
-authenticated host journeys. The suite runs against local Supabase seed data,
-creates isolated rows for mutating flows, and cleans those rows with the local
-service-role key.
+authenticated host journeys. The suite runs against a configured Butterbase
+test app, creates isolated rows for mutating flows, and cleans those rows with
+the server-only Butterbase service key.
 
 ## Automated Dashboard E2E
 
-The automated suite uses local Supabase seed data, including this host account:
+The automated suite ensures this Butterbase-backed host account exists before
+browser specs run:
 
 - Email: `demo@openslot.dev`
 - Password: `demo-password-123`
@@ -15,8 +16,6 @@ The automated suite uses local Supabase seed data, including this host account:
 Run it locally with:
 
 ```bash
-supabase start
-supabase db reset --local
 npm run test:e2e
 ```
 
@@ -31,15 +30,17 @@ npm run test:e2e:debug
 The Playwright config starts the Next.js dev server at
 `PLAYWRIGHT_BASE_URL`, defaulting to `http://127.0.0.1:3000`. Use another port,
 for example `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100`, when port 3000 is
-already occupied. It expects Supabase env vars to be available in the shell or
-`.env.local`. Before tests run, Playwright refreshes and verifies the demo host
-password through the configured service-role key so browser login uses a real
-Supabase Auth password flow. If the demo host is missing, setup creates the auth
-user, profile, default schedule, and weekday availability needed by isolated E2E specs.
+already occupied. It expects `NEXT_PUBLIC_BUTTERBASE_APP_ID` and
+`BUTTERBASE_API_KEY` to be available in the shell or `.env.local`. Before tests
+run, Playwright refreshes and verifies the demo host password through the
+configured service key so browser login uses a real Butterbase Auth password
+flow. If the demo host is missing, setup creates the auth user, profile,
+default schedule, and weekday availability needed by isolated E2E specs.
 
-The CI `Dashboard E2E` job installs Chromium, starts local Supabase, resets and
-seeds the database, exports the local Supabase env vars, runs
-`npm run test:e2e`, and stops Supabase in an `always()` cleanup step.
+The CI `Dashboard E2E` job installs Chromium and runs `npm run test:e2e` when
+the Butterbase app id and service key are configured for the repository. If
+those secrets are absent, the job reports a notice and skips the browser lane
+instead of attempting to run against an unconfigured backend.
 
 ## Automated Coverage
 
@@ -51,25 +52,19 @@ seeds the database, exports the local Supabase env vars, runs
 | P0 | Guest booking | Public slot lookup, date/time selection, booking form validation, booking confirmation, cancel/reschedule links, host booking visibility, and stale-slot conflict handling without duplicate bookings. |
 | P1 | Bookings | Event-type filtering, details drawer, host cancellation dialog, cancelled tab, and database status/reason verification. |
 | P1 | Contacts | Search no-match/match states and contact profile meeting history for an isolated booking. |
-| P1 | Availability | Invalid interval validation, discard behavior, date override save, reload persistence, and service-role restoration. |
-| P1 | Profile/settings | Profile save with public profile persistence, display preference persistence, and service-role restoration. |
+| P1 | Availability | Invalid interval validation, discard behavior, date override save, reload persistence, and service-key restoration. |
+| P1 | Profile/settings | Profile save with public profile persistence, display preference persistence, and service-key restoration. |
 | P1 | Webhooks | Invalid URL handling, create, one-time signing secret, pause, enable, delete, and cleanup. |
 | P1 | Mobile nav | Narrow viewport dashboard drawer navigation to primary pages. |
 | P2 | Onboarding/token edges | Non-mutating onboarding validation/back flow and safe invalid guest action links. |
 
 Mutating specs create unique event types, bookings, contacts, availability
-overrides, or webhook endpoints. Cleanup runs in `finally` blocks; the CI job
-also starts from a freshly reset local database.
+overrides, or webhook endpoints. Cleanup runs in `finally` blocks.
 
 ## Manual Prerequisites
 
 1. Install dependencies and configure `.env.local`.
-2. Start a local Supabase stack and reset it from migrations plus seed data:
-
-   ```bash
-   supabase start
-   supabase db reset --local
-   ```
+2. Configure `.env.local` with a disposable Butterbase test app and service key.
 
 3. Start the app:
 
@@ -81,7 +76,7 @@ also starts from a freshly reset local database.
    - A completed profile.
    - At least one active event type.
    - Availability that exposes future slots.
-   - Supabase service-role env vars configured for booking writes.
+   - Butterbase service key configured for booking writes and cleanup.
 
 Do not commit real account credentials or customer data in test notes.
 

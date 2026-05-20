@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Json } from '@/lib/types/database'
 import {
   buildReminderOutboxPayload,
@@ -75,7 +75,7 @@ interface BookingOutboxPayload {
  * same logical work without sending duplicate emails, calendar writes, or webhooks.
  */
 export async function enqueueBookingConfirmedOutbox(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   booking: BookingOutboxInput
 ): Promise<EnqueueOutboxEventsResult> {
   const payload = buildBookingPayload(booking)
@@ -118,7 +118,7 @@ export async function enqueueBookingConfirmedOutbox(
  * work so booking confirmation is not blocked by optional reminder setup.
  */
 export async function enqueueConfiguredBookingReminderOutbox(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   booking: BookingOutboxInput
 ): Promise<EnqueueOutboxEventsResult> {
   const { data, error } = await adminClient
@@ -154,7 +154,7 @@ export async function enqueueConfiguredBookingReminderOutbox(
  * than one reminder for the same booking.
  */
 export async function enqueueBookingReminderOutbox(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   booking: BookingOutboxInput,
   policy: BookingReminderPolicy
 ): Promise<EnqueueOutboxEventsResult> {
@@ -207,7 +207,7 @@ export async function enqueueBookingReminderOutbox(
  * later processors can load from server-side tables.
  */
 export async function enqueueBookingCancelledOutbox(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   booking: BookingCancellationOutboxInput
 ): Promise<EnqueueOutboxEventsResult> {
   const payload = {
@@ -252,7 +252,7 @@ export async function enqueueBookingCancelledOutbox(
  * identifiers so processors can cancel stale external events before creating replacements.
  */
 export async function enqueueBookingRescheduledOutbox(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   booking: BookingRescheduleOutboxInput
 ): Promise<EnqueueOutboxEventsResult> {
   const payload = {
@@ -300,7 +300,7 @@ export async function enqueueBookingRescheduledOutbox(
  * side-effect work has already been queued by a retry.
  */
 export async function enqueueOutboxEvents(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   events: EnqueueOutboxEventInput[]
 ): Promise<EnqueueOutboxEventsResult> {
   const result: EnqueueOutboxEventsResult = {

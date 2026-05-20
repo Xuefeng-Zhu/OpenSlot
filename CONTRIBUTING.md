@@ -46,10 +46,11 @@ npm run build
 - Use TypeScript strict mode and `@/*` imports.
 - Prefer existing local UI primitives from `src/components/ui/`.
 - Validate API and form inputs with Zod schemas in `src/lib/validations/`.
-- Keep service-role Supabase access in server-only modules and route handlers.
+- Keep Butterbase service-key access in server-only modules and route handlers.
 - Preserve booking integrity checks, idempotency behavior, RLS boundaries, and
   database exclusion constraints.
-- Add new database changes as new migrations.
+- Add backend schema/function changes to provider artifacts and keep portable
+  SQL invariants documented.
 
 More detailed guidance lives in [docs/contributing.md](docs/contributing.md)
 and [docs/development.md](docs/development.md).

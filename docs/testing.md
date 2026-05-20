@@ -1,8 +1,8 @@
 # Testing
 
 Unit, property, and component tests use Vitest with jsdom. Configuration lives
-in `vitest.config.ts`. Browser E2E user-journey tests use Playwright with local
-Supabase seed data. Configuration lives in `playwright.config.ts`.
+in `vitest.config.ts`. Browser E2E user-journey tests use Playwright against the
+configured Butterbase app. Configuration lives in `playwright.config.ts`.
 
 ## Commands
 
@@ -55,7 +55,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - Unit and property tests live in `__tests__` directories near source files.
 - Browser E2E specs live in `e2e/` and are excluded from Vitest.
 - `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, booking windows, and external busy windows.
-- `src/lib/booking/__tests__/` covers confirmation, cancellation, and rescheduling engines with mocked Supabase chains.
+- `src/lib/booking/__tests__/` covers confirmation, cancellation, and rescheduling engines with mocked backend chains.
 - `src/lib/booking/__tests__/events.test.ts` covers booking audit event append behavior.
 - `src/lib/idempotency/__tests__/` covers request hashing, duplicate replay, and key-conflict behavior.
 - `src/lib/outbox/__tests__/` covers outbox dedupe handling, booking side-effect event sets, and scheduled reminder enqueueing.
@@ -72,7 +72,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 - `src/app/api/settings/__tests__/` covers authenticated settings persistence and account deletion.
 - `src/app/api/holds/__tests__/` covers hold creation through the reservation RPC, idempotency replay/conflict handling, public rate limiting, Turnstile preflight, and conflict mapping.
 - `src/app/api/holds/expire/__tests__/` covers stale hold expiry worker authorization and bounded batch options.
-- `src/app/api/slots/__tests__/` covers service-role slot reads, public rate limiting, active host/event scoping, and external busy-cache filtering.
+- `src/app/api/slots/__tests__/` covers service-key slot reads, public rate limiting, active host/event scoping, and external busy-cache filtering.
 - `src/lib/validations/__tests__/` covers Zod schemas.
 - `src/components/ui/__tests__/` covers accessibility and focus behavior.
 - Dashboard/public page property tests cover rendering invariants and UI helpers.
@@ -93,22 +93,21 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 ## E2E Tests
 
 The committed Playwright lane covers core public, guest, and authenticated host
-journeys against a local Supabase database. It runs in CI through the
+journeys against a Butterbase-backed test app. It runs in CI through the
 `Dashboard E2E` job.
-For local runs, start and seed Supabase before running the test:
+For local runs, configure `.env.local` with Butterbase credentials before
+running the test:
 
 ```bash
-supabase start
-supabase db reset --local
 npm run test:e2e
 ```
 
-The suite loads `.env.local` and uses the configured service-role key during
+The suite loads `.env.local` and uses the configured Butterbase service key during
 Playwright setup to refresh and verify the demo host password before the browser
 login tests run. If the demo host is missing, setup creates the auth user,
 profile, a default schedule, and weekday availability needed by isolated E2E
 specs. Mutating specs create unique event types, bookings, availability
-schedules, and webhook endpoints, then clean them with the service-role key.
+schedules, and webhook endpoints, then clean them with the service key.
 
 If Chromium has not been installed on the machine yet, run:
 
@@ -167,8 +166,8 @@ This comes from jsdom when a test triggers browser navigation. It is currently n
 | Settings persistence | Settings route tests, dashboard smoke/build, typecheck |
 | Forms and validation | Schema tests plus component tests |
 | Dashboard UI polish | Relevant component/page test, accessibility if inputs/actions change |
-| Page smoke, authenticated dashboard behavior, guest booking, or E2E regressions | `npm run test:e2e` with local Supabase seed data |
-| Supabase schema or RLS | Migration review, manual Supabase check, full build/test |
+| Page smoke, authenticated dashboard behavior, guest booking, or E2E regressions | `npm run test:e2e` with Butterbase test app data |
+| Butterbase schema or RLS | Provider schema/function review, manual Butterbase check, full build/test |
 | Docs only | `npm run lint`, `npm run typecheck`, `npm run test` when feasible |
 
 ## Related Docs

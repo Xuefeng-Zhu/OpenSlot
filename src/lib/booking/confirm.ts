@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Tables } from '@/lib/types/database'
 import type { ConfirmBookingInput, ConfirmBookingResult } from './types'
 import {
@@ -34,7 +34,7 @@ import { verifyFinalProviderAvailability } from '@/lib/calendar/final-availabili
  */
 export async function confirmBooking(
   input: ConfirmBookingInput,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ): Promise<ConfirmBookingResult> {
   const { holdToken, guestName, guestEmail, guestTimezone, notes, answers } = input
 
@@ -111,6 +111,73 @@ export async function confirmBooking(
 
   if (!finalAvailability.success) {
     return { success: false, error: finalAvailability.error }
+  }
+
+  const functionResult = await confirmBookingWithBackendFunction(adminClient, {
+    holdToken,
+    guestName,
+    guestEmail,
+    guestTimezone,
+    notes,
+    parsedAnswers: parsedAnswers.data as Json,
+    locationType: eventType.location_type,
+    locationValue: eventType.location_value ?? '',
+    conferenceProvider,
+  })
+
+  if (functionResult.attempted) {
+    if (!functionResult.success) {
+      return {
+        success: false,
+        error: functionResult.error,
+      }
+    }
+
+    const booking = functionResult.booking
+
+    await appendBookingEvent(adminClient, {
+      bookingId: booking.id,
+      eventType: 'booking.confirmed',
+      payload: {
+        eventTypeId: hold.event_type_id,
+        hostUserId: hold.host_user_id,
+        startAt: hold.start_at,
+        endAt: hold.end_at,
+      },
+    })
+
+    await upsertContactFromBooking(adminClient, {
+      bookingId: booking.id,
+      hostUserId: hold.host_user_id,
+      guestName,
+      guestEmail,
+      guestTimezone,
+    })
+
+    await enqueueBookingConfirmedOutbox(adminClient, {
+      bookingId: booking.id,
+      eventTypeId: hold.event_type_id,
+      hostUserId: hold.host_user_id,
+      startAt: hold.start_at,
+      endAt: hold.end_at,
+    })
+
+    await enqueueConfiguredBookingReminderOutbox(adminClient, {
+      bookingId: booking.id,
+      eventTypeId: hold.event_type_id,
+      hostUserId: hold.host_user_id,
+      startAt: hold.start_at,
+      endAt: hold.end_at,
+    })
+
+    return {
+      success: true,
+      bookingId: booking.id,
+      cancellationToken: booking.cancellation_token,
+      rescheduleToken: booking.reschedule_token,
+      conferenceStatus: booking.conference_status,
+      conferenceUrl: booking.conference_url,
+    }
   }
 
   // Step 3: Insert booking (exclusion constraint provides final guard against double-booking)
@@ -201,5 +268,86 @@ export async function confirmBooking(
     rescheduleToken: booking.reschedule_token,
     conferenceStatus: booking.conference_status,
     conferenceUrl: booking.conference_url,
+  }
+}
+
+type ConfirmFunctionBooking = {
+  id: string
+  cancellation_token: string
+  reschedule_token: string
+  conference_status: string
+  conference_url: string | null
+}
+
+type ConfirmFunctionResult =
+  | { attempted: false }
+  | { attempted: true; success: true; booking: ConfirmFunctionBooking }
+  | { attempted: true; success: false; error: string }
+
+async function confirmBookingWithBackendFunction(
+  adminClient: BackendCompatClient<Database>,
+  input: {
+    holdToken: string
+    guestName: string
+    guestEmail: string
+    guestTimezone: string
+    notes?: string
+    parsedAnswers: Json
+    locationType: string
+    locationValue: string
+    conferenceProvider: string | null
+  }
+): Promise<ConfirmFunctionResult> {
+  if (typeof adminClient.rpc !== 'function') return { attempted: false }
+
+  const { data, error } = await adminClient
+    .rpc('confirm_booking', {
+      p_hold_token: input.holdToken,
+      p_guest_name: input.guestName,
+      p_guest_email: input.guestEmail,
+      p_guest_timezone: input.guestTimezone,
+      p_notes: input.notes ?? '',
+      p_booking_answers: input.parsedAnswers,
+      p_location_type: input.locationType,
+      p_location_value: input.locationValue,
+      p_conference_provider: input.conferenceProvider,
+      p_conference_status: input.conferenceProvider ? 'pending' : 'not_required',
+    })
+    .single<{
+      booking_id: string
+      cancellation_token: string
+      reschedule_token: string
+      conference_status: string
+      conference_url: string | null
+    }>()
+
+  if (error || !data) {
+    if (error?.code === '23P01') {
+      return {
+        attempted: true,
+        success: false,
+        error:
+          'This slot has been booked by someone else. Please select a different time.',
+      }
+    }
+
+    console.error('Error confirming booking through backend function:', error)
+    return {
+      attempted: true,
+      success: false,
+      error: 'Failed to create booking.',
+    }
+  }
+
+  return {
+    attempted: true,
+    success: true,
+    booking: {
+      id: data.booking_id,
+      cancellation_token: data.cancellation_token,
+      reschedule_token: data.reschedule_token,
+      conference_status: data.conference_status,
+      conference_url: data.conference_url,
+    },
   }
 }

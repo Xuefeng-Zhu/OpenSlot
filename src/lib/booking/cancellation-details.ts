@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { z } from 'zod'
 import type { Database, Tables } from '@/lib/types/database'
 
@@ -36,7 +36,7 @@ type CancellationBookingRow = Pick<
 >
 
 /**
- * Checks cancellation tokens before doing a service-role lookup.
+ * Checks cancellation tokens before doing a service-key lookup.
  * Invalid token shapes are rejected early so public pages do not query by
  * arbitrary strings.
  */
@@ -52,7 +52,7 @@ export function isValidCancellationToken(token: string): boolean {
  */
 export async function getCancellationDetails(
   cancellationToken: string,
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
 ): Promise<CancellationDetailsResult> {
   if (!isValidCancellationToken(cancellationToken)) {
     return { status: 'invalid' }

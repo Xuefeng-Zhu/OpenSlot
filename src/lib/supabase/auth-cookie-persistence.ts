@@ -1,4 +1,4 @@
-import type { CookieOptions } from '@supabase/ssr'
+import type { BackendCookieOptions as CookieOptions } from '@/lib/backend/session'
 
 export const AUTH_SESSION_PERSISTENCE_COOKIE =
   'openslot_auth_session_persistence'
@@ -18,7 +18,7 @@ const SESSION_COOKIE_VALUE = 'session'
 const PERSISTENT_COOKIE_MAX_AGE = 400 * 24 * 60 * 60
 
 /**
- * Reads the host preference that controls whether Supabase auth cookies should
+ * Reads the host preference that controls whether backend auth cookies should
  * be browser-session cookies or long-lived refresh cookies.
  */
 export function shouldKeepAuthSession(
