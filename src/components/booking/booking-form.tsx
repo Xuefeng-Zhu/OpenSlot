@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarCheck, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -132,7 +132,11 @@ export function BookingForm({
     watch,
     formState: { errors },
   } = useForm<ConfirmBookingFormInputValues, unknown, ConfirmBookingFormValues>({
-    resolver: zodResolver(bookingFormSchema),
+    resolver: zodResolver(bookingFormSchema) as Resolver<
+      ConfirmBookingFormInputValues,
+      unknown,
+      ConfirmBookingFormValues
+    >,
     defaultValues: {
       guestName: initialGuest?.name ?? "",
       guestEmail: initialGuest?.email ?? "",
