@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { addDays, format } from "date-fns";
 import { AlertCircle, CalendarDays, Clock3 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -169,6 +169,7 @@ export function SlotPicker({
   );
   const [holdTurnstileResetKey, setHoldTurnstileResetKey] = useState(0);
   const [agentDraft, setAgentDraft] = useState<BookingAgentDraft>({});
+  const holdIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const [flowState, setFlowState] = useState<BookingFlowState>({
     step: "select-slot",
   });
@@ -312,6 +313,10 @@ export function SlotPicker({
       hold: null,
       slot,
     });
+    const holdKey = holdIdempotencyKeyForSlot(slot);
+    const idempotencyKey =
+      holdIdempotencyKeysRef.current.get(holdKey) ?? createIdempotencyKey();
+    holdIdempotencyKeysRef.current.set(holdKey, idempotencyKey);
 
     try {
       // Create a hold on the selected slot
@@ -319,6 +324,7 @@ export function SlotPicker({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey,
         },
         body: JSON.stringify({
           eventTypeId: eventType.id,
@@ -326,6 +332,7 @@ export function SlotPicker({
           startAt: slot.start,
           endAt: slot.end,
           guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
+          idempotencyKey,
           turnstileToken: holdTurnstileToken ?? undefined,
           slotToken: slot.slotToken,
         }),
@@ -339,6 +346,7 @@ export function SlotPicker({
             "This slot has been taken by another guest. Please select a different time.";
           setSelectedSlot(null);
           setFlowState({ step: "select-slot" });
+          holdIdempotencyKeysRef.current.delete(holdKey);
           if (selectedDate) {
             await fetchSlots(selectedDate, timezone, { force: true });
           }
@@ -348,10 +356,12 @@ export function SlotPicker({
         setError(data.error || "Failed to hold slot. Please try again.");
         setSelectedSlot(null);
         setFlowState({ step: "select-slot" });
+        holdIdempotencyKeysRef.current.delete(holdKey);
         return;
       }
 
       // Hold created successfully — attach the token to the already visible form.
+      holdIdempotencyKeysRef.current.delete(holdKey);
       setFlowState({
         step: "booking-form",
         hold: {
@@ -601,7 +611,7 @@ export function SlotPicker({
           }
           onSelectSlot={handleSlotSelect}
           onDraftChange={(draft) =>
-            setAgentDraft((current) => ({ ...current, ...draft }))
+            setAgentDraft((current) => mergeBookingAgentDrafts(current, draft))
           }
         />
       )}
@@ -639,4 +649,32 @@ export function SlotPicker({
 
 function hasSlotsForDate(slotsByDate: SlotsByDate, date: string): boolean {
   return Object.prototype.hasOwnProperty.call(slotsByDate, date);
+}
+
+export function mergeBookingAgentDrafts(
+  current: BookingAgentDraft,
+  incoming: BookingAgentDraft
+): BookingAgentDraft {
+  const merged = { ...current, ...incoming };
+
+  if (current.answers || incoming.answers) {
+    merged.answers = {
+      ...(current.answers ?? {}),
+      ...(incoming.answers ?? {}),
+    };
+  }
+
+  return merged;
+}
+
+function holdIdempotencyKeyForSlot(slot: TimeSlot): string {
+  return `${slot.start}:${slot.end}:${slot.slotToken ?? ""}`;
+}
+
+function createIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
