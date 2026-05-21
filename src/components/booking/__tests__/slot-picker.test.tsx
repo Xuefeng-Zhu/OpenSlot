@@ -1,7 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { SlotPicker } from '../slot-picker'
+import { mergeBookingAgentDrafts, SlotPicker } from '../slot-picker'
 
 type SlotPickerProps = ComponentProps<typeof SlotPicker>
 
@@ -28,9 +28,17 @@ const hostProfile: SlotPickerProps['hostProfile'] = {
 describe('SlotPicker', () => {
   afterEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
-  it('renders with a valid timezone before browser detection succeeds', () => {
+  it('renders with a valid timezone before browser detection succeeds', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => {
+      return new Response(JSON.stringify({ slotsByDate: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
     vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(
       () =>
         ({
@@ -44,5 +52,128 @@ describe('SlotPicker', () => {
 
     expect(screen.getByLabelText('Timezone')).toBeDefined()
     expect(screen.getByText('UTC')).toBeDefined()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(String(fetchMock.mock.calls[0][0])).toContain('startDate=')
+    expect(String(fetchMock.mock.calls[0][0])).toContain('endDate=')
+  })
+
+  it('sends an idempotency key when holding an assistant-suggested slot', async () => {
+    const suggestedSlot = {
+      start: '2026-06-16T16:00:00.000Z',
+      end: '2026-06-16T16:30:00.000Z',
+      label: 'Tue, Jun 16, 9:00 AM',
+      slotToken: 'signed-slot-token',
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/slots')) {
+        return new Response(JSON.stringify({ slotsByDate: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url === '/api/booking-agent/message') {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            reply: 'I found one option.',
+            suggestedSlots: [suggestedSlot],
+            nextAction: 'show_slots',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      if (url === '/api/holds') {
+        return new Response(
+          JSON.stringify({
+            holdId: '33333333-3333-4333-8333-333333333333',
+            holdToken: '44444444-4444-4444-8444-444444444444',
+            expiresAt: '2026-06-16T16:05:00.000Z',
+          }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(
+      () =>
+        ({
+          resolvedOptions: () => ({ timeZone: 'America/Los_Angeles' }),
+        }) as Intl.DateTimeFormat
+    )
+
+    render(
+      <SlotPicker
+        eventType={eventType}
+        hostProfile={hostProfile}
+        bookingAgentEnabled
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI assistant' }))
+    fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
+      target: { value: 'next Tuesday morning' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Tue, Jun 16, 9:00 AM/ })
+    )
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([input]) => String(input) === '/api/holds'))
+        .toBe(true)
+    )
+
+    const holdCall = fetchMock.mock.calls.find(
+      ([input]) => String(input) === '/api/holds'
+    )
+    const holdInit = holdCall?.[1] as RequestInit
+    const headers = holdInit.headers as Record<string, string>
+    const body = JSON.parse(String(holdInit.body)) as {
+      idempotencyKey?: string
+      slotToken?: string
+    }
+
+    expect(body.idempotencyKey).toBeDefined()
+    expect(headers['Idempotency-Key']).toBe(body.idempotencyKey)
+    expect(body.slotToken).toBe('signed-slot-token')
+  })
+
+  it('deep merges booking assistant draft answers across turns', () => {
+    expect(
+      mergeBookingAgentDrafts(
+        {
+          guestName: 'Jane',
+          answers: {
+            topic: 'Onboarding',
+          },
+        },
+        {
+          guestEmail: 'jane@example.com',
+          answers: {
+            sendSummary: true,
+          },
+        }
+      )
+    ).toEqual({
+      guestName: 'Jane',
+      guestEmail: 'jane@example.com',
+      answers: {
+        topic: 'Onboarding',
+        sendSummary: true,
+      },
+    })
   })
 })

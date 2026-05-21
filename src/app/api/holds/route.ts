@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateHoldSlotRequest } from '@/lib/availability/available-slots'
+import { verifySlotHoldToken } from '@/lib/availability/slot-token'
 import {
   abandonIdempotentRequest,
   beginIdempotentRequest,
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
     }
 
     adminClient = createAdminClient()
-    const { idempotencyKey, turnstileToken, ...holdInput } = parsed.data
+    const { idempotencyKey, turnstileToken, slotToken, ...holdInput } =
+      parsed.data
     const { eventTypeId, hostUserId, startAt, endAt, guestEmail } = holdInput
 
     const keyResult = resolveIdempotencyKey(
@@ -120,13 +122,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const slotValidation = await validateHoldSlotRequest({
-      supabase: adminClient,
-      hostUserId,
-      eventTypeId,
-      startAt,
-      endAt,
-    })
+    const slotTokenResult = slotToken
+      ? await verifySlotHoldToken({
+          token: slotToken,
+          hostUserId,
+          eventTypeId,
+          startAt,
+          endAt,
+        })
+      : null
+
+    const slotValidation =
+      slotTokenResult?.ok === true
+        ? ({ success: true } as const)
+        : await validateHoldSlotRequest({
+            supabase: adminClient,
+            hostUserId,
+            eventTypeId,
+            startAt,
+            endAt,
+          })
 
     if (!slotValidation.success) {
       await cacheIdempotentResponse(

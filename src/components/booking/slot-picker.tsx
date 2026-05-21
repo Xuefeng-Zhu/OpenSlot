@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { addDays, format } from "date-fns";
 import { AlertCircle, CalendarDays, Clock3 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
+import { BookingAgentPanel } from "@/components/booking/booking-agent-panel";
 import {
   isTurnstileEnabled,
   TurnstileWidget,
@@ -29,11 +30,13 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
 import { cn } from "@/lib/utils";
+import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
 interface TimeSlot {
   start: string;
   end: string;
+  slotToken?: string;
 }
 
 export interface SlotPickerEventType {
@@ -60,6 +63,7 @@ interface SlotPickerProps {
   eventType: SlotPickerEventType;
   hostProfile: SlotPickerHostProfile;
   layout?: "public" | "embedded";
+  bookingAgentEnabled?: boolean;
   rescheduleContext?: {
     token: string;
     guestName: string;
@@ -87,9 +91,15 @@ interface BookingResult {
   eventTitle: string;
 }
 
+type SlotsByDate = Record<string, TimeSlot[]>;
+
+interface FetchSlotsOptions {
+  force?: boolean;
+}
+
 type BookingFlowState =
   | { step: "select-slot" }
-  | { step: "booking-form"; hold: HoldInfo; slot: TimeSlot }
+  | { step: "booking-form"; hold: HoldInfo | null; slot: TimeSlot }
   | { step: "confirmed"; booking: BookingResult };
 
 const COMMON_TIMEZONES = [
@@ -123,6 +133,7 @@ const COMMON_TIMEZONES = [
 ];
 
 const DEFAULT_TIMEZONE = "UTC";
+const SLOT_PREFETCH_DAYS = 60;
 
 function getBrowserTimezone(): string {
   try {
@@ -141,10 +152,13 @@ export function SlotPicker({
   eventType,
   hostProfile,
   layout = "public",
+  bookingAgentEnabled = false,
   rescheduleContext,
 }: SlotPickerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
+  const [timezoneReady, setTimezoneReady] = useState(false);
+  const [slotsByDate, setSlotsByDate] = useState<SlotsByDate>({});
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,29 +168,47 @@ export function SlotPicker({
     null
   );
   const [holdTurnstileResetKey, setHoldTurnstileResetKey] = useState(0);
+  const [agentDraft, setAgentDraft] = useState<BookingAgentDraft>({});
+  const holdIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const [flowState, setFlowState] = useState<BookingFlowState>({
     step: "select-slot",
   });
   const turnstileRequired = isTurnstileEnabled();
+  const selectedDateString = selectedDate
+    ? format(selectedDate, "yyyy-MM-dd")
+    : undefined;
+  const showBookingAgent = bookingAgentEnabled && layout === "public";
 
   useEffect(() => {
     setTimezone(getBrowserTimezone());
+    setTimezoneReady(true);
   }, []);
 
-  const fetchSlots = useCallback(
-    async (date: Date, tz: string) => {
-      setLoading(true);
-      setError(null);
-      setSlots([]);
-      setSelectedSlot(null);
+  const fetchSlotWindow = useCallback(
+    async (anchorDate: Date, tz: string, applyDate?: Date) => {
+      const startDate = format(anchorDate, "yyyy-MM-dd");
+      const endDate = format(
+        addDays(anchorDate, SLOT_PREFETCH_DAYS - 1),
+        "yyyy-MM-dd"
+      );
+      const applyDateString = applyDate
+        ? format(applyDate, "yyyy-MM-dd")
+        : null;
+      const shouldApply = Boolean(applyDateString);
 
-      const dateStr = format(date, "yyyy-MM-dd");
+      if (shouldApply) {
+        setLoading(true);
+        setError(null);
+        setSlots([]);
+        setSelectedSlot(null);
+      }
 
       try {
         const params = new URLSearchParams({
           hostUserId: hostProfile.id,
           eventTypeId: eventType.id,
-          date: dateStr,
+          startDate,
+          endDate,
           timezone: tz,
         });
 
@@ -184,30 +216,68 @@ export function SlotPicker({
 
         if (!response.ok) {
           const data = await response.json().catch(() => null);
-          setError(
-            data?.error || "Failed to fetch available slots. Please try again."
-          );
+          if (shouldApply) {
+            setError(
+              data?.error || "Failed to fetch available slots. Please try again."
+            );
+          }
           return;
         }
 
         const data = await response.json();
-        setSlots(data.slots ?? []);
+        const nextSlotsByDate = (data.slotsByDate ?? {}) as SlotsByDate;
+
+        setSlotsByDate((current) => ({
+          ...current,
+          ...nextSlotsByDate,
+        }));
+
+        if (applyDateString) {
+          setSlots(nextSlotsByDate[applyDateString] ?? []);
+        }
       } catch {
-        setError(
-          "Unable to load available slots. The service may be temporarily unavailable."
-        );
+        if (shouldApply) {
+          setError(
+            "Unable to load available slots. The service may be temporarily unavailable."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (shouldApply) {
+          setLoading(false);
+        }
       }
     },
     [hostProfile.id, eventType.id]
   );
 
+  const fetchSlots = useCallback(
+    async (date: Date, tz: string, options: FetchSlotsOptions = {}) => {
+      const dateStr = format(date, "yyyy-MM-dd");
+
+      if (!options.force && hasSlotsForDate(slotsByDate, dateStr)) {
+        setError(null);
+        setSlots(slotsByDate[dateStr] ?? []);
+        setSelectedSlot(null);
+        setLoading(false);
+        return;
+      }
+
+      await fetchSlotWindow(date, tz, date);
+    },
+    [fetchSlotWindow, slotsByDate]
+  );
+
   useEffect(() => {
-    if (selectedDate && timezone) {
+    if (timezoneReady && timezone) {
+      void fetchSlotWindow(new Date(), timezone);
+    }
+  }, [timezoneReady, timezone, fetchSlotWindow]);
+
+  useEffect(() => {
+    if (timezoneReady && selectedDate && timezone) {
       fetchSlots(selectedDate, timezone);
     }
-  }, [selectedDate, timezone, fetchSlots]);
+  }, [selectedDate, timezone, timezoneReady, fetchSlots]);
 
   function handleDateSelect(date: Date | undefined) {
     setSelectedDate(date);
@@ -220,6 +290,8 @@ export function SlotPicker({
 
   function handleTimezoneChange(tz: string) {
     setTimezone(tz);
+    setSlotsByDate({});
+    setSlots([]);
     setSelectedSlot(null);
     // Reset flow state when changing timezone
     if (flowState.step !== "confirmed") {
@@ -236,7 +308,15 @@ export function SlotPicker({
     setSelectedSlot(slot);
     setHoldLoading(true);
     setError(null);
-    const idempotencyKey = createIdempotencyKey();
+    setFlowState({
+      step: "booking-form",
+      hold: null,
+      slot,
+    });
+    const holdKey = holdIdempotencyKeyForSlot(slot);
+    const idempotencyKey =
+      holdIdempotencyKeysRef.current.get(holdKey) ?? createIdempotencyKey();
+    holdIdempotencyKeysRef.current.set(holdKey, idempotencyKey);
 
     try {
       // Create a hold on the selected slot
@@ -254,6 +334,7 @@ export function SlotPicker({
           guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
           idempotencyKey,
           turnstileToken: holdTurnstileToken ?? undefined,
+          slotToken: slot.slotToken,
         }),
       });
 
@@ -264,18 +345,23 @@ export function SlotPicker({
           const conflictMessage =
             "This slot has been taken by another guest. Please select a different time.";
           setSelectedSlot(null);
+          setFlowState({ step: "select-slot" });
+          holdIdempotencyKeysRef.current.delete(holdKey);
           if (selectedDate) {
-            await fetchSlots(selectedDate, timezone);
+            await fetchSlots(selectedDate, timezone, { force: true });
           }
           setError(conflictMessage);
           return;
         }
         setError(data.error || "Failed to hold slot. Please try again.");
         setSelectedSlot(null);
+        setFlowState({ step: "select-slot" });
+        holdIdempotencyKeysRef.current.delete(holdKey);
         return;
       }
 
-      // Hold created successfully — show booking form
+      // Hold created successfully — attach the token to the already visible form.
+      holdIdempotencyKeysRef.current.delete(holdKey);
       setFlowState({
         step: "booking-form",
         hold: {
@@ -287,6 +373,7 @@ export function SlotPicker({
     } catch {
       setError("Unable to hold slot. Please try again.");
       setSelectedSlot(null);
+      setFlowState({ step: "select-slot" });
     } finally {
       if (turnstileRequired) {
         setHoldTurnstileToken(null);
@@ -308,7 +395,7 @@ export function SlotPicker({
     setFlowState({ step: "select-slot" });
     // Refresh slots to show updated availability
     if (selectedDate) {
-      fetchSlots(selectedDate, timezone);
+      fetchSlots(selectedDate, timezone, { force: true });
     }
   }
 
@@ -320,7 +407,7 @@ export function SlotPicker({
     setFlowState({ step: "select-slot" });
     // Refresh slots to show updated availability
     if (selectedDate) {
-      fetchSlots(selectedDate, timezone);
+      fetchSlots(selectedDate, timezone, { force: true });
     }
   }
 
@@ -459,7 +546,7 @@ export function SlotPicker({
                   className="mt-3"
                   onClick={() => {
                     setError(null);
-                    fetchSlots(selectedDate, timezone);
+                    fetchSlots(selectedDate, timezone, { force: true });
                   }}
                 >
                   Try Again
@@ -502,13 +589,39 @@ export function SlotPicker({
             )}
           </CardContent>
         </Card>
+
       </div>
+
+      {showBookingAgent && (
+        <BookingAgentPanel
+          mode={rescheduleContext ? "reschedule" : "booking"}
+          eventTypeId={eventType.id}
+          hostUserId={hostProfile.id}
+          timezone={timezone}
+          selectedDate={selectedDateString}
+          selectedSlot={selectedSlot}
+          rescheduleToken={rescheduleContext?.token}
+          holdDisabled={
+            holdLoading || (turnstileRequired && !holdTurnstileToken)
+          }
+          holdDisabledReason={
+            turnstileRequired && !holdTurnstileToken
+              ? "Complete the verification challenge before holding a time."
+              : "Please wait while this time is being held."
+          }
+          onSelectSlot={handleSlotSelect}
+          onDraftChange={(draft) =>
+            setAgentDraft((current) => mergeBookingAgentDrafts(current, draft))
+          }
+        />
+      )}
 
       {/* Booking form (shown after hold is created) */}
       {flowState.step === "booking-form" && (
         <BookingForm
-          holdToken={flowState.hold.holdToken}
-          expiresAt={flowState.hold.expiresAt}
+          holdToken={flowState.hold?.holdToken}
+          expiresAt={flowState.hold?.expiresAt}
+          holdPending={!flowState.hold}
           selectedSlot={flowState.slot}
           eventTitle={eventType.title}
           hostName={hostProfile.name}
@@ -524,6 +637,7 @@ export function SlotPicker({
                 }
               : undefined
           }
+          initialDraft={agentDraft}
           onConfirmed={handleBookingConfirmed}
           onHoldExpired={handleHoldExpired}
           onSlotTaken={handleSlotTaken}
@@ -531,6 +645,30 @@ export function SlotPicker({
       )}
     </div>
   );
+}
+
+function hasSlotsForDate(slotsByDate: SlotsByDate, date: string): boolean {
+  return Object.prototype.hasOwnProperty.call(slotsByDate, date);
+}
+
+export function mergeBookingAgentDrafts(
+  current: BookingAgentDraft,
+  incoming: BookingAgentDraft
+): BookingAgentDraft {
+  const merged = { ...current, ...incoming };
+
+  if (current.answers || incoming.answers) {
+    merged.answers = {
+      ...(current.answers ?? {}),
+      ...(incoming.answers ?? {}),
+    };
+  }
+
+  return merged;
+}
+
+function holdIdempotencyKeyForSlot(slot: TimeSlot): string {
+  return `${slot.start}:${slot.end}:${slot.slotToken ?? ""}`;
 }
 
 function createIdempotencyKey(): string {

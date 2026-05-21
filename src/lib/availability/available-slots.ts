@@ -6,7 +6,10 @@ import type {
   AvailabilityRule,
   TimeSlot,
 } from './types'
-import { refreshCalendarAvailabilityForHost } from '@/lib/calendar/provider-sync'
+import {
+  refreshCalendarAvailabilityForHost,
+  type RefreshCalendarAvailabilityResult,
+} from '@/lib/calendar/provider-sync'
 import type { Database, Tables } from '@/lib/types/database'
 
 type AdminClient = BackendCompatClient<Database>
@@ -20,6 +23,11 @@ type AvailableSlotsFailure = {
 type AvailableSlotsSuccess = {
   success: true
   slots: TimeSlot[]
+}
+
+type AvailableSlotsRangeSuccess = {
+  success: true
+  slotsByDate: Record<string, TimeSlot[]>
 }
 
 type EventTypeAvailabilityConfig = Pick<
@@ -41,6 +49,10 @@ type ScheduleAvailabilityConfig = Pick<
 
 export type AvailableSlotsResult =
   | AvailableSlotsSuccess
+  | AvailableSlotsFailure
+
+export type AvailableSlotsRangeResult =
+  | AvailableSlotsRangeSuccess
   | AvailableSlotsFailure
 
 export type HoldSlotValidationResult =
@@ -79,6 +91,57 @@ export async function loadAvailableSlotsForDate({
     hostUserId,
     eventTypeId,
     date,
+    guestTimezone,
+    eventType: eventTypeResult.eventType,
+    refreshExternalCalendars: true,
+  })
+}
+
+/**
+ * Computes public availability for an inclusive date range while sharing the
+ * provider reads that are identical for each date. Public booking pages use
+ * this to populate a window of dates with one `/api/slots` request.
+ */
+export async function loadAvailableSlotsForDateRange({
+  supabase,
+  hostUserId,
+  eventTypeId,
+  startDate,
+  endDate,
+  guestTimezone,
+}: {
+  supabase: AdminClient
+  hostUserId: string
+  eventTypeId: string
+  startDate: string
+  endDate: string
+  guestTimezone: string
+}): Promise<AvailableSlotsRangeResult> {
+  const dates = enumerateDateRange(startDate, endDate)
+
+  if (dates.length === 0) {
+    return {
+      success: false,
+      status: 400,
+      error: 'Invalid date range.',
+    }
+  }
+
+  const eventTypeResult = await loadEventTypeAvailabilityConfig({
+    supabase,
+    hostUserId,
+    eventTypeId,
+  })
+
+  if (!eventTypeResult.success) {
+    return eventTypeResult
+  }
+
+  return computeSlotsForDateRange({
+    supabase,
+    hostUserId,
+    eventTypeId,
+    dates,
     guestTimezone,
     eventType: eventTypeResult.eventType,
     refreshExternalCalendars: true,
@@ -141,7 +204,7 @@ export async function validateHoldSlotRequest({
     eventTypeResult.eventType.buffer_after_minutes
   )
 
-  await refreshCalendarAvailabilityForHost(
+  const refreshResult = await refreshCalendarAvailabilityForHost(
     supabase,
     hostUserId,
     refreshRange.start,
@@ -156,6 +219,7 @@ export async function validateHoldSlotRequest({
       date,
       guestTimezone: 'UTC',
       eventType: eventTypeResult.eventType,
+      skipExternalBusyLookup: refreshResult.checked === 0,
     })
 
     if (!slotsResult.success) {
@@ -231,6 +295,7 @@ async function computeSlotsForDate({
   guestTimezone,
   eventType,
   refreshExternalCalendars = false,
+  skipExternalBusyLookup = false,
 }: {
   supabase: AdminClient
   hostUserId: string
@@ -239,7 +304,48 @@ async function computeSlotsForDate({
   guestTimezone: string
   eventType: EventTypeAvailabilityConfig
   refreshExternalCalendars?: boolean
+  skipExternalBusyLookup?: boolean
 }): Promise<AvailableSlotsResult> {
+  const rangeResult = await computeSlotsForDateRange({
+    supabase,
+    hostUserId,
+    eventTypeId,
+    dates: [date],
+    guestTimezone,
+    eventType,
+    refreshExternalCalendars,
+    skipExternalBusyLookup,
+  })
+
+  if (!rangeResult.success) {
+    return rangeResult
+  }
+
+  return {
+    success: true,
+    slots: rangeResult.slotsByDate[date] ?? [],
+  }
+}
+
+async function computeSlotsForDateRange({
+  supabase,
+  hostUserId,
+  eventTypeId,
+  dates,
+  guestTimezone,
+  eventType,
+  refreshExternalCalendars = false,
+  skipExternalBusyLookup = false,
+}: {
+  supabase: AdminClient
+  hostUserId: string
+  eventTypeId: string
+  dates: string[]
+  guestTimezone: string
+  eventType: EventTypeAvailabilityConfig
+  refreshExternalCalendars?: boolean
+  skipExternalBusyLookup?: boolean
+}): Promise<AvailableSlotsRangeResult> {
   const scheduleResult = await loadScheduleAvailabilityConfig({
     supabase,
     hostUserId,
@@ -250,27 +356,71 @@ async function computeSlotsForDate({
     return scheduleResult
   }
 
-  const conflictLookupRange = paddedConflictLookupRange(
-    date,
+  const conflictLookupRange = paddedConflictLookupRangeForDates(
+    dates,
     eventType.buffer_before_minutes,
     eventType.buffer_after_minutes
   )
 
-  if (refreshExternalCalendars) {
-    await refreshCalendarAvailabilityForHost(
-      supabase,
-      hostUserId,
-      conflictLookupRange.start,
-      conflictLookupRange.end
-    )
-  }
+  const refreshPromise = refreshExternalCalendars
+    ? refreshCalendarAvailabilityForHost(
+        supabase,
+        hostUserId,
+        conflictLookupRange.start,
+        conflictLookupRange.end
+      )
+    : Promise.resolve<RefreshCalendarAvailabilityResult | null>(null)
 
-  const { data: rulesData, error: rulesError } = await supabase
+  const rulesPromise = supabase
     .from('availability_rules')
-    .select('id, user_id, schedule_id, weekday, start_time, end_time, timezone, is_active')
+    .select(
+      'id, user_id, schedule_id, weekday, start_time, end_time, timezone, is_active'
+    )
     .eq('user_id', hostUserId)
     .eq('schedule_id', scheduleResult.schedule.id)
     .eq('is_active', true)
+
+  const overridesPromise = supabase
+    .from('availability_overrides')
+    .select(
+      'id, user_id, schedule_id, date, start_time, end_time, timezone, is_available, reason'
+    )
+    .eq('user_id', hostUserId)
+    .eq('schedule_id', scheduleResult.schedule.id)
+    .in('date', dates)
+
+  const bookingsPromise = supabase
+    .from('bookings')
+    .select('start_at, end_at')
+    .eq('host_user_id', hostUserId)
+    .eq('status', 'confirmed')
+    .lte('start_at', conflictLookupRange.end)
+    .gte('end_at', conflictLookupRange.start)
+
+  const nowISO = new Date().toISOString()
+
+  const holdsPromise = supabase
+    .from('slot_holds')
+    .select('start_at, end_at')
+    .eq('host_user_id', hostUserId)
+    .eq('status', 'active')
+    .gt('expires_at', nowISO)
+    .lte('start_at', conflictLookupRange.end)
+    .gte('end_at', conflictLookupRange.start)
+
+  const [
+    refreshResult,
+    { data: rulesData, error: rulesError },
+    { data: overridesData, error: overridesError },
+    { data: bookingsData, error: bookingsError },
+    { data: holdsData, error: holdsError },
+  ] = await Promise.all([
+    refreshPromise,
+    rulesPromise,
+    overridesPromise,
+    bookingsPromise,
+    holdsPromise,
+  ])
 
   if (rulesError) {
     return {
@@ -280,15 +430,6 @@ async function computeSlotsForDate({
     }
   }
 
-  const { data: overridesData, error: overridesError } = await supabase
-    .from('availability_overrides')
-    .select(
-      'id, user_id, schedule_id, date, start_time, end_time, timezone, is_available, reason'
-    )
-    .eq('user_id', hostUserId)
-    .eq('schedule_id', scheduleResult.schedule.id)
-    .eq('date', date)
-
   if (overridesError) {
     return {
       success: false,
@@ -296,14 +437,6 @@ async function computeSlotsForDate({
       error: 'Failed to fetch availability overrides',
     }
   }
-
-  const { data: bookingsData, error: bookingsError } = await supabase
-    .from('bookings')
-    .select('start_at, end_at')
-    .eq('host_user_id', hostUserId)
-    .eq('status', 'confirmed')
-    .lte('start_at', conflictLookupRange.end)
-    .gte('end_at', conflictLookupRange.start)
 
   if (bookingsError) {
     return {
@@ -313,17 +446,6 @@ async function computeSlotsForDate({
     }
   }
 
-  const nowISO = new Date().toISOString()
-
-  const { data: holdsData, error: holdsError } = await supabase
-    .from('slot_holds')
-    .select('start_at, end_at')
-    .eq('host_user_id', hostUserId)
-    .eq('status', 'active')
-    .gt('expires_at', nowISO)
-    .lte('start_at', conflictLookupRange.end)
-    .gte('end_at', conflictLookupRange.start)
-
   if (holdsError) {
     return {
       success: false,
@@ -332,13 +454,18 @@ async function computeSlotsForDate({
     }
   }
 
+  const shouldSkipExternalBusyLookup =
+    skipExternalBusyLookup || refreshResult?.checked === 0
+
   const { slots: externalBusySlots, error: externalBusyError } =
-    await fetchExternalBusySlots({
-      supabase,
-      hostUserId,
-      rangeStart: conflictLookupRange.start,
-      rangeEnd: conflictLookupRange.end,
-    })
+    shouldSkipExternalBusyLookup
+      ? { slots: [], error: null }
+      : await fetchExternalBusySlots({
+          supabase,
+          hostUserId,
+          rangeStart: conflictLookupRange.start,
+          rangeEnd: conflictLookupRange.end,
+        })
 
   if (externalBusyError) {
     return {
@@ -348,76 +475,14 @@ async function computeSlotsForDate({
     }
   }
 
-  const rules = (rulesData ?? []) as Pick<
-    Tables<'availability_rules'>,
-    | 'id'
-    | 'user_id'
-    | 'schedule_id'
-    | 'weekday'
-    | 'start_time'
-    | 'end_time'
-    | 'timezone'
-    | 'is_active'
-  >[]
-  const overrides = (overridesData ?? []) as Pick<
-    Tables<'availability_overrides'>,
-    | 'id'
-    | 'user_id'
-    | 'schedule_id'
-    | 'date'
-    | 'start_time'
-    | 'end_time'
-    | 'timezone'
-    | 'is_available'
-    | 'reason'
-  >[]
-  const bookings = (bookingsData ?? []) as Pick<
-    Tables<'bookings'>,
-    'start_at' | 'end_at'
-  >[]
-  const holds = (holdsData ?? []) as Pick<
-    Tables<'slot_holds'>,
-    'start_at' | 'end_at'
-  >[]
+  const availabilityRules = mapAvailabilityRules(rulesData ?? [])
+  const availabilityOverrides = mapAvailabilityOverrides(overridesData ?? [])
+  const existingBookings = mapTimeSlots(bookingsData ?? [])
+  const activeHolds = mapTimeSlots(holdsData ?? [])
+  const slotsByDate: Record<string, TimeSlot[]> = {}
 
-  const availabilityRules: AvailabilityRule[] = rules.map((rule) => ({
-    id: rule.id,
-    user_id: rule.user_id,
-    schedule_id: rule.schedule_id,
-    weekday: rule.weekday,
-    start_time: rule.start_time,
-    end_time: rule.end_time,
-    timezone: rule.timezone,
-    is_active: rule.is_active,
-  }))
-
-  const availabilityOverrides: AvailabilityOverride[] = overrides.map(
-    (override) => ({
-      id: override.id,
-      user_id: override.user_id,
-      schedule_id: override.schedule_id,
-      date: override.date,
-      start_time: override.start_time,
-      end_time: override.end_time,
-      timezone: override.timezone,
-      is_available: override.is_available,
-      reason: override.reason ?? null,
-    })
-  )
-
-  const existingBookings: TimeSlot[] = bookings.map((booking) => ({
-    start: booking.start_at,
-    end: booking.end_at,
-  }))
-
-  const activeHolds: TimeSlot[] = holds.map((hold) => ({
-    start: hold.start_at,
-    end: hold.end_at,
-  }))
-
-  return {
-    success: true,
-    slots: computeAvailableSlots(
+  for (const date of dates) {
+    slotsByDate[date] = computeAvailableSlots(
       {
         date,
         hostUserId,
@@ -435,7 +500,12 @@ async function computeSlotsForDate({
       existingBookings,
       activeHolds,
       externalBusySlots
-    ),
+    )
+  }
+
+  return {
+    success: true,
+    slotsByDate,
   }
 }
 
@@ -557,6 +627,70 @@ async function fetchExternalBusySlots({
   }
 }
 
+function mapAvailabilityRules(rulesData: unknown): AvailabilityRule[] {
+  const rules = (rulesData ?? []) as Pick<
+    Tables<'availability_rules'>,
+    | 'id'
+    | 'user_id'
+    | 'schedule_id'
+    | 'weekday'
+    | 'start_time'
+    | 'end_time'
+    | 'timezone'
+    | 'is_active'
+  >[]
+
+  return rules.map((rule) => ({
+    id: rule.id,
+    user_id: rule.user_id,
+    schedule_id: rule.schedule_id,
+    weekday: rule.weekday,
+    start_time: rule.start_time,
+    end_time: rule.end_time,
+    timezone: rule.timezone,
+    is_active: rule.is_active,
+  }))
+}
+
+function mapAvailabilityOverrides(overridesData: unknown): AvailabilityOverride[] {
+  const overrides = (overridesData ?? []) as Pick<
+    Tables<'availability_overrides'>,
+    | 'id'
+    | 'user_id'
+    | 'schedule_id'
+    | 'date'
+    | 'start_time'
+    | 'end_time'
+    | 'timezone'
+    | 'is_available'
+    | 'reason'
+  >[]
+
+  return overrides.map((override) => ({
+    id: override.id,
+    user_id: override.user_id,
+    schedule_id: override.schedule_id,
+    date: override.date,
+    start_time: override.start_time,
+    end_time: override.end_time,
+    timezone: override.timezone,
+    is_available: override.is_available,
+    reason: override.reason ?? null,
+  }))
+}
+
+function mapTimeSlots(rowsData: unknown): TimeSlot[] {
+  const rows = (rowsData ?? []) as Array<{
+    start_at: string
+    end_at: string
+  }>
+
+  return rows.map((row) => ({
+    start: row.start_at,
+    end: row.end_at,
+  }))
+}
+
 /**
  * Expands the database conflict lookup around the requested date.
  * The extra day on both sides covers host/guest timezone boundaries, while the
@@ -585,12 +719,54 @@ function paddedConflictLookupRange(
   }
 }
 
+function paddedConflictLookupRangeForDates(
+  dates: string[],
+  bufferBeforeMinutes: number,
+  bufferAfterMinutes: number
+): { start: string; end: string } {
+  return {
+    start: paddedConflictLookupRange(
+      dates[0],
+      bufferBeforeMinutes,
+      bufferAfterMinutes
+    ).start,
+    end: paddedConflictLookupRange(
+      dates[dates.length - 1],
+      bufferBeforeMinutes,
+      bufferAfterMinutes
+    ).end,
+  }
+}
+
 function candidateAvailabilityDates(start: Date): string[] {
   const dates = [start, addDays(start, -1), addDays(start, 1)].map((date) =>
     date.toISOString().slice(0, 10)
   )
 
   return [...new Set(dates)]
+}
+
+function enumerateDateRange(startDate: string, endDate: string): string[] {
+  const start = new Date(`${startDate}T00:00:00.000Z`)
+  const end = new Date(`${endDate}T00:00:00.000Z`)
+
+  if (
+    Number.isNaN(start.getTime()) ||
+    Number.isNaN(end.getTime()) ||
+    end.getTime() < start.getTime()
+  ) {
+    return []
+  }
+
+  const dates: string[] = []
+  let cursor = start
+
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(cursor.toISOString().slice(0, 10))
+    cursor = addDays(cursor, 1)
+  }
+
+  return dates
 }
 
 function mergedConflictLookupRange(

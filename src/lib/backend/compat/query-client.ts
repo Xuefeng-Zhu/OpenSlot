@@ -456,6 +456,18 @@ export class BackendQueryBuilder<TData = any>
   }
 
   private async updateRows() {
+    const directId = this.directPrimaryKeyFilterValue()
+    if (directId !== null) {
+      return [
+        await this.httpClient.request({
+          method: 'PATCH',
+          path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(directId)}`,
+          auth: this.authMode,
+          body: this.payload,
+        }),
+      ]
+    }
+
     const rows = await this.fetchRows()
     const updatedRows: unknown[] = []
 
@@ -529,6 +541,21 @@ export class BackendQueryBuilder<TData = any>
     }
 
     return rows
+  }
+
+  private directPrimaryKeyFilterValue(): string | null {
+    if (this.filters.length !== 1) return null
+
+    const [filter] = this.filters
+    if (filter.column !== primaryKeyFor(this.table) || filter.operator !== 'eq') {
+      return null
+    }
+
+    if (typeof filter.value !== 'string' && typeof filter.value !== 'number') {
+      return null
+    }
+
+    return String(filter.value)
   }
 
   private async shapeResponse(rows: unknown[]) {

@@ -120,6 +120,15 @@ The default email provider logs messages to the console. `EMAIL_PROVIDER=resend`
 - Store provider API keys in server-only environment variables.
 - Configure a verified sending domain before enabling a production provider.
 
+## Booking Assistant Privacy
+
+The public booking assistant calls the Butterbase AI gateway only from
+server-side route handlers using `BUTTERBASE_API_KEY`. Chat transcripts are not
+persisted by OpenSlot. The request sent to the gateway is bounded to recent chat
+turns, safe public event context, and guest-provided scheduling preferences or
+draft form details. Booking, cancellation, and reschedule tokens are not sent to
+the model, and the assistant cannot confirm bookings directly.
+
 ## Browser Security Headers
 
 `next.config.js` applies browser hardening headers to all routes:

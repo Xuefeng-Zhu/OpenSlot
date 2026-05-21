@@ -86,6 +86,12 @@ The Microsoft script uses Azure CLI to create a fresh Entra app registration, co
 
 Email delivery defaults to the console provider. To exercise real email sends locally, set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY`, or set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY`.
 
+The public booking assistant uses the Butterbase model gateway from server-side
+route handlers. It is visible only when the app has `BUTTERBASE_API_KEY`
+configured. It sends `deepseek/deepseek-v4-flash` by default; set
+`BOOKING_AGENT_MODEL` only when a deployment needs a different allowed model in
+the Butterbase AI configuration.
+
 ## Backend Schema
 
 Butterbase is the active backend. Keep provider-neutral invariants in
