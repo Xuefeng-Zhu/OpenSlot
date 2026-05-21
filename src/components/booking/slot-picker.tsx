@@ -99,7 +99,7 @@ interface FetchSlotsOptions {
 
 type BookingFlowState =
   | { step: "select-slot" }
-  | { step: "booking-form"; hold: HoldInfo; slot: TimeSlot }
+  | { step: "booking-form"; hold: HoldInfo | null; slot: TimeSlot }
   | { step: "confirmed"; booking: BookingResult };
 
 const COMMON_TIMEZONES = [
@@ -307,6 +307,11 @@ export function SlotPicker({
     setSelectedSlot(slot);
     setHoldLoading(true);
     setError(null);
+    setFlowState({
+      step: "booking-form",
+      hold: null,
+      slot,
+    });
 
     try {
       // Create a hold on the selected slot
@@ -333,6 +338,7 @@ export function SlotPicker({
           const conflictMessage =
             "This slot has been taken by another guest. Please select a different time.";
           setSelectedSlot(null);
+          setFlowState({ step: "select-slot" });
           if (selectedDate) {
             await fetchSlots(selectedDate, timezone, { force: true });
           }
@@ -341,10 +347,11 @@ export function SlotPicker({
         }
         setError(data.error || "Failed to hold slot. Please try again.");
         setSelectedSlot(null);
+        setFlowState({ step: "select-slot" });
         return;
       }
 
-      // Hold created successfully — show booking form
+      // Hold created successfully — attach the token to the already visible form.
       setFlowState({
         step: "booking-form",
         hold: {
@@ -356,6 +363,7 @@ export function SlotPicker({
     } catch {
       setError("Unable to hold slot. Please try again.");
       setSelectedSlot(null);
+      setFlowState({ step: "select-slot" });
     } finally {
       if (turnstileRequired) {
         setHoldTurnstileToken(null);
@@ -601,8 +609,9 @@ export function SlotPicker({
       {/* Booking form (shown after hold is created) */}
       {flowState.step === "booking-form" && (
         <BookingForm
-          holdToken={flowState.hold.holdToken}
-          expiresAt={flowState.hold.expiresAt}
+          holdToken={flowState.hold?.holdToken}
+          expiresAt={flowState.hold?.expiresAt}
+          holdPending={!flowState.hold}
           selectedSlot={flowState.slot}
           eventTitle={eventType.title}
           hostName={hostProfile.name}

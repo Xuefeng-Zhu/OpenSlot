@@ -65,8 +65,9 @@ const COMMON_TIMEZONES = [
 ];
 
 interface BookingFormProps {
-  holdToken: string;
-  expiresAt: string;
+  holdToken?: string;
+  expiresAt?: string;
+  holdPending?: boolean;
   selectedSlot: { start: string; end: string };
   eventTitle: string;
   hostName: string;
@@ -102,6 +103,7 @@ interface BookingFormProps {
 export function BookingForm({
   holdToken,
   expiresAt,
+  holdPending = false,
   selectedSlot,
   eventTitle,
   hostName,
@@ -120,7 +122,12 @@ export function BookingForm({
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(
-    Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
+    expiresAt
+      ? Math.max(
+          0,
+          Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
+        )
+      : 0
   );
   const bookingFormSchema = useMemo(
     () => createConfirmBookingFormSchema(inviteeQuestions),
@@ -161,6 +168,17 @@ export function BookingForm({
 
   // Countdown timer
   useEffect(() => {
+    if (!expiresAt) {
+      setTimeRemaining(0);
+      return;
+    }
+
+    const initialRemaining = Math.max(
+      0,
+      Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
+    );
+    setTimeRemaining(initialRemaining);
+
     const interval = setInterval(() => {
       const remaining = Math.max(
         0,
@@ -184,6 +202,11 @@ export function BookingForm({
   }, []);
 
   const onSubmit = async (data: ConfirmBookingFormValues) => {
+    if (!holdToken) {
+      setError("We are still securing this time. Please try again in a moment.");
+      return;
+    }
+
     if (turnstileRequired && !turnstileToken) {
       setError("Please complete the verification challenge before continuing.");
       return;
@@ -296,17 +319,26 @@ export function BookingForm({
               {eventTitle} with {hostName}
             </CardDescription>
           </div>
-          <div
-            className={`w-fit rounded-full px-3 py-1 text-sm font-medium ${
-              timeRemaining <= 60
-                ? "bg-destructive/10 text-destructive"
-                : "bg-muted text-muted-foreground"
-            }`}
-            role="timer"
-            aria-label={`Hold expires in ${formatCountdown(timeRemaining)}`}
-          >
-            Hold expires in {formatCountdown(timeRemaining)}
-          </div>
+          {holdPending ? (
+            <div
+              className="w-fit rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground"
+              role="status"
+            >
+              Securing time...
+            </div>
+          ) : (
+            <div
+              className={`w-fit rounded-full px-3 py-1 text-sm font-medium ${
+                timeRemaining <= 60
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              role="timer"
+              aria-label={`Hold expires in ${formatCountdown(timeRemaining)}`}
+            >
+              Hold expires in {formatCountdown(timeRemaining)}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -544,12 +576,16 @@ export function BookingForm({
             className="w-full"
             disabled={
               submitting ||
+              holdPending ||
+              !holdToken ||
               timeRemaining <= 0 ||
               (turnstileRequired && !turnstileToken)
             }
           >
             {submitting
               ? "Confirming..."
+              : holdPending
+                ? "Securing Time..."
               : rescheduleToken
                 ? "Confirm New Time"
                 : "Confirm Booking"}

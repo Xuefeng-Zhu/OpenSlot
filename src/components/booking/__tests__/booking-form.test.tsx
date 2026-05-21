@@ -3,6 +3,34 @@ import { describe, expect, it, vi } from 'vitest'
 import { BookingForm } from '../booking-form'
 
 describe('BookingForm', () => {
+  it('renders a pending hold state before the hold token arrives', () => {
+    render(
+      <BookingForm
+        holdPending
+        selectedSlot={{
+          start: '2026-05-15T17:00:00.000Z',
+          end: '2026-05-15T17:30:00.000Z',
+        }}
+        eventTitle="Discovery Call"
+        hostName="Sarah Chen"
+        timezone="America/Los_Angeles"
+        inviteeQuestions={[]}
+        onConfirmed={vi.fn()}
+        onHoldExpired={vi.fn()}
+        onSlotTaken={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('status')).toHaveProperty(
+      'textContent',
+      'Securing time...'
+    )
+    expect(
+      screen.getByRole('button', { name: 'Securing Time...' })
+    ).toHaveProperty('disabled', true)
+    expect(screen.queryByRole('timer')).toBeNull()
+  })
+
   it('renders configured invitee questions in the public booking form', () => {
     render(
       <BookingForm
