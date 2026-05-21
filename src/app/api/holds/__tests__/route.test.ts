@@ -81,26 +81,9 @@ function requestWithJson(
   })
 }
 
-function createMutationQuery(result: {
-  data: unknown
-  error: { code?: string; message: string } | null
-}) {
-  const query: any = {
-    insert: vi.fn(() => query),
-    delete: vi.fn(() => query),
-    eq: vi.fn(() => query),
-    single: vi.fn(async () => result),
-    then: (resolve: (value: typeof result) => unknown) =>
-      Promise.resolve(result).then(resolve),
-  }
-
-  return query
-}
-
 describe('POST /api/holds', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.adminClient.from.mockReset()
     mocks.adminClient.rpc.mockReset()
     mocks.beginIdempotentRequest.mockResolvedValue({
       type: 'started',
@@ -208,80 +191,8 @@ describe('POST /api/holds', () => {
     })
   })
 
-  it('uses a valid slot token to create an optimistic hold lock', async () => {
+  it('uses a valid slot token to skip recomputing availability', async () => {
     mocks.verifySlotHoldToken.mockResolvedValue({ ok: true })
-    const reservationQuery = createMutationQuery({
-      data: { id: 'reservation-1' },
-      error: null,
-    })
-    const holdQuery = createMutationQuery({
-      data: { id: 'hold-1' },
-      error: null,
-    })
-    mocks.adminClient.from
-      .mockReturnValueOnce(reservationQuery)
-      .mockReturnValueOnce(holdQuery)
-
-    const response = await POST(
-      requestWithJson({ ...validBody, slotToken: 'signed-slot-token' }) as any
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(data).toEqual({
-      holdId: expect.any(String),
-      holdToken: expect.any(String),
-      expiresAt: expect.any(String),
-    })
-    expect(mocks.verifySlotHoldToken).toHaveBeenCalledWith({
-      token: 'signed-slot-token',
-      eventTypeId: validBody.eventTypeId,
-      hostUserId: validBody.hostUserId,
-      startAt: validBody.startAt,
-      endAt: validBody.endAt,
-    })
-    expect(mocks.adminClient.from).toHaveBeenCalledWith('host_reservations')
-    expect(mocks.adminClient.from).toHaveBeenCalledWith('slot_holds')
-    expect(reservationQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        host_user_id: validBody.hostUserId,
-        source: 'hold',
-        source_id: data.holdId,
-        start_at: validBody.startAt,
-        end_at: validBody.endAt,
-        status: 'active',
-      })
-    )
-    expect(holdQuery.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: data.holdId,
-        event_type_id: validBody.eventTypeId,
-        host_user_id: validBody.hostUserId,
-        hold_token: data.holdToken,
-        status: 'active',
-      })
-    )
-    expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
-    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
-  })
-
-  it('falls back to the reservation RPC when optimistic locking conflicts', async () => {
-    mocks.verifySlotHoldToken.mockResolvedValue({ ok: true })
-    mocks.adminClient.from
-      .mockReturnValueOnce(
-        createMutationQuery({
-          data: null,
-          error: {
-            code: '23P01',
-            message: 'conflicting key value violates exclusion constraint',
-          },
-        })
-      )
-      .mockReturnValueOnce(
-        createMutationQuery({ data: { id: 'hold-1' }, error: null })
-      )
-      .mockReturnValueOnce(createMutationQuery({ data: [], error: null }))
-      .mockReturnValueOnce(createMutationQuery({ data: [], error: null }))
 
     const response = await POST(
       requestWithJson({ ...validBody, slotToken: 'signed-slot-token' }) as any
@@ -290,16 +201,14 @@ describe('POST /api/holds', () => {
 
     expect(response.status).toBe(201)
     expect(data.holdId).toBe('33333333-3333-4333-8333-333333333333')
+    expect(mocks.verifySlotHoldToken).toHaveBeenCalledWith({
+      token: 'signed-slot-token',
+      eventTypeId: validBody.eventTypeId,
+      hostUserId: validBody.hostUserId,
+      startAt: validBody.startAt,
+      endAt: validBody.endAt,
+    })
     expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
-    expect(mocks.adminClient.rpc).toHaveBeenCalledWith(
-      'create_slot_hold_with_reservation',
-      expect.objectContaining({
-        p_event_type_id: validBody.eventTypeId,
-        p_host_user_id: validBody.hostUserId,
-        p_start_at: validBody.startAt,
-        p_end_at: validBody.endAt,
-      })
-    )
   })
 
   it('replays a cached hold response before rate limiting or mutation work', async () => {
