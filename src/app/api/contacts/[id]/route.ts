@@ -11,7 +11,7 @@ interface ContactRouteProps {
 const contactIdSchema = z.string().uuid()
 
 /**
- * Resolves the current session to a profile id before service-role contact
+ * Resolves the current session to a profile id before service-key contact
  * writes, so a guessed contact id cannot cross tenant boundaries.
  */
 async function getAuthenticatedProfileId() {
@@ -41,6 +41,8 @@ async function getAuthenticatedProfileId() {
 /**
  * Soft-anonymizes a host-owned contact and matching booking display fields.
  */
+export const runtime = 'edge'
+
 export async function DELETE(
   _request: NextRequest,
   { params }: ContactRouteProps

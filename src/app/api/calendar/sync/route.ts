@@ -9,6 +9,8 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
  * Sync refreshes tokens, calendar metadata, and external busy-cache rows used by
  * public slot calculations.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   return runCalendarSync(request, {

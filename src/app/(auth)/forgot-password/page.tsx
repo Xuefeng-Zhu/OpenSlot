@@ -59,14 +59,14 @@ export default function ForgotPasswordPage() {
         <CardHeader>
           <CardTitle>Reset your password</CardTitle>
           <CardDescription>
-            Enter your account email and we&apos;ll send you a password reset link.
+            Enter your account email and we&apos;ll send you a password reset code.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit} noValidate>
           <CardContent className="space-y-4">
             {sent && (
               <div className="rounded-md bg-success/10 p-3 text-sm text-success">
-                If an account exists for that email, a reset link is on its way.
+                If an account exists for that email, a reset code is on its way.
               </div>
             )}
             {error && (
@@ -89,7 +89,7 @@ export default function ForgotPasswordPage() {
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Send reset link"}
+              {loading ? "Sending..." : "Send reset code"}
             </Button>
             <Link
               href="/login"

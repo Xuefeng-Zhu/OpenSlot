@@ -5,7 +5,7 @@
  * and the payload structure for outgoing emails.
  */
 
-import { createHash } from 'node:crypto'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 
 export interface EmailPayload {
   to: string
@@ -71,7 +71,7 @@ function parseEmailObject(value: string): MailerooEmailObject {
 }
 
 function buildMailerooReferenceId(idempotencyKey: string): string {
-  return createHash('sha256').update(`openslot:${idempotencyKey}`).digest('hex').slice(0, 24)
+  return sha256Hex(`openslot:${idempotencyKey}`).slice(0, 24)
 }
 
 export class ResendEmailProvider implements EmailProvider {

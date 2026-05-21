@@ -1,11 +1,12 @@
-import { createHash } from 'node:crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9._:-]+$/
 const DEFAULT_TTL_HOURS = 24
 
 export interface IdempotencyEntry {
+  id?: string
   scope: string
   key: string
   requestHash: string
@@ -66,9 +67,7 @@ export function resolveIdempotencyKey(
  * same even when clients send properties in a different order.
  */
 export function hashRequestPayload(payload: unknown): string {
-  return createHash('sha256')
-    .update(stableStringify(payload))
-    .digest('hex')
+  return sha256Hex(stableStringify(payload))
 }
 
 /**
@@ -84,7 +83,7 @@ export async function beginIdempotentRequest({
   requestHash,
   ttlHours = DEFAULT_TTL_HOURS,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   scope: string
   key: string
   requestHash: string
@@ -93,7 +92,7 @@ export async function beginIdempotentRequest({
   const expiresAt = new Date(Date.now() + ttlHours * 60 * 60 * 1000)
     .toISOString()
 
-  const { error: insertError } = await adminClient
+  const { data: insertedData, error: insertError } = await adminClient
     .from('request_idempotency')
     .insert({
       scope,
@@ -103,9 +102,13 @@ export async function beginIdempotentRequest({
     })
 
   if (!insertError) {
+    const insertedId = insertedRequestIdempotencyId(insertedData)
+    const entry: IdempotencyEntry = { scope, key, requestHash }
+    if (insertedId) entry.id = insertedId
+
     return {
       type: 'started',
-      entry: { scope, key, requestHash },
+      entry,
     }
   }
 
@@ -139,11 +142,11 @@ export async function completeIdempotentRequest({
   entry,
   response,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   entry: IdempotencyEntry
   response: CachedIdempotencyResponse
 }): Promise<void> {
-  const { error } = await adminClient
+  const update = adminClient
     .from('request_idempotency')
     .update({
       status: 'completed',
@@ -151,9 +154,12 @@ export async function completeIdempotentRequest({
       response_status: response.status,
       updated_at: new Date().toISOString(),
     })
-    .eq('scope', entry.scope)
-    .eq('idempotency_key', entry.key)
-    .eq('request_hash', entry.requestHash)
+  const { error } = entry.id
+    ? await update.eq('id', entry.id)
+    : await update
+        .eq('scope', entry.scope)
+        .eq('idempotency_key', entry.key)
+        .eq('request_hash', entry.requestHash)
 
   if (error) {
     console.error('Error completing idempotent request:', error)
@@ -168,16 +174,19 @@ export async function abandonIdempotentRequest({
   adminClient,
   entry,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   entry: IdempotencyEntry
 }): Promise<void> {
-  const { error } = await adminClient
+  const remove = adminClient
     .from('request_idempotency')
     .delete()
-    .eq('scope', entry.scope)
-    .eq('idempotency_key', entry.key)
-    .eq('request_hash', entry.requestHash)
-    .eq('status', 'in_progress')
+  const { error } = entry.id
+    ? await remove.eq('id', entry.id)
+    : await remove
+        .eq('scope', entry.scope)
+        .eq('idempotency_key', entry.key)
+        .eq('request_hash', entry.requestHash)
+        .eq('status', 'in_progress')
 
   if (error) {
     console.error('Error abandoning idempotent request:', error)
@@ -253,6 +262,14 @@ function internalIdempotencyError(): BeginIdempotencyResult {
       },
     },
   }
+}
+
+function insertedRequestIdempotencyId(data: unknown): string | null {
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row || typeof row !== 'object') return null
+
+  const id = (row as Record<string, unknown>).id
+  return typeof id === 'string' ? id : null
 }
 
 function stableStringify(value: unknown): string {

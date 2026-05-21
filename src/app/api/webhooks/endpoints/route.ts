@@ -10,7 +10,7 @@ import type { Tables } from '@/lib/types/database'
 
 /**
  * Resolves the current session to a profile id for webhook endpoint ownership.
- * Mutations still use the service-role client, so every write must scope by this
+ * Mutations still use the service-key client, so every write must scope by this
  * profile id instead of trusting client-provided ownership.
  */
 async function getAuthenticatedProfileId() {
@@ -41,6 +41,8 @@ async function getAuthenticatedProfileId() {
  * Returns safe webhook endpoint summaries for the authenticated profile.
  * Signing secrets are deliberately omitted after creation.
  */
+export const runtime = 'edge'
+
 export async function GET() {
   try {
     const auth = await getAuthenticatedProfileId()

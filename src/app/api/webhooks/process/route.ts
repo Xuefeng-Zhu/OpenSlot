@@ -7,6 +7,8 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
  * Processes webhook deliveries from a worker POST body.
  * Auth accepts WEBHOOK_PROCESS_SECRET or CRON_SECRET before claiming delivery rows.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
   return runWebhookProcessor(request, body)

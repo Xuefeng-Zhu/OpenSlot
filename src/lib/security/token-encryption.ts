@@ -1,9 +1,12 @@
 import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-} from 'node:crypto'
+  aesGcmDecrypt,
+  aesGcmEncrypt,
+  base64UrlDecodeToBytes,
+  base64UrlEncodeBytes,
+  concatBytes,
+  randomBase64Url,
+  sha256Bytes,
+} from '@/lib/security/edge-crypto'
 
 const TOKEN_PREFIX = 'v1'
 const IV_LENGTH = 12
@@ -15,23 +18,21 @@ const DEVELOPMENT_SECRET = 'openslot-development-calendar-token-secret'
  * Uses AES-256-GCM with a random IV and prefixes the ciphertext format so future
  * migrations can distinguish new encryption versions.
  */
-export function encryptToken(token: string): string {
-  const iv = randomBytes(IV_LENGTH)
+export async function encryptToken(token: string): Promise<string> {
+  const iv = base64UrlDecodeToBytes(randomBase64Url(IV_LENGTH))
   const key = tokenEncryptionKey()
-  const cipher = createCipheriv('aes-256-gcm', key, iv, {
-    authTagLength: AUTH_TAG_LENGTH,
-  })
-  const encrypted = Buffer.concat([
-    cipher.update(token, 'utf8'),
-    cipher.final(),
-  ])
-  const authTag = cipher.getAuthTag()
+  const encryptedWithTag = await aesGcmEncrypt(token, key, iv)
+  const encrypted = encryptedWithTag.slice(
+    0,
+    encryptedWithTag.length - AUTH_TAG_LENGTH
+  )
+  const authTag = encryptedWithTag.slice(-AUTH_TAG_LENGTH)
 
   return [
     TOKEN_PREFIX,
-    toBase64Url(iv),
-    toBase64Url(authTag),
-    toBase64Url(encrypted),
+    base64UrlEncodeBytes(iv),
+    base64UrlEncodeBytes(authTag),
+    base64UrlEncodeBytes(encrypted),
   ].join(':')
 }
 
@@ -40,7 +41,7 @@ export function encryptToken(token: string): string {
  * Throws when the version marker is unsupported or authentication fails, which
  * prevents callers from silently using corrupted provider credentials.
  */
-export function decryptToken(encryptedToken: string): string {
+export async function decryptToken(encryptedToken: string): Promise<string> {
   const [version, ivValue, authTagValue, encryptedValue] =
     encryptedToken.split(':')
 
@@ -48,41 +49,19 @@ export function decryptToken(encryptedToken: string): string {
     throw new Error('Unsupported encrypted token format')
   }
 
-  const decipher = createDecipheriv(
-    'aes-256-gcm',
+  return aesGcmDecrypt(
+    concatBytes(base64UrlDecodeToBytes(encryptedValue), base64UrlDecodeToBytes(authTagValue)),
     tokenEncryptionKey(),
-    fromBase64Url(ivValue),
-    { authTagLength: AUTH_TAG_LENGTH }
+    base64UrlDecodeToBytes(ivValue)
   )
-  decipher.setAuthTag(fromBase64Url(authTagValue))
-
-  return Buffer.concat([
-    decipher.update(fromBase64Url(encryptedValue)),
-    decipher.final(),
-  ]).toString('utf8')
 }
 
-function tokenEncryptionKey(): Buffer {
+function tokenEncryptionKey(): Uint8Array {
   const secret = process.env.CALENDAR_TOKEN_ENCRYPTION_SECRET
 
   if (!secret && process.env.NODE_ENV === 'production') {
     throw new Error('CALENDAR_TOKEN_ENCRYPTION_SECRET is not configured')
   }
 
-  return createHash('sha256')
-    .update(secret ?? DEVELOPMENT_SECRET)
-    .digest()
-}
-
-function toBase64Url(value: Buffer): string {
-  return value
-    .toString('base64')
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replaceAll('=', '')
-}
-
-function fromBase64Url(value: string): Buffer {
-  const padded = value.padEnd(value.length + ((4 - (value.length % 4)) % 4), '=')
-  return Buffer.from(padded.replaceAll('-', '+').replaceAll('_', '/'), 'base64')
+  return sha256Bytes(new TextEncoder().encode(secret ?? DEVELOPMENT_SECRET))
 }

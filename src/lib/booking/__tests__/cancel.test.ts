@@ -32,7 +32,7 @@ vi.mock('../events', () => ({
 }))
 
 /**
- * Creates a mock Supabase client that simulates the chained query builder pattern.
+ * Creates a mock backend client that simulates the chained query builder pattern.
  * Each method returns `this` to allow chaining, except terminal methods like `single()`.
  */
 function createMockClient() {
@@ -190,6 +190,32 @@ describe('cancelBooking', () => {
     expect(touchContactForBookingEvent).toHaveBeenCalledWith(mockClient, {
       hostUserId: 'host-user-1',
       guestEmail: 'jane@example.com',
+    })
+  })
+
+  it('uses the backend cancel function when the client supports RPCs', async () => {
+    mockClient.rpc = vi.fn().mockResolvedValue({ data: [{ success: true }], error: null })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.rpc).toHaveBeenCalledWith('cancel_booking', {
+      p_cancellation_token: validInput.cancellationToken,
+      p_cancel_reason: validInput.cancelReason,
+    })
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+      cancelReasonProvided: true,
     })
   })
 

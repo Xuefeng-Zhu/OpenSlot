@@ -32,7 +32,7 @@ describe('security headers', () => {
 
   it('applies hardened production browser security headers', async () => {
     vi.stubEnv('NODE_ENV', 'production')
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://team-ref.supabase.co')
+    vi.stubEnv('NEXT_PUBLIC_BUTTERBASE_API_URL', 'https://api.butterbase.ai')
 
     const { source, headers } = await getConfiguredHeaders()
     const csp = headers.get('Content-Security-Policy') ?? ''
@@ -51,10 +51,8 @@ describe('security headers', () => {
     expect(csp).toContain("frame-ancestors 'none'")
     expect(csp).toContain("form-action 'self'")
     expect(csp).toContain("script-src-attr 'none'")
-    expect(csp).toContain('https://*.supabase.co')
-    expect(csp).toContain('wss://*.supabase.co')
-    expect(csp).toContain('https://team-ref.supabase.co')
-    expect(csp).toContain('wss://team-ref.supabase.co')
+    expect(csp).toContain('https://api.butterbase.ai')
+    expect(csp).toContain('wss://api.butterbase.ai')
     expect(csp).toContain('upgrade-insecure-requests')
     expect(csp).not.toContain("'unsafe-eval'")
   })
@@ -71,9 +69,9 @@ describe('security headers', () => {
     expect(csp).not.toContain('ws://127.0.0.1:*')
   })
 
-  it('allows local Supabase and Next development connections without HSTS', async () => {
+  it('allows local Butterbase and Next development connections without HSTS', async () => {
     vi.stubEnv('NODE_ENV', 'development')
-    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'http://127.0.0.1:54321')
+    vi.stubEnv('NEXT_PUBLIC_BUTTERBASE_API_URL', 'http://127.0.0.1:54321')
 
     const { headers } = await getConfiguredHeaders()
     const csp = headers.get('Content-Security-Policy') ?? ''

@@ -1,5 +1,5 @@
-import { createHmac } from 'node:crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { hmacSha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
 
 type OutboxEventRow = Tables<'outbox_events'>
@@ -21,7 +21,7 @@ export interface EnqueueWebhookDeliveriesResult {
 }
 
 export interface ProcessWebhookDeliveriesOptions {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   limit?: number
   maxAttempts?: number
   fetchImpl?: typeof fetch
@@ -42,7 +42,7 @@ const DEFAULT_MAX_ATTEMPTS = 5
  * domain event are queued; duplicate rows are counted as harmless retries.
  */
 export async function enqueueWebhookDeliveriesForOutboxEvent(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   event: OutboxEventRow
 ): Promise<EnqueueWebhookDeliveriesResult> {
   const result: EnqueueWebhookDeliveriesResult = {
@@ -185,7 +185,7 @@ export async function processWebhookDeliveriesBatch({
 }
 
 async function loadWebhookEndpoint(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   endpointId: string
 ): Promise<WebhookEndpointRow | null> {
   const { data, error } = await adminClient
@@ -248,7 +248,7 @@ async function deliverWebhook({
 }
 
 async function markWebhookDeliveryDelivered(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   deliveryId: string,
   responseCode: number,
   responseBody: string
@@ -272,7 +272,7 @@ async function markWebhookDeliveryDelivered(
 }
 
 async function markWebhookDeliveryFailed(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   delivery: WebhookDeliveryRow,
   error: unknown,
   maxAttempts: number
@@ -301,9 +301,7 @@ async function markWebhookDeliveryFailed(
 }
 
 function signWebhookPayload(secret: string, timestamp: string, body: string) {
-  return createHmac('sha256', secret)
-    .update(`${timestamp}.${body}`)
-    .digest('hex')
+  return hmacSha256Hex(secret, `${timestamp}.${body}`)
 }
 
 function retryDelayForAttempt(attemptNo: number, maxAttempts: number): number {

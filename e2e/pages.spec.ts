@@ -45,13 +45,13 @@ const publicPageCases: PageSmokeCase[] = [
     name: "forgot password",
     path: "/forgot-password",
     heading: "Reset your password",
-    visibleText: ["Send reset link"],
+    visibleText: ["Send reset code"],
   },
   {
     name: "reset password",
     path: "/reset-password",
     heading: "Choose a new password",
-    visibleText: ["Open the password reset link from your email to continue."],
+    visibleText: ["Reset code"],
   },
   {
     name: "public profile",

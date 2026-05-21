@@ -8,6 +8,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { DashboardShell } from './dashboard-shell'
 import type { Tables } from '@/lib/types/database'
 
+export const runtime = 'edge'
+
 export default async function DashboardLayout({
   children,
 }: {

@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Database } from '@/lib/types/database'
 import {
@@ -175,7 +175,7 @@ describe('listDashboardNotifications', () => {
 
     const adminClient = {
       from: vi.fn(() => query),
-    } as unknown as SupabaseClient<Database>
+    } as unknown as BackendCompatClient<Database>
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined)

@@ -6,6 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
  * Receives Google Calendar push notifications for availability calendars.
  * Validation happens against hashed channel tokens stored in provider_watches.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   const result = await handleGoogleCalendarWebhook(
     createAdminClient(),

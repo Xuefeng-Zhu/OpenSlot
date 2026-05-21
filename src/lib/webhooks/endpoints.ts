@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Tables } from '@/lib/types/database'
 
 export interface WebhookEndpointSummary {
@@ -28,7 +28,7 @@ type SafeWebhookEndpointRow = Pick<
  * and are never included in the returned summaries.
  */
 export async function listWebhookEndpointSummaries(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   profileId: string
 ): Promise<WebhookEndpointSummary[]> {
   const { data, error } = await adminClient

@@ -1,5 +1,5 @@
-import { createHash } from 'crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Tables } from '@/lib/types/database'
 
 export interface ContactBookingInput {
@@ -34,9 +34,7 @@ export function normalizeContactEmail(email: string): string {
  * storing another raw email column alongside booking guest details.
  */
 export function hashContactEmail(email: string): string {
-  return createHash('sha256')
-    .update(normalizeContactEmail(email), 'utf8')
-    .digest('hex')
+  return sha256Hex(normalizeContactEmail(email))
 }
 
 /**
@@ -45,7 +43,7 @@ export function hashContactEmail(email: string): string {
  * lifecycle transition solely because this derived aggregate could not update.
  */
 export async function upsertContactFromBooking(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   input: ContactBookingInput
 ): Promise<Tables<'contacts'> | null> {
   const occurredAt = input.occurredAt ?? new Date().toISOString()
@@ -114,7 +112,7 @@ export async function upsertContactFromBooking(
  * existing active contact without reintroducing deleted contact metadata.
  */
 export async function touchContactForBookingEvent(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   input: ContactTouchInput
 ): Promise<boolean> {
   const { error } = await adminClient
@@ -139,7 +137,7 @@ export async function touchContactForBookingEvent(
  * Soft-anonymizes a host-owned contact and its matching booking display fields.
  */
 export async function anonymizeContact(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   input: AnonymizeContactInput
 ): Promise<{ success: true; anonymizedBookings: number } | { success: false; error: string }> {
   const { data, error } = await adminClient.rpc('anonymize_contact_bookings', {

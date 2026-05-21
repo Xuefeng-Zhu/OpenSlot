@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Json } from '@/lib/types/database'
 
 export type BookingEventType =
@@ -21,7 +21,7 @@ export interface AppendBookingEventInput {
  * primary booking mutation does not roll back after it has already succeeded.
  */
 export async function appendBookingEvent(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   event: AppendBookingEventInput
 ): Promise<boolean> {
   const { error } = await adminClient

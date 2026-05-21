@@ -1,6 +1,8 @@
 # Security
 
-OpenSlot stores scheduling and guest booking data in Supabase. Treat guest names, emails, notes, timezones, booking times, contact records, and cancellation tokens as sensitive application data.
+OpenSlot stores scheduling and guest booking data in Butterbase. Treat guest
+names, emails, notes, timezones, booking times, contact records, and
+cancellation tokens as sensitive application data.
 
 For the short repository security policy, see [../SECURITY.md](../SECURITY.md).
 
@@ -9,10 +11,10 @@ For the short repository security policy, see [../SECURITY.md](../SECURITY.md).
 Core app:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
 NEXT_PUBLIC_APP_URL=...
+NEXT_PUBLIC_BUTTERBASE_APP_ID=...
+NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
+BUTTERBASE_API_KEY=...
 ```
 
 Worker and cron routes:
@@ -50,29 +52,31 @@ MAILEROO_API_KEY=...
 Rules:
 
 - `NEXT_PUBLIC_*` values are browser-visible.
-- `SUPABASE_SERVICE_ROLE_KEY` must only be used in server-only code.
+- `BUTTERBASE_API_KEY` must only be used in server-only code.
 - Do not commit `.env.local` or real credentials.
 
-## Supabase Access Boundaries
+## Butterbase Access Boundaries
 
-- `src/lib/supabase/client.ts`: browser client with anon key.
-- `src/lib/supabase/server.ts`: server client with cookie session and anon key.
-- `src/lib/supabase/admin.ts`: service role client for route handlers and server-only libraries.
+- `src/lib/backend/server.ts`: server helpers for request-scoped and service clients.
+- `src/lib/backend/compat/query-client.ts`: temporary fluent query compatibility layer.
+- `src/lib/backend/butterbase/*`: Butterbase adapter and HTTP client.
+- `src/lib/supabase/*`: legacy import-path shims that delegate to Butterbase.
 
 Never import the admin client into a Client Component.
 
 ## RLS and Public Access
 
-RLS policies are in `supabase/migrations/008_create_rls_policies.sql`.
-Explicit Data API grants are in `supabase/migrations/20260508063319_add_explicit_data_api_grants.sql`.
+Provider-neutral RLS and constraint requirements are documented in
+`backend/sql/provider-portability.sql` and `docs/backend-portability.md`.
 
 Current public access:
 
-- Public profile and event pages are rendered server-side with the service role and return only selected fields.
+- Public profile and event pages are rendered server-side with the service key and return only selected fields.
 - Public slot lookup goes through `/api/slots` and returns computed slot times only.
-- App tables are not directly exposed to `anon`.
+- Browser code never receives the Butterbase service key; auth tokens are stored
+  in HTTP-only cookies.
 
-The service role bypasses RLS and is used only in server-side route handlers/libraries. Application code must still scope writes by user, hold token, or cancellation token.
+The Butterbase service key bypasses RLS and is used only in server-side route handlers/libraries. Application code must still scope writes by user, hold token, or cancellation token.
 
 ## Contact Privacy
 
@@ -80,7 +84,7 @@ Contacts are host-scoped aggregates derived from booking attendees. Contact iden
 
 - Hosts can view only contacts whose `host_user_id` belongs to their authenticated profile.
 - Booking confirmation, cancellation, and rescheduling update contacts as best-effort derived data after the primary booking mutation succeeds.
-- `DELETE /api/contacts/[id]` uses the authenticated profile id plus the service-role anonymization RPC to mark the contact deleted and scrub matching booking guest display fields, notes, and cancellation reason.
+- `DELETE /api/contacts/[id]` uses the authenticated profile id plus the server-side anonymization function to mark the contact deleted and scrub matching booking guest display fields, notes, and cancellation reason.
 - Deleted contacts are hidden from the dashboard contact list and cannot be viewed through the contact profile route.
 - Do not log contact hashes together with raw emails; the pair can become identifying.
 
@@ -90,7 +94,7 @@ Important safeguards:
 
 - `/api/holds` checks overlapping active holds and confirmed bookings.
 - `/api/holds` creates the hold through `create_slot_hold_with_reservation()`, which inserts `slot_holds` and `host_reservations` in one database transaction.
-- `/api/slots` validates that the event type is active and belongs to the requested host before using service-role reads to compute availability.
+- `/api/slots` validates that the event type is active and belongs to the requested host before using service-key reads to compute availability.
 - `/api/slots`, `/api/holds`, `/api/bookings`, `/api/bookings/reschedule`, and `/api/bookings/[id]/cancel` consume DB-backed public rate limits before expensive reads or guest mutations. Rate-limit identifiers are hashed before storage.
 - Public booking mutations verify Cloudflare Turnstile tokens when `TURNSTILE_SECRET_KEY` is configured. Unconfigured environments skip Turnstile enforcement.
 - `confirmBooking()` rejects expired or reused holds.
@@ -98,10 +102,10 @@ Important safeguards:
 - `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings.
 - Hold creation, booking confirmation, cancellation, and rescheduling accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
 - Booking confirmation, cancellation, and rescheduling enqueue ID-based side-effect events in `outbox_events`; workers should fetch sensitive booking details server-side instead of duplicating guest contact data in the payload.
-- `/api/outbox/process` requires `OUTBOX_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to process leased outbox rows.
-- `/api/webhooks/process` requires `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to process leased webhook delivery rows.
-- `/api/calendar/sync` requires `CALENDAR_SYNC_SECRET` or `CRON_SECRET` in production and uses service-role code to refresh provider calendar metadata and busy-cache rows.
-- `/api/holds/expire` requires `HOLD_EXPIRY_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-role code to expire stale holds and hold reservations.
+- `/api/outbox/process` requires `OUTBOX_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-key code to process leased outbox rows.
+- `/api/webhooks/process` requires `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-key code to process leased webhook delivery rows.
+- `/api/calendar/sync` requires `CALENDAR_SYNC_SECRET` or `CRON_SECRET` in production and uses service-key code to refresh provider calendar metadata and busy-cache rows.
+- `/api/holds/expire` requires `HOLD_EXPIRY_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-key code to expire stale holds and hold reservations.
 - Booking confirmation, cancellation, and rescheduling append ID-based audit events in `booking_events`.
 - Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 - Rescheduling page lookup and writes use `reschedule_token` plus a fresh hold token; `reschedule_booking_with_hold()` performs the old/new booking transition and reservation updates in one database transaction.
@@ -116,16 +120,25 @@ The default email provider logs messages to the console. `EMAIL_PROVIDER=resend`
 - Store provider API keys in server-only environment variables.
 - Configure a verified sending domain before enabling a production provider.
 
+## Booking Assistant Privacy
+
+The public booking assistant calls the Butterbase AI gateway only from
+server-side route handlers using `BUTTERBASE_API_KEY`. Chat transcripts are not
+persisted by OpenSlot. The request sent to the gateway is bounded to recent chat
+turns, safe public event context, and guest-provided scheduling preferences or
+draft form details. Booking, cancellation, and reschedule tokens are not sent to
+the model, and the assistant cannot confirm bookings directly.
+
 ## Browser Security Headers
 
 `next.config.js` applies browser hardening headers to all routes:
 
-- Content Security Policy defaults to same-origin scripts, styles, forms, workers, and manifests; blocks inline script attributes and object content; denies embedding with `frame-ancestors 'none'`; allows Supabase HTTP/WebSocket connections plus Cloudflare Turnstile challenge script/frame/connect origins; and permits image/media loading from HTTPS so profile avatars and public assets still render.
+- Content Security Policy defaults to same-origin scripts, styles, forms, workers, and manifests; blocks inline script attributes and object content; denies embedding with `frame-ancestors 'none'`; allows Butterbase HTTP/WebSocket connections plus Cloudflare Turnstile challenge script/frame/connect origins; and permits image/media loading from HTTPS so profile avatars and public assets still render.
 - Local development adds `localhost`/`127.0.0.1` HTTP and WebSocket allowances plus `unsafe-eval` for the Next.js development runtime. Production omits `unsafe-eval` and adds `upgrade-insecure-requests`.
 - Production adds HSTS with `max-age=63072000; includeSubDomains`.
 - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, and `Permissions-Policy` are set alongside the CSP.
 
-Calendar OAuth, email providers, and tenant webhook deliveries are server-side integrations. The browser policy intentionally keeps `connect-src` narrow to `self` and Supabase rather than allowing Google, Microsoft, email-provider, or arbitrary webhook destination origins directly from client code.
+Calendar OAuth, email providers, and tenant webhook deliveries are server-side integrations. The browser policy intentionally keeps `connect-src` narrow to `self` and Butterbase rather than allowing Google, Microsoft, email-provider, or arbitrary webhook destination origins directly from client code.
 
 ## Integration Secrets
 

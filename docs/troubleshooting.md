@@ -17,16 +17,17 @@ npm ci
 npm run lint
 ```
 
-## Missing Supabase Environment Variables
+## Missing Butterbase Environment Variables
 
-The landing page can render without Supabase, but dashboard, public booking data, and API routes require `.env.local`.
+The landing page can render without Butterbase, but dashboard, public booking
+data, and API routes require `.env.local`.
 
 Check `.env.example` and set:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_BUTTERBASE_APP_ID=...
+NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
+BUTTERBASE_API_KEY=...
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
@@ -59,10 +60,10 @@ If the Microsoft script fails with an app-registration permission error, the sig
 
 Check:
 
-- Supabase URL/key values are valid.
-- You have a current Supabase session.
+- Butterbase app id/service key values are valid.
+- You have a current Butterbase session.
 - A profile exists for the auth user.
-- `supabase/migrations/010_create_profile_trigger.sql` has been applied for new signups.
+- The profile-provisioning route can write to `profiles` for new signups.
 
 ## Dashboard Redirects to Onboarding
 
@@ -73,7 +74,7 @@ Check:
 Check:
 
 - `profiles.username` is set.
-- The event type exists in Supabase.
+- The event type exists in Butterbase.
 - The event type belongs to the profile.
 - `event_types.is_active = true`.
 - The slug matches the route segment.

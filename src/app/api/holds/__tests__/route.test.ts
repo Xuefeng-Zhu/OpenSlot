@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   hashRequestPayload: vi.fn(() => 'request-hash'),
   consumePublicRateLimit: vi.fn(),
   verifyTurnstileToken: vi.fn(),
+  verifySlotHoldToken: vi.fn(),
 }))
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -21,6 +22,10 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/lib/availability/available-slots', () => ({
   validateHoldSlotRequest: mocks.validateHoldSlotRequest,
+}))
+
+vi.mock('@/lib/availability/slot-token', () => ({
+  verifySlotHoldToken: mocks.verifySlotHoldToken,
 }))
 
 vi.mock('@/lib/idempotency/request-idempotency', async () => {
@@ -97,6 +102,10 @@ describe('POST /api/holds', () => {
       resetAt: '2025-01-15T14:05:00.000Z',
     })
     mocks.verifyTurnstileToken.mockResolvedValue({ ok: true, enforced: false })
+    mocks.verifySlotHoldToken.mockResolvedValue({
+      ok: false,
+      reason: 'malformed',
+    })
     mocks.validateHoldSlotRequest.mockResolvedValue({ success: true })
     mocks.adminClient.rpc.mockReturnValue({
       single: vi.fn().mockResolvedValue({
@@ -147,6 +156,8 @@ describe('POST /api/holds', () => {
         windowSeconds: 300,
       },
     })
+    expect(mocks.beginIdempotentRequest).not.toHaveBeenCalled()
+    expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
   })
 
   it('records a fresh idempotent hold request and caches the response', async () => {
@@ -178,6 +189,26 @@ describe('POST /api/holds', () => {
         status: 201,
       },
     })
+  })
+
+  it('uses a valid slot token to skip recomputing availability', async () => {
+    mocks.verifySlotHoldToken.mockResolvedValue({ ok: true })
+
+    const response = await POST(
+      requestWithJson({ ...validBody, slotToken: 'signed-slot-token' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(201)
+    expect(data.holdId).toBe('33333333-3333-4333-8333-333333333333')
+    expect(mocks.verifySlotHoldToken).toHaveBeenCalledWith({
+      token: 'signed-slot-token',
+      eventTypeId: validBody.eventTypeId,
+      hostUserId: validBody.hostUserId,
+      startAt: validBody.startAt,
+      endAt: validBody.endAt,
+    })
+    expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
   })
 
   it('replays a cached hold response before rate limiting or mutation work', async () => {

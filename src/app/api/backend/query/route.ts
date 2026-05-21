@@ -1,0 +1,112 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createBackendCompatClient } from '@/lib/backend/compat/query-client'
+import { currentBackendAccessToken } from '@/lib/backend/server'
+
+const allowedTables = new Set([
+  'profiles',
+  'event_types',
+  'schedules',
+  'availability_rules',
+  'availability_overrides',
+  'user_settings',
+])
+
+export const runtime = 'edge'
+
+export async function POST(request: NextRequest) {
+  const accessToken = await currentBackendAccessToken()
+  if (!accessToken) {
+    return NextResponse.json(
+      { data: null, error: { message: 'Authentication required' } },
+      { status: 401 }
+    )
+  }
+
+  const body = await request.json().catch(() => null)
+  if (!body || typeof body.table !== 'string' || !allowedTables.has(body.table)) {
+    return NextResponse.json(
+      { data: null, error: { message: 'Unsupported table' } },
+      { status: 400 }
+    )
+  }
+
+  const client = createBackendCompatClient({ accessToken, authMode: 'user' })
+  let query = client.from(body.table)
+
+  switch (body.operation) {
+    case 'insert':
+      query = query.insert(body.payload)
+      break
+    case 'update':
+      query = query.update(body.payload)
+      break
+    case 'delete':
+      query = query.delete()
+      break
+    case 'upsert':
+      query = query.upsert(body.payload, body.upsertOptions)
+      break
+    case 'select':
+      query = query.select(body.selected ?? '*', body.selectOptions ?? {})
+      break
+    default:
+      return NextResponse.json(
+        { data: null, error: { message: 'Unsupported operation' } },
+        { status: 400 }
+      )
+  }
+
+  if (body.operation !== 'select' && body.selected) {
+    query = query.select(body.selected, body.selectOptions ?? {})
+  }
+
+  for (const filter of body.filters ?? []) {
+    query = applyFilter(query, filter)
+  }
+
+  for (const order of body.orders ?? []) {
+    if (typeof order.column === 'string') {
+      query = query.order(order.column, { ascending: order.ascending !== false })
+    }
+  }
+
+  if (Number.isInteger(body.limitCount)) query = query.limit(body.limitCount)
+  if (Number.isInteger(body.offsetCount)) query = query.offset(body.offsetCount)
+  if (body.responseMode === 'single') query = query.single()
+  if (body.responseMode === 'maybeSingle') query = query.maybeSingle()
+
+  const result = await query
+  return NextResponse.json(result, {
+    status: result.error?.status ?? 200,
+  })
+}
+
+function applyFilter(
+  query: ReturnType<ReturnType<typeof createBackendCompatClient>['from']>,
+  filter: { column?: unknown; operator?: unknown; value?: unknown }
+) {
+  if (typeof filter.column !== 'string' || typeof filter.operator !== 'string') {
+    return query
+  }
+
+  switch (filter.operator) {
+    case 'eq':
+      return query.eq(filter.column, filter.value)
+    case 'gt':
+      return query.gt(filter.column, filter.value)
+    case 'gte':
+      return query.gte(filter.column, filter.value)
+    case 'lt':
+      return query.lt(filter.column, filter.value)
+    case 'lte':
+      return query.lte(filter.column, filter.value)
+    case 'is':
+      return query.is(filter.column, filter.value)
+    case 'in':
+      return Array.isArray(filter.value)
+        ? query.in(filter.column, filter.value)
+        : query
+    default:
+      return query
+  }
+}

@@ -137,7 +137,7 @@ export function createInviteeAnswersSchema(questions: InviteeQuestion[]) {
   for (const question of questions) {
     if (question.type === 'checkbox') {
       const checkboxSchema = z.boolean({
-        invalid_type_error: 'Answer must be yes or no',
+        message: 'Answer must be yes or no',
       })
 
       shape[question.id] = question.required
@@ -184,7 +184,7 @@ export function createInviteeAnswersSchema(questions: InviteeQuestion[]) {
 
 type ParsedInviteeAnswers =
   | { success: true; data: BookingAnswerSummary[] }
-  | { success: false; error: z.ZodError<Record<string, InviteeAnswerValue>> }
+  | { success: false; error: z.ZodError }
 
 /**
  * Validates raw answer objects and snapshots labels/types beside values so
@@ -200,8 +200,10 @@ export function parseInviteeAnswers(
     return { success: false, error: parsed.error }
   }
 
+  const parsedAnswers = parsed.data as Record<string, InviteeAnswerValue>
+
   const summaries = questions.flatMap((question): BookingAnswerSummary[] => {
-    const value = parsed.data[question.id]
+    const value = parsedAnswers[question.id]
 
     if (value === undefined || value === '') {
       return []

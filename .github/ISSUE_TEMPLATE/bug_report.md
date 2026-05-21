@@ -34,7 +34,7 @@ What happens instead?
 
 - Branch or commit:
 - Node version:
-- Supabase environment: local / hosted / not applicable
+- Butterbase environment: test app / hosted app / not applicable
 
 ## Logs or Screenshots
 

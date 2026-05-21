@@ -1,6 +1,12 @@
 # Architecture
 
-OpenSlot is a Next.js App Router application with Supabase-backed persistence and server-first data loading for sensitive flows.
+OpenSlot is a Next.js App Router application with Butterbase-backed persistence
+and server-first data loading for sensitive flows.
+
+Provider portability is now documented separately in
+[docs/backend-portability.md](backend-portability.md). New backend-provider
+work should go through `src/lib/backend/` ports so provider SDK/API details do
+not leak into route handlers, React components, or domain services.
 
 ## High-Level Layers
 
@@ -8,7 +14,8 @@ OpenSlot is a Next.js App Router application with Supabase-backed persistence an
 Browser UI
   -> Client Components for interaction and local form state
   -> Next route handlers for writes and public slot APIs
-  -> Supabase clients
+  -> Backend portability layer
+  -> Butterbase REST/auth/functions
   -> Postgres tables, RLS, constraints, indexes
 ```
 
@@ -17,8 +24,8 @@ Browser UI
 | Path | Purpose |
 | --- | --- |
 | `src/app/page.tsx` | Public landing page. |
-| `src/app/(auth)/login/page.tsx` | Supabase password login. |
-| `src/app/(auth)/signup/page.tsx` | Supabase password signup. |
+| `src/app/(auth)/login/page.tsx` | Butterbase password login. |
+| `src/app/(auth)/signup/page.tsx` | Butterbase password signup. |
 | `src/app/(dashboard)/layout.tsx` | Authenticated dashboard layout and shell. |
 | `src/app/(dashboard)/dashboard/page.tsx` | Dashboard overview with profile, bookings, active event type count. |
 | `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |
@@ -27,7 +34,7 @@ Browser UI
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
 | `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, calendar, and webhook integration settings. |
 | `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
-| `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Supabase and `/api/event-types`. |
+| `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Butterbase and `/api/event-types`. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
 | `src/app/booking/cancel/[token]/page.tsx` | Public token-backed booking cancellation page. |
@@ -36,17 +43,19 @@ Browser UI
 
 ## Data Access Patterns
 
-- `src/lib/supabase/server.ts` creates a cookie-aware Supabase client for Server Components and route handlers.
-- `src/lib/supabase/client.ts` creates the browser client for client components.
-- `src/lib/supabase/admin.ts` creates a service role client for server-only writes that must bypass RLS.
-- `src/proxy.ts` refreshes Supabase sessions. The dashboard route group also enforces auth in `src/app/(dashboard)/layout.tsx`.
-- Direct Data API grants are explicit in migrations. Public booking pages and slot reads go through server-side service-role code; direct anon table access is not required.
+- `src/lib/backend/server.ts` creates cookie-aware Butterbase clients for Server Components and route handlers.
+- `src/lib/backend/compat/query-client.ts` provides the temporary fluent query compatibility layer used during the cutover.
+- `src/lib/backend/butterbase/*` contains the provider adapter and low-level HTTP client.
+- `src/middleware.ts` refreshes Butterbase sessions. The dashboard route group also enforces auth in `src/app/(dashboard)/layout.tsx`.
+- Browser auth/data calls go through OpenSlot route handlers so provider tokens remain in HTTP-only cookies.
 
 ## Booking Flow
 
 ```text
 Public event page
   -> SlotPicker
+  -> optional POST /api/booking-agent/message
+  -> Butterbase model gateway suggests dates/times without mutating bookings
   -> GET /api/slots
   -> consume_public_rate_limit()
   -> load host availability, confirmed bookings, active holds, and provider busy cache
@@ -96,7 +105,11 @@ Public event page
   -> replacement booking reminder outbox event scheduled from the event type policy
 ```
 
-The final anti-double-booking guard for confirmed bookings is the Postgres exclusion constraint in `supabase/migrations/007_create_bookings.sql`. Active hold and booking reservation races are guarded by `host_reservations_no_overlap` in `supabase/migrations/20260508062648_add_host_reservations.sql`.
+The final anti-double-booking guard for confirmed bookings is the Postgres
+exclusion constraint documented in `backend/sql/provider-portability.sql`.
+Active hold and booking reservation races are guarded by
+`host_reservations_no_overlap` and must be preserved in the Butterbase schema or
+transaction functions.
 
 Public slot, hold, booking confirmation, cancellation, and rescheduling routes
 use DB-backed fixed-window rate limits through `public_rate_limits` and
@@ -122,7 +135,7 @@ booking. That suppresses stale reminders after cancellation or rescheduling.
   -> local diff state
   -> POST /api/availability
   -> authenticated profile lookup
-  -> service-role delete/update/insert scoped by user_id
+  -> service-key delete/update/insert scoped by user_id
 ```
 
 Availability rules use database weekday values where `0 = Sunday` and `6 = Saturday`. The dashboard UI displays Monday first, so conversion helpers live in `src/components/dashboard/availability-client.tsx`.
@@ -134,7 +147,7 @@ Availability rules use database weekday values where `0 = Sunday` and `6 = Satur
   -> validates profile, availability, and first event type locally
   -> POST /api/onboarding
   -> authenticated profile lookup
-  -> service-role profile update + default schedule lookup/create
+  -> service-key profile update + default schedule lookup/create
   -> event type upsert + schedule-scoped availability rule replacement
 ```
 
@@ -144,7 +157,10 @@ and stores created weekly availability rules under that schedule.
 
 ## Database Schema
 
-Migrations are in `supabase/migrations/`:
+Canonical schema history still exists in `supabase/migrations/` as the legacy
+Postgres source material, while active provider-portability invariants live in
+`backend/sql/provider-portability.sql` and Butterbase schema/function artifacts
+belong under `backend/butterbase/`:
 
 - `001_enable_extensions.sql`: `uuid-ossp` and `btree_gist`.
 - `002_create_profiles.sql`: profile records linked to `auth.users`.
@@ -179,14 +195,15 @@ Migrations are in `supabase/migrations/`:
 
 | Route | Auth | Main module |
 | --- | --- | --- |
-| `GET /api/slots` | Public route, service-role read after active host/event validation | `src/lib/availability/compute-slots.ts` |
-| `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service role RPC with reservation guard | `src/app/api/holds/route.ts` |
-| `POST /api/bookings` | Hold token operation, optional idempotency key, public rate limit, optional Turnstile, service role write | `src/lib/booking/confirm.ts` |
-| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, public rate limit, optional Turnstile, service role write | `src/lib/booking/cancel.ts` |
-| `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, public rate limit, optional Turnstile, service role RPC | `src/lib/booking/reschedule.ts` |
+| `POST /api/booking-agent/message` | Public ephemeral assistant turn, service-key read, public rate limit, Butterbase AI gateway call | `src/lib/booking-agent/agent.ts` |
+| `GET /api/slots` | Public route, service-key read after active host/event validation | `src/lib/availability/compute-slots.ts` |
+| `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service-key function with reservation guard | `src/app/api/holds/route.ts` |
+| `POST /api/bookings` | Hold token operation, optional idempotency key, public rate limit, optional Turnstile, service-key write | `src/lib/booking/confirm.ts` |
+| `POST /api/bookings/[id]/cancel` | Cancellation token operation, optional idempotency key, public rate limit, optional Turnstile, service-key write | `src/lib/booking/cancel.ts` |
+| `POST /api/bookings/reschedule` | Reschedule token + hold token operation, optional idempotency key, public rate limit, optional Turnstile, service-key function | `src/lib/booking/reschedule.ts` |
 | `GET/POST /api/holds/expire` | Bearer-token stale hold expiry worker | `src/lib/booking/hold-expiry.ts` |
 | `DELETE /api/contacts/[id]` | Authenticated host contact anonymization scoped to own profile | `src/lib/contacts/contacts.ts` |
-| `GET/POST /api/outbox/process` | Bearer-token worker trigger, service role write | `src/lib/outbox/process.ts` |
+| `GET/POST /api/outbox/process` | Bearer-token worker trigger, service-key write | `src/lib/outbox/process.ts` |
 | `PATCH/DELETE /api/settings` | Authenticated host settings and account deletion | `src/app/api/settings/route.ts` |
 | `GET /api/calendar/connections` | Authenticated host, safe server-side calendar connection summaries | `src/lib/calendar/connections.ts` |
 | `GET /api/calendar/oauth/[provider]/start` | Authenticated host calendar OAuth redirect | `src/lib/calendar/oauth.ts` |
@@ -196,7 +213,7 @@ Migrations are in `supabase/migrations/`:
 | `GET/POST /api/calendar/webhooks/microsoft` | Microsoft Graph subscription validation and busy-cache refresh | `src/lib/calendar/watches.ts` |
 | `GET/POST /api/webhooks/endpoints` | Authenticated host webhook endpoint management | `src/app/api/webhooks/endpoints/route.ts` |
 | `PATCH/DELETE /api/webhooks/endpoints/[id]` | Authenticated host webhook endpoint management scoped to own profile | `src/app/api/webhooks/endpoints/[id]/route.ts` |
-| `GET/POST /api/webhooks/process` | Bearer-token webhook delivery worker trigger, service role write | `src/lib/webhooks/deliveries.ts` |
+| `GET/POST /api/webhooks/process` | Bearer-token webhook delivery worker trigger, service-key write | `src/lib/webhooks/deliveries.ts` |
 | `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
 | `POST /api/event-types` | Authenticated host | `src/app/api/event-types/route.ts` |
 | `PATCH/DELETE /api/event-types/[id]` | Authenticated host, scoped to own profile | `src/app/api/event-types/[id]/route.ts` |
@@ -206,7 +223,7 @@ Migrations are in `supabase/migrations/`:
 
 Detailed target/current gaps are tracked in [System Design Gap Analysis](system-design-gaps.md).
 
-- `docs/system-design.md` describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` for those surfaces. This is acceptable for the MVP because it maximizes local code reuse and keeps deployment simple, but it couples high-risk public/provider endpoints to the web app runtime instead of isolating them in the Supabase function runtime with separate secrets and lifecycle.
+- `docs/system-design.md` predates the Butterbase cutover and describes public booking writes, provider callbacks, payment webhooks, and background integration boundaries as Supabase Edge Functions. The current implementation uses Next.js route handlers in `src/app/api/*` plus Butterbase functions for atomic transaction entrypoints.
 - Vercel Cron triggers are configured for outbox, webhook, calendar sync, and hold-expiry workers. The committed schedules are daily for Hobby deployment compatibility; production environments that need faster processing still need an upgraded Vercel plan or equivalent scheduler configuration.
 - Host reservations cover one-on-one hold/booking collisions; group capacity inventory and round-robin/collective allocation are not implemented yet.
 - Calendar OAuth, provider calendar list sync, busy-cache refresh, provider availability filtering, provider event writes, provider watch/subscription callbacks, watch renewal, optional stale-cache live confirmation checks, and generated Google Meet/Microsoft Teams links are implemented for Google and Microsoft.

@@ -41,9 +41,11 @@ async function getAuthenticatedProfile() {
 
 /**
  * Saves profile and notification/preference settings for the signed-in host.
- * Email changes go through Supabase Auth on the client before this route persists
+ * Email changes go through backend auth on the client before this route persists
  * the app profile and user_settings rows.
  */
+export const runtime = 'edge'
+
 export async function PATCH(request: NextRequest) {
   try {
     const auth = await getAuthenticatedProfile()
@@ -134,7 +136,7 @@ export async function PATCH(request: NextRequest) {
 }
 
 /**
- * Deletes the signed-in Supabase Auth user.
+ * Deletes the signed-in Butterbase Auth user.
  * Related app data is expected to be removed by database-level ownership rules
  * or follow-up cleanup tied to the auth user.
  */
@@ -150,7 +152,9 @@ export async function DELETE() {
     }
 
     const adminClient = createAdminClient()
-    const { error } = await adminClient.auth.admin.deleteUser(auth.user.id)
+    const { error } = await adminClient.auth.admin?.deleteUser(auth.user.id) ?? {
+      error: { message: 'Admin auth is unavailable' },
+    }
 
     if (error) {
       console.error('Error deleting account:', error)

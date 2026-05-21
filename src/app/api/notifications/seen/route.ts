@@ -41,6 +41,8 @@ async function getAuthenticatedProfile() {
  * Marks dashboard booking activity as seen for the signed-in host.
  * Recent notifications remain available; this only clears the unseen badge.
  */
+export const runtime = 'edge'
+
 export async function POST() {
   try {
     const auth = await getAuthenticatedProfile()

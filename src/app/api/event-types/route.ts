@@ -14,6 +14,8 @@ import {
  * Slug conflicts are mapped to field-level validation errors so the editor can
  * keep the rest of the submitted form state intact.
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

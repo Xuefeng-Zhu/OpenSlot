@@ -31,6 +31,7 @@ export interface AvailabilityOverride {
 export interface TimeSlot {
   start: string // ISO 8601 UTC
   end: string // ISO 8601 UTC
+  slotToken?: string // signed server proof for fast hold creation
 }
 
 export interface ComputeSlotsInput {

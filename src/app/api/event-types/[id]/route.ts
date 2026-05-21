@@ -18,6 +18,8 @@ interface EventTypeRouteContext {
  * The route reuses the creation schema so create/edit forms share validation and
  * duplicate slug handling.
  */
+export const runtime = 'edge'
+
 export async function PATCH(
   request: NextRequest,
   { params }: EventTypeRouteContext

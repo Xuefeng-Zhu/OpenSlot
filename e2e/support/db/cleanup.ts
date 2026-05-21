@@ -4,15 +4,15 @@ import type { DemoProfile, E2EAdminClient } from "./types";
 
 type CleanupAction = "cleanup" | "delete" | "select";
 
-interface SupabaseFailure {
+interface BackendFailure {
   message: string;
   code?: string;
-  details?: string;
-  hint?: string;
+  details?: unknown;
+  hint?: unknown;
 }
 
-interface SupabaseResult {
-  error: SupabaseFailure | null;
+interface BackendResult {
+  error: BackendFailure | null;
 }
 
 export interface CleanupFailure {
@@ -21,8 +21,8 @@ export interface CleanupFailure {
   filter: string;
   message: string;
   code?: string;
-  details?: string;
-  hint?: string;
+  details?: unknown;
+  hint?: unknown;
 }
 
 export class E2ECleanupError extends Error {
@@ -74,9 +74,12 @@ export async function cleanupEventType(
     bookingsResult
   );
 
-  const bookingRows = bookingsResult.error ? [] : bookingsResult.data ?? [];
+  const bookingRows = (bookingsResult.error ? [] : bookingsResult.data ?? []) as Array<{
+    id: string;
+    guest_email: string;
+  }>;
   const bookingIds = bookingRows.map((booking) => booking.id);
-  const guestEmailHashes = [
+  const guestEmailHashes: string[] = [
     ...new Set(
       bookingRows.map((booking) => hashContactEmail(booking.guest_email))
     ),
@@ -97,7 +100,9 @@ export async function cleanupEventType(
     holdsResult
   );
 
-  const holdRows = holdsResult.error ? [] : holdsResult.data ?? [];
+  const holdRows = (holdsResult.error ? [] : holdsResult.data ?? []) as Array<{
+    id: string;
+  }>;
   const holdIds = holdRows.map((hold) => hold.id);
 
   if (bookingIds.length > 0) {
@@ -302,7 +307,7 @@ async function getDemoProfileForCleanup(
 function recordCleanupResult(
   failures: CleanupFailure[],
   context: Omit<CleanupFailure, "message" | "code" | "details" | "hint">,
-  result: SupabaseResult
+  result: BackendResult
 ) {
   if (!result.error) return;
 

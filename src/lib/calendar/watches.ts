@@ -1,5 +1,10 @@
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import {
+  constantTimeEqual,
+  randomBase64Url,
+  randomHex,
+  sha256Hex,
+} from '@/lib/security/edge-crypto'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import {
@@ -50,7 +55,7 @@ interface MicrosoftNotification {
  * watch/subscription, renewing records that are close to expiration.
  */
 export async function ensureCalendarWatchesForConnection(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string,
   fetchImpl: typeof fetch = fetch
 ): Promise<CalendarWatchLifecycleResult> {
@@ -95,7 +100,7 @@ export async function ensureCalendarWatchesForConnection(
  * Sync-worker helper that creates missing watches and renews due subscriptions.
  */
 export async function maintainCalendarWatches(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   limit = 25,
   fetchImpl: typeof fetch = fetch
 ): Promise<CalendarWatchLifecycleResult> {
@@ -135,7 +140,7 @@ export async function maintainCalendarWatches(
  * Validates and handles a Google Calendar push notification.
  */
 export async function handleGoogleCalendarWebhook(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   headers: Headers,
   fetchImpl: typeof fetch = fetch
 ): Promise<CalendarWebhookResult> {
@@ -190,7 +195,7 @@ export async function handleGoogleCalendarWebhook(
  * subscription once per callback payload.
  */
 export async function handleMicrosoftCalendarWebhook(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   body: unknown,
   fetchImpl: typeof fetch = fetch
 ): Promise<CalendarWebhookResult> {
@@ -253,7 +258,7 @@ async function ensureProviderWatch({
   calendar,
   fetchImpl,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   connection: ProviderConnectionRow
   calendar: ProviderCalendarRow
   fetchImpl: typeof fetch
@@ -302,7 +307,7 @@ async function createGoogleWatch({
   accessToken,
   fetchImpl,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   connection: ProviderConnectionRow
   calendar: ProviderCalendarRow
   existing: ProviderWatchRow | null
@@ -355,7 +360,7 @@ async function createOrRenewMicrosoftSubscription({
   accessToken,
   fetchImpl,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   connection: ProviderConnectionRow
   calendar: ProviderCalendarRow
   existing: ProviderWatchRow | null
@@ -418,7 +423,7 @@ async function renewMicrosoftSubscription({
   accessToken,
   fetchImpl,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   existing: ProviderWatchRow
   accessToken: string
   fetchImpl: typeof fetch
@@ -455,7 +460,7 @@ async function renewMicrosoftSubscription({
 }
 
 async function refreshWatchBusyCache(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   watch: ProviderWatchRow,
   fetchImpl: typeof fetch
 ) {
@@ -481,7 +486,7 @@ async function refreshWatchBusyCache(
 }
 
 async function saveProviderWatch(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   existing: ProviderWatchRow | null,
   payload: ProviderWatchInsert
 ) {
@@ -516,7 +521,7 @@ async function saveProviderWatch(
 }
 
 async function loadProviderConnection(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string
 ): Promise<ProviderConnectionRow> {
   const { data, error } = await adminClient
@@ -533,7 +538,7 @@ async function loadProviderConnection(
 }
 
 async function loadAvailabilityCalendars(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionId: string
 ): Promise<ProviderCalendarRow[]> {
   const { data, error } = await adminClient
@@ -550,7 +555,7 @@ async function loadAvailabilityCalendars(
 }
 
 async function loadWatchForCalendar(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   {
     connectionId,
     provider,
@@ -577,7 +582,7 @@ async function loadWatchForCalendar(
 }
 
 async function loadWatchByProviderChannel(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   provider: CalendarProvider,
   channelId: string
 ): Promise<ProviderWatchRow | null> {
@@ -601,7 +606,7 @@ async function markCalendarWatchError({
   calendar,
   error,
 }: {
-  adminClient: SupabaseClient<Database>
+  adminClient: BackendCompatClient<Database>
   connection: ProviderConnectionRow
   calendar: ProviderCalendarRow
   error: unknown
@@ -625,7 +630,7 @@ async function markCalendarWatchError({
 }
 
 async function updateWatchCallbackState(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   watch: ProviderWatchRow,
   metadata: Record<string, string | null>
 ) {
@@ -643,7 +648,7 @@ async function updateWatchCallbackState(
 }
 
 async function updateWatchError(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   watch: ProviderWatchRow,
   error: unknown
 ) {
@@ -715,15 +720,15 @@ function providerHeaders(accessToken: string): HeadersInit {
 }
 
 function randomWatchId(prefix: string): string {
-  return `${prefix}-${randomBytes(16).toString('hex')}`
+  return `${prefix}-${randomHex(16)}`
 }
 
 function randomSecret(): string {
-  return randomBytes(24).toString('base64url')
+  return randomBase64Url(24)
 }
 
 function hashSecret(value: string): string {
-  return createHash('sha256').update(value).digest('hex')
+  return sha256Hex(value)
 }
 
 function verifyMetadataSecret(
@@ -737,13 +742,7 @@ function verifyMetadataSecret(
   }
 
   const actual = hashSecret(value)
-  const expectedBuffer = Buffer.from(expected)
-  const actualBuffer = Buffer.from(actual)
-
-  return (
-    expectedBuffer.length === actualBuffer.length &&
-    timingSafeEqual(expectedBuffer, actualBuffer)
-  )
+  return constantTimeEqual(expected, actual)
 }
 
 function metadataObject(metadata: Json | undefined): Record<string, Json> {

@@ -14,11 +14,13 @@ import {
  * Performs deletes, then upserts (insert new / update existing) in a single request.
  *
  * Requires authentication. Uses the authenticated user's profile ID for all operations.
- * Uses the admin client (service role) to bypass RLS for write operations.
+ * Uses the admin client (service key) to bypass RLS for write operations.
  *
  * Request body: { rules, overrides, deletedRuleIds, deletedOverrideIds, timezone }
  * Response: { success: true } or { success: false, error: string }
  */
+export const runtime = 'edge'
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()

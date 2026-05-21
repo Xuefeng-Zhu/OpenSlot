@@ -2,12 +2,13 @@
 
 GitHub Actions runs the release gate on pushes to `main` and pull requests
 that target `main`. The workflow validates the Next.js app, audits npm
-dependencies, starts a local Supabase database, applies all migrations, and
-lints the resulting schema.
+dependencies, and builds the app against Butterbase-shaped runtime
+configuration. The optional Dashboard E2E job runs against a configured
+Butterbase test app when repository secrets are present.
 
 The repository includes Vercel cron configuration for worker routes, but
-production deployment still needs environment variables, Supabase projects,
-database migration execution, backups, and rollback ownership configured
+production deployment still needs environment variables, Butterbase apps,
+Butterbase schema/function deployment, backups, and rollback ownership configured
 outside this repository.
 
 ## Release Gate
@@ -21,23 +22,15 @@ npm run test
 npm run build
 ```
 
-The CI database gate also runs:
-
-```bash
-supabase db start
-supabase db reset --local --no-seed
-supabase db lint --local --fail-on error
-supabase stop --no-backup
-```
-
 For local handoff you can run the same gate with:
 
 ```bash
 npm run verify
 ```
 
-`npm run verify` does not run `npm audit` or the Supabase migration gate, so
-run those separately for release-sensitive dependency or schema changes.
+`npm run verify` does not run `npm audit` or provider schema deployment
+checks, so run those separately for release-sensitive dependency or backend
+schema/function changes.
 
 The production build command is:
 
@@ -63,8 +56,8 @@ npm run start
 
 Use separate staging and production environments:
 
-- Separate Supabase projects, auth configuration, OAuth callback origins, and
-  service-role keys.
+- Separate Butterbase apps, auth configuration, OAuth callback origins, and
+  service keys.
 - Separate app deploy targets and `NEXT_PUBLIC_APP_URL` values.
 - Separate `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,
   `CALENDAR_SYNC_SECRET`, `CRON_SECRET`, and calendar token encryption secrets.
@@ -82,9 +75,9 @@ in the deployment platform or a secrets manager, not in the repository.
 Each deployed environment must provide:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=...
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SUPABASE_SERVICE_ROLE_KEY=...
+NEXT_PUBLIC_BUTTERBASE_APP_ID=...
+NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
+BUTTERBASE_API_KEY=...
 NEXT_PUBLIC_APP_URL=https://your-production-origin.example
 OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
@@ -101,6 +94,7 @@ CALENDAR_FINAL_AVAILABILITY_CHECK=stale
 CALENDAR_STALE_AFTER_MINUTES=10
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
 TURNSTILE_SECRET_KEY=...
+BOOKING_AGENT_MODEL=deepseek/deepseek-v4-flash
 EMAIL_PROVIDER=console
 EMAIL_FROM="OpenSlot <bookings@example.com>"
 RESEND_API_KEY=...
@@ -124,14 +118,20 @@ health is stale.
 
 Generated Google Meet and Microsoft Teams links depend on the existing Google/Microsoft calendar OAuth credentials and writable provider calendars. No separate Zoom or video-provider secret is required for the v1 video integration.
 
+The public booking assistant is enabled when `BUTTERBASE_API_KEY` is present and
+uses the Butterbase AI gateway with `deepseek/deepseek-v4-flash` by default.
+Ensure the Butterbase app AI configuration allows that model before enabling it
+in production. Set `BOOKING_AGENT_MODEL` only to make an intentional deployment
+override.
+
 Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send production booking and reminder emails through Resend. Set `EMAIL_PROVIDER=maileroo`, `EMAIL_FROM`, and `MAILEROO_API_KEY` to send through Maileroo. Leave `EMAIL_PROVIDER` unset or set to `console` to log emails instead.
 
 ## Release Runbook
 
 1. Open a pull request to `main`.
-2. Wait for GitHub Actions to pass the app release gate, npm audit, and
-   Supabase migration validation.
-3. Apply migrations to staging and deploy the app to staging.
+2. Wait for GitHub Actions to pass the app release gate, npm audit, and the
+   Butterbase-backed Dashboard E2E job when configured.
+3. Apply Butterbase schema/function updates to staging and deploy the app to staging.
 4. Smoke test signup/login, dashboard event type loading, public slot lookup,
    hold creation, booking confirmation, cancellation/rescheduling token pages,
    and worker routes.
@@ -139,7 +139,7 @@ Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send producti
    and that no outbox, webhook, or calendar sync rows are stuck unexpectedly.
 6. Take or confirm a recent production database backup before destructive or
    high-risk migrations.
-7. Apply production migrations during the release window.
+7. Apply production Butterbase schema/function updates during the release window.
 8. Deploy the production app build that matched the passing CI run.
 9. Verify public booking pages, dashboard auth, worker route auth, provider
    sync, and email provider behavior in production.
@@ -184,30 +184,31 @@ worker only sends rows whose `available_at` is due, then rechecks the booking
 status and scheduled start/end time before emailing, so stale reminders from
 cancelled or rescheduled bookings complete without sending mail.
 
-## Migration Runbook
+## Backend Schema Runbook
 
-- Run migrations in `supabase/migrations/` in order.
-- Do not edit already-applied migrations in a shared environment unless the team explicitly agrees to reset/squash.
-- Validate migrations locally or in CI with `supabase db start`,
-  `supabase db reset --local --no-seed`, and
-  `supabase db lint --local --fail-on error`.
-- Apply migrations to staging before production.
-- Capture command output or deployment logs for each production migration run.
-- Review RLS policies, Data API grants, indexes, and exclusion constraints
-  after schema changes.
+- Keep `backend/sql/provider-portability.sql` aligned with table constraints,
+  RLS expectations, and atomic transaction entrypoints.
+- Apply provider-owned Butterbase schema/function artifacts to staging before
+  production.
+- Do not mutate shared production schema directly unless the change is captured
+  in repository artifacts and reviewed.
+- Capture command output or deployment logs for each production schema/function
+  update.
+- Review RLS policies, Data API grants, indexes, exclusion constraints, and
+  deployed Butterbase functions after schema changes.
 - Confirm the `no_overlapping_bookings` exclusion constraint remains in place.
 
 ## Rollback Runbook
 
 Application rollback is a redeploy of the last known-good build using the same
-environment variables and Supabase project. Keep previous deployment artifacts
+environment variables and Butterbase app. Keep previous deployment artifacts
 or platform rollback support available for production.
 
 Database rollback is forward-fix first. The repository does not maintain
 down-migration files, so a bad migration should normally be repaired with a
 new migration that restores compatibility. For destructive migrations or data
-loss, restore from the latest Supabase backup or PITR-capable restore into a
-new project, validate the restored project, then switch application
+loss, restore from the latest Butterbase/Postgres backup or PITR-capable
+restore into a new app, validate the restored app, then switch application
 configuration or traffic intentionally.
 
 Do not run ad hoc production SQL rollback steps without recording the command,
@@ -216,8 +217,8 @@ repository back in sync.
 
 ## Backup Assumptions
 
-- Production depends on Supabase-managed backups for Postgres durability.
-- Choose a Supabase plan with backup retention and PITR that matches the
+- Production depends on provider-managed Postgres backups for durability.
+- Choose a Butterbase plan with backup retention and PITR that matches the
   product's recovery point objective.
 - Confirm backup freshness before destructive migrations and after restoring
   from backup in any incident.

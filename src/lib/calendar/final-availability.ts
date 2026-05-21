@@ -1,4 +1,4 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { CalendarProvider } from './oauth'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import {
@@ -29,7 +29,7 @@ export type FinalProviderAvailabilityResult =
  * confirmation when cached calendar/watch health is stale.
  */
 export async function verifyFinalProviderAvailability(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   {
     hostUserId,
     startAt,
@@ -132,7 +132,7 @@ export async function verifyFinalProviderAvailability(
 }
 
 async function loadProviderConnections(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   hostUserId: string
 ): Promise<ProviderConnectionRow[]> {
   const { data, error } = await adminClient
@@ -149,7 +149,7 @@ async function loadProviderConnections(
 }
 
 async function loadAvailabilityCalendars(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionIds: string[]
 ): Promise<ProviderCalendarRow[]> {
   const { data, error } = await adminClient
@@ -166,7 +166,7 @@ async function loadAvailabilityCalendars(
 }
 
 async function loadProviderWatches(
-  adminClient: SupabaseClient<Database>,
+  adminClient: BackendCompatClient<Database>,
   connectionIds: string[]
 ): Promise<ProviderWatchRow[]> {
   const { data, error } = await adminClient

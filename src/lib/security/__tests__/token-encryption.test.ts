@@ -8,13 +8,13 @@ describe('calendar token encryption', () => {
     process.env.CALENDAR_TOKEN_ENCRYPTION_SECRET = originalSecret
   })
 
-  it('round-trips tokens without storing plaintext', () => {
+  it('round-trips tokens without storing plaintext', async () => {
     process.env.CALENDAR_TOKEN_ENCRYPTION_SECRET =
       'test-token-encryption-secret'
 
-    const encrypted = encryptToken('refresh-token-value')
+    const encrypted = await encryptToken('refresh-token-value')
 
     expect(encrypted).not.toContain('refresh-token-value')
-    expect(decryptToken(encrypted)).toBe('refresh-token-value')
+    await expect(decryptToken(encrypted)).resolves.toBe('refresh-token-value')
   })
 })

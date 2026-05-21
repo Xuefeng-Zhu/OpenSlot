@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { base64UrlEncodeString } from '@/lib/security/edge-crypto'
 import type { CalendarProvider } from './oauth'
 
 /**
@@ -33,5 +34,5 @@ export function encodeCalendarOAuthState(value: {
   profileId: string
   state: string
 }): string {
-  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url')
+  return base64UrlEncodeString(JSON.stringify(value))
 }

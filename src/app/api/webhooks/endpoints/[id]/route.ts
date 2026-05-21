@@ -9,7 +9,7 @@ interface WebhookEndpointRouteProps {
 
 /**
  * Resolves the current session to a profile id for endpoint ownership checks.
- * Route handlers pair this with service-role writes so callers cannot update or
+ * Route handlers pair this with service-key writes so callers cannot update or
  * delete another profile's webhook endpoint by guessing an id.
  */
 async function getAuthenticatedProfileId() {
@@ -41,6 +41,8 @@ async function getAuthenticatedProfileId() {
  * Undefined fields are ignored, while nullable description values normalize to
  * the empty string used by the database/UI contract.
  */
+export const runtime = 'edge'
+
 export async function PATCH(
   request: NextRequest,
   { params }: WebhookEndpointRouteProps

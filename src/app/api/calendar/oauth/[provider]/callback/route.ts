@@ -9,6 +9,7 @@ import {
 } from '@/lib/calendar/oauth'
 import { syncCalendarsForConnection } from '@/lib/calendar/provider-sync'
 import { ensureCalendarWatchesForConnection } from '@/lib/calendar/watches'
+import { base64UrlDecodeToString } from '@/lib/security/edge-crypto'
 import { encryptToken } from '@/lib/security/token-encryption'
 import {
   CALENDAR_OAUTH_STATE_COOKIE,
@@ -34,6 +35,8 @@ type ProviderConnectionRow = Tables<'provider_connections'>
  * encrypted provider tokens, and immediately syncs calendars before redirecting
  * back to settings with a compact status marker.
  */
+export const runtime = 'edge'
+
 export async function GET(
   request: NextRequest,
   { params }: CalendarOAuthRouteContext
@@ -153,9 +156,9 @@ async function upsertProviderConnection({
     provider,
     account_email: accountEmail,
     scopes: tokens.scopes,
-    access_token_encrypted: encryptToken(tokens.accessToken),
+    access_token_encrypted: await encryptToken(tokens.accessToken),
     refresh_token_encrypted: tokens.refreshToken
-      ? encryptToken(tokens.refreshToken)
+      ? await encryptToken(tokens.refreshToken)
       : (existing as ProviderConnectionRow | null)?.refresh_token_encrypted ?? null,
     token_expires_at: tokens.expiresAt,
     status: 'active',
@@ -227,7 +230,7 @@ function parseStateCookie(value?: string): OAuthStateCookie | null {
 
   try {
     const parsed = JSON.parse(
-      Buffer.from(value, 'base64url').toString('utf8')
+      base64UrlDecodeToString(value)
     ) as OAuthStateCookie
 
     if (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarCheck, Clock3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,8 +24,11 @@ import {
 } from "@/components/ui/select";
 import {
   createConfirmBookingFormSchema,
+  type ConfirmBookingFormInputValues,
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
+import { isValidTimezone } from "@/lib/validations/profile";
+import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 import {
   isTurnstileEnabled,
@@ -63,8 +66,9 @@ const COMMON_TIMEZONES = [
 ];
 
 interface BookingFormProps {
-  holdToken: string;
-  expiresAt: string;
+  holdToken?: string;
+  expiresAt?: string;
+  holdPending?: boolean;
   selectedSlot: { start: string; end: string };
   eventTitle: string;
   hostName: string;
@@ -76,6 +80,7 @@ interface BookingFormProps {
     email: string;
     timezone: string;
   };
+  initialDraft?: BookingAgentDraft;
   onConfirmed: (result: {
     bookingId: string;
     cancellationToken: string;
@@ -99,6 +104,7 @@ interface BookingFormProps {
 export function BookingForm({
   holdToken,
   expiresAt,
+  holdPending = false,
   selectedSlot,
   eventTitle,
   hostName,
@@ -106,17 +112,28 @@ export function BookingForm({
   inviteeQuestions,
   rescheduleToken,
   initialGuest,
+  initialDraft,
   onConfirmed,
   onHoldExpired,
   onSlotTaken,
 }: BookingFormProps) {
+  const pageTimezone = validTimezoneOrNull(timezone) ?? "UTC";
+  const initialGuestTimezone =
+    validTimezoneOrNull(initialGuest?.timezone) ??
+    validTimezoneOrNull(initialDraft?.guestTimezone) ??
+    pageTimezone;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => createIdempotencyKey());
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState<number>(
-    Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
+    expiresAt
+      ? Math.max(
+          0,
+          Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
+        )
+      : 0
   );
   const bookingFormSchema = useMemo(
     () => createConfirmBookingFormSchema(inviteeQuestions),
@@ -130,25 +147,77 @@ export function BookingForm({
     setValue,
     watch,
     formState: { errors },
-  } = useForm<ConfirmBookingFormValues>({
-    resolver: zodResolver(bookingFormSchema),
+  } = useForm<ConfirmBookingFormInputValues, unknown, ConfirmBookingFormValues>({
+    resolver: zodResolver(bookingFormSchema) as Resolver<
+      ConfirmBookingFormInputValues,
+      unknown,
+      ConfirmBookingFormValues
+    >,
     defaultValues: {
-      guestName: initialGuest?.name ?? "",
-      guestEmail: initialGuest?.email ?? "",
-      guestTimezone: initialGuest?.timezone ?? timezone,
-      notes: "",
-      answers: defaultAnswerValues(inviteeQuestions),
+      guestName: initialGuest?.name ?? initialDraft?.guestName ?? "",
+      guestEmail: initialGuest?.email ?? initialDraft?.guestEmail ?? "",
+      guestTimezone: initialGuestTimezone,
+      notes: initialDraft?.notes ?? "",
+      answers: {
+        ...defaultAnswerValues(inviteeQuestions),
+        ...(initialDraft?.answers ?? {}),
+      },
     },
   });
 
   const selectedTimezone = watch("guestTimezone");
+  const displayTimezone = validTimezoneOrNull(selectedTimezone) ?? pageTimezone;
   const answers = watch("answers");
   const answerErrors = errors.answers as
     | Record<string, { message?: string }>
     | undefined;
 
+  useEffect(() => {
+    if (!initialDraft) return;
+
+    if (!initialGuest?.name && initialDraft.guestName) {
+      setValue("guestName", initialDraft.guestName, { shouldValidate: true });
+    }
+
+    if (!initialGuest?.email && initialDraft.guestEmail) {
+      setValue("guestEmail", initialDraft.guestEmail, { shouldValidate: true });
+    }
+
+    const draftTimezone = validTimezoneOrNull(initialDraft.guestTimezone);
+    if (!initialGuest?.timezone && draftTimezone) {
+      setValue("guestTimezone", draftTimezone, { shouldValidate: true });
+    }
+
+    if (initialDraft.notes !== undefined) {
+      setValue("notes", initialDraft.notes, { shouldValidate: true });
+    }
+
+    for (const [questionId, answer] of Object.entries(
+      initialDraft.answers ?? {}
+    )) {
+      setValue(`answers.${questionId}`, answer, { shouldValidate: true });
+    }
+  }, [
+    initialDraft,
+    initialGuest?.email,
+    initialGuest?.name,
+    initialGuest?.timezone,
+    setValue,
+  ]);
+
   // Countdown timer
   useEffect(() => {
+    if (!expiresAt) {
+      setTimeRemaining(0);
+      return;
+    }
+
+    const initialRemaining = Math.max(
+      0,
+      Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
+    );
+    setTimeRemaining(initialRemaining);
+
     const interval = setInterval(() => {
       const remaining = Math.max(
         0,
@@ -172,6 +241,11 @@ export function BookingForm({
   }, []);
 
   const onSubmit = async (data: ConfirmBookingFormValues) => {
+    if (!holdToken) {
+      setError("We are still securing this time. Please try again in a moment.");
+      return;
+    }
+
     if (turnstileRequired && !turnstileToken) {
       setError("Please complete the verification challenge before continuing.");
       return;
@@ -252,7 +326,7 @@ export function BookingForm({
     return date.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: selectedTimezone || timezone || undefined,
+      timeZone: displayTimezone,
     });
   }
 
@@ -263,14 +337,14 @@ export function BookingForm({
       year: "numeric",
       month: "long",
       day: "numeric",
-      timeZone: selectedTimezone || timezone || undefined,
+      timeZone: displayTimezone,
     });
   }
 
   // Ensure the timezone list includes the current timezone
-  const timezoneOptions = COMMON_TIMEZONES.includes(timezone)
-    ? COMMON_TIMEZONES
-    : [timezone, ...COMMON_TIMEZONES];
+  const timezoneOptions = Array.from(
+    new Set([initialGuestTimezone, pageTimezone, ...COMMON_TIMEZONES])
+  ).filter(isValidTimezone);
 
   return (
     <Card className="mt-6">
@@ -284,17 +358,26 @@ export function BookingForm({
               {eventTitle} with {hostName}
             </CardDescription>
           </div>
-          <div
-            className={`w-fit rounded-full px-3 py-1 text-sm font-medium ${
-              timeRemaining <= 60
-                ? "bg-destructive/10 text-destructive"
-                : "bg-muted text-muted-foreground"
-            }`}
-            role="timer"
-            aria-label={`Hold expires in ${formatCountdown(timeRemaining)}`}
-          >
-            Hold expires in {formatCountdown(timeRemaining)}
-          </div>
+          {holdPending ? (
+            <div
+              className="w-fit rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground"
+              role="status"
+            >
+              Securing time...
+            </div>
+          ) : (
+            <div
+              className={`w-fit rounded-full px-3 py-1 text-sm font-medium ${
+                timeRemaining <= 60
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-muted text-muted-foreground"
+              }`}
+              role="timer"
+              aria-label={`Hold expires in ${formatCountdown(timeRemaining)}`}
+            >
+              Hold expires in {formatCountdown(timeRemaining)}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent>
@@ -532,12 +615,16 @@ export function BookingForm({
             className="w-full"
             disabled={
               submitting ||
+              holdPending ||
+              !holdToken ||
               timeRemaining <= 0 ||
               (turnstileRequired && !turnstileToken)
             }
           >
             {submitting
               ? "Confirming..."
+              : holdPending
+                ? "Securing Time..."
               : rescheduleToken
                 ? "Confirm New Time"
                 : "Confirm Booking"}
@@ -546,6 +633,11 @@ export function BookingForm({
       </CardContent>
     </Card>
   );
+}
+
+function validTimezoneOrNull(value: string | null | undefined): string | null {
+  const timezone = value?.trim();
+  return timezone && isValidTimezone(timezone) ? timezone : null;
 }
 
 function createIdempotencyKey(): string {

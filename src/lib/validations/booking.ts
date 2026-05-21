@@ -19,6 +19,12 @@ const turnstileTokenSchema = z
   .max(4096, 'Verification token is too long')
   .optional()
 
+const slotHoldTokenSchema = z
+  .string()
+  .min(1, 'Slot token is required when provided')
+  .max(4096, 'Slot token is too long')
+  .optional()
+
 /**
  * Schema for creating a slot hold.
  * Used by POST /api/holds to validate the request body.
@@ -31,6 +37,7 @@ export const createHoldSchema = z.object({
   guestEmail: z.string().email('Must be a valid email address'),
   idempotencyKey: idempotencyKeySchema,
   turnstileToken: turnstileTokenSchema,
+  slotToken: slotHoldTokenSchema,
 })
 
 export type CreateHoldInput = z.infer<typeof createHoldSchema>
@@ -99,5 +106,9 @@ export function createConfirmBookingFormSchema(
 }
 
 export type ConfirmBookingFormValues = z.infer<
+  ReturnType<typeof createConfirmBookingFormSchema>
+>
+
+export type ConfirmBookingFormInputValues = z.input<
   ReturnType<typeof createConfirmBookingFormSchema>
 >
