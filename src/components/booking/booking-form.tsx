@@ -27,6 +27,7 @@ import {
   type ConfirmBookingFormInputValues,
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
+import { isValidTimezone } from "@/lib/validations/profile";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 import {
@@ -116,6 +117,11 @@ export function BookingForm({
   onHoldExpired,
   onSlotTaken,
 }: BookingFormProps) {
+  const pageTimezone = validTimezoneOrNull(timezone) ?? "UTC";
+  const initialGuestTimezone =
+    validTimezoneOrNull(initialGuest?.timezone) ??
+    validTimezoneOrNull(initialDraft?.guestTimezone) ??
+    pageTimezone;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => createIdempotencyKey());
@@ -150,8 +156,7 @@ export function BookingForm({
     defaultValues: {
       guestName: initialGuest?.name ?? initialDraft?.guestName ?? "",
       guestEmail: initialGuest?.email ?? initialDraft?.guestEmail ?? "",
-      guestTimezone:
-        initialGuest?.timezone ?? initialDraft?.guestTimezone ?? timezone,
+      guestTimezone: initialGuestTimezone,
       notes: initialDraft?.notes ?? "",
       answers: {
         ...defaultAnswerValues(inviteeQuestions),
@@ -161,6 +166,7 @@ export function BookingForm({
   });
 
   const selectedTimezone = watch("guestTimezone");
+  const displayTimezone = validTimezoneOrNull(selectedTimezone) ?? pageTimezone;
   const answers = watch("answers");
   const answerErrors = errors.answers as
     | Record<string, { message?: string }>
@@ -287,7 +293,7 @@ export function BookingForm({
     return date.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-      timeZone: selectedTimezone || timezone || undefined,
+      timeZone: displayTimezone,
     });
   }
 
@@ -298,14 +304,14 @@ export function BookingForm({
       year: "numeric",
       month: "long",
       day: "numeric",
-      timeZone: selectedTimezone || timezone || undefined,
+      timeZone: displayTimezone,
     });
   }
 
   // Ensure the timezone list includes the current timezone
-  const timezoneOptions = COMMON_TIMEZONES.includes(timezone)
-    ? COMMON_TIMEZONES
-    : [timezone, ...COMMON_TIMEZONES];
+  const timezoneOptions = Array.from(
+    new Set([initialGuestTimezone, pageTimezone, ...COMMON_TIMEZONES])
+  ).filter(isValidTimezone);
 
   return (
     <Card className="mt-6">
@@ -594,6 +600,11 @@ export function BookingForm({
       </CardContent>
     </Card>
   );
+}
+
+function validTimezoneOrNull(value: string | null | undefined): string | null {
+  const timezone = value?.trim();
+  return timezone && isValidTimezone(timezone) ? timezone : null;
 }
 
 function createIdempotencyKey(): string {

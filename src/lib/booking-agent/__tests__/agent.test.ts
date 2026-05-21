@@ -109,6 +109,47 @@ describe('booking agent orchestration', () => {
     })
   })
 
+  it('falls back to UTC when request and model timezones are invalid', async () => {
+    const loadSlots = vi.fn(async () => ({
+      success: true as const,
+      slots: [
+        {
+          start: '2026-06-16T13:00:00.000Z',
+          end: '2026-06-16T13:30:00.000Z',
+        },
+      ],
+    }))
+
+    const result = await runBookingAgentTurn({
+      request: {
+        ...request,
+        timezone: 'Eastern Time',
+      },
+      eventContext,
+      provider: {
+        complete: vi.fn(async () =>
+          JSON.stringify({
+            reply: 'I found an afternoon option.',
+            availabilitySearch: {
+              date: '2026-06-16',
+              timezone: 'Not a timezone',
+              timeOfDay: 'afternoon',
+            },
+            nextAction: 'show_slots',
+          })
+        ),
+      },
+      loadSlots,
+    })
+
+    expect(loadSlots).toHaveBeenCalledWith({
+      date: '2026-06-16',
+      timezone: 'UTC',
+    })
+    expect(result.success).toBe(true)
+    expect(result.suggestedSlots).toHaveLength(1)
+  })
+
   it('does not send reschedule tokens to the model prompt', async () => {
     const provider = {
       complete: vi.fn(async (_input: unknown) =>

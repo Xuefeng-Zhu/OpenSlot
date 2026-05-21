@@ -103,4 +103,33 @@ describe('BookingForm', () => {
       'I want to discuss onboarding.'
     )
   })
+
+  it('falls back to the page timezone for invalid assistant draft timezones', () => {
+    render(
+      <BookingForm
+        holdToken="550e8400-e29b-41d4-a716-446655440000"
+        expiresAt={new Date(Date.now() + 5 * 60 * 1000).toISOString()}
+        selectedSlot={{
+          start: '2026-05-15T17:00:00.000Z',
+          end: '2026-05-15T17:30:00.000Z',
+        }}
+        eventTitle="Discovery Call"
+        hostName="Sarah Chen"
+        timezone="America/Los_Angeles"
+        inviteeQuestions={[]}
+        initialDraft={{
+          guestTimezone: 'Eastern Time',
+        }}
+        onConfirmed={vi.fn()}
+        onHoldExpired={vi.fn()}
+        onSlotTaken={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Friday, May 15, 2026')).toBeDefined()
+    expect(screen.getByRole('combobox')).toHaveProperty(
+      'textContent',
+      'America/Los Angeles'
+    )
+  })
 })
