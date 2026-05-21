@@ -273,6 +273,20 @@ describe('GET /api/slots', () => {
     expect(mocks.adminClient.from).not.toHaveBeenCalled()
   })
 
+  it('rejects impossible slot range calendar dates before rate limiting', async () => {
+    const response = await GET(
+      slotRangeRequest({ startDate: '2026-02-31' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe(
+      'Invalid date range. Expected real YYYY-MM-DD calendar dates.'
+    )
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.adminClient.from).not.toHaveBeenCalled()
+  })
+
   it('excludes slots that overlap synced external calendar busy cache rows', async () => {
     mocks.refreshCalendarAvailabilityForHost.mockResolvedValueOnce({
       checked: 1,

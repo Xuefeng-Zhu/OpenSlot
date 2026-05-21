@@ -172,6 +172,39 @@ export function BookingForm({
     | Record<string, { message?: string }>
     | undefined;
 
+  useEffect(() => {
+    if (!initialDraft) return;
+
+    if (!initialGuest?.name && initialDraft.guestName) {
+      setValue("guestName", initialDraft.guestName, { shouldValidate: true });
+    }
+
+    if (!initialGuest?.email && initialDraft.guestEmail) {
+      setValue("guestEmail", initialDraft.guestEmail, { shouldValidate: true });
+    }
+
+    const draftTimezone = validTimezoneOrNull(initialDraft.guestTimezone);
+    if (!initialGuest?.timezone && draftTimezone) {
+      setValue("guestTimezone", draftTimezone, { shouldValidate: true });
+    }
+
+    if (initialDraft.notes !== undefined) {
+      setValue("notes", initialDraft.notes, { shouldValidate: true });
+    }
+
+    for (const [questionId, answer] of Object.entries(
+      initialDraft.answers ?? {}
+    )) {
+      setValue(`answers.${questionId}`, answer, { shouldValidate: true });
+    }
+  }, [
+    initialDraft,
+    initialGuest?.email,
+    initialGuest?.name,
+    initialGuest?.timezone,
+    setValue,
+  ]);
+
   // Countdown timer
   useEffect(() => {
     if (!expiresAt) {

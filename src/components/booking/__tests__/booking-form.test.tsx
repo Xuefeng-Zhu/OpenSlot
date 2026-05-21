@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { BookingForm } from '../booking-form'
 
@@ -101,6 +102,67 @@ describe('BookingForm', () => {
     expect(screen.getByLabelText('Notes (optional)')).toHaveProperty(
       'value',
       'I want to discuss onboarding.'
+    )
+  })
+
+  it('applies assistant draft updates after the form has mounted', () => {
+    const props = {
+      holdToken: '550e8400-e29b-41d4-a716-446655440000',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      selectedSlot: {
+        start: '2026-05-15T17:00:00.000Z',
+        end: '2026-05-15T17:30:00.000Z',
+      },
+      eventTitle: 'Discovery Call',
+      hostName: 'Sarah Chen',
+      timezone: 'America/Los_Angeles',
+      inviteeQuestions: [
+        {
+          id: 'topic',
+          label: 'What should we discuss?',
+          type: 'textarea',
+          required: true,
+          options: [],
+        },
+      ],
+      onConfirmed: vi.fn(),
+      onHoldExpired: vi.fn(),
+      onSlotTaken: vi.fn(),
+    } satisfies ComponentProps<typeof BookingForm>
+    const { rerender } = render(<BookingForm {...props} />)
+
+    expect(screen.getByLabelText('Name *')).toHaveProperty('value', '')
+    expect(screen.getByLabelText('What should we discuss? *')).toHaveProperty(
+      'value',
+      ''
+    )
+
+    rerender(
+      <BookingForm
+        {...props}
+        initialDraft={{
+          guestName: 'Jane Doe',
+          guestEmail: 'jane@example.com',
+          notes: 'I want to discuss onboarding.',
+          answers: {
+            topic: 'Implementation details',
+          },
+        }}
+      />
+    )
+
+    expect(screen.getByLabelText('Name *')).toHaveProperty('value', 'Jane Doe')
+    expect(screen.getByLabelText('Email *')).toHaveProperty(
+      'value',
+      'jane@example.com'
+    )
+    expect(screen.getByLabelText('Notes (optional)')).toHaveProperty(
+      'value',
+      'I want to discuss onboarding.'
+    )
+    expect(screen.getByLabelText('What should we discuss? *')).toHaveProperty(
+      'value',
+      'Implementation details'
     )
   })
 
