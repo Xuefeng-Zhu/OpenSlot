@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
 
     if (isRangeRequest) {
       const slotsResult = await loadAvailableSlotsForDateRange({
-        supabase: adminClient,
+        backendClient: adminClient,
         hostUserId,
         eventTypeId,
         startDate: startDate!,
@@ -139,7 +139,7 @@ export async function GET(request: NextRequest) {
     }
 
     const slotsResult = await loadAvailableSlotsForDate({
-      supabase: adminClient,
+      backendClient: adminClient,
       hostUserId,
       eventTypeId,
       date: date!,

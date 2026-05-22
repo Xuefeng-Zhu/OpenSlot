@@ -64,20 +64,20 @@ export type HoldSlotValidationResult =
  * date. This keeps hold creation and slot reads on the same server-side rules.
  */
 export async function loadAvailableSlotsForDate({
-  supabase,
+  backendClient,
   hostUserId,
   eventTypeId,
   date,
   guestTimezone,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   eventTypeId: string
   date: string
   guestTimezone: string
 }): Promise<AvailableSlotsResult> {
   const eventTypeResult = await loadEventTypeAvailabilityConfig({
-    supabase,
+    backendClient,
     hostUserId,
     eventTypeId,
   })
@@ -87,7 +87,7 @@ export async function loadAvailableSlotsForDate({
   }
 
   return computeSlotsForDate({
-    supabase,
+    backendClient,
     hostUserId,
     eventTypeId,
     date,
@@ -103,14 +103,14 @@ export async function loadAvailableSlotsForDate({
  * this to populate a window of dates with one `/api/slots` request.
  */
 export async function loadAvailableSlotsForDateRange({
-  supabase,
+  backendClient,
   hostUserId,
   eventTypeId,
   startDate,
   endDate,
   guestTimezone,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   eventTypeId: string
   startDate: string
@@ -128,7 +128,7 @@ export async function loadAvailableSlotsForDateRange({
   }
 
   const eventTypeResult = await loadEventTypeAvailabilityConfig({
-    supabase,
+    backendClient,
     hostUserId,
     eventTypeId,
   })
@@ -138,7 +138,7 @@ export async function loadAvailableSlotsForDateRange({
   }
 
   return computeSlotsForDateRange({
-    supabase,
+    backendClient,
     hostUserId,
     eventTypeId,
     dates,
@@ -153,13 +153,13 @@ export async function loadAvailableSlotsForDateRange({
  * endpoint would expose for the active host/event pair.
  */
 export async function validateHoldSlotRequest({
-  supabase,
+  backendClient,
   hostUserId,
   eventTypeId,
   startAt,
   endAt,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   eventTypeId: string
   startAt: string
@@ -177,7 +177,7 @@ export async function validateHoldSlotRequest({
   }
 
   const eventTypeResult = await loadEventTypeAvailabilityConfig({
-    supabase,
+    backendClient,
     hostUserId,
     eventTypeId,
   })
@@ -205,7 +205,7 @@ export async function validateHoldSlotRequest({
   )
 
   const refreshResult = await refreshCalendarAvailabilityForHost(
-    supabase,
+    backendClient,
     hostUserId,
     refreshRange.start,
     refreshRange.end
@@ -213,7 +213,7 @@ export async function validateHoldSlotRequest({
 
   for (const date of candidateDates) {
     const slotsResult = await computeSlotsForDate({
-      supabase,
+      backendClient,
       hostUserId,
       eventTypeId,
       date,
@@ -239,11 +239,11 @@ export async function validateHoldSlotRequest({
 }
 
 async function loadEventTypeAvailabilityConfig({
-  supabase,
+  backendClient,
   hostUserId,
   eventTypeId,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   eventTypeId: string
 }): Promise<
@@ -253,7 +253,7 @@ async function loadEventTypeAvailabilityConfig({
     }
   | AvailableSlotsFailure
 > {
-  const { data: eventTypeData, error: eventTypeError } = await supabase
+  const { data: eventTypeData, error: eventTypeError } = await backendClient
     .from('event_types')
     .select(
       'duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, schedule_id, user_id, is_active'
@@ -288,7 +288,7 @@ async function loadEventTypeAvailabilityConfig({
 }
 
 async function computeSlotsForDate({
-  supabase,
+  backendClient,
   hostUserId,
   eventTypeId,
   date,
@@ -297,7 +297,7 @@ async function computeSlotsForDate({
   refreshExternalCalendars = false,
   skipExternalBusyLookup = false,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   eventTypeId: string
   date: string
@@ -307,7 +307,7 @@ async function computeSlotsForDate({
   skipExternalBusyLookup?: boolean
 }): Promise<AvailableSlotsResult> {
   const rangeResult = await computeSlotsForDateRange({
-    supabase,
+    backendClient,
     hostUserId,
     eventTypeId,
     dates: [date],
@@ -328,7 +328,7 @@ async function computeSlotsForDate({
 }
 
 async function computeSlotsForDateRange({
-  supabase,
+  backendClient,
   hostUserId,
   eventTypeId,
   dates,
@@ -337,7 +337,7 @@ async function computeSlotsForDateRange({
   refreshExternalCalendars = false,
   skipExternalBusyLookup = false,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   eventTypeId: string
   dates: string[]
@@ -347,7 +347,7 @@ async function computeSlotsForDateRange({
   skipExternalBusyLookup?: boolean
 }): Promise<AvailableSlotsRangeResult> {
   const scheduleResult = await loadScheduleAvailabilityConfig({
-    supabase,
+    backendClient,
     hostUserId,
     scheduleId: eventType.schedule_id,
   })
@@ -364,14 +364,14 @@ async function computeSlotsForDateRange({
 
   const refreshPromise = refreshExternalCalendars
     ? refreshCalendarAvailabilityForHost(
-        supabase,
+        backendClient,
         hostUserId,
         conflictLookupRange.start,
         conflictLookupRange.end
       )
     : Promise.resolve<RefreshCalendarAvailabilityResult | null>(null)
 
-  const rulesPromise = supabase
+  const rulesPromise = backendClient
     .from('availability_rules')
     .select(
       'id, user_id, schedule_id, weekday, start_time, end_time, timezone, is_active'
@@ -380,7 +380,7 @@ async function computeSlotsForDateRange({
     .eq('schedule_id', scheduleResult.schedule.id)
     .eq('is_active', true)
 
-  const overridesPromise = supabase
+  const overridesPromise = backendClient
     .from('availability_overrides')
     .select(
       'id, user_id, schedule_id, date, start_time, end_time, timezone, is_available, reason'
@@ -389,7 +389,7 @@ async function computeSlotsForDateRange({
     .eq('schedule_id', scheduleResult.schedule.id)
     .in('date', dates)
 
-  const bookingsPromise = supabase
+  const bookingsPromise = backendClient
     .from('bookings')
     .select('start_at, end_at')
     .eq('host_user_id', hostUserId)
@@ -399,7 +399,7 @@ async function computeSlotsForDateRange({
 
   const nowISO = new Date().toISOString()
 
-  const holdsPromise = supabase
+  const holdsPromise = backendClient
     .from('slot_holds')
     .select('start_at, end_at')
     .eq('host_user_id', hostUserId)
@@ -461,7 +461,7 @@ async function computeSlotsForDateRange({
     shouldSkipExternalBusyLookup
       ? { slots: [], error: null }
       : await fetchExternalBusySlots({
-          supabase,
+          backendClient,
           hostUserId,
           rangeStart: conflictLookupRange.start,
           rangeEnd: conflictLookupRange.end,
@@ -510,11 +510,11 @@ async function computeSlotsForDateRange({
 }
 
 async function loadScheduleAvailabilityConfig({
-  supabase,
+  backendClient,
   hostUserId,
   scheduleId,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   scheduleId: string
 }): Promise<
@@ -524,7 +524,7 @@ async function loadScheduleAvailabilityConfig({
     }
   | AvailableSlotsFailure
 > {
-  const { data: scheduleData, error: scheduleError } = await supabase
+  const { data: scheduleData, error: scheduleError } = await backendClient
     .from('schedules')
     .select('id, timezone')
     .eq('id', scheduleId)
@@ -556,17 +556,17 @@ async function loadScheduleAvailabilityConfig({
 }
 
 async function fetchExternalBusySlots({
-  supabase,
+  backendClient,
   hostUserId,
   rangeStart,
   rangeEnd,
 }: {
-  supabase: AdminClient
+  backendClient: AdminClient
   hostUserId: string
   rangeStart: string
   rangeEnd: string
 }): Promise<{ slots: TimeSlot[]; error: string | null }> {
-  const { data: connectionsData, error: connectionsError } = await supabase
+  const { data: connectionsData, error: connectionsError } = await backendClient
     .from('provider_connections')
     .select('id')
     .eq('profile_id', hostUserId)
@@ -584,7 +584,7 @@ async function fetchExternalBusySlots({
     return { slots: [], error: null }
   }
 
-  const { data: calendarsData, error: calendarsError } = await supabase
+  const { data: calendarsData, error: calendarsError } = await backendClient
     .from('provider_calendars')
     .select('id')
     .in('connection_id', connectionIds)
@@ -602,7 +602,7 @@ async function fetchExternalBusySlots({
     return { slots: [], error: null }
   }
 
-  const { data: busyData, error: busyError } = await supabase
+  const { data: busyData, error: busyError } = await backendClient
     .from('external_busy_cache')
     .select('start_at, end_at')
     .in('provider_calendar_id', calendarIds)

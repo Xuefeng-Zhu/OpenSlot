@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       slotTokenResult?.ok === true
         ? ({ success: true } as const)
         : await validateHoldSlotRequest({
-            supabase: adminClient,
+            backendClient: adminClient,
             hostUserId,
             eventTypeId,
             startAt,

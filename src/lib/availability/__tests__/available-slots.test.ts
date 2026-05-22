@@ -84,12 +84,12 @@ function availabilityQuerySet({
   return queries
 }
 
-function createSupabaseClient(queries: any[]) {
+function createBackendClient(queries: any[]) {
   return {
     from: vi.fn(() => {
       const query = queries.shift()
       if (!query) {
-        throw new Error('Unexpected Supabase query')
+        throw new Error('Unexpected backend query')
       }
 
       return query
@@ -127,13 +127,13 @@ describe('validateHoldSlotRequest', () => {
 
   it('accepts an exact slot from computed public availability', async () => {
     const eventQuery = eventTypeQuery()
-    const supabase = createSupabaseClient([
+    const backendClient = createBackendClient([
       eventQuery,
       ...availabilityQuerySet(),
     ])
 
     const result = await validateHoldSlotRequest({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       startAt: '2025-01-06T14:00:00.000Z',
@@ -142,7 +142,7 @@ describe('validateHoldSlotRequest', () => {
 
     expect(result).toEqual({ success: true })
     expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalledWith(
-      supabase,
+      backendClient,
       hostUserId,
       '2025-01-04T00:00:00.000Z',
       '2025-01-08T23:59:59.999Z'
@@ -153,10 +153,10 @@ describe('validateHoldSlotRequest', () => {
   })
 
   it('rejects a hold duration that does not match the event type', async () => {
-    const supabase = createSupabaseClient([eventTypeQuery()])
+    const backendClient = createBackendClient([eventTypeQuery()])
 
     const result = await validateHoldSlotRequest({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       startAt: '2025-01-06T14:00:00.000Z',
@@ -168,11 +168,11 @@ describe('validateHoldSlotRequest', () => {
       status: 400,
       error: 'Requested hold duration must match the event type duration.',
     })
-    expect(supabase.from).toHaveBeenCalledTimes(1)
+    expect(backendClient.from).toHaveBeenCalledTimes(1)
   })
 
   it('rejects a same-duration hold outside availability windows', async () => {
-    const supabase = createSupabaseClient([
+    const backendClient = createBackendClient([
       eventTypeQuery(),
       ...availabilityQuerySet(),
       ...availabilityQuerySet(),
@@ -180,7 +180,7 @@ describe('validateHoldSlotRequest', () => {
     ])
 
     const result = await validateHoldSlotRequest({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       startAt: '2025-01-06T17:00:00.000Z',
@@ -195,7 +195,7 @@ describe('validateHoldSlotRequest', () => {
   })
 
   it('rejects inactive or mismatched event types', async () => {
-    const supabase = createSupabaseClient([
+    const backendClient = createBackendClient([
       createQuery({
         data: null,
         error: { code: 'PGRST116', message: 'No rows found' },
@@ -203,7 +203,7 @@ describe('validateHoldSlotRequest', () => {
     ])
 
     const result = await validateHoldSlotRequest({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       startAt: '2025-01-06T14:00:00.000Z',
@@ -218,7 +218,7 @@ describe('validateHoldSlotRequest', () => {
   })
 
   it('returns a server error when event type lookup fails unexpectedly', async () => {
-    const supabase = createSupabaseClient([
+    const backendClient = createBackendClient([
       createQuery({
         data: null,
         error: { code: 'PGRST301', message: 'connection unavailable' },
@@ -226,7 +226,7 @@ describe('validateHoldSlotRequest', () => {
     ])
 
     const result = await validateHoldSlotRequest({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       startAt: '2025-01-06T14:00:00.000Z',
@@ -254,13 +254,13 @@ describe('loadAvailableSlotsForDate', () => {
 
   it('refreshes external calendar availability before reading cached busy slots', async () => {
     const eventQuery = eventTypeQuery()
-    const supabase = createSupabaseClient([
+    const backendClient = createBackendClient([
       eventQuery,
       ...availabilityQuerySet(),
     ])
 
     const result = await loadAvailableSlotsForDate({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       date: '2025-01-06',
@@ -269,7 +269,7 @@ describe('loadAvailableSlotsForDate', () => {
 
     expect(result.success).toBe(true)
     expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalledWith(
-      supabase,
+      backendClient,
       hostUserId,
       '2025-01-05T00:00:00.000Z',
       '2025-01-07T23:59:59.999Z'
@@ -277,7 +277,7 @@ describe('loadAvailableSlotsForDate', () => {
   })
 
   it('uses the event type schedule to choose availability rules', async () => {
-    const firstScheduleClient = createSupabaseClient([
+    const firstScheduleClient = createBackendClient([
       eventTypeQuery({ schedule_id: 'schedule-1' }),
       createQuery({
         data: { id: 'schedule-1', timezone: 'America/New_York' },
@@ -298,7 +298,7 @@ describe('loadAvailableSlotsForDate', () => {
         ],
       }).slice(1),
     ])
-    const secondScheduleClient = createSupabaseClient([
+    const secondScheduleClient = createBackendClient([
       eventTypeQuery({ schedule_id: 'schedule-2' }),
       createQuery({
         data: { id: 'schedule-2', timezone: 'America/New_York' },
@@ -321,14 +321,14 @@ describe('loadAvailableSlotsForDate', () => {
     ])
 
     const firstResult = await loadAvailableSlotsForDate({
-      supabase: firstScheduleClient as any,
+      backendClient: firstScheduleClient as any,
       hostUserId,
       eventTypeId,
       date: '2025-01-06',
       guestTimezone: 'America/New_York',
     })
     const secondResult = await loadAvailableSlotsForDate({
-      supabase: secondScheduleClient as any,
+      backendClient: secondScheduleClient as any,
       hostUserId,
       eventTypeId: '22222222-2222-4222-8222-222222222222',
       date: '2025-01-06',
@@ -379,7 +379,7 @@ describe('loadAvailableSlotsForDate', () => {
     const overridesQuery = createQuery({ data: [], error: null })
     const bookingsQuery = createQuery({ data: [], error: null })
     const holdsQuery = createQuery({ data: [], error: null })
-    const supabase = createSupabaseClient([
+    const backendClient = createBackendClient([
       eventQuery,
       scheduleQuery,
       rulesQuery,
@@ -389,7 +389,7 @@ describe('loadAvailableSlotsForDate', () => {
     ])
 
     const result = await loadAvailableSlotsForDateRange({
-      supabase: supabase as any,
+      backendClient: backendClient as any,
       hostUserId,
       eventTypeId,
       startDate: '2025-01-06',
@@ -413,13 +413,13 @@ describe('loadAvailableSlotsForDate', () => {
         '2025-01-07': [],
       },
     })
-    expect(supabase.from).toHaveBeenCalledTimes(6)
+    expect(backendClient.from).toHaveBeenCalledTimes(6)
     expect(overridesQuery.in).toHaveBeenCalledWith('date', [
       '2025-01-06',
       '2025-01-07',
     ])
     expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalledWith(
-      supabase,
+      backendClient,
       hostUserId,
       '2025-01-05T00:00:00.000Z',
       '2025-01-08T23:59:59.999Z'

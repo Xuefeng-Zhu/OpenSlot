@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       timezone,
     }) => {
       const result = await loadAvailableSlotsForDate({
-        supabase: adminClient,
+        backendClient: adminClient,
         hostUserId: parsed.data.hostUserId,
         eventTypeId: parsed.data.eventTypeId,
         date,

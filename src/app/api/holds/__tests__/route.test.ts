@@ -130,7 +130,7 @@ describe('POST /api/holds', () => {
       expiresAt: '2025-01-15T14:05:00.000Z',
     })
     expect(mocks.validateHoldSlotRequest).toHaveBeenCalledWith({
-      supabase: mocks.adminClient,
+      backendClient: mocks.adminClient,
       eventTypeId: validBody.eventTypeId,
       hostUserId: validBody.hostUserId,
       startAt: validBody.startAt,
