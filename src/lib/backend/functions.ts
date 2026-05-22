@@ -10,14 +10,3 @@ export const backendFunctionSlugs = {
   consumePublicRateLimit: 'consume-public-rate-limit',
   expireStaleSlotHolds: 'expire-stale-slot-holds',
 } as const satisfies Record<BackendFunctionName, string>
-
-export const atomicBackendFunctions = [
-  'createSlotHold',
-  'confirmBooking',
-  'cancelBooking',
-  'rescheduleBooking',
-  'claimOutboxEvents',
-  'claimWebhookDeliveries',
-  'consumePublicRateLimit',
-  'expireStaleSlotHolds',
-] as const satisfies ReadonlyArray<BackendFunctionName>

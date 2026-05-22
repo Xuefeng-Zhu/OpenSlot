@@ -23,11 +23,6 @@ export type {
 } from './types'
 export {
   backendTables,
-  providerTableMappings,
-  userOwnedTables,
 } from './types'
-export {
-  atomicBackendFunctions,
-  backendFunctionSlugs,
-} from './functions'
+export { backendFunctionSlugs } from './functions'
 export { createBackendRuntime } from './runtime'
