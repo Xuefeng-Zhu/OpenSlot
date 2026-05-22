@@ -1,7 +1,61 @@
-import { describe, it, expect } from 'vitest'
-import { toHostTimezone, fromHostTimezone, getWeekdayInTimezone } from '../timezone'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import {
+  browserTimezoneOrDefault,
+  DEFAULT_TIMEZONE,
+  fromHostTimezone,
+  getWeekdayInTimezone,
+  timezoneOptionsWithCurrent,
+  toHostTimezone,
+  validTimezoneOrNull,
+} from '../timezone'
 
 describe('timezone utilities', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  describe('validTimezoneOrNull', () => {
+    it('returns a trimmed valid timezone', () => {
+      expect(validTimezoneOrNull(' America/New_York ')).toBe(
+        'America/New_York'
+      )
+    })
+
+    it('returns null for blank or invalid timezones', () => {
+      expect(validTimezoneOrNull('')).toBeNull()
+      expect(validTimezoneOrNull('Not/A_Timezone')).toBeNull()
+    })
+  })
+
+  describe('browserTimezoneOrDefault', () => {
+    it('falls back when browser timezone detection fails', () => {
+      vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(() => {
+        throw new Error('timezone unavailable')
+      })
+
+      expect(browserTimezoneOrDefault('America/Chicago')).toBe(
+        'America/Chicago'
+      )
+    })
+  })
+
+  describe('timezoneOptionsWithCurrent', () => {
+    it('prepends a valid current timezone once', () => {
+      const options = timezoneOptionsWithCurrent('UTC', 'America/New_York')
+
+      expect(options[0]).toBe(DEFAULT_TIMEZONE)
+      expect(
+        options.filter((timezone) => timezone === 'America/New_York')
+      ).toHaveLength(1)
+    })
+
+    it('drops invalid current timezone values', () => {
+      expect(timezoneOptionsWithCurrent('Not/A_Timezone')).not.toContain(
+        'Not/A_Timezone'
+      )
+    })
+  })
+
   describe('toHostTimezone', () => {
     it('converts UTC to Eastern time', () => {
       // 2025-01-06 15:00 UTC = 2025-01-06 10:00 ET (EST, UTC-5)

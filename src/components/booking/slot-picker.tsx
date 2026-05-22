@@ -30,6 +30,11 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
 import { cn } from "@/lib/utils";
+import {
+  browserTimezoneOrDefault,
+  DEFAULT_TIMEZONE,
+  timezoneOptionsWithCurrent,
+} from "@/lib/utils/timezone";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
@@ -102,46 +107,7 @@ type BookingFlowState =
   | { step: "booking-form"; hold: HoldInfo | null; slot: TimeSlot }
   | { step: "confirmed"; booking: BookingResult };
 
-const COMMON_TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-  "America/Toronto",
-  "America/Vancouver",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Amsterdam",
-  "Europe/Rome",
-  "Europe/Madrid",
-  "Europe/Moscow",
-  "Asia/Dubai",
-  "Asia/Kolkata",
-  "Asia/Singapore",
-  "Asia/Shanghai",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Pacific/Auckland",
-  "America/Sao_Paulo",
-  "Africa/Cairo",
-  "Africa/Johannesburg",
-];
-
-const DEFAULT_TIMEZONE = "UTC";
 const SLOT_PREFETCH_DAYS = 60;
-
-function getBrowserTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
-  } catch {
-    return DEFAULT_TIMEZONE;
-  }
-}
 
 /**
  * Public booking flow for choosing a date/time, creating a short-lived hold, and
@@ -180,7 +146,7 @@ export function SlotPicker({
   const showBookingAgent = bookingAgentEnabled && layout === "public";
 
   useEffect(() => {
-    setTimezone(getBrowserTimezone());
+    setTimezone(browserTimezoneOrDefault());
     setTimezoneReady(true);
   }, []);
 
@@ -420,10 +386,7 @@ export function SlotPicker({
     });
   }
 
-  // Ensure the timezone list includes the browser timezone
-  const timezoneOptions = COMMON_TIMEZONES.includes(timezone)
-    ? COMMON_TIMEZONES
-    : [timezone, ...COMMON_TIMEZONES].filter(Boolean);
+  const timezoneOptions = timezoneOptionsWithCurrent(timezone);
 
   // If booking is confirmed, show the confirmation page
   if (flowState.step === "confirmed") {

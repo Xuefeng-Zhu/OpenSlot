@@ -1,53 +1,7 @@
 import { z } from 'zod'
+import { isValidTimezone } from '@/lib/utils/timezone'
 
-/**
- * Checks if a timezone string is a valid IANA timezone identifier.
- */
-export function isValidTimezone(timezone: string): boolean {
-  if (timezone === 'UTC') {
-    return true
-  }
-
-  try {
-    const validTimezones = Intl.supportedValuesOf('timeZone')
-    return validTimezones.includes(timezone)
-  } catch {
-    // Fallback for environments that don't support Intl.supportedValuesOf
-    try {
-      Intl.DateTimeFormat(undefined, { timeZone: timezone })
-      return true
-    } catch {
-      return false
-    }
-  }
-}
-
-/**
- * Returns a list of all valid IANA timezone identifiers.
- */
-export function getTimezones(): string[] {
-  try {
-    return Intl.supportedValuesOf('timeZone')
-  } catch {
-    // Fallback: return common timezones
-    return [
-      'UTC',
-      'America/New_York',
-      'America/Chicago',
-      'America/Denver',
-      'America/Los_Angeles',
-      'America/Toronto',
-      'Europe/London',
-      'Europe/Paris',
-      'Europe/Berlin',
-      'Asia/Tokyo',
-      'Asia/Shanghai',
-      'Asia/Kolkata',
-      'Australia/Sydney',
-      'Pacific/Auckland',
-    ]
-  }
-}
+export { getTimezones, isValidTimezone } from '@/lib/utils/timezone'
 
 /**
  * Dashboard profile form schema for public identity and default timezone.
