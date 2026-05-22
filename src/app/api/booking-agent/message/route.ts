@@ -42,6 +42,10 @@ type BookingAgentEventType = Pick<
 
 type BookingAgentProfile = Pick<Tables<'profiles'>, 'id' | 'name' | 'username'>
 
+type BookingAgentContextResult =
+  | { ok: true; context: BookingAgentEventContext }
+  | { ok: false; status: 404 | 500; error: string }
+
 /**
  * Runs one ephemeral public booking-assistant turn. The route may read public
  * event context and availability, but booking mutations stay in hold/booking
@@ -89,16 +93,16 @@ export async function POST(request: NextRequest) {
       return publicRateLimitResponse(rateLimit)
     }
 
-    const eventContext = await loadBookingAgentEventContext(
+    const eventContextResult = await loadBookingAgentEventContext(
       adminClient,
       parsed.data.hostUserId,
       parsed.data.eventTypeId
     )
 
-    if (!eventContext) {
+    if (!eventContextResult.ok) {
       return NextResponse.json(
-        { success: false, error: 'Event type not found' },
-        { status: 404 }
+        { success: false, error: eventContextResult.error },
+        { status: eventContextResult.status }
       )
     }
 
@@ -129,7 +133,7 @@ export async function POST(request: NextRequest) {
     try {
       const result = await runBookingAgentTurn({
         request: parsed.data,
-        eventContext,
+        eventContext: eventContextResult.context,
         provider: new ButterbaseBookingAgentProvider(),
         loadSlots,
       } satisfies RunBookingAgentInput)
@@ -178,8 +182,11 @@ async function loadBookingAgentEventContext(
   adminClient: AdminClient,
   hostUserId: string,
   eventTypeId: string
-): Promise<BookingAgentEventContext | null> {
-  const [{ data: eventTypeData }, { data: profileData }] = await Promise.all([
+): Promise<BookingAgentContextResult> {
+  const [
+    { data: eventTypeData, error: eventTypeError },
+    { data: profileData, error: profileError },
+  ] = await Promise.all([
     adminClient
       .from('event_types')
       .select(
@@ -199,25 +206,69 @@ async function loadBookingAgentEventContext(
   const eventType = eventTypeData as BookingAgentEventType | null
   const profile = profileData as BookingAgentProfile | null
 
-  if (!eventType || !profile) return null
+  if (eventTypeError && !isNoRowsError(eventTypeError)) {
+    console.error('Failed to load booking assistant event type context', {
+      hostUserId,
+      eventTypeId,
+      error: eventTypeError,
+    })
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to load booking assistant event context',
+    }
+  }
+
+  if (profileError && !isNoRowsError(profileError)) {
+    console.error('Failed to load booking assistant host profile context', {
+      hostUserId,
+      eventTypeId,
+      error: profileError,
+    })
+    return {
+      ok: false,
+      status: 500,
+      error: 'Failed to load booking assistant event context',
+    }
+  }
+
+  if (!eventType || !profile) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'Event type not found',
+    }
+  }
 
   return {
-    eventTypeId: eventType.id,
-    hostUserId: eventType.user_id,
-    hostName: profile.name,
-    eventTitle: eventType.title,
-    eventDescription: eventType.description,
-    durationMinutes: eventType.duration_minutes,
-    locationType: eventType.location_type,
-    locationValue: eventType.location_value,
-    inviteeQuestions: normalizeInviteeQuestions(eventType.invitee_questions).map(
-      (question) => ({
+    ok: true,
+    context: {
+      eventTypeId: eventType.id,
+      hostUserId: eventType.user_id,
+      hostName: profile.name,
+      eventTitle: eventType.title,
+      eventDescription: eventType.description,
+      durationMinutes: eventType.duration_minutes,
+      locationType: eventType.location_type,
+      locationValue: eventType.location_value,
+      inviteeQuestions: normalizeInviteeQuestions(
+        eventType.invitee_questions
+      ).map((question) => ({
         id: question.id,
         label: question.label,
         type: question.type,
         required: question.required,
         options: question.options,
-      })
-    ),
+      })),
+    },
   }
+}
+
+function isNoRowsError(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'PGRST116'
+  )
 }
