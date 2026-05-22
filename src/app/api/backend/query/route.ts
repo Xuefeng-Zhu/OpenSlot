@@ -61,7 +61,14 @@ export async function POST(request: NextRequest) {
   }
 
   for (const filter of body.filters ?? []) {
-    query = applyFilter(query, filter)
+    const applied = applyFilter(query, filter)
+    if (!applied.ok) {
+      return NextResponse.json(
+        { data: null, error: { message: applied.error } },
+        { status: 400 }
+      )
+    }
+    query = applied.query
   }
 
   for (const order of body.orders ?? []) {
@@ -86,27 +93,30 @@ function applyFilter(
   filter: { column?: unknown; operator?: unknown; value?: unknown }
 ) {
   if (typeof filter.column !== 'string' || typeof filter.operator !== 'string') {
-    return query
+    return { ok: false as const, error: 'Malformed filter' }
   }
 
   switch (filter.operator) {
     case 'eq':
-      return query.eq(filter.column, filter.value)
+      return { ok: true as const, query: query.eq(filter.column, filter.value) }
     case 'gt':
-      return query.gt(filter.column, filter.value)
+      return { ok: true as const, query: query.gt(filter.column, filter.value) }
     case 'gte':
-      return query.gte(filter.column, filter.value)
+      return { ok: true as const, query: query.gte(filter.column, filter.value) }
     case 'lt':
-      return query.lt(filter.column, filter.value)
+      return { ok: true as const, query: query.lt(filter.column, filter.value) }
     case 'lte':
-      return query.lte(filter.column, filter.value)
+      return { ok: true as const, query: query.lte(filter.column, filter.value) }
     case 'is':
-      return query.is(filter.column, filter.value)
+      return { ok: true as const, query: query.is(filter.column, filter.value) }
     case 'in':
       return Array.isArray(filter.value)
-        ? query.in(filter.column, filter.value)
-        : query
+        ? { ok: true as const, query: query.in(filter.column, filter.value) }
+        : { ok: false as const, error: 'Filter "in" expects an array value' }
     default:
-      return query
+      return {
+        ok: false as const,
+        error: `Unsupported filter operator: ${filter.operator}`,
+      }
   }
 }
