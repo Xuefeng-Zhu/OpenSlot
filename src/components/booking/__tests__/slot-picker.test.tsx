@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { addDays, format } from 'date-fns'
 import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mergeBookingAgentDrafts, SlotPicker } from '../slot-picker'
@@ -27,6 +28,7 @@ const hostProfile: SlotPickerProps['hostProfile'] = {
 
 describe('SlotPicker', () => {
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
   })
@@ -151,6 +153,76 @@ describe('SlotPicker', () => {
     expect(body.slotToken).toBe('signed-slot-token')
   })
 
+  it('ignores stale slot fetch failures after a newer date request starts', async () => {
+    const staleRequest = createDeferredResponse()
+    const staleDate = addDays(new Date(), 3)
+    const currentDate = addDays(new Date(), 4)
+    const staleDateKey = format(staleDate, 'yyyy-MM-dd')
+    const currentDateKey = format(currentDate, 'yyyy-MM-dd')
+    const currentSlot = {
+      start: `${currentDateKey}T14:00:00.000Z`,
+      end: `${currentDateKey}T14:30:00.000Z`,
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.includes(`startDate=${staleDateKey}`)) {
+        return staleRequest.promise
+      }
+
+      if (url.includes(`startDate=${currentDateKey}`)) {
+        return new Response(
+          JSON.stringify({
+            slotsByDate: {
+              [currentDateKey]: [currentSlot],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      return new Response(JSON.stringify({ slotsByDate: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/New_York')
+
+    render(<SlotPicker eventType={eventType} hostProfile={hostProfile} />)
+
+    fireEvent.click(
+      await screen.findByLabelText(new RegExp(format(staleDate, 'MMMM d'), 'i'))
+    )
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([input]) =>
+          String(input).includes(`startDate=${staleDateKey}`)
+        )
+      ).toBe(true)
+    )
+
+    fireEvent.click(
+      screen.getByLabelText(new RegExp(format(currentDate, 'MMMM d'), 'i'))
+    )
+    expect(await screen.findByRole('button', { name: /10:00 AM/i })).toBeDefined()
+
+    staleRequest.resolve(
+      new Response(JSON.stringify({ error: 'Stale slot lookup failed' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByText('Stale slot lookup failed')).toBeNull()
+    )
+    expect(screen.getByRole('button', { name: /10:00 AM/i })).toBeDefined()
+  })
+
   it('deep merges booking assistant draft answers across turns', () => {
     expect(
       mergeBookingAgentDrafts(
@@ -177,3 +249,34 @@ describe('SlotPicker', () => {
     })
   })
 })
+
+function createDeferredResponse() {
+  let resolve!: (response: Response) => void
+  const promise = new Promise<Response>((next) => {
+    resolve = next
+  })
+
+  return { promise, resolve }
+}
+
+function mockBrowserTimezone(timeZone: string) {
+  const DateTimeFormat = Intl.DateTimeFormat
+
+  vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(
+    ((locales?: Intl.LocalesArgument, options?: Intl.DateTimeFormatOptions) => {
+      const formatter = new DateTimeFormat(locales, options)
+
+      if (locales === undefined && options === undefined) {
+        const resolvedOptions = formatter.resolvedOptions.bind(formatter)
+        return Object.assign(formatter, {
+          resolvedOptions: () => ({
+            ...resolvedOptions(),
+            timeZone,
+          }),
+        })
+      }
+
+      return formatter
+    }) as typeof Intl.DateTimeFormat
+  )
+}

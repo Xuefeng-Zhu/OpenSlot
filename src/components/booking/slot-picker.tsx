@@ -170,6 +170,8 @@ export function SlotPicker({
   const [holdTurnstileResetKey, setHoldTurnstileResetKey] = useState(0);
   const [agentDraft, setAgentDraft] = useState<BookingAgentDraft>({});
   const holdIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
+  const slotWindowRequestRef = useRef(0);
+  const slotPickerIdentityRef = useRef(`${hostProfile.id}:${eventType.id}`);
   const [flowState, setFlowState] = useState<BookingFlowState>({
     step: "select-slot",
   });
@@ -186,6 +188,9 @@ export function SlotPicker({
 
   const fetchSlotWindow = useCallback(
     async (anchorDate: Date, tz: string, applyDate?: Date) => {
+      const requestId = slotWindowRequestRef.current + 1;
+      slotWindowRequestRef.current = requestId;
+      const isLatestRequest = () => slotWindowRequestRef.current === requestId;
       const startDate = format(anchorDate, "yyyy-MM-dd");
       const endDate = format(
         addDays(anchorDate, SLOT_PREFETCH_DAYS - 1),
@@ -214,8 +219,11 @@ export function SlotPicker({
 
         const response = await fetch(`/api/slots?${params.toString()}`);
 
+        if (!isLatestRequest()) return;
+
         if (!response.ok) {
           const data = await response.json().catch(() => null);
+          if (!isLatestRequest()) return;
           if (shouldApply) {
             setError(
               data?.error || "Failed to fetch available slots. Please try again."
@@ -225,6 +233,7 @@ export function SlotPicker({
         }
 
         const data = await response.json();
+        if (!isLatestRequest()) return;
         const nextSlotsByDate = (data.slotsByDate ?? {}) as SlotsByDate;
 
         setSlotsByDate((current) => ({
@@ -236,13 +245,13 @@ export function SlotPicker({
           setSlots(nextSlotsByDate[applyDateString] ?? []);
         }
       } catch {
-        if (shouldApply) {
+        if (shouldApply && isLatestRequest()) {
           setError(
             "Unable to load available slots. The service may be temporarily unavailable."
           );
         }
       } finally {
-        if (shouldApply) {
+        if (shouldApply && isLatestRequest()) {
           setLoading(false);
         }
       }
@@ -268,6 +277,26 @@ export function SlotPicker({
   );
 
   useEffect(() => {
+    const currentIdentity = `${hostProfile.id}:${eventType.id}`;
+    const previousIdentity = slotPickerIdentityRef.current;
+
+    if (previousIdentity === currentIdentity) return;
+
+    slotPickerIdentityRef.current = currentIdentity;
+    slotWindowRequestRef.current += 1;
+    setSlotsByDate({});
+    setSlots([]);
+    setSelectedSlot(null);
+    setAgentDraft({});
+    holdIdempotencyKeysRef.current.clear();
+    setError(null);
+    setLoading(false);
+    setFlowState((current) =>
+      current.step === "confirmed" ? current : { step: "select-slot" }
+    );
+  }, [eventType.id, hostProfile.id]);
+
+  useEffect(() => {
     if (timezoneReady && timezone) {
       void fetchSlotWindow(new Date(), timezone);
     }
@@ -280,8 +309,14 @@ export function SlotPicker({
   }, [selectedDate, timezone, timezoneReady, fetchSlots]);
 
   function handleDateSelect(date: Date | undefined) {
+    slotWindowRequestRef.current += 1;
     setSelectedDate(date);
     setSelectedSlot(null);
+    if (!date) {
+      setLoading(false);
+      setError(null);
+      setSlots([]);
+    }
     // Reset flow state when changing date
     if (flowState.step !== "confirmed") {
       setFlowState({ step: "select-slot" });
@@ -289,6 +324,7 @@ export function SlotPicker({
   }
 
   function handleTimezoneChange(tz: string) {
+    slotWindowRequestRef.current += 1;
     setTimezone(tz);
     setSlotsByDate({});
     setSlots([]);
