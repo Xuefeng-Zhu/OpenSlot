@@ -182,6 +182,33 @@ function getEventTypeCountLabel(count: number) {
   return `${count} event type${count === 1 ? "" : "s"}`
 }
 
+function errorToastDescription(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "An unexpected error occurred. Please try again."
+}
+
+async function requestJson<T>(
+  input: RequestInfo | URL,
+  init: RequestInit,
+  fallbackError: string
+): Promise<T> {
+  const response = await fetch(input, init)
+  const result = (await response.json().catch(() => ({}))) as {
+    error?: string
+  }
+
+  if (!response.ok) {
+    throw new Error(result.error || fallbackError)
+  }
+
+  return result as T
+}
+
+interface ScheduleMutationResponse {
+  schedule: AvailabilitySchedule
+}
+
 // --- Component ---
 
 /**
@@ -424,18 +451,15 @@ export function AvailabilityClient({
     setIsSavingSchedule(true)
 
     try {
-      const response = await fetch("/api/availability/schedules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, timezone }),
-      })
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to create schedule")
-      }
-
-      const schedule = result.schedule as AvailabilitySchedule
+      const { schedule } = await requestJson<ScheduleMutationResponse>(
+        "/api/availability/schedules",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, timezone }),
+        },
+        "Failed to create schedule"
+      )
       setNewScheduleName("")
       setCreateDialogOpen(false)
       toast({
@@ -447,10 +471,7 @@ export function AvailabilityClient({
     } catch (error) {
       toast({
         title: "Could not create schedule",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred. Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       })
     } finally {
@@ -473,40 +494,34 @@ export function AvailabilityClient({
     setIsSavingSchedule(true)
 
     try {
-      const response = await fetch(
-        `/api/availability/schedules/${selectedSchedule.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name }),
-        }
-      )
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to rename schedule")
-      }
+      const { schedule: updatedSchedule } =
+        await requestJson<ScheduleMutationResponse>(
+          `/api/availability/schedules/${selectedSchedule.id}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+          },
+          "Failed to rename schedule"
+        )
 
       setSchedules((current) =>
         current.map((schedule) =>
           schedule.id === selectedSchedule.id
-            ? { ...schedule, name: result.schedule.name }
+            ? { ...schedule, name: updatedSchedule.name }
             : schedule
         )
       )
       toast({
         title: "Schedule renamed",
-        description: `"${result.schedule.name}" has been updated.`,
+        description: `"${updatedSchedule.name}" has been updated.`,
       })
       setRenameDialogOpen(false)
       router.refresh()
     } catch (error) {
       toast({
         title: "Could not rename schedule",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred. Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       })
     } finally {
@@ -529,21 +544,15 @@ export function AvailabilityClient({
     setIsSavingSchedule(true)
 
     try {
-      const response = await fetch(
+      const { schedule } = await requestJson<ScheduleMutationResponse>(
         `/api/availability/schedules/${selectedSchedule.id}/duplicate`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name }),
-        }
+        },
+        "Failed to duplicate schedule"
       )
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to duplicate schedule")
-      }
-
-      const schedule = result.schedule as AvailabilitySchedule
       setDuplicateDialogOpen(false)
       toast({
         title: "Schedule duplicated",
@@ -554,10 +563,7 @@ export function AvailabilityClient({
     } catch (error) {
       toast({
         title: "Could not duplicate schedule",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred. Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       })
     } finally {
@@ -578,19 +584,15 @@ export function AvailabilityClient({
     setIsSavingSchedule(true)
 
     try {
-      const response = await fetch(
+      const { schedule } = await requestJson<ScheduleMutationResponse>(
         `/api/availability/schedules/${selectedSchedule.id}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ isDefault: true }),
-        }
+        },
+        "Failed to set default schedule"
       )
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to set default schedule")
-      }
 
       setSchedules((current) =>
         current.map((schedule) => ({
@@ -600,16 +602,13 @@ export function AvailabilityClient({
       )
       toast({
         title: "Default schedule updated",
-        description: `"${result.schedule.name}" is now the default for new event types.`,
+        description: `"${schedule.name}" is now the default for new event types.`,
       })
       router.refresh()
     } catch (error) {
       toast({
         title: "Could not update default schedule",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred. Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       })
     } finally {
@@ -629,15 +628,11 @@ export function AvailabilityClient({
     setIsSavingSchedule(true)
 
     try {
-      const response = await fetch(
+      await requestJson<Record<string, never>>(
         `/api/availability/schedules/${selectedSchedule.id}`,
-        { method: "DELETE" }
+        { method: "DELETE" },
+        "Failed to delete schedule"
       )
-      const result = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to delete schedule")
-      }
 
       const remaining = schedules.filter(
         (schedule) => schedule.id !== selectedSchedule.id
@@ -660,10 +655,7 @@ export function AvailabilityClient({
     } catch (error) {
       toast({
         title: "Could not delete schedule",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred. Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       })
     } finally {
@@ -747,28 +739,25 @@ export function AvailabilityClient({
         }
       })
 
-      const response = await fetch("/api/availability", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scheduleId: selectedScheduleId,
-          rules: rulesToSend,
-          overrides: overridesToSend,
-          deletedRuleIds,
-          deletedOverrideIds,
-          timezone,
-        }),
-      })
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to save availability")
-      }
-
-      const savedData = (await response.json().catch(() => null)) as {
+      const savedData = await requestJson<{
         rules?: AvailabilityRule[]
         overrides?: AvailabilityOverride[]
-      } | null
+      }>(
+        "/api/availability",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scheduleId: selectedScheduleId,
+            rules: rulesToSend,
+            overrides: overridesToSend,
+            deletedRuleIds,
+            deletedOverrideIds,
+            timezone,
+          }),
+        },
+        "Failed to save availability"
+      )
       const nextRules = (savedData?.rules ?? currentRules).map((rule) => ({
         id: rule.id || tempId(),
         weekday: rule.weekday,
@@ -800,10 +789,7 @@ export function AvailabilityClient({
       // On error, preserve form state so user can retry
       toast({
         title: "Error saving availability",
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred. Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       })
     } finally {
