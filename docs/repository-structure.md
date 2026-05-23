@@ -28,7 +28,7 @@ feature-local tests in `__tests__` directories.
 | `src/app/(public)/[username]/` | Public host profile and event booking routes. |
 | `src/app/api/` | Route handlers for slots, holds, bookings, availability, settings, workers, calendar, and webhooks. |
 | `src/app/booking/` | Token-based guest cancellation and rescheduling pages. |
-| `src/middleware.ts` | Butterbase session refresh and dashboard redirect middleware. |
+| `src/proxy.ts` | Butterbase session refresh and dashboard redirect proxy. |
 
 ## Component Layout
 
