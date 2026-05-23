@@ -139,7 +139,7 @@ export function BookingAgentPanel({
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
+    <div className="mt-6 flex justify-end lg:fixed lg:bottom-6 lg:right-6 lg:z-50 lg:mt-0">
       {!open && (
         <Button
           type="button"
