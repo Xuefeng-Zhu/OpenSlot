@@ -137,6 +137,7 @@ export function SlotPicker({
   const [agentDraft, setAgentDraft] = useState<BookingAgentDraft>({});
   const holdIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const slotWindowRequestRef = useRef(0);
+  const holdRequestRef = useRef(0);
   const slotPickerIdentityRef = useRef(`${hostProfile.id}:${eventType.id}`);
   const [flowState, setFlowState] = useState<BookingFlowState>({
     step: "select-slot",
@@ -250,6 +251,7 @@ export function SlotPicker({
 
     slotPickerIdentityRef.current = currentIdentity;
     slotWindowRequestRef.current += 1;
+    holdRequestRef.current += 1;
     setSlotsByDate({});
     setSlots([]);
     setSelectedSlot(null);
@@ -257,6 +259,7 @@ export function SlotPicker({
     holdIdempotencyKeysRef.current.clear();
     setError(null);
     setLoading(false);
+    setHoldLoading(false);
     setFlowState((current) =>
       current.step === "confirmed" ? current : { step: "select-slot" }
     );
@@ -276,8 +279,10 @@ export function SlotPicker({
 
   function handleDateSelect(date: Date | undefined) {
     slotWindowRequestRef.current += 1;
+    holdRequestRef.current += 1;
     setSelectedDate(date);
     setSelectedSlot(null);
+    setHoldLoading(false);
     if (!date) {
       setLoading(false);
       setError(null);
@@ -291,10 +296,12 @@ export function SlotPicker({
 
   function handleTimezoneChange(tz: string) {
     slotWindowRequestRef.current += 1;
+    holdRequestRef.current += 1;
     setTimezone(tz);
     setSlotsByDate({});
     setSlots([]);
     setSelectedSlot(null);
+    setHoldLoading(false);
     // Reset flow state when changing timezone
     if (flowState.step !== "confirmed") {
       setFlowState({ step: "select-slot" });
@@ -307,6 +314,9 @@ export function SlotPicker({
       return;
     }
 
+    const holdRequestId = holdRequestRef.current + 1;
+    holdRequestRef.current = holdRequestId;
+    const isLatestHoldRequest = () => holdRequestRef.current === holdRequestId;
     setSelectedSlot(slot);
     setHoldLoading(true);
     setError(null);
@@ -340,7 +350,9 @@ export function SlotPicker({
         }),
       });
 
+      if (!isLatestHoldRequest()) return;
       const data = await response.json();
+      if (!isLatestHoldRequest()) return;
 
       if (!response.ok) {
         if (response.status === 409) {
@@ -352,6 +364,7 @@ export function SlotPicker({
           if (selectedDate) {
             await fetchSlots(selectedDate, timezone, { force: true });
           }
+          if (!isLatestHoldRequest()) return;
           setError(conflictMessage);
           return;
         }
@@ -373,10 +386,12 @@ export function SlotPicker({
         slot,
       });
     } catch {
+      if (!isLatestHoldRequest()) return;
       setError("Unable to hold slot. Please try again.");
       setSelectedSlot(null);
       setFlowState({ step: "select-slot" });
     } finally {
+      if (!isLatestHoldRequest()) return;
       if (turnstileRequired) {
         setHoldTurnstileToken(null);
         setHoldTurnstileResetKey((key) => key + 1);
