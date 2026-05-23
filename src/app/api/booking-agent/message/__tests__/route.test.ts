@@ -53,6 +53,30 @@ const validBody = {
   messages: [{ role: 'user', content: 'Next Tuesday afternoon' }],
 }
 
+function validEventType(overrides: Record<string, unknown> = {}) {
+  return {
+    id: validBody.eventTypeId,
+    title: 'Discovery Call',
+    description: 'Intro call',
+    duration_minutes: 30,
+    location_type: 'video',
+    location_value: null,
+    invitee_questions: [],
+    user_id: validBody.hostUserId,
+    is_active: true,
+    ...overrides,
+  }
+}
+
+function validProfile(overrides: Record<string, unknown> = {}) {
+  return {
+    id: validBody.hostUserId,
+    name: 'Sarah Chen',
+    username: 'sarah',
+    ...overrides,
+  }
+}
+
 function requestWithJson(body: unknown) {
   return new Request('http://localhost/api/booking-agent/message', {
     method: 'POST',
@@ -102,25 +126,11 @@ describe('POST /api/booking-agent/message', () => {
 
   it('runs an ephemeral agent turn with safe public event context', async () => {
     const eventQuery = createQuery({
-      data: {
-        id: validBody.eventTypeId,
-        title: 'Discovery Call',
-        description: 'Intro call',
-        duration_minutes: 30,
-        location_type: 'video',
-        location_value: null,
-        invitee_questions: [],
-        user_id: validBody.hostUserId,
-        is_active: true,
-      },
+      data: validEventType(),
       error: null,
     })
     const profileQuery = createQuery({
-      data: {
-        id: validBody.hostUserId,
-        name: 'Sarah Chen',
-        username: 'sarah',
-      },
+      data: validProfile(),
       error: null,
     })
     mocks.adminClient.from
@@ -188,21 +198,11 @@ describe('POST /api/booking-agent/message', () => {
 
   it('maps gateway model allow-list failures clearly', async () => {
     const eventQuery = createQuery({
-      data: {
-        id: validBody.eventTypeId,
-        title: 'Discovery Call',
-        description: 'Intro call',
-        duration_minutes: 30,
-        location_type: 'video',
-        location_value: null,
-        invitee_questions: [],
-        user_id: validBody.hostUserId,
-        is_active: true,
-      },
+      data: validEventType(),
       error: null,
     })
     const profileQuery = createQuery({
-      data: { id: validBody.hostUserId, name: 'Sarah Chen', username: 'sarah' },
+      data: validProfile(),
       error: null,
     })
     mocks.adminClient.from
@@ -221,21 +221,11 @@ describe('POST /api/booking-agent/message', () => {
 
   it('uses deterministic fallback when the Butterbase gateway requires payment', async () => {
     const eventQuery = createQuery({
-      data: {
-        id: validBody.eventTypeId,
-        title: 'Discovery Call',
-        description: 'Intro call',
-        duration_minutes: 30,
-        location_type: 'video',
-        location_value: null,
-        invitee_questions: [],
-        user_id: validBody.hostUserId,
-        is_active: true,
-      },
+      data: validEventType(),
       error: null,
     })
     const profileQuery = createQuery({
-      data: { id: validBody.hostUserId, name: 'Sarah Chen', username: 'sarah' },
+      data: validProfile(),
       error: null,
     })
     mocks.adminClient.from
@@ -255,6 +245,77 @@ describe('POST /api/booking-agent/message', () => {
         request: expect.objectContaining(validBody),
       })
     )
+  })
+
+  it('returns 404 when the public event context is missing', async () => {
+    const eventQuery = createQuery({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    })
+    const profileQuery = createQuery({
+      data: validProfile(),
+      error: null,
+    })
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventQuery)
+      .mockReturnValueOnce(profileQuery)
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(404)
+    expect(data.error).toBe('Event type not found')
+    expect(mocks.runBookingAgentTurn).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 when the event type context query fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    const eventQuery = createQuery({
+      data: null,
+      error: { code: 'PGRST301', message: 'connection unavailable' },
+    })
+    const profileQuery = createQuery({
+      data: validProfile(),
+      error: null,
+    })
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventQuery)
+      .mockReturnValueOnce(profileQuery)
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data.error).toBe('Failed to load booking assistant event context')
+    expect(mocks.runBookingAgentTurn).not.toHaveBeenCalled()
+    consoleError.mockRestore()
+  })
+
+  it('returns 500 when the host profile context query fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    const eventQuery = createQuery({
+      data: validEventType(),
+      error: null,
+    })
+    const profileQuery = createQuery({
+      data: null,
+      error: { code: 'PGRST301', message: 'connection unavailable' },
+    })
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventQuery)
+      .mockReturnValueOnce(profileQuery)
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data.error).toBe('Failed to load booking assistant event context')
+    expect(mocks.runBookingAgentTurn).not.toHaveBeenCalled()
+    consoleError.mockRestore()
   })
 
   it('rejects invalid message payloads', async () => {
