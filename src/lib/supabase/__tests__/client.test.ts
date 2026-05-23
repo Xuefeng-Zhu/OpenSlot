@@ -43,4 +43,54 @@ describe('browser backend client', () => {
       error: null,
     })
   })
+
+  it('preserves nested backend query error metadata', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        data: null,
+        error: {
+          message: 'duplicate key value violates unique constraint',
+          code: '23505',
+          details: { constraint: 'profiles_username_key' },
+        },
+      }),
+    })
+
+    const result = await createClient()
+      .from('profiles')
+      .update({ username: 'taken' })
+      .eq('auth_user_id', 'auth-user-1')
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/backend/query', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        table: 'profiles',
+        operation: 'update',
+        filters: [
+          { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
+        ],
+        orders: [],
+        selected: '*',
+        selectOptions: {},
+        responseMode: 'many',
+        payload: { username: 'taken' },
+      }),
+    })
+    expect(result).toEqual({
+      data: null,
+      error: {
+        message: 'duplicate key value violates unique constraint',
+        code: '23505',
+        status: 409,
+        details: { constraint: 'profiles_username_key' },
+      },
+      count: null,
+    })
+  })
 })

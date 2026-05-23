@@ -310,11 +310,29 @@ async function authFetch<TResponse>(
 
 function responseError(body: unknown, status: number): BackendCompatError {
   const record = body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+  const nestedError =
+    record.error && typeof record.error === 'object'
+      ? (record.error as Record<string, unknown>)
+      : null
+  const message =
+    typeof record.error === 'string'
+      ? record.error
+      : typeof nestedError?.message === 'string'
+        ? nestedError.message
+        : typeof record.message === 'string'
+          ? record.message
+          : `Request failed with status ${status}`
+  const code =
+    typeof nestedError?.code === 'string'
+      ? nestedError.code
+      : typeof record.code === 'string'
+        ? record.code
+        : undefined
+
   return {
-    message:
-      typeof record.error === 'string'
-        ? record.error
-        : `Request failed with status ${status}`,
+    message,
+    code,
     status,
+    details: nestedError?.details ?? record.details,
   }
 }
