@@ -75,6 +75,10 @@ describe('POST /api/backend/query', () => {
           { column: 'user_id', operator: 'eq', value: 'host-1' },
           { column: 'id', operator: 'in', value: ['event-type-1'] },
         ],
+        orders: [{ column: 'created_at', ascending: false }],
+        limitCount: 25,
+        offsetCount: 5,
+        responseMode: 'maybeSingle',
       }) as any
     )
     const data = await response.json()
@@ -83,6 +87,10 @@ describe('POST /api/backend/query', () => {
     expect(data.data).toEqual([{ id: 'event-type-1' }])
     expect(query.eq).toHaveBeenCalledWith('user_id', 'host-1')
     expect(query.in).toHaveBeenCalledWith('id', ['event-type-1'])
+    expect(query.order).toHaveBeenCalledWith('created_at', { ascending: false })
+    expect(query.limit).toHaveBeenCalledWith(25)
+    expect(query.offset).toHaveBeenCalledWith(5)
+    expect(query.maybeSingle).toHaveBeenCalled()
   })
 
   it('rejects unsupported filters instead of silently dropping them', async () => {
@@ -125,5 +133,84 @@ describe('POST /api/backend/query', () => {
     expect(response.status).toBe(400)
     expect(data.error.message).toBe('Filter "in" expects an array value')
     expect(query.in).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed filter containers before creating a query client', async () => {
+    const response = await POST(
+      requestWithJson({
+        table: 'event_types',
+        operation: 'select',
+        selected: 'id',
+        filters: { column: 'id', operator: 'eq', value: 'event-type-1' },
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error.message).toBe('Invalid query request')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed order containers before creating a query client', async () => {
+    const response = await POST(
+      requestWithJson({
+        table: 'event_types',
+        operation: 'select',
+        selected: 'id',
+        orders: { column: 'created_at', ascending: false },
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error.message).toBe('Invalid query request')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+  })
+
+  it('rejects oversized limits before creating a query client', async () => {
+    const response = await POST(
+      requestWithJson({
+        table: 'event_types',
+        operation: 'select',
+        selected: 'id',
+        limitCount: 501,
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error.message).toBe('Invalid query request')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+  })
+
+  it('returns a structured error when query execution rejects', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const query = {
+      select: vi.fn(() => query),
+      then: vi.fn(
+        (
+          _resolve: (value: unknown) => unknown,
+          reject?: (reason: unknown) => unknown
+        ) => {
+          reject?.(new Error('backend unavailable'))
+        }
+      ),
+    }
+    mocks.createBackendCompatClient.mockReturnValue({
+      from: vi.fn(() => query),
+    })
+
+    const response = await POST(
+      requestWithJson({
+        table: 'event_types',
+        operation: 'select',
+        selected: 'id',
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data.error.message).toBe('Backend query failed')
+    consoleError.mockRestore()
   })
 })
