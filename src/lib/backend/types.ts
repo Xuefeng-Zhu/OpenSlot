@@ -30,26 +30,3 @@ export type BackendTable = (typeof backendTables)[number]
 export type BackendRow<TTable extends BackendTable> = Tables<TTable>
 export type BackendInsert<TTable extends BackendTable> = InsertTables<TTable>
 export type BackendUpdate<TTable extends BackendTable> = UpdateTables<TTable>
-
-export const providerTableMappings = {
-  butterbase: Object.fromEntries(
-    backendTables.map((table) => [table, table])
-  ) as Record<BackendTable, string>,
-  insforge: Object.fromEntries(
-    backendTables.map((table) => [table, table])
-  ) as Record<BackendTable, string>,
-} as const
-
-export const userOwnedTables = {
-  profiles: 'auth_user_id',
-  user_settings: 'profile_id',
-  provider_connections: 'profile_id',
-  event_types: 'user_id',
-  schedules: 'user_id',
-  availability_rules: 'user_id',
-  availability_overrides: 'user_id',
-  bookings: 'host_user_id',
-  booking_events: 'host_user_id',
-  contacts: 'host_user_id',
-  webhook_endpoints: 'profile_id',
-} as const satisfies Partial<Record<BackendTable, string>>

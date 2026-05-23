@@ -114,10 +114,6 @@ export class ButterbaseHttpClient {
     return parsed as TResponse
   }
 
-  appPath(path: string): string {
-    return path.replace('{app_id}', this.appId)
-  }
-
   functionAccessToken(): string | undefined {
     return this.functionSecret ?? this.apiKey
   }
