@@ -25,38 +25,11 @@ import {
   type BookingPageEventHeaderHost,
 } from "@/components/booking/booking-page-event-header";
 import { cn } from "@/lib/utils";
-
-const COMMON_TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-  "America/Toronto",
-  "America/Vancouver",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Amsterdam",
-  "Europe/Rome",
-  "Europe/Madrid",
-  "Europe/Moscow",
-  "Asia/Dubai",
-  "Asia/Kolkata",
-  "Asia/Singapore",
-  "Asia/Shanghai",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Pacific/Auckland",
-  "America/Sao_Paulo",
-  "Africa/Cairo",
-  "Africa/Johannesburg",
-];
-
-const DEFAULT_TIMEZONE = "UTC";
+import {
+  browserTimezoneOrDefault,
+  DEFAULT_TIMEZONE,
+  timezoneOptionsWithCurrent,
+} from "@/lib/utils/timezone";
 
 interface PublicSchedulePreviewShellProps {
   eventType: BookingPageEventHeaderEvent;
@@ -75,18 +48,10 @@ export function PublicSchedulePreviewShell({
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
 
   useEffect(() => {
-    try {
-      const detectedTimezone =
-        Intl.DateTimeFormat().resolvedOptions().timeZone || DEFAULT_TIMEZONE;
-      setTimezone(detectedTimezone);
-    } catch {
-      setTimezone(DEFAULT_TIMEZONE);
-    }
+    setTimezone(browserTimezoneOrDefault());
   }, []);
 
-  const timezoneOptions = COMMON_TIMEZONES.includes(timezone)
-    ? COMMON_TIMEZONES
-    : [timezone, ...COMMON_TIMEZONES].filter(Boolean);
+  const timezoneOptions = timezoneOptionsWithCurrent(timezone);
 
   return (
     <div className="mx-auto max-w-4xl">

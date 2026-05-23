@@ -1,7 +1,7 @@
 import { addDays, format } from 'date-fns'
 import { fromZonedTime, toZonedTime } from 'date-fns-tz'
 import type { TimeSlot } from '@/lib/availability/types'
-import { isValidTimezone } from '@/lib/validations/profile'
+import { DEFAULT_TIMEZONE, validTimezoneOrNull } from '@/lib/utils/timezone'
 import type {
   BookingAgentEventContext,
   BookingAgentMessage,
@@ -308,7 +308,11 @@ function hourInTimezone(isoString: string, timezone: string) {
 }
 
 function normalizeTimezone(value: string | null | undefined, fallback: string) {
-  return validTimezoneOrNull(value) ?? validTimezoneOrNull(fallback) ?? 'UTC'
+  return (
+    validTimezoneOrNull(value) ??
+    validTimezoneOrNull(fallback) ??
+    DEFAULT_TIMEZONE
+  )
 }
 
 function formatSlotLabel(slot: TimeSlot, timezone: string) {
@@ -422,9 +426,4 @@ function compactDraft(draft: BookingAgentModelAction['draft']) {
   return Object.keys(compacted).length > 0
     ? (compacted as NonNullable<BookingAgentModelAction['draft']>)
     : undefined
-}
-
-function validTimezoneOrNull(value: string | null | undefined): string | null {
-  const timezone = value?.trim()
-  return timezone && isValidTimezone(timezone) ? timezone : null
 }

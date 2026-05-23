@@ -8,6 +8,102 @@
 
 import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 
+export const DEFAULT_TIMEZONE = 'UTC'
+
+export const COMMON_TIMEZONES = [
+  DEFAULT_TIMEZONE,
+  'America/New_York',
+  'America/Chicago',
+  'America/Denver',
+  'America/Los_Angeles',
+  'America/Anchorage',
+  'Pacific/Honolulu',
+  'America/Toronto',
+  'America/Vancouver',
+  'Europe/London',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Amsterdam',
+  'Europe/Rome',
+  'Europe/Madrid',
+  'Europe/Moscow',
+  'Asia/Dubai',
+  'Asia/Kolkata',
+  'Asia/Singapore',
+  'Asia/Shanghai',
+  'Asia/Tokyo',
+  'Asia/Seoul',
+  'Australia/Sydney',
+  'Australia/Melbourne',
+  'Pacific/Auckland',
+  'America/Sao_Paulo',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+]
+
+/**
+ * Checks if a timezone string is a valid IANA timezone identifier.
+ */
+export function isValidTimezone(timezone: string): boolean {
+  if (timezone === DEFAULT_TIMEZONE) {
+    return true
+  }
+
+  try {
+    const validTimezones = Intl.supportedValuesOf('timeZone')
+    return validTimezones.includes(timezone)
+  } catch {
+    try {
+      Intl.DateTimeFormat(undefined, { timeZone: timezone })
+      return true
+    } catch {
+      return false
+    }
+  }
+}
+
+/**
+ * Returns a list of all valid IANA timezone identifiers.
+ */
+export function getTimezones(): string[] {
+  try {
+    return Intl.supportedValuesOf('timeZone')
+  } catch {
+    return COMMON_TIMEZONES
+  }
+}
+
+export function validTimezoneOrNull(
+  value: string | null | undefined
+): string | null {
+  const timezone = value?.trim()
+  return timezone && isValidTimezone(timezone) ? timezone : null
+}
+
+export function browserTimezoneOrDefault(
+  defaultTimezone = DEFAULT_TIMEZONE
+): string {
+  try {
+    return (
+      validTimezoneOrNull(Intl.DateTimeFormat().resolvedOptions().timeZone) ??
+      defaultTimezone
+    )
+  } catch {
+    return defaultTimezone
+  }
+}
+
+export function timezoneOptionsWithCurrent(
+  ...timezones: Array<string | null | undefined>
+): string[] {
+  return Array.from(
+    new Set([
+      ...timezones.filter((timezone): timezone is string => Boolean(timezone)),
+      ...COMMON_TIMEZONES,
+    ])
+  ).filter(isValidTimezone)
+}
+
 /**
  * Convert a UTC Date to the equivalent local time in the given timezone.
  * The returned Date object represents the "wall clock" time in that timezone.

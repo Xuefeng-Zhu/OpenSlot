@@ -27,43 +27,17 @@ import {
   type ConfirmBookingFormInputValues,
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
-import { isValidTimezone } from "@/lib/validations/profile";
+import {
+  DEFAULT_TIMEZONE,
+  timezoneOptionsWithCurrent,
+  validTimezoneOrNull,
+} from "@/lib/utils/timezone";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 import {
   isTurnstileEnabled,
   TurnstileWidget,
 } from "@/components/booking/turnstile-widget";
-
-const COMMON_TIMEZONES = [
-  "America/New_York",
-  "America/Chicago",
-  "America/Denver",
-  "America/Los_Angeles",
-  "America/Anchorage",
-  "Pacific/Honolulu",
-  "America/Toronto",
-  "America/Vancouver",
-  "Europe/London",
-  "Europe/Paris",
-  "Europe/Berlin",
-  "Europe/Amsterdam",
-  "Europe/Rome",
-  "Europe/Madrid",
-  "Europe/Moscow",
-  "Asia/Dubai",
-  "Asia/Kolkata",
-  "Asia/Singapore",
-  "Asia/Shanghai",
-  "Asia/Tokyo",
-  "Asia/Seoul",
-  "Australia/Sydney",
-  "Australia/Melbourne",
-  "Pacific/Auckland",
-  "America/Sao_Paulo",
-  "Africa/Cairo",
-  "Africa/Johannesburg",
-];
 
 interface BookingFormProps {
   holdToken?: string;
@@ -117,7 +91,7 @@ export function BookingForm({
   onHoldExpired,
   onSlotTaken,
 }: BookingFormProps) {
-  const pageTimezone = validTimezoneOrNull(timezone) ?? "UTC";
+  const pageTimezone = validTimezoneOrNull(timezone) ?? DEFAULT_TIMEZONE;
   const initialGuestTimezone =
     validTimezoneOrNull(initialGuest?.timezone) ??
     validTimezoneOrNull(initialDraft?.guestTimezone) ??
@@ -342,9 +316,10 @@ export function BookingForm({
   }
 
   // Ensure the timezone list includes the current timezone
-  const timezoneOptions = Array.from(
-    new Set([initialGuestTimezone, pageTimezone, ...COMMON_TIMEZONES])
-  ).filter(isValidTimezone);
+  const timezoneOptions = timezoneOptionsWithCurrent(
+    initialGuestTimezone,
+    pageTimezone
+  );
 
   return (
     <Card className="mt-6">
@@ -633,11 +608,6 @@ export function BookingForm({
       </CardContent>
     </Card>
   );
-}
-
-function validTimezoneOrNull(value: string | null | undefined): string | null {
-  const timezone = value?.trim();
-  return timezone && isValidTimezone(timezone) ? timezone : null;
 }
 
 function createIdempotencyKey(): string {
