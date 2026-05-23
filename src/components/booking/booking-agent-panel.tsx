@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { Bot, Clock3, Send, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -74,11 +74,32 @@ export function BookingAgentPanel({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
+  const requestRef = useRef(0);
+
+  useEffect(() => {
+    requestRef.current += 1;
+    setLoading(false);
+    setError(null);
+    setSuggestedSlots([]);
+  }, [
+    eventTypeId,
+    hostUserId,
+    mode,
+    rescheduleToken,
+    selectedDate,
+    selectedSlot?.end,
+    selectedSlot?.slotToken,
+    selectedSlot?.start,
+    timezone,
+  ]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmed = input.trim();
     if (!trimmed || loading) return;
+    const requestId = requestRef.current + 1;
+    requestRef.current = requestId;
+    const isLatestRequest = () => requestRef.current === requestId;
 
     const nextMessages: BookingAgentMessage[] = [
       ...messages,
@@ -112,6 +133,8 @@ export function BookingAgentPanel({
         | AgentResponse
         | null;
 
+      if (!isLatestRequest()) return;
+
       if (!response.ok || !data?.success) {
         setError(data?.error ?? "The assistant is unavailable right now.");
         return;
@@ -132,9 +155,13 @@ export function BookingAgentPanel({
         ].slice(-10)
       );
     } catch {
-      setError("The assistant is unavailable right now.");
+      if (isLatestRequest()) {
+        setError("The assistant is unavailable right now.");
+      }
     } finally {
-      setLoading(false);
+      if (isLatestRequest()) {
+        setLoading(false);
+      }
     }
   }
 
