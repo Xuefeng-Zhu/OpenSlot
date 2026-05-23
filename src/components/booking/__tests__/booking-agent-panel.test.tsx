@@ -158,4 +158,27 @@ describe('BookingAgentPanel', () => {
     expect(screen.queryByText('Booking assistant')).toBeNull()
     expect(screen.getByRole('button', { name: /AI assistant/i })).toBeDefined()
   })
+
+  it('keeps the assistant in page flow below desktop widths', () => {
+    render(
+      <BookingAgentPanel
+        mode="booking"
+        eventTypeId="11111111-1111-4111-8111-111111111111"
+        hostUserId="22222222-2222-4222-8222-222222222222"
+        timezone="America/New_York"
+        selectedSlot={null}
+        onDraftChange={vi.fn()}
+        onSelectSlot={vi.fn()}
+      />
+    )
+
+    const launcherWrapper = screen.getByRole('button', {
+      name: /AI assistant/i,
+    }).parentElement
+    const classes = launcherWrapper?.className.split(/\s+/) ?? []
+
+    expect(classes).toContain('mt-6')
+    expect(classes).toContain('lg:fixed')
+    expect(classes).not.toContain('fixed')
+  })
 })
