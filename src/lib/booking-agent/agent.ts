@@ -73,7 +73,11 @@ export async function runBookingAgentTurn({
     }
   }
 
-  const search = action.availabilitySearch ?? inferredSearch
+  const search =
+    action.availabilitySearch ??
+    (shouldUseInferredAvailabilitySearch(action, inferredSearch)
+      ? inferredSearch
+      : null)
   if (!search) {
     return {
       success: true,
@@ -359,6 +363,28 @@ function formatSlotLabel(slot: TimeSlot, timezone: string) {
 
 function timeOfDayLabel(timeOfDay: TimeOfDay) {
   return timeOfDay === 'any' ? 'available' : timeOfDay
+}
+
+function shouldUseInferredAvailabilitySearch(
+  action: BookingAgentModelAction,
+  inferredSearch: ReturnType<typeof inferAvailabilitySearch>
+) {
+  if (!inferredSearch || action.availabilitySearch) return false
+  if (action.nextAction !== 'ask_preference') return false
+  return isClarificationStyleReply(action.reply)
+}
+
+function isClarificationStyleReply(reply: string) {
+  const lowerReply = reply.toLowerCase()
+  const asksQuestion =
+    reply.includes('?') ||
+    /\b(clarify|confirm|which|what|when|specific|mean)\b/.test(lowerReply)
+  const referencesDateOrTime =
+    /\b(date|day|time|today|tomorrow|morning|afternoon|evening|night|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(
+      lowerReply
+    )
+
+  return asksQuestion && referencesDateOrTime
 }
 
 function inferAvailabilitySearch(

@@ -194,6 +194,45 @@ describe('booking agent orchestration', () => {
     ])
   })
 
+  it('does not force inferred availability search over non-clarification model actions', async () => {
+    const loadSlots = vi.fn()
+
+    const result = await runBookingAgentTurn({
+      request: {
+        ...request,
+        timezone: 'America/Los_Angeles',
+        messages: [
+          {
+            role: 'user',
+            content: 'My name is Jane and tomorrow works for me.',
+          },
+        ],
+      },
+      eventContext,
+      provider: {
+        complete: vi.fn(async () =>
+          JSON.stringify({
+            reply: 'Great, I added your name. Please enter your email.',
+            availabilitySearch: null,
+            draft: { guestName: 'Jane' },
+            nextAction: 'complete_form',
+          })
+        ),
+      },
+      now: new Date('2026-05-21T17:00:00.000Z'),
+      loadSlots,
+    })
+
+    expect(loadSlots).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      success: true,
+      reply: 'Great, I added your name. Please enter your email.',
+      suggestedSlots: [],
+      draft: { guestName: 'Jane' },
+      nextAction: 'complete_form',
+    })
+  })
+
   it('falls back to UTC when request and model timezones are invalid', async () => {
     const loadSlots = vi.fn(async () => ({
       success: true as const,
