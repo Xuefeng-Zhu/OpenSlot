@@ -3,6 +3,7 @@ import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
   fromHostTimezone,
+  getTimezones,
   getWeekdayInTimezone,
   timezoneOptionsWithCurrent,
   toHostTimezone,
@@ -36,6 +37,16 @@ describe('timezone utilities', () => {
       expect(browserTimezoneOrDefault('America/Chicago')).toBe(
         'America/Chicago'
       )
+    })
+  })
+
+  describe('getTimezones', () => {
+    it('keeps UTC in the fallback timezone list', () => {
+      vi.spyOn(Intl, 'supportedValuesOf').mockImplementation(() => {
+        throw new Error('supportedValuesOf unavailable')
+      })
+
+      expect(getTimezones()).toContain(DEFAULT_TIMEZONE)
     })
   })
 

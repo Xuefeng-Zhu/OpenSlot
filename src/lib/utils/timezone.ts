@@ -11,6 +11,7 @@ import { toZonedTime, fromZonedTime } from 'date-fns-tz'
 export const DEFAULT_TIMEZONE = 'UTC'
 
 export const COMMON_TIMEZONES = [
+  DEFAULT_TIMEZONE,
   'America/New_York',
   'America/Chicago',
   'America/Denver',
