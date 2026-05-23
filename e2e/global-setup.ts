@@ -1,5 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { createButterbaseBackend } from "../src/lib/backend/butterbase/adapter";
-import { demoHost } from "./demo-data";
+import { demoHost, setRuntimeDemoHost } from "./demo-data";
 import { createE2EAdminClient } from "./support/db/client";
 import { loadE2EEnv } from "./support/env";
 import type { E2EAdminClient } from "./support/db/types";
@@ -13,7 +14,7 @@ export default async function globalSetup() {
     apiKey: env.butterbaseApiKey,
   });
 
-  const demoAuthUserId = await ensureDemoAuthUser(backend);
+  const demoAuthUserId = await ensureDemoAuthUser(backend, adminClient);
   await ensureDemoProfile(adminClient, demoAuthUserId);
 
   const { error: signInError } = await backend.auth.signInWithPassword({
@@ -29,31 +30,191 @@ export default async function globalSetup() {
 
 }
 
-async function ensureDemoAuthUser(
-  backend: ReturnType<typeof createButterbaseBackend>
+export async function ensureDemoAuthUser(
+  backend: ReturnType<typeof createButterbaseBackend>,
+  adminClient: E2EAdminClient
 ): Promise<string> {
-  const signup = await backend.auth.signUp({
+  const signin = await signInDemoHost(backend);
+  if (!signin.error) {
+    return signin.data.user.id;
+  }
+
+  const repairResult = await repairExistingDemoAuthUser(
+    adminClient,
+    backend,
+    signin.error.message
+  );
+  if (repairResult) {
+    return repairResult;
+  }
+
+  throw new Error(
+    `Could not create or verify demo auth credentials: ${signin.error.message}`
+  );
+}
+
+function createDemoAuthUser(backend: ReturnType<typeof createButterbaseBackend>) {
+  return backend.auth.signUp({
     email: demoHost.email,
     password: demoHost.password,
     displayName: "Demo User",
   });
+}
 
-  if (!signup.error) {
-    return signup.data.id;
-  }
-
-  const signin = await backend.auth.signInWithPassword({
+function signInDemoHost(backend: ReturnType<typeof createButterbaseBackend>) {
+  return backend.auth.signInWithPassword({
     email: demoHost.email,
     password: demoHost.password,
   });
+}
 
-  if (signin.error) {
+async function repairExistingDemoAuthUser(
+  adminClient: E2EAdminClient,
+  backend: ReturnType<typeof createButterbaseBackend>,
+  originalError: string
+): Promise<string | null> {
+  const candidateIds = await findDemoAuthUserIdCandidates(adminClient);
+  const repairErrors: string[] = [];
+
+  for (const userId of candidateIds) {
+    const update = await adminClient.auth.updateUser({
+      userId,
+      email: demoHost.email,
+      password: demoHost.password,
+    });
+
+    if (update.error) {
+      repairErrors.push(`${userId}: update failed: ${update.error.message}`);
+      continue;
+    }
+
+    const signin = await signInDemoHost(backend);
+    if (!signin.error) {
+      return signin.data.user.id;
+    }
+
+    repairErrors.push(`${userId}: sign-in failed: ${signin.error.message}`);
+  }
+
+  const recreateResult = await recreateDemoAuthUser(
+    adminClient,
+    backend,
+    candidateIds
+  );
+  if (recreateResult.userId) {
+    return recreateResult.userId;
+  }
+
+  repairErrors.push(...recreateResult.errors);
+
+  const replacementResult = await createReplacementDemoAuthUser(backend);
+  if (replacementResult.userId) {
+    return replacementResult.userId;
+  }
+
+  repairErrors.push(replacementResult.error);
+
+  if (repairErrors.length > 0) {
     throw new Error(
-      `Could not create or verify demo auth credentials: ${signin.error.message}`
+      `Could not repair seeded demo auth credentials after sign-in failed with "${originalError}": ${repairErrors.join("; ")}`
     );
   }
 
-  return signin.data.user.id;
+  return null;
+}
+
+async function recreateDemoAuthUser(
+  adminClient: E2EAdminClient,
+  backend: ReturnType<typeof createButterbaseBackend>,
+  candidateIds: string[]
+): Promise<{ userId: string | null; errors: string[] }> {
+  const deleteUser = adminClient.auth.admin?.deleteUser;
+  if (!deleteUser) {
+    return {
+      userId: null,
+      errors: ["admin auth deletion is unavailable"],
+    };
+  }
+
+  const errors: string[] = [];
+
+  for (const userId of candidateIds) {
+    const deletion = await deleteUser(userId);
+    if (deletion.error) {
+      errors.push(`${userId}: delete failed: ${deletion.error.message}`);
+      continue;
+    }
+
+    const signup = await createDemoAuthUser(backend);
+    if (!signup.error) {
+      return { userId: signup.data.id, errors };
+    }
+
+    errors.push(`${userId}: recreate failed: ${signup.error.message}`);
+  }
+
+  return { userId: null, errors };
+}
+
+async function createReplacementDemoAuthUser(
+  backend: ReturnType<typeof createButterbaseBackend>
+): Promise<{ userId: string | null; error: string }> {
+  const email = `demo.e2e.${Date.now()}.${randomUUID().slice(0, 8)}@openslot.dev`;
+  const password =
+    process.env.E2E_DEMO_HOST_PASSWORD ??
+    process.env.E2E_DEMO_PASSWORD ??
+    `E2e-Demo-${Date.now()}!Aa1`;
+  const signup = await backend.auth.signUp({
+    email,
+    password,
+    displayName: "Demo User",
+  });
+
+  if (signup.error) {
+    return {
+      userId: null,
+      error: `replacement signup failed: ${signup.error.message}`,
+    };
+  }
+
+  setRuntimeDemoHost({
+    authUserId: signup.data.id,
+    email,
+    password,
+  });
+
+  return { userId: signup.data.id, error: "" };
+}
+
+async function findDemoAuthUserIdCandidates(
+  adminClient: E2EAdminClient
+): Promise<string[]> {
+  const fields = "auth_user_id";
+  const attempts = [
+    { field: "auth_user_id", value: demoHost.authUserId },
+    { field: "username", value: "demo" },
+    { field: "email", value: demoHost.email },
+  ];
+  const candidates = new Set<string>();
+
+  for (const attempt of attempts) {
+    const { data, error } = await adminClient
+      .from("profiles")
+      .select(fields)
+      .eq(attempt.field, attempt.value)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Could not inspect demo profile: ${error.message}`);
+    }
+
+    if (data?.auth_user_id) {
+      candidates.add(data.auth_user_id);
+    }
+  }
+
+  candidates.add(demoHost.authUserId);
+  return Array.from(candidates);
 }
 
 async function ensureDemoProfile(

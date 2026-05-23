@@ -102,12 +102,15 @@ running the test:
 npm run test:e2e
 ```
 
-The suite loads `.env.local` and uses the configured Butterbase service key during
-Playwright setup to refresh and verify the demo host password before the browser
-login tests run. If the demo host is missing, setup creates the auth user,
-profile, a default schedule, and weekday availability needed by isolated E2E
-specs. Mutating specs create unique event types, bookings, availability
-schedules, and webhook endpoints, then clean them with the service key.
+The suite loads `.env.local` and verifies the demo host password before browser
+login tests run. If the fixed demo auth user is stale, setup refreshes or
+recreates it when the configured Butterbase app supports auth-user admin
+functions. If those functions are unavailable, setup creates a disposable
+runtime demo login, stores it under gitignored `test-results/`, and keeps the
+public `/demo` profile, default schedule, and weekday availability aligned with
+that auth user. Mutating specs create unique event types, bookings,
+availability schedules, and webhook endpoints, then clean them with the service
+key.
 
 If Chromium has not been installed on the machine yet, run:
 

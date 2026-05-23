@@ -7,7 +7,7 @@ the server-only Butterbase service key.
 
 ## Automated Dashboard E2E
 
-The automated suite ensures this Butterbase-backed host account exists before
+The automated suite first tries this Butterbase-backed host account before
 browser specs run:
 
 - Email: `demo@openslot.dev`
@@ -32,10 +32,17 @@ The Playwright config starts the Next.js dev server at
 for example `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100`, when port 3000 is
 already occupied. It expects `NEXT_PUBLIC_BUTTERBASE_APP_ID` and
 `BUTTERBASE_API_KEY` to be available in the shell or `.env.local`. Before tests
-run, Playwright refreshes and verifies the demo host password through the
-configured service key so browser login uses a real Butterbase Auth password
-flow. If the demo host is missing, setup creates the auth user, profile,
-default schedule, and weekday availability needed by isolated E2E specs.
+run, Playwright verifies the demo host password through the real Butterbase Auth
+password flow. If the fixed demo auth user is stale and the configured
+Butterbase app supports auth-user admin functions, setup refreshes or recreates
+that auth user. If those admin functions are not available, setup provisions a
+disposable runtime demo login, stores it under the gitignored `test-results/`
+directory, and keeps the public `/demo` profile, default schedule, and weekday
+availability aligned with that auth user.
+
+Override the login used by browser specs with `E2E_DEMO_HOST_EMAIL`,
+`E2E_DEMO_HOST_PASSWORD`, and `E2E_DEMO_AUTH_USER_ID` when a shared Butterbase
+test app already has known seeded credentials.
 
 The CI `Dashboard E2E` job installs Chromium and runs `npm run test:e2e` when
 the Butterbase app id and service key are configured for the repository. If
