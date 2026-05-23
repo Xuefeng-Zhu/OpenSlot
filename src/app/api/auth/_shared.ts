@@ -43,16 +43,23 @@ export async function ensureProfileForAuthUser(input: {
   const adminClient = createAdminBackendClient()
   const email = input.email ?? ''
   const now = new Date().toISOString()
+  const displayName = input.displayName?.trim()
+  const profilePayload: {
+    auth_user_id: string
+    email: string
+    updated_at: string
+    name?: string
+  } = {
+    auth_user_id: input.authUserId,
+    email,
+    updated_at: now,
+  }
+
+  if (displayName) {
+    profilePayload.name = displayName
+  }
 
   await adminClient
     .from('profiles')
-    .upsert(
-      {
-        auth_user_id: input.authUserId,
-        email,
-        name: input.displayName ?? '',
-        updated_at: now,
-      },
-      { onConflict: 'auth_user_id' }
-    )
+    .upsert(profilePayload, { onConflict: 'auth_user_id' })
 }
