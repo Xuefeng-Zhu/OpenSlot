@@ -5,13 +5,13 @@ import {
   BACKEND_REFRESH_TOKEN_COOKIE,
 } from '@/lib/backend/session'
 import { createBackendRuntime } from '@/lib/backend/runtime'
-import { middleware } from '@/middleware'
+import { proxy } from '@/proxy'
 
 vi.mock('@/lib/backend/runtime', () => ({
   createBackendRuntime: vi.fn(),
 }))
 
-describe('middleware session refresh', () => {
+describe('proxy session refresh', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('NEXT_PUBLIC_BUTTERBASE_APP_ID', 'app_test')
@@ -58,7 +58,7 @@ describe('middleware session refresh', () => {
       },
     })
 
-    const response = await middleware(request)
+    const response = await proxy(request)
     const forwardedCookieHeader = response.headers.get(
       'x-middleware-request-cookie'
     )
