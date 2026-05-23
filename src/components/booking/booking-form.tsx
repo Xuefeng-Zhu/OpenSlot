@@ -120,7 +120,7 @@ export function BookingForm({
     handleSubmit,
     setValue,
     watch,
-    formState: { errors },
+    formState: { dirtyFields, errors },
   } = useForm<ConfirmBookingFormInputValues, unknown, ConfirmBookingFormValues>({
     resolver: zodResolver(bookingFormSchema) as Resolver<
       ConfirmBookingFormInputValues,
@@ -149,29 +149,43 @@ export function BookingForm({
   useEffect(() => {
     if (!initialDraft) return;
 
-    if (!initialGuest?.name && initialDraft.guestName) {
+    if (!initialGuest?.name && initialDraft.guestName && !dirtyFields.guestName) {
       setValue("guestName", initialDraft.guestName, { shouldValidate: true });
     }
 
-    if (!initialGuest?.email && initialDraft.guestEmail) {
+    if (
+      !initialGuest?.email &&
+      initialDraft.guestEmail &&
+      !dirtyFields.guestEmail
+    ) {
       setValue("guestEmail", initialDraft.guestEmail, { shouldValidate: true });
     }
 
     const draftTimezone = validTimezoneOrNull(initialDraft.guestTimezone);
-    if (!initialGuest?.timezone && draftTimezone) {
+    if (!initialGuest?.timezone && draftTimezone && !dirtyFields.guestTimezone) {
       setValue("guestTimezone", draftTimezone, { shouldValidate: true });
     }
 
-    if (initialDraft.notes !== undefined) {
+    if (initialDraft.notes !== undefined && !dirtyFields.notes) {
       setValue("notes", initialDraft.notes, { shouldValidate: true });
     }
 
+    const dirtyAnswers = dirtyFields.answers as
+      | Record<string, unknown>
+      | undefined;
     for (const [questionId, answer] of Object.entries(
       initialDraft.answers ?? {}
     )) {
-      setValue(`answers.${questionId}`, answer, { shouldValidate: true });
+      if (!dirtyAnswers?.[questionId]) {
+        setValue(`answers.${questionId}`, answer, { shouldValidate: true });
+      }
     }
   }, [
+    dirtyFields.answers,
+    dirtyFields.guestEmail,
+    dirtyFields.guestName,
+    dirtyFields.guestTimezone,
+    dirtyFields.notes,
     initialDraft,
     initialGuest?.email,
     initialGuest?.name,
@@ -424,7 +438,12 @@ export function BookingForm({
             <Label htmlFor="guestTimezone">Timezone</Label>
             <Select
               value={selectedTimezone}
-              onValueChange={(value) => setValue("guestTimezone", value)}
+              onValueChange={(value) =>
+                setValue("guestTimezone", value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
             >
               <SelectTrigger id="guestTimezone">
                 <SelectValue placeholder="Select timezone" />
@@ -459,6 +478,7 @@ export function BookingForm({
                   value={(answers?.[question.id] as string | undefined) ?? ""}
                   onChange={(event) =>
                     setValue(`answers.${question.id}`, event.target.value, {
+                      shouldDirty: true,
                       shouldValidate: true,
                     })
                   }
@@ -477,6 +497,7 @@ export function BookingForm({
                   value={(answers?.[question.id] as string | undefined) ?? ""}
                   onChange={(event) =>
                     setValue(`answers.${question.id}`, event.target.value, {
+                      shouldDirty: true,
                       shouldValidate: true,
                     })
                   }
@@ -494,6 +515,7 @@ export function BookingForm({
                   value={(answers?.[question.id] as string | undefined) ?? ""}
                   onValueChange={(value) =>
                     setValue(`answers.${question.id}`, value, {
+                      shouldDirty: true,
                       shouldValidate: true,
                     })
                   }
@@ -526,6 +548,7 @@ export function BookingForm({
                     checked={Boolean(answers?.[question.id])}
                     onChange={(event) =>
                       setValue(`answers.${question.id}`, event.target.checked, {
+                        shouldDirty: true,
                         shouldValidate: true,
                       })
                     }
