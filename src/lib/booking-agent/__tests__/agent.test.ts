@@ -109,6 +109,130 @@ describe('booking agent orchestration', () => {
     })
   })
 
+  it('passes current local date context to the model prompt', async () => {
+    const provider = {
+      complete: vi.fn(async (_input: unknown) =>
+        JSON.stringify({
+          reply: 'What day do you mean?',
+          availabilitySearch: null,
+          nextAction: 'ask_preference',
+        })
+      ),
+    }
+
+    await runBookingAgentTurn({
+      request: {
+        ...request,
+        timezone: 'America/Los_Angeles',
+        messages: [{ role: 'user', content: 'Tomorrow afternoon' }],
+      },
+      eventContext,
+      provider,
+      now: new Date('2026-05-21T17:00:00.000Z'),
+      loadSlots: vi.fn(async () => ({
+        success: true as const,
+        slots: [],
+      })),
+    })
+
+    const prompt = (provider.complete.mock.calls[0]![0] as {
+      messages: Array<{ content: string }>
+    }).messages[0].content
+
+    expect(prompt).toContain('"currentLocalDate":"2026-05-21"')
+    expect(prompt).toContain('"currentLocalWeekday":"Thursday"')
+    expect(prompt).toContain('"tomorrowLocalDate":"2026-05-22"')
+    expect(prompt).toContain(
+      '"inferredAvailabilitySearch":{"date":"2026-05-22","timezone":"America/Los_Angeles","timeOfDay":"afternoon"}'
+    )
+  })
+
+  it('uses deterministic relative-date search when the model asks to clarify a resolvable date', async () => {
+    const loadSlots = vi.fn(async () => ({
+      success: true as const,
+      slots: [
+        {
+          start: '2026-05-22T20:00:00.000Z',
+          end: '2026-05-22T20:30:00.000Z',
+        },
+      ],
+    }))
+
+    const result = await runBookingAgentTurn({
+      request: {
+        ...request,
+        timezone: 'America/Los_Angeles',
+        messages: [{ role: 'user', content: 'Tomorrow afternoon' }],
+      },
+      eventContext,
+      provider: {
+        complete: vi.fn(async () =>
+          JSON.stringify({
+            reply: 'What day is tomorrow?',
+            availabilitySearch: null,
+            nextAction: 'ask_preference',
+          })
+        ),
+      },
+      now: new Date('2026-05-21T17:00:00.000Z'),
+      loadSlots,
+    })
+
+    expect(loadSlots).toHaveBeenCalledWith({
+      date: '2026-05-22',
+      timezone: 'America/Los_Angeles',
+    })
+    expect(result.reply).toContain('Friday, May 22')
+    expect(result.reply).toContain('afternoon')
+    expect(result.reply).not.toContain('What day')
+    expect(result.suggestedSlots).toEqual([
+      {
+        start: '2026-05-22T20:00:00.000Z',
+        end: '2026-05-22T20:30:00.000Z',
+        label: expect.any(String),
+      },
+    ])
+  })
+
+  it('does not force inferred availability search over non-clarification model actions', async () => {
+    const loadSlots = vi.fn()
+
+    const result = await runBookingAgentTurn({
+      request: {
+        ...request,
+        timezone: 'America/Los_Angeles',
+        messages: [
+          {
+            role: 'user',
+            content: 'My name is Jane and tomorrow works for me.',
+          },
+        ],
+      },
+      eventContext,
+      provider: {
+        complete: vi.fn(async () =>
+          JSON.stringify({
+            reply: 'Great, I added your name. Please enter your email.',
+            availabilitySearch: null,
+            draft: { guestName: 'Jane' },
+            nextAction: 'complete_form',
+          })
+        ),
+      },
+      now: new Date('2026-05-21T17:00:00.000Z'),
+      loadSlots,
+    })
+
+    expect(loadSlots).not.toHaveBeenCalled()
+    expect(result).toMatchObject({
+      success: true,
+      reply: 'Great, I added your name. Please enter your email.',
+      suggestedSlots: [],
+      draft: { guestName: 'Jane' },
+      nextAction: 'complete_form',
+    })
+  })
+
   it('falls back to UTC when request and model timezones are invalid', async () => {
     const loadSlots = vi.fn(async () => ({
       success: true as const,
@@ -166,6 +290,7 @@ describe('booking agent orchestration', () => {
         ...request,
         mode: 'reschedule',
         rescheduleToken: '33333333-3333-4333-8333-333333333333',
+        messages: [{ role: 'user', content: 'My name is Jane.' }],
       },
       eventContext,
       provider,
