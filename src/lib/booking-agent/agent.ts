@@ -29,6 +29,7 @@ export interface RunBookingAgentInput {
   request: BookingAgentRequest
   eventContext: BookingAgentEventContext
   provider: BookingAgentProvider
+  now?: Date
   loadSlots: (input: {
     date: string
     timezone: string
@@ -48,12 +49,16 @@ export async function runBookingAgentTurn({
   request,
   eventContext,
   provider,
+  now = new Date(),
   loadSlots,
 }: RunBookingAgentInput): Promise<BookingAgentResponse> {
+  const inferredSearch = inferAvailabilitySearch(request, now)
   const modelContent = await provider.complete({
     messages: buildProviderMessages({
       request,
       eventContext,
+      now,
+      inferredSearch,
     }),
   })
   const action = parseModelAction(modelContent)
@@ -68,7 +73,7 @@ export async function runBookingAgentTurn({
     }
   }
 
-  const search = action.availabilitySearch
+  const search = action.availabilitySearch ?? inferredSearch
   if (!search) {
     return {
       success: true,
@@ -112,7 +117,14 @@ export async function runBookingAgentTurn({
     success: true,
     reply:
       suggestedSlots.length > 0
-        ? action.reply
+        ? action.availabilitySearch
+          ? action.reply
+          : `I checked ${formatSearchDateForReply(
+              search.date,
+              timezone
+            )} and found these ${timeOfDayLabel(
+              search.timeOfDay ?? 'any'
+            )} openings.`
         : `I checked ${search.date}, but did not find open ${timeOfDayLabel(
             search.timeOfDay ?? 'any'
           )} times. Try another date or a wider time window.`,
@@ -191,14 +203,23 @@ export async function runBookingAgentFallbackTurn({
 function buildProviderMessages({
   request,
   eventContext,
+  now,
+  inferredSearch,
 }: {
   request: BookingAgentRequest
   eventContext: BookingAgentEventContext
+  now: Date
+  inferredSearch: ReturnType<typeof inferAvailabilitySearch>
 }) {
   return [
     {
       role: 'system' as const,
-      content: bookingAgentSystemPrompt(eventContext, request),
+      content: bookingAgentSystemPrompt(
+        eventContext,
+        request,
+        now,
+        inferredSearch
+      ),
     },
     ...request.messages.map((message) => ({
       role: message.role,
@@ -209,11 +230,19 @@ function buildProviderMessages({
 
 function bookingAgentSystemPrompt(
   eventContext: BookingAgentEventContext,
-  request: BookingAgentRequest
+  request: BookingAgentRequest,
+  now: Date,
+  inferredSearch: ReturnType<typeof inferAvailabilitySearch>
 ) {
+  const timezone = normalizeTimezone(request.timezone, request.timezone)
+  const zonedNow = toZonedTime(now, timezone)
   const context = {
     mode: request.mode,
-    timezone: request.timezone,
+    timezone,
+    currentLocalDate: format(zonedNow, 'yyyy-MM-dd'),
+    currentLocalWeekday: format(zonedNow, 'EEEE'),
+    tomorrowLocalDate: format(addDays(zonedNow, 1), 'yyyy-MM-dd'),
+    inferredAvailabilitySearch: inferredSearch,
     selectedDate: request.clientState?.selectedDate ?? null,
     selectedSlot: request.clientState?.selectedSlot ?? null,
     event: {
@@ -237,7 +266,7 @@ Return only valid JSON with this shape:
   "nextAction": "ask_preference|show_slots|choose_slot|complete_form"
 }
 
-When the guest asks for times, set availabilitySearch. Use the selectedDate if the guest says "that day" or similar. Infer timeOfDay only from explicit hints like morning, afternoon, or evening. If a date is ambiguous, ask a concise clarifying question and leave availabilitySearch null.
+When the guest asks for times, set availabilitySearch. Use currentLocalDate, currentLocalWeekday, tomorrowLocalDate, and inferredAvailabilitySearch to resolve relative dates like today, tomorrow, and weekday names. Use the selectedDate if the guest says "that day" or similar. Infer timeOfDay only from explicit hints like morning, afternoon, or evening. If a date is still ambiguous after using context, ask a concise clarifying question and leave availabilitySearch null.
 
 If the guest provides name, email, timezone, notes, or answers to invitee questions, include them in draft. Do not include reschedule tokens, cancellation tokens, or any credentials.
 
