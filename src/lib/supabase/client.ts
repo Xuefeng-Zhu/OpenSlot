@@ -51,7 +51,10 @@ export function createClient(options: CreateClientOptions = {}) {
         const displayName =
           input.options?.data?.full_name ?? input.options?.data?.name
 
-        return postAuth<{ user: BackendCompatUser | null }>(
+        return postAuth<{
+          user: BackendCompatUser | null
+          requiresLogin?: boolean
+        }>(
           '/api/auth/signup',
           {
             email: input.email,

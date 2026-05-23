@@ -74,18 +74,25 @@ export default function SignupPage() {
     try {
       const supabase = createClient();
 
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName.trim(),
+      const { data: signUpData, error: signUpError } =
+        await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName.trim(),
+            },
           },
-        },
-      });
+        });
 
       if (signUpError) {
         setErrors({ general: "Unable to create account. Please try again." });
+        return;
+      }
+
+      if (signUpData?.requiresLogin) {
+        router.push("/login?returnUrl=%2Fdashboard");
+        router.refresh();
         return;
       }
 
