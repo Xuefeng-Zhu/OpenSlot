@@ -24,7 +24,7 @@ export function computeRemainingSeconds(expiresAt: string, now: Date): number {
  * If >= 60 seconds, displays as "M:SS" (e.g., "2:05").
  * If < 60 seconds, displays as "0:SS" (e.g., "0:42").
  */
-function formatTime(seconds: number): string {
+export function formatRemainingSeconds(seconds: number): string {
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${minutes}:${secs.toString().padStart(2, "0")}`;
@@ -69,7 +69,7 @@ const HoldTimer = React.forwardRef<HTMLDivElement, HoldTimerProps>(
         ref={ref}
         role="timer"
         aria-live="polite"
-        aria-label={`Hold expires in ${formatTime(remaining)}`}
+        aria-label={`Hold expires in ${formatRemainingSeconds(remaining)}`}
         className={cn(
           "inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium",
           isWarning
@@ -89,7 +89,7 @@ const HoldTimer = React.forwardRef<HTMLDivElement, HoldTimerProps>(
           <circle cx="12" cy="12" r="10" />
           <polyline points="12 6 12 12 16 14" />
         </svg>
-        <span>{formatTime(remaining)}</span>
+        <span>{formatRemainingSeconds(remaining)}</span>
       </div>
     );
   }
