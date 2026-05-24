@@ -57,8 +57,8 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
         return
       }
 
-      const { error } = await (backendClient
-        .from('profiles') as any)
+      const { error } = await backendClient
+        .from('profiles')
         .update({
           name: data.name,
           username: data.username,

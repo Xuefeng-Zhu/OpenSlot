@@ -10,7 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { videoProviderLabel } from "@/lib/calendar/video-providers";
+import { formatBookingLocationLabel } from "@/lib/location-labels";
 
 interface BookingConfirmationProps {
   bookingId: string;
@@ -71,7 +71,7 @@ export function BookingConfirmation({
     ? `/booking/reschedule/${rescheduleToken}`
     : null;
   const isReschedule = variant === "reschedule";
-  const locationLabel = bookingLocationLabel({
+  const locationLabel = formatBookingLocationLabel({
     locationType,
     locationValue,
     conferenceProvider,
@@ -183,24 +183,6 @@ export function BookingConfirmation({
       </CardContent>
     </Card>
   );
-}
-
-function bookingLocationLabel({
-  locationType,
-  locationValue,
-  conferenceProvider,
-}: {
-  locationType?: string;
-  locationValue?: string | null;
-  conferenceProvider?: string | null;
-}) {
-  const generatedVideoLabel = videoProviderLabel(conferenceProvider);
-  if (generatedVideoLabel) return generatedVideoLabel;
-  if (locationValue) return locationValue;
-  if (locationType === "phone") return "Phone call";
-  if (locationType === "in_person") return "In person";
-  if (locationType === "online") return "Online";
-  return null;
 }
 
 function conferenceStatusMessage(

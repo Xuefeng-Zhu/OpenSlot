@@ -149,6 +149,7 @@ export type BackendFunctionName =
   | 'claimWebhookDeliveries'
   | 'consumePublicRateLimit'
   | 'expireStaleSlotHolds'
+  | 'saveAvailability'
 
 export interface BackendFunctionRequest<TBody = Json> {
   body?: TBody

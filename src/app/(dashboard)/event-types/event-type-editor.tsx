@@ -23,6 +23,7 @@ import { SchedulingLimitsSection } from "./event-type-editor-sections/scheduling
 import {
   type ApiResponse,
   type EditableEventType,
+  type FieldErrors,
   firstFieldErrors,
   videoProviderHealth,
 } from "./event-type-editor-model";
@@ -55,6 +56,45 @@ const initialOpenSections: Record<FormSectionId, boolean> = {
   questions: false,
   confirmation: false,
 };
+
+const fieldSectionMap = {
+  title: "basics",
+  slug: "basics",
+  description: "basics",
+  is_active: "basics",
+  duration_minutes: "duration",
+  buffer_before_minutes: "duration",
+  buffer_after_minutes: "duration",
+  location_type: "location",
+  location_value: "location",
+  video_provider: "location",
+  schedule_id: "scheduling",
+  min_notice_minutes: "scheduling",
+  max_booking_days_ahead: "scheduling",
+  reminder_enabled: "reminders",
+  reminder_minutes_before: "reminders",
+  reminder_guest_enabled: "reminders",
+  reminder_host_enabled: "reminders",
+  invitee_questions: "questions",
+} satisfies Partial<Record<keyof FieldErrors, FormSectionId>>;
+
+function openSectionsForFieldErrors(
+  current: Record<FormSectionId, boolean>,
+  fieldErrors: FieldErrors
+): Record<FormSectionId, boolean> {
+  const next = { ...current };
+  let changed = false;
+
+  for (const field of Object.keys(fieldErrors) as Array<keyof FieldErrors>) {
+    const sectionId = fieldSectionMap[field];
+    if (sectionId && !next[sectionId]) {
+      next[sectionId] = true;
+      changed = true;
+    }
+  }
+
+  return changed ? next : current;
+}
 
 /**
  * Create/edit shell for event types. Form state, payload construction, and
@@ -104,13 +144,19 @@ export function EventTypeEditor({
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const expandSectionsForFieldErrors = (fieldErrors: FieldErrors) => {
+    setOpenSections((prev) => openSectionsForFieldErrors(prev, fieldErrors));
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const parsed = eventTypeSchema.safeParse(buildPayload());
 
     if (!parsed.success) {
-      setErrors(firstFieldErrors(parsed.error.flatten().fieldErrors));
+      const fieldErrors = firstFieldErrors(parsed.error.flatten().fieldErrors);
+      setErrors(fieldErrors);
+      expandSectionsForFieldErrors(fieldErrors);
       setServerError("");
       return;
     }
@@ -142,6 +188,7 @@ export function EventTypeEditor({
       if (!response.ok) {
         const fieldErrors = firstFieldErrors(result?.details);
         setErrors(fieldErrors);
+        expandSectionsForFieldErrors(fieldErrors);
         setServerError(
           Object.keys(fieldErrors).length > 0
             ? ""

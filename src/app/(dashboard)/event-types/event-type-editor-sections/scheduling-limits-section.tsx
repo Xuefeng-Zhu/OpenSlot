@@ -32,7 +32,14 @@ export function SchedulingLimitsSection({
             clearFieldError("schedule_id");
           }}
         >
-          <SelectTrigger id="schedule" aria-label="Availability schedule">
+          <SelectTrigger
+            id="schedule"
+            aria-label="Availability schedule"
+            aria-invalid={!!errors.schedule_id}
+            aria-describedby={
+              errors.schedule_id ? "schedule-error" : undefined
+            }
+          >
             <SelectValue placeholder="Choose a schedule" />
           </SelectTrigger>
           <SelectContent>
@@ -45,7 +52,7 @@ export function SchedulingLimitsSection({
           </SelectContent>
         </Select>
         {errors.schedule_id ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="schedule-error" className="text-xs text-destructive mt-1">
             {errors.schedule_id}
           </p>
         ) : null}
@@ -61,9 +68,13 @@ export function SchedulingLimitsSection({
             clearFieldError("min_notice_minutes");
           }}
           min={0}
+          aria-invalid={!!errors.min_notice_minutes}
+          aria-describedby={
+            errors.min_notice_minutes ? "min-notice-error" : undefined
+          }
         />
         {errors.min_notice_minutes ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="min-notice-error" className="text-xs text-destructive mt-1">
             {errors.min_notice_minutes}
           </p>
         ) : null}
@@ -79,9 +90,13 @@ export function SchedulingLimitsSection({
             clearFieldError("max_booking_days_ahead");
           }}
           min={1}
+          aria-invalid={!!errors.max_booking_days_ahead}
+          aria-describedby={
+            errors.max_booking_days_ahead ? "max-days-error" : undefined
+          }
         />
         {errors.max_booking_days_ahead ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="max-days-error" className="text-xs text-destructive mt-1">
             {errors.max_booking_days_ahead}
           </p>
         ) : null}

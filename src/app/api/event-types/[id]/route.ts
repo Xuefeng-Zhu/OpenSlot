@@ -77,8 +77,8 @@ export async function PATCH(
       auth.profile.id
     )
 
-    const { data: eventType, error } = await (backendClient
-      .from('event_types') as any)
+    const { data: eventType, error } = await backendClient
+      .from('event_types')
       .update({
         ...payload,
         updated_at: new Date().toISOString(),
@@ -147,8 +147,8 @@ export async function DELETE(
       )
     }
 
-    const { data: deletedEventType, error } = await (backendClient
-      .from('event_types') as any)
+    const { data: deletedEventType, error } = await backendClient
+      .from('event_types')
       .delete()
       .eq('id', id)
       .eq('user_id', auth.profile.id)

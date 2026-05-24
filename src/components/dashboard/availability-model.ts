@@ -1,3 +1,5 @@
+import { toTimeInputValue } from "@/lib/utils/time"
+
 export interface AvailabilityRule {
   id: string
   weekday: number
@@ -293,8 +295,4 @@ function stripTempId<TRecord extends { id?: string }>(
 
 function isTempId(id: string | undefined): boolean {
   return !id || id.startsWith("temp_")
-}
-
-function toTimeInputValue(time: string | null): string | null {
-  return time ? time.slice(0, 5) : null
 }

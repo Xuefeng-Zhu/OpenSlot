@@ -15,9 +15,7 @@ import type {
   TableName,
 } from './types'
 
-const primaryKeys: Partial<Record<TableName, string>> = {
-  user_settings: 'profile_id',
-}
+const primaryKeys: Partial<Record<TableName, string>> = {}
 
 export class BackendQueryBuilder<TData = any>
   implements PromiseLike<BackendCompatResponse<TData>>
