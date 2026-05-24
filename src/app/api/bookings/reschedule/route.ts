@@ -16,6 +16,7 @@ import {
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { Json } from '@/lib/types/database'
+import { getBookingMutationErrorStatus } from '../error-status'
 
 /**
  * Reschedules a booking from a new hold and the original reschedule token.
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
     const result = await rescheduleBooking(rescheduleInput, adminClient)
 
     if (!result.success) {
-      const status = getErrorStatus(result.error)
+      const status = getBookingMutationErrorStatus(result.error)
       await cacheIdempotentResponse(adminClient, idempotencyEntry, result, status)
       return NextResponse.json(result, { status })
     }
@@ -147,26 +148,4 @@ async function abandonIdempotentMarker(
   if (!adminClient || !entry) return
 
   await abandonIdempotentRequest({ adminClient, entry })
-}
-
-function getErrorStatus(error?: string): number {
-  if (!error) return 500
-
-  if (error.includes('not found') || error.includes('already used')) {
-    return 404
-  }
-  if (error.includes('expired')) {
-    return 410
-  }
-  if (error.includes('validation')) {
-    return 400
-  }
-  if (
-    error.includes('booked by someone else') ||
-    error.includes('does not match')
-  ) {
-    return 409
-  }
-
-  return 500
 }
