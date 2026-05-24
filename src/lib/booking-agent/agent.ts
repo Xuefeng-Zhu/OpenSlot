@@ -4,7 +4,6 @@ import type { TimeSlot } from '@/lib/availability/types'
 import { DEFAULT_TIMEZONE, validTimezoneOrNull } from '@/lib/utils/timezone'
 import type {
   BookingAgentEventContext,
-  BookingAgentMessage,
   BookingAgentModelAction,
   BookingAgentProvider,
   BookingAgentResponse,
