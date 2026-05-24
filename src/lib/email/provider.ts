@@ -56,6 +56,22 @@ interface MailerooEmailResponse {
   error?: string
 }
 
+interface EmailProviderErrorResponse {
+  message?: string
+  error?: string
+  name?: string
+}
+
+async function readEmailProviderJson<T extends EmailProviderErrorResponse>(
+  response: Response
+): Promise<T> {
+  return (await response.json().catch(() => ({}))) as T
+}
+
+function emailProviderError(data: EmailProviderErrorResponse, fallback: string): string {
+  return data.message ?? data.error ?? data.name ?? fallback
+}
+
 function parseEmailObject(value: string): MailerooEmailObject {
   const trimmed = value.trim()
   const match = trimmed.match(/^(?:"?([^"<>]*)"?\s*)?<([^<>]+)>$/)
@@ -102,16 +118,12 @@ export class ResendEmailProvider implements EmailProvider {
         text: payload.text,
       }),
     })
-    const data = (await response.json().catch(() => ({}))) as ResendEmailResponse
+    const data = await readEmailProviderJson<ResendEmailResponse>(response)
 
     if (!response.ok) {
       return {
         success: false,
-        error:
-          data.message ??
-          data.error ??
-          data.name ??
-          `Resend API returned HTTP ${response.status}`,
+        error: emailProviderError(data, `Resend API returned HTTP ${response.status}`),
       }
     }
 
@@ -154,17 +166,17 @@ export class MailerooEmailProvider implements EmailProvider {
       },
       body: JSON.stringify(body),
     })
-    const data = (await response.json().catch(() => ({}))) as MailerooEmailResponse
+    const data = await readEmailProviderJson<MailerooEmailResponse>(response)
 
     if (!response.ok || data.success === false) {
       return {
         success: false,
-        error:
-          data.message ??
-          data.error ??
-          (response.ok
+        error: emailProviderError(
+          data,
+          response.ok
             ? 'Maileroo API returned an unsuccessful response'
-            : `Maileroo API returned HTTP ${response.status}`),
+            : `Maileroo API returned HTTP ${response.status}`
+        ),
       }
     }
 
