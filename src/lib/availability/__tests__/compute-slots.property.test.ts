@@ -12,14 +12,6 @@ import { fromZonedTime } from 'date-fns-tz'
 
 // --- Generators ---
 
-/** Generate a valid "HH:mm" time string */
-const timeArb = fc
-  .record({
-    hour: fc.integer({ min: 0, max: 23 }),
-    minute: fc.integer({ min: 0, max: 59 }),
-  })
-  .map(({ hour, minute }) => `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`)
-
 /** Generate a valid time window where start < end with at least 30 min gap */
 const timeWindowArb = fc
   .record({
@@ -59,28 +51,6 @@ function dateForWeekday(weekday: number): string {
 
 /** Use a fixed timezone to avoid DST complications in tests */
 const TIMEZONE = 'UTC'
-
-/** Generate an availability rule for a given weekday */
-function ruleArb(weekday: number) {
-  return timeWindowArb.map(({ start, end }) => ({
-    id: 'rule-1',
-    user_id: 'user-1',
-    weekday,
-    start_time: start,
-    end_time: end,
-    timezone: TIMEZONE,
-    is_active: true,
-  }))
-}
-
-/** Generate a duration that fits within a time window */
-function durationForWindow(startTime: string, endTime: string): fc.Arbitrary<number> {
-  const [sh, sm] = startTime.split(':').map(Number)
-  const [eh, em] = endTime.split(':').map(Number)
-  const windowMinutes = (eh * 60 + em) - (sh * 60 + sm)
-  const maxDuration = Math.min(windowMinutes, 120)
-  return fc.integer({ min: 15, max: Math.max(15, maxDuration) })
-}
 
 // --- Property 4: Slot computation respects availability windows ---
 
@@ -545,7 +515,6 @@ describe('Property 6: Slot computation enforces time boundaries', () => {
 
           // Pick a date that is within the max days ahead range
           // Use a Monday within range
-          const daysAhead = Math.min(maxBookingDaysAhead - 1, 5) // Jan 6 is Monday (5 days ahead)
           const weekday = 1 // Monday
           const date = '2025-01-06'
 

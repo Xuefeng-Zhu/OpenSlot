@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { render } from "@testing-library/react";
 import { axe, toHaveNoViolations } from "jest-axe";
-import React from "react";
 import { Input } from "../input";
 import { Textarea } from "../textarea";
 import { Label } from "../label";
