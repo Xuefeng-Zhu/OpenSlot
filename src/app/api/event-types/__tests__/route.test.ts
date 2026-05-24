@@ -103,8 +103,8 @@ function createTableMock(table: string) {
   throw new Error(`Unexpected table: ${table}`)
 }
 
-vi.mock('@/lib/supabase/server', () => ({
-  createServerSupabaseClient: vi.fn(async () => ({
+vi.mock('@/lib/backend/server', () => ({
+  createServerBackendClient: vi.fn(async () => ({
     auth: {
       getUser: mocks.getUser,
     },

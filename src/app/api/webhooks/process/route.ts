@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { processWebhookDeliveriesBatch } from '@/lib/webhooks/deliveries'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
@@ -44,7 +44,7 @@ async function runWebhookProcessor(
   const maxAttempts = normalizeInteger(body?.maxAttempts, 5, 1, 20)
 
   const result = await processWebhookDeliveriesBatch({
-    adminClient: createAdminClient(),
+    adminClient: createAdminBackendClient(),
     limit,
     maxAttempts,
   })

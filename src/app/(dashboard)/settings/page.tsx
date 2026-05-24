@@ -3,8 +3,7 @@ import {
   loadDashboardCalendarConnections,
   loadDashboardWebhookEndpoints,
 } from "@/lib/dashboard/integration-load-state";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
 import { SettingsClient } from "./settings-client";
 import type { Tables } from "@/lib/types/database";
 import type { SettingsFormValues } from "@/lib/validations/settings";
@@ -12,16 +11,16 @@ import type { SettingsFormValues } from "@/lib/validations/settings";
 const defaultTimezone = "UTC";
 
 export default async function SettingsPage() {
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await backendClient
     .from("profiles")
     .select("id, name, email, default_timezone")
     .eq("auth_user_id", user.id)
@@ -36,7 +35,7 @@ export default async function SettingsPage() {
     "id" | "name" | "email" | "default_timezone"
   >;
 
-  const { data: settings } = await supabase
+  const { data: settings } = await backendClient
     .from("user_settings")
     .select(
       "date_format, time_format, notify_new_booking, notify_cancellation, notify_reminder"
@@ -64,7 +63,7 @@ export default async function SettingsPage() {
     notifyReminder: typedSettings?.notify_reminder ?? true,
   };
 
-  const adminClient = createAdminClient();
+  const adminClient = createAdminBackendClient();
   const [calendarConnections, webhookEndpoints] = await Promise.all([
     loadDashboardCalendarConnections(adminClient, typedProfile.id),
     loadDashboardWebhookEndpoints(adminClient, typedProfile.id),

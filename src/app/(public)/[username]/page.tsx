@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminBackendClient } from "@/lib/backend/server";
 import type { Tables } from "@/lib/types/database";
 import { PublicProfileContent } from "./profile-content";
 
@@ -9,16 +9,16 @@ interface ProfilePageProps {
 
 export default async function PublicProfilePage({ params }: ProfilePageProps) {
   const { username } = await params;
-  const supabase = createAdminClient();
+  const backendClient = createAdminBackendClient();
 
-  const profile = await fetchPublicProfile(supabase, username);
+  const profile = await fetchPublicProfile(backendClient, username);
 
   if (!profile) {
     notFound();
   }
 
   // Fetch active event types for this profile
-  const { data: eventTypesData } = await supabase
+  const { data: eventTypesData } = await backendClient
     .from("event_types")
     .select("id, title, slug, description, duration_minutes, location_type, video_provider")
     .eq("user_id", profile.id)
@@ -63,13 +63,13 @@ type PublicProfile = Pick<
   | "response_time_label"
 >;
 
-type PublicProfileClient = ReturnType<typeof createAdminClient>;
+type PublicProfileClient = ReturnType<typeof createAdminBackendClient>;
 
 async function fetchPublicProfile(
-  supabase: PublicProfileClient,
+  backendClient: PublicProfileClient,
   username: string
 ): Promise<PublicProfile | null> {
-  const { data, error } = await supabase
+  const { data, error } = await backendClient
     .from("profiles")
     .select(
       "id, name, username, avatar_url, default_timezone, public_headline, public_bio, response_time_label"
@@ -85,7 +85,7 @@ async function fetchPublicProfile(
     return null;
   }
 
-  const { data: fallbackData } = await supabase
+  const { data: fallbackData } = await backendClient
     .from("profiles")
     .select("id, name, username, avatar_url, default_timezone")
     .eq("username", username)

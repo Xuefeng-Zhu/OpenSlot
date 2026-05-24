@@ -16,13 +16,13 @@ const mocks = vi.hoisted(() => {
       throw new Error(`NEXT_REDIRECT:${url}`);
     }),
     getUser,
-    createServerSupabaseClient: vi.fn(() => ({
+    createServerBackendClient: vi.fn(() => ({
       auth: {
         getUser,
       },
     })),
     signInWithPassword,
-    createClient: vi.fn(() => ({
+    createBrowserBackendClient: vi.fn(() => ({
       auth: {
         signInWithPassword,
       },
@@ -39,15 +39,15 @@ vi.mock("next/navigation", () => ({
   redirect: mocks.redirect,
 }));
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: mocks.createClient,
+vi.mock("@/lib/backend/compat/browser-client", () => ({
+  createBrowserBackendClient: mocks.createBrowserBackendClient,
 }));
 
-vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: mocks.createServerSupabaseClient,
+vi.mock("@/lib/backend/server", () => ({
+  createServerBackendClient: mocks.createServerBackendClient,
 }));
 
-vi.mock("@/lib/supabase/auth-cookie-persistence", () => ({
+vi.mock("@/lib/backend/compat/session-persistence", () => ({
   setBrowserAuthSessionPersistence: mocks.setBrowserAuthSessionPersistence,
 }));
 
@@ -57,9 +57,9 @@ describe("LoginPage", () => {
     mocks.refresh.mockReset();
     mocks.redirect.mockClear();
     mocks.getUser.mockReset();
-    mocks.createServerSupabaseClient.mockClear();
+    mocks.createServerBackendClient.mockClear();
     mocks.signInWithPassword.mockReset();
-    mocks.createClient.mockClear();
+    mocks.createBrowserBackendClient.mockClear();
     mocks.setBrowserAuthSessionPersistence.mockReset();
     window.history.pushState({}, "", "/login");
   });
@@ -102,7 +102,7 @@ describe("LoginForm", () => {
     mocks.push.mockReset();
     mocks.refresh.mockReset();
     mocks.signInWithPassword.mockReset();
-    mocks.createClient.mockClear();
+    mocks.createBrowserBackendClient.mockClear();
     mocks.setBrowserAuthSessionPersistence.mockReset();
     window.history.pushState({}, "", "/login");
   });
@@ -132,7 +132,7 @@ describe("LoginForm", () => {
 
     await waitFor(() => {
       expect(mocks.setBrowserAuthSessionPersistence).toHaveBeenCalledWith(true);
-      expect(mocks.createClient).toHaveBeenCalledWith({ keepSignedIn: true });
+      expect(mocks.createBrowserBackendClient).toHaveBeenCalledWith({ keepSignedIn: true });
       expect(mocks.signInWithPassword).toHaveBeenCalledWith({
         email: "sarah@example.com",
         password: "correct-horse",
@@ -157,7 +157,7 @@ describe("LoginForm", () => {
 
     await waitFor(() => {
       expect(mocks.setBrowserAuthSessionPersistence).toHaveBeenCalledWith(false);
-      expect(mocks.createClient).toHaveBeenCalledWith({ keepSignedIn: false });
+      expect(mocks.createBrowserBackendClient).toHaveBeenCalledWith({ keepSignedIn: false });
       expect(mocks.signInWithPassword).toHaveBeenCalledWith({
         email: "sarah@example.com",
         password: "correct-horse",

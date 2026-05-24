@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { createBrowserBackendClient } from '@/lib/backend/compat/browser-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -148,7 +148,7 @@ export function AvailabilityEditor({
     setSaveMessage(null)
 
     try {
-      const supabase = createClient()
+      const backendClient = createBrowserBackendClient()
 
       // Validate all rules
       for (const rule of rules) {
@@ -161,7 +161,7 @@ export function AvailabilityEditor({
 
       // Delete existing rules and overrides, then re-insert
       // This is simpler than diffing for an MVP
-      const { error: deleteRulesError } = await (supabase
+      const { error: deleteRulesError } = await (backendClient
         .from('availability_rules') as any)
         .delete()
         .eq('user_id', profileId)
@@ -172,7 +172,7 @@ export function AvailabilityEditor({
         return
       }
 
-      const { error: deleteOverridesError } = await (supabase
+      const { error: deleteOverridesError } = await (backendClient
         .from('availability_overrides') as any)
         .delete()
         .eq('user_id', profileId)
@@ -194,7 +194,7 @@ export function AvailabilityEditor({
           is_active: rule.is_active,
         }))
 
-        const { error: insertRulesError } = await (supabase
+        const { error: insertRulesError } = await (backendClient
           .from('availability_rules') as any)
           .insert(rulesToInsert)
 
@@ -217,7 +217,7 @@ export function AvailabilityEditor({
           reason: override.reason,
         }))
 
-        const { error: insertOverridesError } = await (supabase
+        const { error: insertOverridesError } = await (backendClient
           .from('availability_overrides') as any)
           .insert(overridesToInsert)
 

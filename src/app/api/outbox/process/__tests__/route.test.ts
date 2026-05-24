@@ -6,8 +6,8 @@ const mocks = vi.hoisted(() => ({
   processOutboxBatch: vi.fn(),
 }))
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => mocks.adminClient),
+vi.mock('@/lib/backend/server', () => ({
+  createAdminBackendClient: vi.fn(() => mocks.adminClient),
 }))
 
 vi.mock('@/lib/outbox/process', () => ({

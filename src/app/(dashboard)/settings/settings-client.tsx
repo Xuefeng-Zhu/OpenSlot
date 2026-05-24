@@ -29,7 +29,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { TimezoneSelector } from "@/components/booking/timezone-selector";
 import { useToast } from "@/components/ui/use-toast";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import {
   getVideoProviderReadiness,
@@ -134,8 +134,8 @@ export function SettingsClient({
 
     try {
       if (action === "account" && nextSettings.email !== savedSettings.email) {
-        const supabase = createClient();
-        const { error } = await supabase.auth.updateUser({
+        const backendClient = createBrowserBackendClient();
+        const { error } = await backendClient.auth.updateUser({
           email: nextSettings.email,
         });
 
@@ -195,8 +195,8 @@ export function SettingsClient({
     setPasswordSaving(true);
 
     try {
-      const supabase = createClient();
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const backendClient = createBrowserBackendClient();
+      const { error: signInError } = await backendClient.auth.signInWithPassword({
         email: savedSettings.email,
         password: currentPassword,
       });
@@ -205,7 +205,7 @@ export function SettingsClient({
         throw new Error("Current password is incorrect.");
       }
 
-      const { error } = await supabase.auth.updateUser({
+      const { error } = await backendClient.auth.updateUser({
         password: newPassword,
       });
 
@@ -250,8 +250,8 @@ export function SettingsClient({
         throw new Error(data.error ?? "Failed to delete account");
       }
 
-      const supabase = createClient();
-      await supabase.auth.signOut();
+      const backendClient = createBrowserBackendClient();
+      await backendClient.auth.signOut();
       window.location.assign("/signup");
     } catch (error) {
       setDeleteSaving(false);

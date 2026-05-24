@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import CancelBookingPage from "../page";
 
 const mocks = vi.hoisted(() => ({
-  createAdminClient: vi.fn(() => ({ from: vi.fn() })),
+  createAdminBackendClient: vi.fn(() => ({ from: vi.fn() })),
   getCancellationDetails: vi.fn(),
   isValidCancellationToken: vi.fn(),
 }));
 
-vi.mock("@/lib/supabase/admin", () => ({
-  createAdminClient: mocks.createAdminClient,
+vi.mock("@/lib/backend/server", () => ({
+  createAdminBackendClient: mocks.createAdminBackendClient,
 }));
 
 vi.mock("@/lib/booking/cancellation-details", () => ({
@@ -40,7 +40,7 @@ async function renderPage(tokenParam = token) {
 
 describe("CancelBookingPage", () => {
   beforeEach(() => {
-    mocks.createAdminClient.mockClear();
+    mocks.createAdminBackendClient.mockClear();
     mocks.getCancellationDetails.mockReset();
     mocks.isValidCancellationToken.mockReset();
     mocks.isValidCancellationToken.mockReturnValue(true);
@@ -54,7 +54,7 @@ describe("CancelBookingPage", () => {
 
     await renderPage();
 
-    expect(mocks.createAdminClient).toHaveBeenCalledTimes(1);
+    expect(mocks.createAdminBackendClient).toHaveBeenCalledTimes(1);
     expect(mocks.getCancellationDetails).toHaveBeenCalledWith(
       token,
       expect.any(Object)
@@ -72,7 +72,7 @@ describe("CancelBookingPage", () => {
 
     await renderPage("not-a-token");
 
-    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+    expect(mocks.createAdminBackendClient).not.toHaveBeenCalled();
     expect(mocks.getCancellationDetails).not.toHaveBeenCalled();
     expect(screen.getByText("Invalid Cancellation Link")).toBeDefined();
   });

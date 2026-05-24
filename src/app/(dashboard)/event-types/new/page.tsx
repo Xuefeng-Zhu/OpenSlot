@@ -1,22 +1,21 @@
 import { redirect } from "next/navigation";
 import { EventTypeEditor, type ScheduleOption } from "../event-type-editor";
 import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
 import type { Tables } from "@/lib/types/database";
 
 export default async function NewEventTypePage() {
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id, name, username, avatar_url")
     .eq("auth_user_id", user.id)
@@ -32,11 +31,11 @@ export default async function NewEventTypePage() {
   }
 
   const calendarConnections = await loadDashboardCalendarConnections(
-    createAdminClient(),
+    createAdminBackendClient(),
     profile.id
   );
 
-  const { data: schedulesData } = await supabase
+  const { data: schedulesData } = await backendClient
     .from("schedules")
     .select("id, name, is_default")
     .eq("user_id", profile.id)

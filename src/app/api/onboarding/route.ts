@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import {
   buildOnboardingAvailabilityRules,
   buildOnboardingEventSlug,
@@ -22,11 +21,11 @@ export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const backendClient = await createServerBackendClient()
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = await backendClient.auth.getUser()
 
     if (authError || !user) {
       return NextResponse.json(
@@ -52,7 +51,7 @@ export async function POST(request: NextRequest) {
     // Prefer service-key writes because onboarding may create the first profile
     // before authenticated RLS policies can resolve profile ownership.
     const writeClient = (
-      process.env.BUTTERBASE_API_KEY ? createAdminClient() : supabase
+      process.env.BUTTERBASE_API_KEY ? createAdminBackendClient() : backendClient
     ) as OnboardingWriteClient
     const { profile, availability, eventType, timezone } = parsed.data
     const now = new Date().toISOString()

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerBackendClient } from "@/lib/backend/server";
 import { ContactsClient } from "@/components/dashboard/contacts-client";
 import {
   buildContactSummaries,
@@ -27,17 +27,17 @@ interface BookingRow {
 }
 
 export default async function ContactsPage() {
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id")
     .eq("auth_user_id", user.id)
@@ -53,7 +53,7 @@ export default async function ContactsPage() {
     { data: contactsData, error: contactsError },
     { data: bookingsData, error: bookingsError },
   ] = await Promise.all([
-    supabase
+    backendClient
       .from("contacts")
       .select(
         "id, email_hash, display_name, last_guest_timezone, first_seen_at, last_seen_at, deleted_at"
@@ -61,7 +61,7 @@ export default async function ContactsPage() {
       .eq("host_user_id", profile.id)
       .is("deleted_at", null)
       .order("last_seen_at", { ascending: false }),
-    supabase
+    backendClient
       .from("bookings")
       .select(
         "id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancel_reason, rescheduled_from_booking_id, rescheduled_to_booking_id, rescheduled_at, created_at, updated_at, event_types(title)"

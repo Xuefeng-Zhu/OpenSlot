@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation"
-import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { createServerBackendClient } from "@/lib/backend/server"
 import type { Tables } from "@/lib/types/database"
 import { AvailabilityClient } from "@/components/dashboard/availability-client"
 
@@ -15,19 +15,19 @@ export default async function AvailabilityPage({
   searchParams,
 }: AvailabilityPageProps) {
   const resolvedSearchParams = await searchParams
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
 
   // Get authenticated user
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (!user) {
     redirect("/login")
   }
 
   // Fetch profile (id, default_timezone) using auth_user_id
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id, default_timezone")
     .eq("auth_user_id", user.id)
@@ -42,14 +42,14 @@ export default async function AvailabilityPage({
     redirect("/onboarding")
   }
 
-  const { data: schedulesData } = await supabase
+  const { data: schedulesData } = await backendClient
     .from("schedules")
     .select("id, name, timezone, is_default, created_at")
     .eq("user_id", profile.id)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: true })
 
-  const { data: eventTypeScheduleData } = await supabase
+  const { data: eventTypeScheduleData } = await backendClient
     .from("event_types")
     .select("id, title, slug, schedule_id")
     .eq("user_id", profile.id)
@@ -94,7 +94,7 @@ export default async function AvailabilityPage({
   }
 
   // Fetch availability rules for the selected schedule
-  const { data: rulesData } = await supabase
+  const { data: rulesData } = await backendClient
     .from("availability_rules")
     .select("id, weekday, start_time, end_time, is_active")
     .eq("user_id", profile.id)
@@ -112,7 +112,7 @@ export default async function AvailabilityPage({
   }))
 
   // Fetch availability overrides for the authenticated user
-  const { data: overridesData } = await supabase
+  const { data: overridesData } = await backendClient
     .from("availability_overrides")
     .select("id, date, start_time, end_time, is_available, reason")
     .eq("user_id", profile.id)

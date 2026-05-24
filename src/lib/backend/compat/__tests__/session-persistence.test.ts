@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { applyAuthSessionPersistence } from '../auth-cookie-persistence'
+import { applyAuthSessionPersistence } from '../session-persistence'
 
 describe('applyAuthSessionPersistence', () => {
   it('keeps persistent cookie options when keep signed in is enabled', () => {
     const expires = new Date('2030-01-01T00:00:00.000Z')
     const cookies = [
       {
-        name: 'sb-auth-token',
+        name: 'openslot_backend_access_token',
         value: 'token',
         options: { path: '/', maxAge: 60, expires },
       },
@@ -19,7 +19,7 @@ describe('applyAuthSessionPersistence', () => {
   it('turns positive lifetime writes into browser-session cookies', () => {
     const cookies = [
       {
-        name: 'sb-auth-token',
+        name: 'openslot_backend_access_token',
         value: 'token',
         options: {
           path: '/',
@@ -32,7 +32,7 @@ describe('applyAuthSessionPersistence', () => {
 
     expect(applyAuthSessionPersistence(cookies, false)).toEqual([
       {
-        name: 'sb-auth-token',
+        name: 'openslot_backend_access_token',
         value: 'token',
         options: {
           path: '/',
@@ -45,7 +45,7 @@ describe('applyAuthSessionPersistence', () => {
   it('preserves deletion writes', () => {
     const cookies = [
       {
-        name: 'sb-auth-token',
+        name: 'openslot_backend_access_token',
         value: '',
         options: { path: '/', maxAge: 0 },
       },

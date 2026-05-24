@@ -14,9 +14,9 @@ from becoming another app-wide rewrite.
 - Atomic booking paths must run through backend function/transaction entrypoints;
   do not rebuild hold, confirm, cancel, reschedule, or worker-claim logic with
   ad hoc browser-visible REST sequences.
-- Legacy `src/lib/supabase/*` modules are compatibility shims only. They do not
-  import Supabase packages and should disappear as app code moves to
-  `@/lib/backend/*` names.
+- Supabase-shaped compatibility APIs belong under `src/lib/backend/compat/`.
+  They do not import Supabase packages and should stay behind backend-neutral
+  names while app code moves toward narrower backend ports.
 
 ## Provider Contracts
 

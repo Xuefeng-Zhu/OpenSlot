@@ -70,8 +70,8 @@ Rules:
 
 - `src/lib/backend/server.ts`: server helpers for request-scoped and service clients.
 - `src/lib/backend/compat/query-client.ts`: temporary fluent query compatibility layer.
+- `src/lib/backend/compat/browser-client.ts`: browser-safe compatibility client.
 - `src/lib/backend/butterbase/*`: Butterbase adapter and HTTP client.
-- `src/lib/supabase/*`: legacy import-path shims that delegate to Butterbase.
 
 Never import the admin client into a Client Component.
 

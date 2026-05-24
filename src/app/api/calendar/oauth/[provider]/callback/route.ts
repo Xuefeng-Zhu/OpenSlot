@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import {
   exchangeCalendarAuthorizationCode,
   fetchCalendarProviderIdentity,
@@ -93,7 +93,7 @@ export async function GET(
       provider,
       accessToken: tokens.accessToken,
     })
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const connection = await upsertProviderConnection({
       adminClient,
       provider,
@@ -130,7 +130,7 @@ async function upsertProviderConnection({
   tokens,
   metadata,
 }: {
-  adminClient: ReturnType<typeof createAdminClient>
+  adminClient: ReturnType<typeof createAdminBackendClient>
   provider: CalendarProvider
   profileId: string
   accountEmail: string

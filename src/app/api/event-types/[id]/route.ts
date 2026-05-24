@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerBackendClient } from '@/lib/backend/server'
 import {
   eventTypeFieldErrors,
   eventTypeWritePayload,
@@ -26,8 +26,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -60,7 +60,7 @@ export async function PATCH(
     }
 
     const scheduleResult = await scheduleBelongsToProfile(
-      supabase,
+      backendClient,
       parsed.data.schedule_id,
       auth.profile.id
     )
@@ -77,7 +77,7 @@ export async function PATCH(
       auth.profile.id
     )
 
-    const { data: eventType, error } = await (supabase
+    const { data: eventType, error } = await (backendClient
       .from('event_types') as any)
       .update({
         ...payload,
@@ -137,8 +137,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -147,7 +147,7 @@ export async function DELETE(
       )
     }
 
-    const { data: deletedEventType, error } = await (supabase
+    const { data: deletedEventType, error } = await (backendClient
       .from('event_types') as any)
       .delete()
       .eq('id', id)

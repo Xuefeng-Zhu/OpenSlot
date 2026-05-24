@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { processOutboxBatch } from '@/lib/outbox/process'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
@@ -46,7 +46,7 @@ async function runOutboxProcessor(
   const limit = normalizeLimit(body?.limit)
   const maxAttempts = normalizeMaxAttempts(body?.maxAttempts)
   const result = await processOutboxBatch({
-    adminClient: createAdminClient(),
+    adminClient: createAdminBackendClient(),
     limit,
     maxAttempts,
   })

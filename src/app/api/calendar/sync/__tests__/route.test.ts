@@ -7,8 +7,8 @@ const mocks = vi.hoisted(() => ({
   adminClient: { id: 'admin-client' },
 }))
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => mocks.adminClient),
+vi.mock('@/lib/backend/server', () => ({
+  createAdminBackendClient: vi.fn(() => mocks.adminClient),
 }))
 
 vi.mock('@/lib/calendar/provider-sync', () => ({

@@ -29,17 +29,14 @@ function createServerTableMock(table: string) {
 
 const rpcMock = vi.hoisted(() => vi.fn())
 
-vi.mock('@/lib/supabase/server', () => ({
-  createServerSupabaseClient: vi.fn(async () => ({
+vi.mock('@/lib/backend/server', () => ({
+  createServerBackendClient: vi.fn(async () => ({
     auth: {
       getUser: mocks.getUser,
     },
     from: createServerTableMock,
   })),
-}))
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({
+  createAdminBackendClient: vi.fn(() => ({
     rpc: rpcMock,
   })),
 }))

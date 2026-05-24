@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { rescheduleBookingSchema } from '@/lib/validations/booking'
 import { rescheduleBooking } from '@/lib/booking/reschedule'
 import {
@@ -25,7 +25,7 @@ import type { Json } from '@/lib/types/database'
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  let adminClient: ReturnType<typeof createAdminClient> | null = null
+  let adminClient: ReturnType<typeof createAdminBackendClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null
 
   try {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    adminClient = createAdminClient()
+    adminClient = createAdminBackendClient()
     const { idempotencyKey, turnstileToken, ...rescheduleInput } = parsed.data
 
     const keyResult = resolveIdempotencyKey(
@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function cacheIdempotentResponse(
-  adminClient: ReturnType<typeof createAdminClient> | null,
+  adminClient: ReturnType<typeof createAdminBackendClient> | null,
   entry: IdempotencyEntry | null,
   body: unknown,
   status: number
@@ -141,7 +141,7 @@ async function cacheIdempotentResponse(
 }
 
 async function abandonIdempotentMarker(
-  adminClient: ReturnType<typeof createAdminClient> | null,
+  adminClient: ReturnType<typeof createAdminBackendClient> | null,
   entry: IdempotencyEntry | null
 ) {
   if (!adminClient || !entry) return

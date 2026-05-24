@@ -1,24 +1,24 @@
 import { redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerBackendClient } from "@/lib/backend/server";
 import type { Tables } from "@/lib/types/database";
 import BookingsClient from "@/components/dashboard/bookings-client";
 import type { Booking } from "@/lib/booking-utils";
 import { normalizeBookingAnswerSummaries } from "@/lib/validations/invitee-questions";
 
 export default async function BookingsPage() {
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   // Get authenticated user
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
   // Fetch profile using auth_user_id
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id")
     .eq("auth_user_id", user.id)
@@ -31,7 +31,7 @@ export default async function BookingsPage() {
   }
 
   // Fetch all bookings joined with event_types for the authenticated user
-  const { data: bookingsData } = await supabase
+  const { data: bookingsData } = await backendClient
     .from("bookings")
     .select(
       "id, guest_name, guest_email, guest_timezone, notes, booking_answers, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"

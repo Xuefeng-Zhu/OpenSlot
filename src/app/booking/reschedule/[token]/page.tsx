@@ -1,6 +1,6 @@
 import { Calendar, Clock, User } from "lucide-react";
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminBackendClient } from "@/lib/backend/server";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
 import type { Tables } from "@/lib/types/database";
@@ -16,9 +16,9 @@ export default async function RescheduleBookingPage({
   params,
 }: ReschedulePageProps) {
   const { token } = await params;
-  const supabase = createAdminClient();
+  const backendClient = createAdminBackendClient();
 
-  const { data: bookingData } = await supabase
+  const { data: bookingData } = await backendClient
     .from("bookings")
     .select("*")
     .eq("reschedule_token", token)
@@ -32,7 +32,7 @@ export default async function RescheduleBookingPage({
   }
 
   const [{ data: eventTypeData }, { data: profileData }] = await Promise.all([
-    supabase
+    backendClient
       .from("event_types")
       .select(
         "id, title, slug, description, duration_minutes, location_type, location_value, video_provider, invitee_questions, user_id"
@@ -40,7 +40,7 @@ export default async function RescheduleBookingPage({
       .eq("id", booking.event_type_id)
       .eq("is_active", true)
       .single(),
-    supabase
+    backendClient
       .from("profiles")
       .select("id, name, username, avatar_url")
       .eq("id", booking.host_user_id)

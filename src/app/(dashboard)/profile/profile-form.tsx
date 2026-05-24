@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { profileSchema, type ProfileFormValues, getTimezones } from '@/lib/validations/profile'
-import { createClient } from '@/lib/supabase/client'
+import { createBrowserBackendClient } from '@/lib/backend/compat/browser-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,18 +46,18 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
     setServerError('')
 
     try {
-      const supabase = createClient()
+      const backendClient = createBrowserBackendClient()
 
       const {
         data: { user },
-      } = await supabase.auth.getUser()
+      } = await backendClient.auth.getUser()
 
       if (!user) {
         setServerError('You must be logged in to update your profile.')
         return
       }
 
-      const { error } = await (supabase
+      const { error } = await (backendClient
         .from('profiles') as any)
         .update({
           name: data.name,

@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "../settings-client";
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
+vi.mock("@/lib/backend/compat/browser-client", () => ({
+  createBrowserBackendClient: () => ({
     auth: {
       signInWithPassword: vi.fn(),
       updateUser: vi.fn(),

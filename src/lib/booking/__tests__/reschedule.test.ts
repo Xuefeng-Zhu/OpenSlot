@@ -52,7 +52,7 @@ const validInput = {
   notes: 'New time works better.',
 }
 
-function createAdminClient({
+function createAdminBackendClient({
   rpcResult,
   inviteeQuestions = [],
 }: {
@@ -96,7 +96,7 @@ describe('rescheduleBooking', () => {
   })
 
   it('uses the atomic reschedule RPC and queues side effects', async () => {
-    const adminClient = createAdminClient({
+    const adminClient = createAdminBackendClient({
       rpcResult: { data: [rpcRow], error: null },
     }) as any
 
@@ -155,7 +155,7 @@ describe('rescheduleBooking', () => {
   })
 
   it('passes validated invitee answers into the reschedule RPC', async () => {
-    const adminClient = createAdminClient({
+    const adminClient = createAdminBackendClient({
       rpcResult: { data: [rpcRow], error: null },
       inviteeQuestions: [
         {
@@ -193,7 +193,7 @@ describe('rescheduleBooking', () => {
   })
 
   it('maps expired holds to a guest-safe error', async () => {
-    const adminClient = createAdminClient({
+    const adminClient = createAdminBackendClient({
       rpcResult: {
         data: null,
         error: { code: 'P0001', message: 'hold_expired' },
@@ -211,7 +211,7 @@ describe('rescheduleBooking', () => {
   })
 
   it('maps database overlap conflicts to slot-taken', async () => {
-    const adminClient = createAdminClient({
+    const adminClient = createAdminBackendClient({
       rpcResult: {
         data: null,
         error: { code: '23P01', message: 'conflict' },

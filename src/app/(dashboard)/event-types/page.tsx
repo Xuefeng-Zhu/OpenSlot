@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerBackendClient } from "@/lib/backend/server";
 import type { Tables } from "@/lib/types/database";
 import { videoProviderLabel } from "@/lib/calendar/video-providers";
 import {
@@ -21,17 +21,17 @@ function buildBookingUrl(username: string, slug: string) {
 }
 
 export default async function EventTypesPage() {
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id, username")
     .eq("auth_user_id", user.id)
@@ -48,7 +48,7 @@ export default async function EventTypesPage() {
 
   const username = profile.username;
 
-  const { data: eventTypesData } = await supabase
+  const { data: eventTypesData } = await backendClient
     .from("event_types")
     .select(
       "id, title, slug, description, duration_minutes, location_type, video_provider, is_active, created_at"

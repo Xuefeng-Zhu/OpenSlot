@@ -1,22 +1,22 @@
 import { redirect } from "next/navigation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerBackendClient } from "@/lib/backend/server";
 import type { Tables } from "@/lib/types/database";
 import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   // Get authenticated user
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
   // Fetch profile (username, name) using auth_user_id
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id, username, name")
     .eq("auth_user_id", user.id)
@@ -32,7 +32,7 @@ export default async function DashboardPage() {
   }
 
   // Fetch upcoming confirmed bookings joined with event_types
-  const { data: bookingsData } = await supabase
+  const { data: bookingsData } = await backendClient
     .from("bookings")
     .select("id, guest_name, start_at, end_at, event_type_id, event_types(title)")
     .eq("host_user_id", profile.id)
@@ -58,7 +58,7 @@ export default async function DashboardPage() {
   }));
 
   // Fetch count of active event types
-  const { count: activeEventTypeCount } = await supabase
+  const { count: activeEventTypeCount } = await backendClient
     .from("event_types")
     .select("id", { count: "exact", head: true })
     .eq("user_id", profile.id)

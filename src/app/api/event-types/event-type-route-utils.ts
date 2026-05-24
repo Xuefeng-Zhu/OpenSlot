@@ -32,18 +32,18 @@ type AuthenticatedProfileResult =
  * responses while sharing the session/profile lookup.
  */
 export async function getAuthenticatedProfile(
-  supabase: ProfileLookupClient
+  backendClient: ProfileLookupClient
 ): Promise<AuthenticatedProfileResult> {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (authError || !user) {
     return { ok: false, error: 'Unauthorized', status: 401 }
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from('profiles')
     .select('id')
     .eq('auth_user_id', user.id)
@@ -113,11 +113,11 @@ export function eventTypeWritePayload(
 }
 
 export async function scheduleBelongsToProfile(
-  supabase: { from: (table: 'schedules') => any },
+  backendClient: { from: (table: 'schedules') => any },
   scheduleId: string,
   userId: string
 ): Promise<{ ok: true } | { ok: false; status: 404 | 500; error: string }> {
-  const { data, error } = await supabase
+  const { data, error } = await backendClient
     .from('schedules')
     .select('id')
     .eq('id', scheduleId)

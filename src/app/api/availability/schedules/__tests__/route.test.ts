@@ -57,8 +57,8 @@ function createProfileQuery() {
   return query
 }
 
-vi.mock('@/lib/supabase/server', () => ({
-  createServerSupabaseClient: vi.fn(async () => ({
+vi.mock('@/lib/backend/server', () => ({
+  createServerBackendClient: vi.fn(async () => ({
     auth: {
       getUser: mocks.getUser,
     },
@@ -67,10 +67,7 @@ vi.mock('@/lib/supabase/server', () => ({
       return createProfileQuery()
     },
   })),
-}))
-
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({
+  createAdminBackendClient: vi.fn(() => ({
     from: (table: string) => {
       const query = mocks.adminQueries.shift()
       if (!query) throw new Error('Unexpected admin query')

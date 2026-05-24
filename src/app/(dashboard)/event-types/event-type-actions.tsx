@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { createBrowserBackendClient } from '@/lib/backend/compat/browser-client'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -29,9 +29,9 @@ export function EventTypeActions({ eventTypeId, eventTypeTitle }: EventTypeActio
     setIsDeleting(true)
 
     try {
-      const supabase = createClient()
+      const backendClient = createBrowserBackendClient()
 
-      const { error } = await supabase
+      const { error } = await backendClient
         .from('event_types')
         .delete()
         .eq('id', eventTypeId)

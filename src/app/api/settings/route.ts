@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import { settingsSchema } from '@/lib/validations/settings'
 
 async function getAuthenticatedProfile() {
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (authError || !user) {
     return {
@@ -18,7 +17,7 @@ async function getAuthenticatedProfile() {
     }
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await backendClient
     .from('profiles')
     .select('id, auth_user_id')
     .eq('auth_user_id', user.id)
@@ -81,7 +80,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const settings = parsed.data
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const now = new Date().toISOString()
 
     const { error: profileError } = await adminClient
@@ -151,7 +150,7 @@ export async function DELETE() {
       )
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const { error } = await adminClient.auth.admin?.deleteUser(auth.user.id) ?? {
       error: { message: 'Admin auth is unavailable' },
     }

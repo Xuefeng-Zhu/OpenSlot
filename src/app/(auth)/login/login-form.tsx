@@ -4,10 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Lock, Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import {
   setBrowserAuthSessionPersistence,
-} from "@/lib/supabase/auth-cookie-persistence";
+} from "@/lib/backend/compat/session-persistence";
 import { AppIcon } from "@/components/shared/app-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,9 +49,9 @@ export function LoginForm({ returnUrl }: LoginFormProps) {
 
     try {
       setBrowserAuthSessionPersistence(keepSignedIn);
-      const supabase = createClient({ keepSignedIn });
+      const backendClient = createBrowserBackendClient({ keepSignedIn });
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { error: signInError } = await backendClient.auth.signInWithPassword({
         email,
         password,
       });

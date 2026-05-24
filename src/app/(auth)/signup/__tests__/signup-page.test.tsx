@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => {
     push: vi.fn(),
     refresh: vi.fn(),
     signUp,
-    createClient: vi.fn(() => ({
+    createBrowserBackendClient: vi.fn(() => ({
       auth: {
         signUp,
       },
@@ -25,8 +25,8 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: mocks.createClient,
+vi.mock("@/lib/backend/compat/browser-client", () => ({
+  createBrowserBackendClient: mocks.createBrowserBackendClient,
 }));
 
 describe("SignupPage", () => {
@@ -34,7 +34,7 @@ describe("SignupPage", () => {
     mocks.push.mockReset();
     mocks.refresh.mockReset();
     mocks.signUp.mockReset();
-    mocks.createClient.mockClear();
+    mocks.createBrowserBackendClient.mockClear();
   });
 
   it("routes to the dashboard when signup creates a session", async () => {

@@ -3,8 +3,7 @@ import {
   emptyDashboardNotifications,
   listDashboardNotifications,
 } from '@/lib/dashboard/notifications'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import { DashboardShell } from './dashboard-shell'
 import type { Tables } from '@/lib/types/database'
 
@@ -15,17 +14,17 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (!user) {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await backendClient
     .from('profiles')
     .select('id, name, email, username')
     .eq('auth_user_id', user.id)
@@ -36,7 +35,7 @@ export default async function DashboardLayout({
     'id' | 'name' | 'email' | 'username'
   > | null
   const notifications = typedProfile
-    ? await listDashboardNotifications(createAdminClient(), typedProfile.id)
+    ? await listDashboardNotifications(createAdminBackendClient(), typedProfile.id)
     : emptyDashboardNotifications
 
   return (

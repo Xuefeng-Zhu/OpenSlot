@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import { anonymizeContact } from '@/lib/contacts/contacts'
 
 interface ContactRouteProps {
@@ -15,17 +14,17 @@ const contactIdSchema = z.string().uuid()
  * writes, so a guessed contact id cannot cross tenant boundaries.
  */
 async function getAuthenticatedProfileId() {
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (authError || !user) {
     return { ok: false as const, status: 401, error: 'Unauthorized' }
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await backendClient
     .from('profiles')
     .select('id')
     .eq('auth_user_id', user.id)
@@ -67,7 +66,7 @@ export async function DELETE(
       )
     }
 
-    const result = await anonymizeContact(createAdminClient(), {
+    const result = await anonymizeContact(createAdminBackendClient(), {
       contactId: parsedId.data,
       hostUserId: auth.profileId,
     })

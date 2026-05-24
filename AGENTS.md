@@ -36,8 +36,7 @@ src/lib/email/                   Email templates and console provider
 src/lib/idempotency/             Request idempotency helpers for retry-safe mutations
 src/lib/outbox/                  Internal side-effect event enqueue helpers
 src/lib/reservations/            Host reservation mirror helpers
-src/lib/backend/                 Backend ports, Butterbase adapter, compatibility client
-src/lib/supabase/                Legacy shims delegating to the backend runtime
+src/lib/backend/                 Backend ports, Butterbase adapter, compatibility clients
 src/lib/validations/             Zod schemas
 src/lib/utils/                   Slug and timezone helpers
 src/proxy.ts                     Butterbase session refresh and dashboard redirect proxy
@@ -231,8 +230,7 @@ See [docs/architecture.md](docs/architecture.md) for more detail.
 - `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
 - `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
 - `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend or Maileroo when configured.
-- `src/lib/backend/`: provider-neutral backend ports plus the active Butterbase adapter and compatibility client.
-- `src/lib/supabase/admin.ts`: legacy server-only shim. Never use this from client components.
+- `src/lib/backend/`: provider-neutral backend ports plus the active Butterbase adapter and compatibility clients. Never import the admin backend client into a Client Component.
 - `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
 
 ## State Management and Data Flow
