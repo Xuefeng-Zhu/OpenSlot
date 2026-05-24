@@ -20,7 +20,7 @@ Include:
 
 - Never commit `.env.local`, service role keys, provider credentials, OAuth
   secrets, webhook secrets, or production tokens.
-- Never import `src/lib/supabase/admin.ts` into Client Components.
+- Never import the admin backend client into Client Components.
 - Keep guest operations authorized by high-entropy hold, cancellation, or
   rescheduling tokens.
 - Keep worker routes protected by route-specific secrets or `CRON_SECRET`.
