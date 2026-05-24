@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -19,6 +18,7 @@ import { Avatar, getInitials } from "@/components/ui/avatar";
 import { useToast } from "@/components/ui/use-toast";
 import { getDisplayedBookings } from "@/lib/dashboard-utils";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
+import { useCopyFeedback } from "@/components/shared/use-copy-feedback";
 
 export interface DashboardBooking {
   id: string;
@@ -50,19 +50,18 @@ export function DashboardClient({
   bookingLink,
 }: DashboardClientProps) {
   const { toast } = useToast();
-  const [copied, setCopied] = useState(false);
+  const { copied, showCopied } = useCopyFeedback();
 
   const displayedBookings = getDisplayedBookings(upcomingBookings);
 
   const handleCopyLink = () => {
     copyTextToClipboard(bookingLink)
       .then(() => {
-        setCopied(true);
+        showCopied();
         toast({
           title: "Link copied!",
           description: "Your booking link has been copied to clipboard.",
         });
-        setTimeout(() => setCopied(false), 2000);
       })
       .catch(() => {
         toast({
