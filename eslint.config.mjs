@@ -3,7 +3,14 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 const eslintConfig = [
   ...nextVitals,
   {
-    ignores: [".next/**", ".vercel/**", "next-env.d.ts"],
+    ignores: [
+      ".next/**",
+      ".vercel/**",
+      "coverage/**",
+      "next-env.d.ts",
+      "playwright-report/**",
+      "test-results/**",
+    ],
   },
   {
     rules: {
