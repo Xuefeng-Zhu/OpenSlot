@@ -31,7 +31,16 @@ export async function PATCH(
       )
     }
 
-    const body = await request.json()
+    let body: unknown
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON body' },
+        { status: 400 }
+      )
+    }
+
     const parsed = updateScheduleSchema.safeParse(body)
 
     if (!parsed.success) {
