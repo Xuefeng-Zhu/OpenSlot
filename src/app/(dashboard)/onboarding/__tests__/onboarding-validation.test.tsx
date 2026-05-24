@@ -174,6 +174,53 @@ describe("Onboarding validation", () => {
     expect(writeText).toHaveBeenCalledWith(
       "https://preview.openslot.test/sarah-chen/intro-call"
     );
+    await screen.findByRole("button", { name: "Copied!" });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not show copied feedback when clipboard writes fail", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("permission denied"));
+    const originalExecCommand = document.execCommand;
+    document.execCommand = vi.fn(() => false);
+    vi.stubGlobal("navigator", {
+      clipboard: { writeText },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        bookingLink: "/sarah-chen/intro-call",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      render(<OnboardingPage />);
+      advanceFromProfile();
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+      fireEvent.change(screen.getByLabelText("Title"), {
+        target: { value: "Intro Call" },
+      });
+      fireEvent.change(screen.getByLabelText("Location type"), {
+        target: { value: "custom" },
+      });
+      fireEvent.change(screen.getByLabelText("Location details"), {
+        target: { value: "Zoom" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+      await screen.findByText("Share your booking link");
+      fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+      await screen.findByRole("alert");
+      expect(
+        screen.getByText("Could not copy link. Select the URL and copy it manually.")
+      ).toBeDefined();
+      expect(screen.getByRole("button", { name: "Copy link" })).toBeDefined();
+      expect(screen.queryByRole("button", { name: "Copied!" })).toBeNull();
+    } finally {
+      document.execCommand = originalExecCommand;
+    }
   });
 
   it("uses the event type location selector for generated video locations", async () => {

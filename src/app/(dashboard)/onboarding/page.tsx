@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import {
   ONBOARDING_STEPS,
   ProgressIndicator,
@@ -187,6 +188,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(0);
   const [copied, setCopied] = React.useState(false);
+  const [copyError, setCopyError] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState("");
   const [savedBookingLink, setSavedBookingLink] = React.useState("");
@@ -251,6 +253,7 @@ export default function OnboardingPage() {
       }
 
       setSavedBookingLink(data.bookingLink);
+      setCopyError("");
       setValidationErrors(getEmptyValidationErrors());
       setCurrentStep(ONBOARDING_STEPS.length - 1);
       router.refresh();
@@ -312,13 +315,13 @@ export default function OnboardingPage() {
   const handleCopyLink = async () => {
     const link = absoluteBookingLink(savedBookingLink);
     try {
-      await navigator.clipboard.writeText(link);
+      await copyTextToClipboard(link);
       setCopied(true);
+      setCopyError("");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: just show copied state briefly
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(false);
+      setCopyError("Could not copy link. Select the URL and copy it manually.");
     }
   };
 
@@ -375,6 +378,7 @@ export default function OnboardingPage() {
             bookingLink={savedBookingLink}
             displayLink={absoluteBookingLink(savedBookingLink)}
             copied={copied}
+            copyError={copyError}
             onCopy={handleCopyLink}
           />
         )}

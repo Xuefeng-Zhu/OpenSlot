@@ -452,11 +452,13 @@ export function StepBookingLink({
   bookingLink,
   displayLink,
   copied,
+  copyError,
   onCopy,
 }: {
   bookingLink: string;
   displayLink: string;
   copied: boolean;
+  copyError: string;
   onCopy: () => void;
 }) {
   return (
@@ -495,6 +497,11 @@ export function StepBookingLink({
             </>
           )}
         </Button>
+        {copyError ? (
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            {copyError}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex justify-center">
