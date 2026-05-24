@@ -11,6 +11,7 @@ import type { E2EAdminClient } from "./support/db/types";
 
 const janeGuestEmailHash =
   "9f4c07655c890f7bfa1ab7e0ac62ea8369a05f1ba57445af1a24fe0013c8baa1";
+const staleDemoEventTypeAgeMs = 6 * 60 * 60 * 1000;
 
 export default async function globalSetup() {
   const env = loadE2EEnv();
@@ -409,14 +410,18 @@ async function ensureWeekdayAvailability(
   }
 }
 
-async function cleanupStaleDemoEventTypes(
+export async function cleanupStaleDemoEventTypes(
   adminClient: E2EAdminClient,
   profileId: string
 ) {
+  const staleCreatedBefore = new Date(
+    Date.now() - staleDemoEventTypeAgeMs
+  ).toISOString();
   const { data, error } = await adminClient
     .from("event_types")
     .select("id, title, slug")
-    .eq("user_id", profileId);
+    .eq("user_id", profileId)
+    .lt("created_at", staleCreatedBefore);
 
   if (error) {
     throw new Error(`Could not inspect demo event types: ${error.message}`);

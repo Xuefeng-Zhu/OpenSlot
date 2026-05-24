@@ -7,7 +7,10 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ensureDemoAuthUser } from '../../../e2e/global-setup'
+import {
+  cleanupStaleDemoEventTypes,
+  ensureDemoAuthUser,
+} from '../../../e2e/global-setup'
 import { demoHost, resetRuntimeDemoHostForTests } from '../../../e2e/demo-data'
 import type { E2EAdminClient } from '../../../e2e/support/db/types'
 import type { BackendPorts } from '@/lib/backend/ports'
@@ -213,6 +216,36 @@ describe('E2E demo auth setup', () => {
 
     await expect(ensureDemoAuthUser(backend, adminClient)).rejects.toThrow(
       'replacement signup failed: signup did not return an auth user id'
+    )
+  })
+})
+
+describe('E2E demo event type cleanup', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('only inspects age-gated E2E event type candidates', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-24T12:00:00.000Z'))
+
+    const query = {
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      lt: vi.fn(async () => ({ data: [], error: null })),
+    }
+    const adminClient = {
+      from: vi.fn(() => query),
+    } as unknown as E2EAdminClient
+
+    await cleanupStaleDemoEventTypes(adminClient, 'profile-1')
+
+    expect(adminClient.from).toHaveBeenCalledWith('event_types')
+    expect(query.select).toHaveBeenCalledWith('id, title, slug')
+    expect(query.eq).toHaveBeenCalledWith('user_id', 'profile-1')
+    expect(query.lt).toHaveBeenCalledWith(
+      'created_at',
+      '2026-05-24T06:00:00.000Z'
     )
   })
 })
