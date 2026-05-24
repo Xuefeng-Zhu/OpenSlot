@@ -16,6 +16,7 @@ import {
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { Json } from '@/lib/types/database'
+import { getBookingCancellationErrorStatus } from '../../error-status'
 
 /**
  * POST /api/bookings/[id]/cancel
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
     const result = await cancelBooking(cancelInput, adminClient)
 
     if (!result.success) {
-      const status = getErrorStatus(result.error)
+      const status = getBookingCancellationErrorStatus(result.error)
       await cacheIdempotentResponse(adminClient, idempotencyEntry, result, status)
       return NextResponse.json(result, { status })
     }
@@ -161,23 +162,4 @@ async function abandonIdempotentMarker(
   if (!adminClient || !entry) return
 
   await abandonIdempotentRequest({ adminClient, entry })
-}
-
-/**
- * Maps error messages to appropriate HTTP status codes.
- */
-function getErrorStatus(error?: string): number {
-  if (!error) return 500
-
-  if (error.includes('not found')) {
-    return 404
-  }
-  if (error.includes('already been cancelled')) {
-    return 409 // Conflict
-  }
-  if (error.includes('Failed to cancel')) {
-    return 500
-  }
-
-  return 500
 }

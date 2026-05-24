@@ -16,6 +16,7 @@ import {
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { Json } from '@/lib/types/database'
+import { getBookingMutationErrorStatus } from './error-status'
 
 /**
  * POST /api/bookings
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       // Determine appropriate HTTP status based on error type
-      const status = getErrorStatus(result.error)
+      const status = getBookingMutationErrorStatus(result.error)
       await cacheIdempotentResponse(adminClient, idempotencyEntry, result, status)
       return NextResponse.json(result, { status })
     }
@@ -159,32 +160,4 @@ async function abandonIdempotentMarker(
   if (!adminClient || !entry) return
 
   await abandonIdempotentRequest({ adminClient, entry })
-}
-
-/**
- * Maps error messages to appropriate HTTP status codes.
- */
-function getErrorStatus(error?: string): number {
-  if (!error) return 500
-
-  if (error.includes('not found') || error.includes('already used')) {
-    return 404
-  }
-  if (error.includes('expired')) {
-    return 410 // Gone
-  }
-  if (error.includes('validation')) {
-    return 400
-  }
-  if (error.includes('booked by someone else') || error.includes('slot taken')) {
-    return 409 // Conflict
-  }
-  if (error.includes('conflicts with a connected calendar event')) {
-    return 409
-  }
-  if (error.includes('Could not verify connected calendar availability')) {
-    return 503
-  }
-
-  return 500
 }
