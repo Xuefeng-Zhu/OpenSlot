@@ -5,7 +5,6 @@ import type {
   AuthMode,
   BackendCompatAuthPort,
   BackendCompatClient,
-  BackendCompatResponse,
   BackendCompatSession,
   BackendCompatUser,
 } from './types'

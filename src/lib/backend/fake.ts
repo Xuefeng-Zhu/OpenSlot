@@ -6,13 +6,10 @@ import {
   type BackendFilterValue,
   type BackendFunctionRequest,
   type BackendListOptions,
-  type BackendResult,
 } from './ports'
 import type {
-  BackendInsert,
   BackendRow,
   BackendTable,
-  BackendUpdate,
 } from './types'
 
 type RowStore = Map<string, Record<string, unknown>>

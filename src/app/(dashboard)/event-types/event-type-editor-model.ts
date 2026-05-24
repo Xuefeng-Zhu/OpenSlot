@@ -7,7 +7,6 @@ import {
   type VideoProviderReadiness,
 } from "@/lib/calendar/video-providers";
 import type {
-  EventLocationType,
   EventTypeFormValues,
   VideoProvider,
 } from "@/lib/validations/event-type";
