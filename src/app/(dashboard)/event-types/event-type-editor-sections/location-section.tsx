@@ -1,13 +1,11 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  defaultVideoProvider,
-  videoProviderOptions,
-} from "@/lib/calendar/video-providers";
-import {
-  locationPlaceholder,
-  type VideoProviderHealth,
-} from "../event-type-editor-model";
+  eventLocationPlaceholder,
+  eventLocationSelectOptions,
+  eventLocationSelectValue,
+} from "@/lib/event-location-options";
+import { type VideoProviderHealth } from "../event-type-editor-model";
 import type { EventTypeSectionProps } from "./event-type-section-types";
 
 interface LocationSectionProps extends EventTypeSectionProps {
@@ -23,10 +21,10 @@ export function LocationSection({
   selectedVideoHealth,
   onLocationSelectChange,
 }: LocationSectionProps) {
-  const locationSelectValue =
-    values.location_type === "video_provider"
-      ? values.video_provider ?? defaultVideoProvider
-      : values.location_type;
+  const locationSelectValue = eventLocationSelectValue(
+    values.location_type,
+    values.video_provider
+  );
   const locationTypeErrorIds = [
     errors.location_type ? "location-type-error" : null,
     errors.video_provider ? "video-provider-error" : null,
@@ -46,15 +44,11 @@ export function LocationSection({
           aria-invalid={!!(errors.location_type || errors.video_provider)}
           aria-describedby={locationTypeErrorIds || undefined}
         >
-          <option value="custom">Custom link</option>
-          <option value="phone">Phone</option>
-          <option value="in_person">In Person</option>
-          {videoProviderOptions.map((provider) => (
-            <option key={provider.id} value={provider.id}>
-              {provider.label}
+          {eventLocationSelectOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
-          <option value="online">Online (manual)</option>
         </select>
         {errors.location_type ? (
           <p id="location-type-error" className="text-xs text-destructive mt-1">
@@ -86,7 +80,7 @@ export function LocationSection({
               onFieldChange("location_value", event.target.value);
               clearFieldError("location_value");
             }}
-            placeholder={locationPlaceholder(values.location_type)}
+            placeholder={eventLocationPlaceholder(values.location_type)}
             aria-invalid={!!errors.location_value}
             aria-describedby={
               errors.location_value ? "location-value-error" : undefined

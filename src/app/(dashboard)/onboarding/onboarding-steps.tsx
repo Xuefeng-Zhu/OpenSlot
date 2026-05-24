@@ -18,11 +18,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  defaultVideoProvider,
   isVideoProvider,
-  videoProviderOptions,
   type VideoProvider,
 } from "@/lib/calendar/video-providers";
+import {
+  eventLocationPlaceholder,
+  eventLocationSelectOptions,
+  eventLocationSelectValue,
+  isEventLocationType,
+} from "@/lib/event-location-options";
 import { cn } from "@/lib/utils";
 import type { EventLocationType } from "@/lib/validations/event-type";
 
@@ -76,27 +80,6 @@ export interface EventTypeValidationErrors {
   locationType?: string;
   locationValue?: string;
   videoProvider?: string;
-}
-
-function isLocationType(value: string): value is EventLocationType {
-  return ["online", "phone", "in_person", "custom", "video_provider"].includes(
-    value
-  );
-}
-
-function getLocationSelectValue(data: EventTypeData) {
-  if (data.locationType === "video_provider") {
-    return data.videoProvider ?? defaultVideoProvider;
-  }
-
-  return data.locationType;
-}
-
-function getLocationPlaceholder(locationType: EventLocationType) {
-  if (locationType === "phone") return "e.g. +1 555 123 4567";
-  if (locationType === "in_person") return "e.g. 123 Market Street";
-  if (locationType === "custom") return "e.g. https://example.com/meeting";
-  return "e.g. Online meeting details";
 }
 
 export function ProgressIndicator({ currentStep }: { currentStep: number }) {
@@ -330,7 +313,7 @@ export function StepEventType({
       return;
     }
 
-    if (isLocationType(value)) {
+    if (isEventLocationType(value)) {
       onChange({
         ...data,
         locationType: value,
@@ -391,7 +374,10 @@ export function StepEventType({
           <Label htmlFor="eventLocationType">Location type</Label>
           <select
             id="eventLocationType"
-            value={getLocationSelectValue(data)}
+            value={eventLocationSelectValue(
+              data.locationType,
+              data.videoProvider
+            )}
             onChange={handleLocationSelectChange}
             className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             aria-invalid={!!errors.locationType || !!errors.videoProvider}
@@ -401,15 +387,11 @@ export function StepEventType({
                 : undefined
             }
           >
-            <option value="custom">Custom link</option>
-            <option value="phone">Phone</option>
-            <option value="in_person">In Person</option>
-            {videoProviderOptions.map((provider) => (
-              <option key={provider.id} value={provider.id}>
-                {provider.label}
+            {eventLocationSelectOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
-            <option value="online">Online (manual)</option>
           </select>
           {(errors.locationType || errors.videoProvider) && (
             <p id="eventLocationType-error" className="text-sm text-destructive">
@@ -427,7 +409,7 @@ export function StepEventType({
               onChange={(e) =>
                 onChange({ ...data, locationValue: e.target.value })
               }
-              placeholder={getLocationPlaceholder(data.locationType)}
+              placeholder={eventLocationPlaceholder(data.locationType)}
               aria-invalid={!!errors.locationValue}
               aria-describedby={
                 errors.locationValue ? "eventLocationValue-error" : undefined
