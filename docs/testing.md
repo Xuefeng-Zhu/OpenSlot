@@ -54,6 +54,7 @@ npm run test -- 'src/app/(dashboard)/event-types/[id]/edit/__tests__/edit-event-
 
 - Unit and property tests live in `__tests__` directories near source files.
 - Browser E2E specs live in `e2e/` and are excluded from Vitest.
+- Auth page tests cover login, signup, forgot-password, and reset-password form behavior.
 - `src/lib/availability/__tests__/` covers slot computation, timezones, buffers, overrides, notice windows, booking windows, and external busy windows.
 - `src/lib/booking/__tests__/` covers confirmation, cancellation, and rescheduling engines with mocked backend chains.
 - `src/lib/booking/__tests__/events.test.ts` covers booking audit event append behavior.

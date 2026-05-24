@@ -21,7 +21,7 @@ Important current-state note: some dashboard surfaces are still prototype or moc
 
 ```text
 src/app/                         Next App Router routes
-src/app/(auth)/                  Login and signup pages
+src/app/(auth)/                  Login, signup, and password reset pages
 src/app/(dashboard)/             Authenticated dashboard route group
 src/app/(public)/[username]/     Public profile and event booking pages
 src/app/api/                     Route handlers for slots, holds, bookings, availability
