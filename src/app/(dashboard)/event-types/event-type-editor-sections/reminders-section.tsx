@@ -43,9 +43,18 @@ export function RemindersSection({
           min={5}
           max={10080}
           disabled={!values.reminder_enabled}
+          aria-invalid={!!errors.reminder_minutes_before}
+          aria-describedby={
+            errors.reminder_minutes_before
+              ? "reminder-minutes-before-error"
+              : undefined
+          }
         />
         {errors.reminder_minutes_before ? (
-          <p className="text-xs text-destructive mt-1">
+          <p
+            id="reminder-minutes-before-error"
+            className="text-xs text-destructive mt-1"
+          >
             {errors.reminder_minutes_before}
           </p>
         ) : null}
@@ -66,6 +75,12 @@ export function RemindersSection({
             }}
             disabled={!values.reminder_enabled}
             aria-label="Email guest reminders"
+            aria-invalid={!!errors.reminder_guest_enabled}
+            aria-describedby={
+              errors.reminder_guest_enabled
+                ? "reminder-recipient-error"
+                : undefined
+            }
           />
         </div>
         <div className="flex items-center justify-between rounded-md border border-border p-3">
@@ -83,11 +98,21 @@ export function RemindersSection({
             }}
             disabled={!values.reminder_enabled}
             aria-label="Email host reminders"
+            aria-invalid={!!errors.reminder_guest_enabled}
+            aria-describedby={
+              errors.reminder_guest_enabled
+                ? "reminder-recipient-error"
+                : undefined
+            }
           />
         </div>
       </div>
       {errors.reminder_guest_enabled ? (
-        <p className="text-xs text-destructive">
+        <p
+          id="reminder-recipient-error"
+          className="text-xs text-destructive"
+          role="alert"
+        >
           {errors.reminder_guest_enabled}
         </p>
       ) : null}

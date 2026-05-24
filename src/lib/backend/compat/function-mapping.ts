@@ -116,6 +116,20 @@ export function mapRpcToFunction(
         serviceRole: true,
         body: { limit: params.p_limit },
       }
+    case 'save_availability':
+      return {
+        slug: backendFunctionSlugs.saveAvailability,
+        serviceRole: true,
+        body: {
+          userId: params.p_user_id,
+          scheduleId: params.p_schedule_id,
+          timezone: params.p_timezone,
+          rules: params.p_rules,
+          overrides: params.p_overrides,
+          deletedRuleIds: params.p_deleted_rule_ids,
+          deletedOverrideIds: params.p_deleted_override_ids,
+        },
+      }
     case 'set_default_schedule':
       return {
         slug: 'set-default-schedule',

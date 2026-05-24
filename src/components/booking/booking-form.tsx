@@ -38,6 +38,7 @@ import {
   isTurnstileEnabled,
   TurnstileWidget,
 } from "@/components/booking/turnstile-widget";
+import { BookingInviteeQuestionFields } from "@/components/booking/booking-invitee-question-fields";
 
 interface BookingFormProps {
   holdToken?: string;
@@ -340,6 +341,16 @@ export function BookingForm({
   const markUserEdited = useCallback((field: string) => {
     userEditedFieldsRef.current.add(field);
   }, []);
+  const handleAnswerChange = useCallback(
+    (questionId: string, value: string | boolean) => {
+      markUserEdited(`answers.${questionId}`);
+      setValue(`answers.${questionId}`, value, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    },
+    [markUserEdited, setValue]
+  );
 
   return (
     <Card className="mt-6">
@@ -474,123 +485,12 @@ export function BookingForm({
             )}
           </div>
 
-          {inviteeQuestions.map((question) => (
-            <div key={question.id} className="space-y-2">
-              {question.type !== "checkbox" && (
-                <Label htmlFor={`answer-${question.id}`}>
-                  {question.label}
-                  {question.required ? " *" : ""}
-                </Label>
-              )}
-
-              {question.type === "textarea" && (
-                <Textarea
-                  id={`answer-${question.id}`}
-                  value={(answers?.[question.id] as string | undefined) ?? ""}
-                  onChange={(event) => {
-                    markUserEdited(`answers.${question.id}`);
-                    setValue(`answers.${question.id}`, event.target.value, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
-                  aria-invalid={!!answerErrors?.[question.id]}
-                  aria-describedby={
-                    answerErrors?.[question.id]
-                      ? `answer-${question.id}-error`
-                      : undefined
-                  }
-                />
-              )}
-
-              {question.type === "text" && (
-                <Input
-                  id={`answer-${question.id}`}
-                  value={(answers?.[question.id] as string | undefined) ?? ""}
-                  onChange={(event) => {
-                    markUserEdited(`answers.${question.id}`);
-                    setValue(`answers.${question.id}`, event.target.value, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
-                  aria-invalid={!!answerErrors?.[question.id]}
-                  aria-describedby={
-                    answerErrors?.[question.id]
-                      ? `answer-${question.id}-error`
-                      : undefined
-                  }
-                />
-              )}
-
-              {question.type === "select" && (
-                <Select
-                  value={(answers?.[question.id] as string | undefined) ?? ""}
-                  onValueChange={(value) => {
-                    markUserEdited(`answers.${question.id}`);
-                    setValue(`answers.${question.id}`, value, {
-                      shouldDirty: true,
-                      shouldValidate: true,
-                    });
-                  }}
-                >
-                  <SelectTrigger
-                    id={`answer-${question.id}`}
-                    aria-invalid={!!answerErrors?.[question.id]}
-                  >
-                    <SelectValue placeholder="Select an option" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {question.options.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-
-              {question.type === "checkbox" && (
-                <label
-                  htmlFor={`answer-${question.id}`}
-                  className="flex items-start gap-2 rounded-md border border-border p-3 text-sm"
-                >
-                  <input
-                    id={`answer-${question.id}`}
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                    checked={Boolean(answers?.[question.id])}
-                    onChange={(event) => {
-                      markUserEdited(`answers.${question.id}`);
-                      setValue(`answers.${question.id}`, event.target.checked, {
-                        shouldDirty: true,
-                        shouldValidate: true,
-                      });
-                    }}
-                    aria-invalid={!!answerErrors?.[question.id]}
-                    aria-describedby={
-                      answerErrors?.[question.id]
-                        ? `answer-${question.id}-error`
-                        : undefined
-                    }
-                  />
-                  <span>
-                    {question.label}
-                    {question.required ? " *" : ""}
-                  </span>
-                </label>
-              )}
-
-              {answerErrors?.[question.id] && (
-                <p
-                  id={`answer-${question.id}-error`}
-                  className="text-sm text-destructive"
-                >
-                  {answerErrors[question.id].message}
-                </p>
-              )}
-            </div>
-          ))}
+          <BookingInviteeQuestionFields
+            questions={inviteeQuestions}
+            answers={answers}
+            answerErrors={answerErrors}
+            onAnswerChange={handleAnswerChange}
+          />
 
           {/* Notes */}
           <div className="space-y-2">

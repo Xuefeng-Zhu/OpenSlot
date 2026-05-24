@@ -9,4 +9,5 @@ export const backendFunctionSlugs = {
   claimWebhookDeliveries: 'claim-webhook-deliveries',
   consumePublicRateLimit: 'consume-public-rate-limit',
   expireStaleSlotHolds: 'expire-stale-slot-holds',
+  saveAvailability: 'save-availability',
 } as const satisfies Record<BackendFunctionName, string>

@@ -41,6 +41,11 @@
       "transactionRequired": true
     },
     {
+      "name": "save-availability",
+      "operation": "saveAvailability",
+      "transactionRequired": true
+    },
+    {
       "name": "set-default-schedule",
       "operation": "setDefaultSchedule",
       "transactionRequired": true

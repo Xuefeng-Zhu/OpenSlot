@@ -24,9 +24,13 @@ export function BasicsSection({
             }
           }}
           placeholder="e.g. 30-min Discovery Call"
+          aria-invalid={!!errors.title}
+          aria-describedby={errors.title ? "title-error" : undefined}
         />
         {errors.title ? (
-          <p className="text-xs text-destructive mt-1">{errors.title}</p>
+          <p id="title-error" className="text-xs text-destructive mt-1">
+            {errors.title}
+          </p>
         ) : null}
       </div>
       <div>
@@ -41,9 +45,13 @@ export function BasicsSection({
             }
           }}
           placeholder="e.g. discovery-call"
+          aria-invalid={!!errors.slug}
+          aria-describedby={errors.slug ? "slug-error" : undefined}
         />
         {errors.slug ? (
-          <p className="text-xs text-destructive mt-1">{errors.slug}</p>
+          <p id="slug-error" className="text-xs text-destructive mt-1">
+            {errors.slug}
+          </p>
         ) : null}
       </div>
       <div>
@@ -57,9 +65,13 @@ export function BasicsSection({
           }}
           placeholder="Describe what this meeting is about..."
           rows={3}
+          aria-invalid={!!errors.description}
+          aria-describedby={
+            errors.description ? "description-error" : undefined
+          }
         />
         {errors.description ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="description-error" className="text-xs text-destructive mt-1">
             {errors.description}
           </p>
         ) : null}

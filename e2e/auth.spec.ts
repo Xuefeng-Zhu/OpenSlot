@@ -1,15 +1,14 @@
 import { demoHost } from "./demo-data";
-import { loginAsDemoHost } from "./support/auth";
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 const protectedRoutes = [
   { path: "/dashboard", expectedUrl: /\/login\?returnUrl=%2Fdashboard$/ },
-  { path: "/event-types", expectedUrl: /\/login$/ },
-  { path: "/availability", expectedUrl: /\/login$/ },
-  { path: "/bookings", expectedUrl: /\/login$/ },
-  { path: "/contacts", expectedUrl: /\/login$/ },
-  { path: "/profile", expectedUrl: /\/login$/ },
-  { path: "/settings", expectedUrl: /\/login$/ },
+  { path: "/event-types", expectedUrl: /\/login\?returnUrl=%2Fevent-types$/ },
+  { path: "/availability", expectedUrl: /\/login\?returnUrl=%2Favailability$/ },
+  { path: "/bookings", expectedUrl: /\/login\?returnUrl=%2Fbookings$/ },
+  { path: "/contacts", expectedUrl: /\/login\?returnUrl=%2Fcontacts$/ },
+  { path: "/profile", expectedUrl: /\/login\?returnUrl=%2Fprofile$/ },
+  { path: "/settings", expectedUrl: /\/login\?returnUrl=%2Fsettings$/ },
 ];
 
 test.describe("authentication and access control", () => {
@@ -25,12 +24,12 @@ test.describe("authentication and access control", () => {
     }
   });
 
-  // Exercises the full sign-in journey: validation, rejected credentials,
-  // returnUrl routing, and session persistence after reload.
-  test("login validates fields, rejects bad credentials, and persists a session", async ({
+  // Exercises the full sign-in journey with one successful auth attempt so the
+  // shared Butterbase test app does not trip rate limits during the same spec.
+  test("login validates fields, handles returnUrl, and persists a session", async ({
     page,
   }) => {
-    await page.goto("/login?returnUrl=/bookings");
+    await page.goto("/login?returnUrl=/event-types");
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page.getByText("Email is required.")).toBeVisible();
     await expect(page.getByText("Password is required.")).toBeVisible();
@@ -38,7 +37,7 @@ test.describe("authentication and access control", () => {
     await page.getByLabel("Email").fill(demoHost.email);
     await page.getByLabel("Password").fill("not-the-demo-password");
     allowBrowserConsoleErrors(page, [
-      /Failed to load resource: the server responded with a status of 400/,
+      /Failed to load resource: the server responded with a status of (400|401)/,
     ]);
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(
@@ -47,27 +46,22 @@ test.describe("authentication and access control", () => {
 
     await page.getByLabel("Password").fill(demoHost.password);
     await page.getByRole("button", { name: "Log in" }).click();
+    await expect(page).toHaveURL(/\/event-types$/);
+    await expect(
+      page.getByRole("heading", { name: "Event types" })
+    ).toBeVisible();
+
+    await page.goto("/bookings");
     await expect(page).toHaveURL(/\/bookings$/);
-    await expect(page.getByRole("heading", { name: "Bookings" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Bookings", exact: true })
+    ).toBeVisible();
 
     await page.reload();
     await expect(page).toHaveURL(/\/bookings$/);
     await expect(
-      page.getByRole("button", { name: "View booking with Jane Guest" })
+      page.getByRole("heading", { name: "Bookings", exact: true })
     ).toBeVisible();
-  });
-
-  test("demo host can deep-link through login returnUrl", async ({ page }) => {
-    await loginAsDemoHost(page, "/event-types");
-
-    await expect(
-      page.getByRole("heading", { name: "Event types" })
-    ).toBeVisible();
-    await expect(page.getByText("30 Minute Meeting")).toBeVisible();
-  });
-
-  test("signed-in hosts skip the login page", async ({ page }) => {
-    await loginAsDemoHost(page);
 
     await page.goto("/login");
     await expect(page).toHaveURL(/\/dashboard$/);

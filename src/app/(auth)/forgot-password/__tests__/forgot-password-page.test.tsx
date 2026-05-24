@@ -25,6 +25,9 @@ describe("ForgotPasswordPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
 
     expect(screen.getByText("Email is required.")).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Email is required."
+    );
     expect(resetPasswordForEmail).not.toHaveBeenCalled();
   });
 
@@ -49,6 +52,9 @@ describe("ForgotPasswordPage", () => {
         "If an account exists for that email, a reset code is on its way."
       )
     ).toBeDefined();
+    expect(screen.getByRole("status").textContent).toContain(
+      "If an account exists for that email, a reset code is on its way."
+    );
   });
 
   it("shows a safe generic error when the backend rejects the reset request", async () => {
@@ -66,5 +72,28 @@ describe("ForgotPasswordPage", () => {
     expect(
       await screen.findByText("Unable to send reset email. Please try again.")
     ).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Unable to send reset email. Please try again."
+    );
+  });
+
+  it("shows a safe generic error when the reset request throws", async () => {
+    resetPasswordForEmail.mockRejectedValue(new Error("network unavailable"));
+
+    render(<ForgotPasswordPage />);
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "sarah@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+
+    expect(
+      await screen.findByText("Unable to send reset email. Please try again.")
+    ).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "Send reset code" }).getAttribute(
+        "disabled"
+      )
+    ).toBeNull();
   });
 });
