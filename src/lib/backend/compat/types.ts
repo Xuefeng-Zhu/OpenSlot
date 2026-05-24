@@ -71,9 +71,14 @@ export interface BackendCompatAuthPort {
   }
 }
 
+type BackendCompatTableName<TDatabase> =
+  TDatabase extends { public: { Tables: infer TTables } }
+    ? (keyof TTables & string) | (string & {})
+    : string
+
 export interface BackendCompatClient<TDatabase = Database> {
   auth: BackendCompatAuthPort
-  from(table: TableName | string): BackendQueryBuilder<any>
+  from(table: BackendCompatTableName<TDatabase>): BackendQueryBuilder<any>
   rpc(name: string, params?: Record<string, unknown>): BackendRpcBuilder<any>
 }
 
