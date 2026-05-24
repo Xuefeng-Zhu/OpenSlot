@@ -148,10 +148,7 @@ function validateEventType(data: EventTypeData): EventTypeValidationErrors {
     if (!data.videoProvider) {
       errors.videoProvider = "Choose a video provider.";
     }
-  } else if (
-    ["phone", "in_person", "custom"].includes(data.locationType) &&
-    !data.locationValue.trim()
-  ) {
+  } else if (!data.locationValue.trim()) {
     errors.locationValue = "Enter location details.";
   }
 
