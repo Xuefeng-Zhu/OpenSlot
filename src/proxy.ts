@@ -8,6 +8,17 @@ import {
   shouldKeepAuthSession,
 } from '@/lib/backend/session'
 
+const DASHBOARD_PATH_PREFIXES = [
+  '/availability',
+  '/bookings',
+  '/contacts',
+  '/dashboard',
+  '/event-types',
+  '/onboarding',
+  '/profile',
+  '/settings',
+]
+
 /**
  * Refreshes Butterbase auth cookies and protects dashboard routes.
  * When Butterbase env vars are missing, public pages still render but dashboard
@@ -63,11 +74,18 @@ export async function proxy(request: NextRequest) {
 }
 
 function redirectDashboardToLogin(request: NextRequest) {
-  if (!request.nextUrl.pathname.startsWith('/dashboard')) return null
+  if (!isDashboardPath(request.nextUrl.pathname)) return null
 
-  const returnUrl = encodeURIComponent(request.nextUrl.pathname)
-  const loginUrl = new URL(`/login?returnUrl=${returnUrl}`, request.url)
+  const returnUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`
+  const loginUrl = new URL('/login', request.url)
+  loginUrl.searchParams.set('returnUrl', returnUrl)
   return NextResponse.redirect(loginUrl)
+}
+
+function isDashboardPath(pathname: string) {
+  return DASHBOARD_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
+  )
 }
 
 function requestHeadersWithBackendCookies(
