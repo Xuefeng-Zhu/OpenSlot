@@ -195,6 +195,7 @@ describe('BookingAgentPanel', () => {
         onSelectSlot={vi.fn()}
       />
     )
+    expect(screen.queryByText('Tuesday afternoon')).toBeNull()
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: /send/i })).toHaveProperty(
@@ -209,6 +210,19 @@ describe('BookingAgentPanel', () => {
 
     await screen.findByText('Fresh reply')
     expect(screen.getByRole('button', { name: /Wed, Jun 17/ })).toBeDefined()
+    const freshCall = fetchMock.mock.calls[1] as unknown as [
+      RequestInfo | URL,
+      RequestInit | undefined,
+    ]
+    const freshBody = JSON.parse(String(freshCall[1]?.body))
+    expect(freshBody.messages).toEqual([
+      {
+        role: 'assistant',
+        content:
+          'Tell me what day or time works for you, and I can help find an opening.',
+      },
+      { role: 'user', content: 'Wednesday afternoon' },
+    ])
 
     staleRequest.resolve(
       new Response(

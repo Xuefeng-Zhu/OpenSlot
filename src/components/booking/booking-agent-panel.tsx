@@ -60,14 +60,16 @@ export function BookingAgentPanel({
   onSelectSlot,
   onDraftChange,
 }: BookingAgentPanelProps) {
-  const [messages, setMessages] = useState<BookingAgentMessage[]>([
-    {
-      role: "assistant",
-      content:
-        mode === "reschedule"
-          ? "Tell me when you would like to move this meeting, and I can look for open times."
-          : "Tell me what day or time works for you, and I can help find an opening.",
-    },
+  const conversationContextKey = bookingAgentConversationContextKey({
+    eventTypeId,
+    hostUserId,
+    mode,
+    rescheduleToken,
+    selectedDate,
+    timezone,
+  });
+  const [messages, setMessages] = useState<BookingAgentMessage[]>(() => [
+    initialAssistantMessage(mode),
   ]);
   const [input, setInput] = useState("");
   const [suggestedSlots, setSuggestedSlots] = useState<TimeSlot[]>([]);
@@ -75,22 +77,25 @@ export function BookingAgentPanel({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const requestRef = useRef(0);
+  const conversationContextRef = useRef(conversationContextKey);
 
   useEffect(() => {
     requestRef.current += 1;
     setLoading(false);
     setError(null);
     setSuggestedSlots([]);
+
+    if (conversationContextRef.current !== conversationContextKey) {
+      conversationContextRef.current = conversationContextKey;
+      setMessages([initialAssistantMessage(mode)]);
+      setInput("");
+    }
   }, [
-    eventTypeId,
-    hostUserId,
+    conversationContextKey,
     mode,
-    rescheduleToken,
-    selectedDate,
     selectedSlot?.end,
     selectedSlot?.slotToken,
     selectedSlot?.start,
-    timezone,
   ]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -309,4 +314,40 @@ function formatFallbackSlotLabel(isoString: string, timezone: string) {
     minute: "2-digit",
     timeZone: timezone || undefined,
   }).format(new Date(isoString));
+}
+
+function initialAssistantMessage(mode: BookingAgentPanelProps["mode"]) {
+  return {
+    role: "assistant" as const,
+    content:
+      mode === "reschedule"
+        ? "Tell me when you would like to move this meeting, and I can look for open times."
+        : "Tell me what day or time works for you, and I can help find an opening.",
+  };
+}
+
+function bookingAgentConversationContextKey({
+  eventTypeId,
+  hostUserId,
+  mode,
+  rescheduleToken,
+  selectedDate,
+  timezone,
+}: Pick<
+  BookingAgentPanelProps,
+  | "eventTypeId"
+  | "hostUserId"
+  | "mode"
+  | "rescheduleToken"
+  | "selectedDate"
+  | "timezone"
+>) {
+  return [
+    mode,
+    eventTypeId,
+    hostUserId,
+    rescheduleToken ?? "",
+    selectedDate ?? "",
+    timezone,
+  ].join("|");
 }
