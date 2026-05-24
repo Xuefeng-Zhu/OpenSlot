@@ -287,6 +287,61 @@ describe('SlotPicker', () => {
     expect(screen.queryByRole('button', { name: /10:00 AM/i })).toBeNull()
   })
 
+  it('keeps slot-conflict recovery when hold responses are malformed', async () => {
+    const selectedDate = addDays(new Date(), 3)
+    const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
+    const slot = {
+      start: `${selectedDateKey}T14:00:00.000Z`,
+      end: `${selectedDateKey}T14:30:00.000Z`,
+      slotToken: 'signed-slot-token',
+    }
+    let slotRequests = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/slots')) {
+        slotRequests += 1
+        return new Response(
+          JSON.stringify({
+            slotsByDate: {
+              [selectedDateKey]: slotRequests === 1 ? [slot] : [],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      if (url === '/api/holds') {
+        return new Response('not json', {
+          status: 409,
+          headers: { 'Content-Type': 'text/html' },
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/New_York')
+
+    render(<SlotPicker eventType={eventType} hostProfile={hostProfile} />)
+
+    fireEvent.click(
+      await screen.findByLabelText(new RegExp(format(selectedDate, 'MMMM d'), 'i'))
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /10:00 AM/i }))
+
+    await waitFor(() => expect(slotRequests).toBe(2))
+    expect(
+      screen.getByText(
+        'This slot has been taken by another guest. Please select a different time.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /10:00 AM/i })).toBeNull()
+  })
+
   it('ignores stale slot fetch failures after a newer date request starts', async () => {
     const staleRequest = createDeferredResponse()
     const staleDate = addDays(new Date(), 3)

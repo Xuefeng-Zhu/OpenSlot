@@ -82,6 +82,12 @@ interface FetchSlotsOptions {
   force?: boolean;
 }
 
+interface HoldResponseBody {
+  error?: string;
+  holdToken?: string;
+  expiresAt?: string;
+}
+
 type BookingFlowState =
   | { step: "select-slot" }
   | { step: "booking-form"; hold: HoldInfo | null; slot: TimeSlot }
@@ -334,7 +340,9 @@ export function SlotPicker({
       });
 
       if (!isLatestHoldRequest()) return;
-      const data = await response.json();
+      const data = (await response
+        .json()
+        .catch(() => ({}))) as HoldResponseBody;
       if (!isLatestHoldRequest()) return;
 
       if (!response.ok) {
@@ -352,6 +360,14 @@ export function SlotPicker({
           return;
         }
         setError(data.error || "Failed to hold slot. Please try again.");
+        setSelectedSlot(null);
+        setFlowState({ step: "select-slot" });
+        holdIdempotencyKeysRef.current.delete(holdKey);
+        return;
+      }
+
+      if (!data.holdToken || !data.expiresAt) {
+        setError("Failed to hold slot. Please try again.");
         setSelectedSlot(null);
         setFlowState({ step: "select-slot" });
         holdIdempotencyKeysRef.current.delete(holdKey);

@@ -1,9 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BookingForm } from '../booking-form'
 
 describe('BookingForm', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+  })
+
   it('renders a pending hold state before the hold token arrives', () => {
     render(
       <BookingForm
@@ -270,5 +275,79 @@ describe('BookingForm', () => {
       'textContent',
       'America/Los Angeles'
     )
+  })
+
+  it('handles malformed slot-conflict responses without losing conflict recovery', async () => {
+    const onSlotTaken = vi.fn()
+    const onConfirmed = vi.fn()
+    const fetchMock = vi.fn(async () => new Response('not json', { status: 409 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <BookingForm
+        holdToken="550e8400-e29b-41d4-a716-446655440000"
+        expiresAt={new Date(Date.now() + 5 * 60 * 1000).toISOString()}
+        selectedSlot={{
+          start: '2026-05-15T17:00:00.000Z',
+          end: '2026-05-15T17:30:00.000Z',
+        }}
+        eventTitle="Discovery Call"
+        hostName="Sarah Chen"
+        timezone="America/Los_Angeles"
+        inviteeQuestions={[]}
+        onConfirmed={onConfirmed}
+        onHoldExpired={vi.fn()}
+        onSlotTaken={onSlotTaken}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText('Name *'), {
+      target: { value: 'Alex Guest' },
+    })
+    fireEvent.change(screen.getByLabelText('Email *'), {
+      target: { value: 'alex@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking' }))
+
+    await waitFor(() => expect(onSlotTaken).toHaveBeenCalledTimes(1))
+    expect(onConfirmed).not.toHaveBeenCalled()
+  })
+
+  it('shows the fallback error when a successful booking response is malformed', async () => {
+    const onConfirmed = vi.fn()
+    const fetchMock = vi.fn(async () => new Response('not json', { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <BookingForm
+        holdToken="550e8400-e29b-41d4-a716-446655440000"
+        expiresAt={new Date(Date.now() + 5 * 60 * 1000).toISOString()}
+        selectedSlot={{
+          start: '2026-05-15T17:00:00.000Z',
+          end: '2026-05-15T17:30:00.000Z',
+        }}
+        eventTitle="Discovery Call"
+        hostName="Sarah Chen"
+        timezone="America/Los_Angeles"
+        inviteeQuestions={[]}
+        onConfirmed={onConfirmed}
+        onHoldExpired={vi.fn()}
+        onSlotTaken={vi.fn()}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText('Name *'), {
+      target: { value: 'Alex Guest' },
+    })
+    fireEvent.change(screen.getByLabelText('Email *'), {
+      target: { value: 'alex@example.com' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm Booking' }))
+
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'Failed to confirm booking.'
+    )
+    expect(onConfirmed).not.toHaveBeenCalled()
   })
 })
