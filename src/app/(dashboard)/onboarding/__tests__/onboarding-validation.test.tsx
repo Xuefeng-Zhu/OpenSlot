@@ -21,10 +21,12 @@ function advanceFromProfile() {
 describe("Onboarding validation", () => {
   beforeEach(() => {
     refresh.mockClear();
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://preview.openslot.test");
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("keeps users on profile setup until required profile fields are filled", () => {
@@ -130,8 +132,48 @@ describe("Onboarding validation", () => {
     expect(requestBody.availability.monday.intervals).toEqual([
       { start: "09:00", end: "17:00" },
     ]);
-    expect(screen.getByText("openslot.com/sarah-chen/intro-call")).toBeDefined();
+    expect(
+      screen.getByText(
+        "https://preview.openslot.test/sarah-chen/intro-call"
+      )
+    ).toBeDefined();
     expect(refresh).toHaveBeenCalled();
+  });
+
+  it("copies booking links with the configured app origin", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal("navigator", {
+      clipboard: { writeText },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        bookingLink: "/sarah-chen/intro-call",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<OnboardingPage />);
+    advanceFromProfile();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Intro Call" },
+    });
+    fireEvent.change(screen.getByLabelText("Location type"), {
+      target: { value: "custom" },
+    });
+    fireEvent.change(screen.getByLabelText("Location details"), {
+      target: { value: "Zoom" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Finish" }));
+
+    await screen.findByText("Share your booking link");
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+    expect(writeText).toHaveBeenCalledWith(
+      "https://preview.openslot.test/sarah-chen/intro-call"
+    );
   });
 
   it("uses the event type location selector for generated video locations", async () => {

@@ -34,6 +34,20 @@ const STEPS = [
   { label: "Share booking link", icon: Link2 },
 ] as const;
 
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+}
+
+function bookingLinkPrefix() {
+  const appUrl = getAppUrl();
+  return appUrl ? `${appUrl}/` : "/";
+}
+
+function absoluteBookingLink(path: string) {
+  const appUrl = getAppUrl();
+  return appUrl ? `${appUrl}${path}` : path;
+}
+
 interface ProfileData {
   displayName: string;
   username: string;
@@ -377,7 +391,7 @@ export default function OnboardingPage() {
   };
 
   const handleCopyLink = async () => {
-    const link = `openslot.com${savedBookingLink}`;
+    const link = absoluteBookingLink(savedBookingLink);
     try {
       await navigator.clipboard.writeText(link);
       setCopied(true);
@@ -414,6 +428,7 @@ export default function OnboardingPage() {
           <StepProfile
             data={profileData}
             errors={validationErrors.profile}
+            bookingLinkPrefix={bookingLinkPrefix()}
             onChange={handleProfileChange}
           />
         )}
@@ -544,10 +559,12 @@ function ProgressIndicator({ currentStep }: { currentStep: number }) {
 function StepProfile({
   data,
   errors,
+  bookingLinkPrefix,
   onChange,
 }: {
   data: ProfileData;
   errors: ProfileValidationErrors;
+  bookingLinkPrefix: string;
   onChange: (data: ProfileData) => void;
 }) {
   return (
@@ -582,7 +599,7 @@ function StepProfile({
         <div className="space-y-2">
           <Label htmlFor="username">Username</Label>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">openslot.com/</span>
+            <span className="text-sm text-muted-foreground">{bookingLinkPrefix}</span>
             <Input
               id="username"
               value={data.username}
@@ -809,7 +826,7 @@ function StepBookingLink({
   copied: boolean;
   onCopy: () => void;
 }) {
-  const displayLink = `openslot.com${bookingLink}`;
+  const displayLink = absoluteBookingLink(bookingLink);
 
   return (
     <div className="space-y-6">
