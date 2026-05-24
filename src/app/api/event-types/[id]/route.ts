@@ -147,6 +147,32 @@ export async function DELETE(
       )
     }
 
+    const { count: bookingCount, error: bookingCountError } =
+      await backendClient
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_type_id', id)
+        .eq('host_user_id', auth.profile.id)
+
+    if (bookingCountError) {
+      console.error('Error checking event type bookings:', bookingCountError)
+      return NextResponse.json(
+        { success: false, error: 'Failed to check event type bookings' },
+        { status: 500 }
+      )
+    }
+
+    if ((bookingCount ?? 0) > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'Event types with existing bookings cannot be deleted. Pause the event type instead.',
+        },
+        { status: 409 }
+      )
+    }
+
     const { data: deletedEventType, error } = await backendClient
       .from('event_types')
       .delete()

@@ -18,6 +18,9 @@ const mocks = vi.hoisted(() => ({
     | Record<string, unknown>
     | null,
   eventTypeUpdateError: null as { code?: string; message: string } | null,
+  bookingCountFilters: [] as Array<{ column: string; value: unknown }>,
+  bookingCount: 0 as number | null,
+  bookingCountError: null as { code?: string; message: string } | null,
   eventTypeDeleteFilters: [] as Array<{ column: string; value: unknown }>,
   eventTypeDeleteResult: { id: 'event-type-1' } as Record<string, unknown> | null,
   eventTypeDeleteError: null as { code?: string; message: string } | null,
@@ -82,6 +85,30 @@ function createTableMock(table: string) {
         return builder
       },
     }
+  }
+
+  if (table === 'bookings') {
+    const builder = {
+      select: () => builder,
+      eq: (column: string, value: unknown) => {
+        mocks.bookingCountFilters.push({ column, value })
+        return builder
+      },
+      then: (
+        resolve: (value: {
+          data: null
+          count: number | null
+          error: typeof mocks.bookingCountError
+        }) => unknown
+      ) =>
+        Promise.resolve({
+          data: null,
+          count: mocks.bookingCount,
+          error: mocks.bookingCountError,
+        }).then(resolve),
+    }
+
+    return builder
   }
 
   if (table === 'schedules') {
@@ -158,6 +185,9 @@ describe('POST /api/event-types', () => {
     mocks.eventTypeUpdateFilters = []
     mocks.eventTypeUpdateResult = { id: 'event-type-1', slug: 'intro-call' }
     mocks.eventTypeUpdateError = null
+    mocks.bookingCountFilters = []
+    mocks.bookingCount = 0
+    mocks.bookingCountError = null
     mocks.eventTypeDeleteFilters = []
     mocks.eventTypeDeleteResult = { id: 'event-type-1' }
     mocks.eventTypeDeleteError = null
@@ -335,6 +365,9 @@ describe('PATCH /api/event-types/[id]', () => {
     mocks.eventTypeUpdateFilters = []
     mocks.eventTypeUpdateResult = { id: 'event-type-1', slug: 'intro-call' }
     mocks.eventTypeUpdateError = null
+    mocks.bookingCountFilters = []
+    mocks.bookingCount = 0
+    mocks.bookingCountError = null
     mocks.eventTypeDeleteFilters = []
     mocks.eventTypeDeleteResult = { id: 'event-type-1' }
     mocks.eventTypeDeleteError = null
@@ -491,6 +524,9 @@ describe('DELETE /api/event-types/[id]', () => {
     mocks.eventTypeUpdateFilters = []
     mocks.eventTypeUpdateResult = { id: 'event-type-1', slug: 'intro-call' }
     mocks.eventTypeUpdateError = null
+    mocks.bookingCountFilters = []
+    mocks.bookingCount = 0
+    mocks.bookingCountError = null
     mocks.eventTypeDeleteFilters = []
     mocks.eventTypeDeleteResult = { id: 'event-type-1' }
     mocks.eventTypeDeleteError = null
@@ -507,10 +543,51 @@ describe('DELETE /api/event-types/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data).toEqual({ success: true })
+    expect(mocks.bookingCountFilters).toEqual([
+      { column: 'event_type_id', value: 'event-type-1' },
+      { column: 'host_user_id', value: 'profile-1' },
+    ])
     expect(mocks.eventTypeDeleteFilters).toEqual([
       { column: 'id', value: 'event-type-1' },
       { column: 'user_id', value: 'profile-1' },
     ])
+  })
+
+  it('blocks deleting event types that already have bookings', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+    mocks.bookingCount = 2
+
+    const response = await DELETE({} as any, routeContext() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data).toEqual({
+      success: false,
+      error:
+        'Event types with existing bookings cannot be deleted. Pause the event type instead.',
+    })
+    expect(mocks.eventTypeDeleteFilters).toHaveLength(0)
+  })
+
+  it('returns an error when booking checks fail before delete', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+    mocks.bookingCountError = { message: 'permission denied' }
+
+    const response = await DELETE({} as any, routeContext() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data).toEqual({
+      success: false,
+      error: 'Failed to check event type bookings',
+    })
+    expect(mocks.eventTypeDeleteFilters).toHaveLength(0)
   })
 
   it('returns not found for missing or foreign event types', async () => {
