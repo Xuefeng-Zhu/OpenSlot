@@ -35,7 +35,7 @@ import { useToast } from "@/components/ui/use-toast"
 import {
   errorToastDescription,
   requestJson,
-} from "@/components/dashboard/availability-request"
+} from "@/components/dashboard/request-json"
 import type { AvailabilitySchedule } from "@/components/dashboard/availability-model"
 
 interface AvailabilityScheduleControlsProps {
