@@ -10,6 +10,7 @@ import type { Tables } from "@/lib/types/database";
 
 interface BookingRow {
   id: string;
+  event_type_id: string;
   guest_name: string;
   guest_email: string;
   guest_timezone: string;
@@ -64,7 +65,7 @@ export default async function ContactsPage() {
     backendClient
       .from("bookings")
       .select(
-        "id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancel_reason, rescheduled_from_booking_id, rescheduled_to_booking_id, rescheduled_at, created_at, updated_at, event_types(title)"
+        "id, event_type_id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancel_reason, rescheduled_from_booking_id, rescheduled_to_booking_id, rescheduled_at, created_at, updated_at, event_types(title)"
       )
       .eq("host_user_id", profile.id),
   ]);

@@ -97,6 +97,8 @@ function runtimeDemoHostPath() {
 
 export const demoIds = {
   eventType30Min: "c3d4e5f6-a7b8-9012-cdef-123456789012",
+  eventType60Min: "d4e5f6a7-b8c9-0123-defa-234567890123",
+  booking: "e5f6a7b8-c9d0-1234-efab-345678901234",
   contact: "f6a7b8c9-d0e1-2345-fabc-456789012345",
   cancellationToken: "11111111-1111-4111-8111-111111111111",
   rescheduleToken: "22222222-2222-4222-8222-222222222222",
