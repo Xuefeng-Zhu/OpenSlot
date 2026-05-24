@@ -19,6 +19,11 @@ import { useToast } from "@/components/ui/use-toast";
 import { getDisplayedBookings } from "@/lib/dashboard-utils";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { useCopyFeedback } from "@/components/shared/use-copy-feedback";
+import {
+  formatDashboardBookingDate,
+  formatDashboardBookingDuration,
+  formatDashboardBookingTime,
+} from "./dashboard-format";
 
 export interface DashboardBooking {
   id: string;
@@ -71,41 +76,6 @@ export function DashboardClient({
         });
       });
   };
-
-  function formatBookingDate(startAt: string): string {
-    const date = new Date(startAt);
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    if (date.toDateString() === now.toDateString()) {
-      return "Today";
-    }
-    if (date.toDateString() === tomorrow.toDateString()) {
-      return "Tomorrow";
-    }
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  }
-
-  function formatBookingTime(startAt: string): string {
-    const date = new Date(startAt);
-    return date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  }
-
-  function formatDuration(startAt: string, endAt: string): string {
-    const start = new Date(startAt);
-    const end = new Date(endAt);
-    const minutes = Math.round((end.getTime() - start.getTime()) / 60000);
-    return `${minutes} min`;
-  }
 
   return (
     <div className="space-y-6">
@@ -208,15 +178,18 @@ export function DashboardClient({
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {booking.event_type_title} ·{" "}
-                        {formatDuration(booking.start_at, booking.end_at)}
+                        {formatDashboardBookingDuration(
+                          booking.start_at,
+                          booking.end_at
+                        )}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm text-foreground">
-                        {formatBookingDate(booking.start_at)}
+                        {formatDashboardBookingDate(booking.start_at)}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatBookingTime(booking.start_at)}
+                        {formatDashboardBookingTime(booking.start_at)}
                       </p>
                     </div>
                     <Badge
