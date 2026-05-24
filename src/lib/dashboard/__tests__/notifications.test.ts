@@ -153,7 +153,7 @@ describe('buildDashboardNotifications', () => {
 describe('listDashboardNotifications', () => {
   it('loads host bookings before querying booking events', async () => {
     const bookingsQuery = createQuery()
-    bookingsQuery.eq.mockResolvedValue({
+    bookingsQuery.limit.mockResolvedValue({
       data: [
         {
           id: 'booking-1',
@@ -203,6 +203,10 @@ describe('listDashboardNotifications', () => {
     })
 
     expect(bookingsQuery.eq).toHaveBeenCalledWith('host_user_id', 'profile-1')
+    expect(bookingsQuery.order).toHaveBeenCalledWith('updated_at', {
+      ascending: false,
+    })
+    expect(bookingsQuery.limit).toHaveBeenCalledWith(100)
     expect(eventsQuery.in).toHaveBeenCalledWith('booking_id', ['booking-1'])
     expect(eventsQuery.in).toHaveBeenCalledWith('event_type', [
       'booking.confirmed',
@@ -212,9 +216,48 @@ describe('listDashboardNotifications', () => {
     expect(eventsQuery.eq).not.toHaveBeenCalled()
   })
 
+  it('bounds the booking id filter before loading booking events', async () => {
+    const bookings = Array.from({ length: 105 }, (_, index) => ({
+      id: `booking-${index}`,
+      guest_name: 'Alex Lee',
+      event_types: { title: 'Discovery Call' },
+    }))
+    const bookingsQuery = createQuery()
+    bookingsQuery.limit.mockResolvedValue({
+      data: bookings,
+      error: null,
+    })
+    const eventsQuery = createQuery()
+    eventsQuery.limit.mockResolvedValue({
+      data: [],
+      error: null,
+    })
+    const settingsQuery = createQuery()
+    settingsQuery.maybeSingle.mockResolvedValue({
+      data: { notifications_seen_at: null },
+      error: null,
+    })
+    const adminClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'bookings') return bookingsQuery
+        if (table === 'booking_events') return eventsQuery
+        if (table === 'user_settings') return settingsQuery
+        throw new Error(`Unexpected table: ${table}`)
+      }),
+    } as unknown as BackendCompatClient<Database>
+
+    await listDashboardNotifications(adminClient, 'profile-1')
+
+    expect(bookingsQuery.limit).toHaveBeenCalledWith(100)
+    expect(eventsQuery.in).toHaveBeenCalledWith(
+      'booking_id',
+      bookings.slice(0, 100).map((booking) => booking.id)
+    )
+  })
+
   it('logs and falls back to an empty list when loading fails', async () => {
     const bookingsQuery = createQuery()
-    bookingsQuery.eq.mockResolvedValue({
+    bookingsQuery.limit.mockResolvedValue({
       data: [
         {
           id: 'booking-1',

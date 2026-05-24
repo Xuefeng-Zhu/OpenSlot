@@ -6,6 +6,7 @@ const DASHBOARD_NOTIFICATION_EVENT_TYPES = [
   'booking.cancelled',
   'booking.rescheduled',
 ] as const
+const DASHBOARD_NOTIFICATION_BOOKING_LOOKUP_LIMIT = 100
 
 type DashboardNotificationEventType =
   (typeof DASHBOARD_NOTIFICATION_EVENT_TYPES)[number]
@@ -73,7 +74,9 @@ export async function listDashboardNotifications(
             )
           `
         )
-        .eq('host_user_id', profileId),
+        .eq('host_user_id', profileId)
+        .order('updated_at', { ascending: false })
+        .limit(DASHBOARD_NOTIFICATION_BOOKING_LOOKUP_LIMIT),
       adminClient
         .from('user_settings')
         .select('notifications_seen_at')
@@ -98,9 +101,15 @@ export async function listDashboardNotifications(
 
     const bookings =
       (bookingsResult.data as DashboardNotificationBookingRow[] | null) ?? []
-    const bookingIds = bookings.map((booking) => booking.id).filter(Boolean)
+    const lookupBookings = bookings.slice(
+      0,
+      DASHBOARD_NOTIFICATION_BOOKING_LOOKUP_LIMIT
+    )
+    const bookingIds = lookupBookings
+      .map((booking) => booking.id)
+      .filter(Boolean)
     const bookingById = new Map(
-      bookings.map((booking) => [booking.id, booking])
+      lookupBookings.map((booking) => [booking.id, booking])
     )
     let rows: DashboardNotificationEventRow[] = []
 
