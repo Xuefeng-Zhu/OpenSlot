@@ -44,7 +44,7 @@ import {
   categorizeBookings,
   filterBookingsByEventType,
 } from "@/lib/booking-utils";
-import { videoProviderLabel } from "@/lib/calendar/video-providers";
+import { formatBookingLocationLabel } from "@/lib/location-labels";
 import { formatBookingAnswerValue } from "@/lib/validations/invitee-questions";
 
 interface BookingsClientProps {
@@ -485,13 +485,11 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
 }
 
 function bookingLocationLabel(booking: Booking): string | null {
-  const generatedVideoLabel = videoProviderLabel(booking.conference_provider);
-  if (generatedVideoLabel) return generatedVideoLabel;
-  if (booking.location_value) return booking.location_value;
-  if (booking.location_type === "phone") return "Phone call";
-  if (booking.location_type === "in_person") return "In person";
-  if (booking.location_type === "online") return "Online";
-  return null;
+  return formatBookingLocationLabel({
+    locationType: booking.location_type,
+    locationValue: booking.location_value,
+    conferenceProvider: booking.conference_provider,
+  });
 }
 
 function conferenceStatusText(booking: Booking): string | null {

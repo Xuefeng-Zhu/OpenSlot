@@ -27,6 +27,12 @@ export function LocationSection({
     values.location_type === "video_provider"
       ? values.video_provider ?? defaultVideoProvider
       : values.location_type;
+  const locationTypeErrorIds = [
+    errors.location_type ? "location-type-error" : null,
+    errors.video_provider ? "video-provider-error" : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="space-y-4">
@@ -37,6 +43,8 @@ export function LocationSection({
           value={locationSelectValue}
           onChange={(event) => onLocationSelectChange(event.target.value)}
           className="flex h-10 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          aria-invalid={!!(errors.location_type || errors.video_provider)}
+          aria-describedby={locationTypeErrorIds || undefined}
         >
           <option value="custom">Custom link</option>
           <option value="phone">Phone</option>
@@ -49,12 +57,12 @@ export function LocationSection({
           <option value="online">Online (manual)</option>
         </select>
         {errors.location_type ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="location-type-error" className="text-xs text-destructive mt-1">
             {errors.location_type}
           </p>
         ) : null}
         {errors.video_provider ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="video-provider-error" className="text-xs text-destructive mt-1">
             {errors.video_provider}
           </p>
         ) : null}
@@ -79,9 +87,16 @@ export function LocationSection({
               clearFieldError("location_value");
             }}
             placeholder={locationPlaceholder(values.location_type)}
+            aria-invalid={!!errors.location_value}
+            aria-describedby={
+              errors.location_value ? "location-value-error" : undefined
+            }
           />
           {errors.location_value ? (
-            <p className="text-xs text-destructive mt-1">
+            <p
+              id="location-value-error"
+              className="text-xs text-destructive mt-1"
+            >
               {errors.location_value}
             </p>
           ) : null}

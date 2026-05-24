@@ -64,8 +64,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: eventType, error } = await (backendClient
-      .from('event_types') as any)
+    const { data: eventType, error } = await backendClient
+      .from('event_types')
       .insert(eventTypeWritePayload(parsed.data, auth.profile.id))
       .select('id, slug')
       .single()

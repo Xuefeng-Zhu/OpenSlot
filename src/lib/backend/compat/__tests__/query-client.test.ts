@@ -142,6 +142,65 @@ describe('createBackendCompatClient', () => {
     )
   })
 
+  it('patches existing user settings rows by provider row id after profile_id conflict lookup', async () => {
+    const fetchImpl = vi
+      .fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        jsonResponse(null)
+      )
+      .mockResolvedValueOnce(jsonResponse([
+        {
+          id: 'settings-row-1',
+          profile_id: 'profile-1',
+          time_format: '12h',
+        },
+      ]))
+      .mockResolvedValueOnce(jsonResponse({
+        id: 'settings-row-1',
+        profile_id: 'profile-1',
+        time_format: '24h',
+      }))
+    const client = createBackendCompatClient({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.example.test',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    const result = await client
+      .from('user_settings')
+      .upsert(
+        {
+          profile_id: 'profile-1',
+          time_format: '24h',
+        },
+        { onConflict: 'profile_id' }
+      )
+      .single()
+
+    expect(result.data).toEqual({
+      id: 'settings-row-1',
+      profile_id: 'profile-1',
+      time_format: '24h',
+    })
+
+    const conflictLookupUrl = new URL(String(fetchImpl.mock.calls[0][0]))
+    expect(conflictLookupUrl.pathname).toBe('/v1/app_openslot/user_settings')
+    expect(conflictLookupUrl.searchParams.get('profile_id')).toBe('eq.profile-1')
+
+    expect(fetchImpl.mock.calls[1][0]).toBe(
+      'https://api.example.test/v1/app_openslot/user_settings/settings-row-1'
+    )
+    expect(fetchImpl.mock.calls[1][1]).toEqual(
+      expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({
+          profile_id: 'profile-1',
+          time_format: '24h',
+        }),
+      })
+    )
+  })
+
   it('maps legacy slot-hold RPC calls to Butterbase function requests', async () => {
     const fetchImpl = mockFetch({
       holdId: 'hold-1',
@@ -183,6 +242,61 @@ describe('createBackendCompatClient', () => {
           endAt: '2026-06-16T16:30:00.000Z',
           guestEmail: 'guest@example.com',
           expiresAt: '2026-06-16T16:05:00.000Z',
+        }),
+      })
+    )
+    expect(new Headers(fetchImpl.mock.calls[0][1]?.headers).get('Authorization')).toBe(
+      'Bearer function-secret'
+    )
+  })
+
+  it('maps availability save RPC calls to the atomic Butterbase function', async () => {
+    const savedAvailability = {
+      rules: [
+        {
+          id: 'rule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '17:00',
+          is_active: true,
+        },
+      ],
+      overrides: [],
+    }
+    const fetchImpl = mockFetch(savedAvailability)
+    const client = createBackendCompatClient({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.example.test',
+      apiKey: 'service-key',
+      functionSecret: 'function-secret',
+      fetchImpl,
+    })
+
+    const result = await client
+      .rpc('save_availability', {
+        p_user_id: 'host-1',
+        p_schedule_id: 'schedule-1',
+        p_timezone: 'America/New_York',
+        p_rules: savedAvailability.rules,
+        p_overrides: [],
+        p_deleted_rule_ids: ['rule-2'],
+        p_deleted_override_ids: [],
+      })
+      .single()
+
+    expect(result.data).toEqual(savedAvailability)
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.example.test/v1/app_openslot/fn/save-availability',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          userId: 'host-1',
+          scheduleId: 'schedule-1',
+          timezone: 'America/New_York',
+          rules: savedAvailability.rules,
+          overrides: [],
+          deletedRuleIds: ['rule-2'],
+          deletedOverrideIds: [],
         }),
       })
     )

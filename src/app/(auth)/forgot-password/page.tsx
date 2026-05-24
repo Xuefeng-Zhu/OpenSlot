@@ -35,22 +35,24 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
 
-    const backendClient = createBrowserBackendClient();
-    const { error: resetError } = await backendClient.auth.resetPasswordForEmail(
-      trimmedEmail,
-      {
-        redirectTo: `${window.location.origin}/reset-password`,
+    try {
+      const backendClient = createBrowserBackendClient();
+      const { error: resetError } =
+        await backendClient.auth.resetPasswordForEmail(trimmedEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+
+      if (resetError) {
+        setError("Unable to send reset email. Please try again.");
+        return;
       }
-    );
 
-    setLoading(false);
-
-    if (resetError) {
+      setSent(true);
+    } catch {
       setError("Unable to send reset email. Please try again.");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setSent(true);
   }
 
   return (
@@ -65,12 +67,18 @@ export default function ForgotPasswordPage() {
         <form onSubmit={handleSubmit} noValidate>
           <CardContent className="space-y-4">
             {sent && (
-              <div className="rounded-md bg-success/10 p-3 text-sm text-success">
+              <div
+                className="rounded-md bg-success/10 p-3 text-sm text-success"
+                role="status"
+              >
                 If an account exists for that email, a reset code is on its way.
               </div>
             )}
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
                 {error}
               </div>
             )}

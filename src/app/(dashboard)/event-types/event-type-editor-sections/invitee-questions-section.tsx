@@ -169,7 +169,11 @@ export function InviteeQuestionsSection({
         </div>
       ))}
 
-      {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p className="text-xs text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }
