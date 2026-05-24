@@ -287,6 +287,20 @@ describe('GET /api/slots', () => {
     expect(mocks.adminClient.from).not.toHaveBeenCalled()
   })
 
+  it('rejects invalid timezones before rate limiting', async () => {
+    const response = await GET(
+      slotRangeRequest({ timezone: 'Not/A_Timezone' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe(
+      'Invalid timezone. Expected a valid IANA timezone.'
+    )
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.adminClient.from).not.toHaveBeenCalled()
+  })
+
   it('excludes slots that overlap synced external calendar busy cache rows', async () => {
     mocks.refreshCalendarAvailabilityForHost.mockResolvedValueOnce({
       checked: 1,
