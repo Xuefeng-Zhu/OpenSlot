@@ -21,6 +21,9 @@ describe("ResetPasswordPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(screen.getByText("Email is required.")).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Email is required."
+    );
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("Email"), {
@@ -29,6 +32,9 @@ describe("ResetPasswordPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     expect(screen.getByText("Reset code is required.")).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Reset code is required."
+    );
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -67,6 +73,9 @@ describe("ResetPasswordPage", () => {
     });
 
     expect(screen.getByText("Your password has been updated.")).toBeDefined();
+    expect(screen.getByRole("status").textContent).toContain(
+      "Your password has been updated."
+    );
   });
 
   it("shows the backend reset error when the code is rejected", async () => {
@@ -94,6 +103,9 @@ describe("ResetPasswordPage", () => {
     expect(
       await screen.findByText("Unable to update password.")
     ).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Unable to update password."
+    );
   });
 
   it("validates password length and confirmation before updating", () => {
