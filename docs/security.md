@@ -78,7 +78,8 @@ Never import the admin client into a Client Component.
 ## RLS and Public Access
 
 Provider-neutral RLS and constraint requirements are documented in
-`backend/sql/provider-portability.sql` and `docs/backend-portability.md`.
+`backend/database/migrations/`, `backend/sql/provider-portability.sql`, and
+`docs/backend-portability.md`.
 
 Current public access:
 

@@ -49,6 +49,7 @@ This guide is for autonomous coding agents working in OpenSlot.
 - `src/app/api/holds/route.ts`
 - `src/app/api/bookings/route.ts`
 - `src/app/api/availability/route.ts`
+- `backend/database/migrations/`
 - `backend/sql/provider-portability.sql`
 - `src/lib/backend/*`
 - `src/lib/supabase/admin.ts` legacy shim behavior

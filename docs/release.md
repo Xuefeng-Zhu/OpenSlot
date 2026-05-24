@@ -8,8 +8,8 @@ Butterbase test app when repository secrets are present.
 
 The repository includes Vercel cron configuration for worker routes, but
 production deployment still needs environment variables, Butterbase apps,
-Butterbase schema/function deployment, backups, and rollback ownership configured
-outside this repository.
+shared database migration and Butterbase function deployment, backups, and
+rollback ownership configured outside this repository.
 
 ## Release Gate
 
@@ -28,9 +28,9 @@ For local handoff you can run the same gate with:
 npm run verify
 ```
 
-`npm run verify` does not run `npm audit` or provider schema deployment
-checks, so run those separately for release-sensitive dependency or backend
-schema/function changes.
+`npm run verify` does not run `npm audit`, shared database migration, or
+provider function deployment checks, so run those separately for
+release-sensitive dependency or backend changes.
 
 The production build command is:
 
@@ -136,7 +136,8 @@ Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send producti
 1. Open a pull request to `main`.
 2. Wait for GitHub Actions to pass the app release gate, npm audit, and the
    Butterbase-backed Dashboard E2E job when configured.
-3. Apply Butterbase schema/function updates to staging and deploy the app to staging.
+3. Apply shared database migration and Butterbase function updates to staging,
+   then deploy the app to staging.
 4. Smoke test signup/login, dashboard event type loading, public slot lookup,
    hold creation, booking confirmation, cancellation/rescheduling token pages,
    and worker routes.
@@ -144,7 +145,8 @@ Set `EMAIL_PROVIDER=resend`, `EMAIL_FROM`, and `RESEND_API_KEY` to send producti
    and that no outbox, webhook, or calendar sync rows are stuck unexpectedly.
 6. Take or confirm a recent production database backup before destructive or
    high-risk migrations.
-7. Apply production Butterbase schema/function updates during the release window.
+7. Apply production shared database migration and Butterbase function updates
+   during the release window.
 8. Deploy the production app build that matched the passing CI run.
 9. Verify public booking pages, dashboard auth, worker route auth, provider
    sync, and email provider behavior in production.
@@ -193,12 +195,12 @@ cancelled or rescheduled bookings complete without sending mail.
 
 - Keep `backend/sql/provider-portability.sql` aligned with table constraints,
   RLS expectations, and atomic transaction entrypoints.
-- Apply provider-owned Butterbase schema/function artifacts to staging before
-  production.
+- Apply shared database migrations and provider-owned Butterbase function
+  artifacts to staging before production.
 - Do not mutate shared production schema directly unless the change is captured
   in repository artifacts and reviewed.
-- Capture command output or deployment logs for each production schema/function
-  update.
+- Capture command output or deployment logs for each production database or
+  function update.
 - Review RLS policies, Data API grants, indexes, exclusion constraints, and
   deployed Butterbase functions after schema changes.
 - Confirm the `no_overlapping_bookings` exclusion constraint remains in place.

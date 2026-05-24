@@ -12,9 +12,8 @@ feature-local tests in `__tests__` directories.
 | `src/components/` | React components grouped by feature or shared UI primitive. |
 | `src/lib/` | Server-safe domain logic, integrations, utilities, validations, and clients. |
 | `backend/sql/` | Provider-portable SQL invariants, constraints, and transaction contracts. |
-| `backend/butterbase/` | Butterbase-specific schema/function deployment notes and manifests. |
-| `supabase/migrations/` | Historical PostgreSQL migration source used to preserve table/function contracts during the Butterbase cutover. |
-| `supabase/seed.sql` | Historical local/demo seed data reference. |
+| `backend/database/` | Shared PostgreSQL migrations and historical local/demo seed reference. |
+| `backend/butterbase/` | Butterbase-specific function deployment notes and manifests. |
 | `scripts/` | Local setup helpers, currently focused on calendar OAuth configuration. |
 | `docs/` | Architecture, development, testing, release, and security documentation. |
 | `.github/` | GitHub Actions, Dependabot, issue templates, and PR template. |
@@ -64,7 +63,8 @@ feature-local tests in `__tests__` directories.
 - Put critical booking and availability behavior in `src/lib/booking/` or
   `src/lib/availability/` so it can be tested without rendering UI.
 - Keep service-key access inside route handlers or server-only libraries.
-- Add backend schema changes to the provider-owned schema/function artifacts and
-  keep `backend/sql/provider-portability.sql` current when invariants change.
+- Add backend schema changes to `backend/database/migrations/`, update
+  provider-owned function artifacts when needed, and keep
+  `backend/sql/provider-portability.sql` current when invariants change.
 - Add tests near the behavior under test, usually in a sibling `__tests__`
   directory.

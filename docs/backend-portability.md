@@ -23,6 +23,7 @@ from becoming another app-wide rewrite.
 - Canonical table names and ownership hints live in
   `src/lib/backend/types.ts`.
 - Stable backend function names live in `src/lib/backend/functions.ts`.
+- Shared database migrations live in `backend/database/migrations/`.
 - Portable SQL invariants live in `backend/sql/provider-portability.sql`.
 - Contract tests live in `src/lib/backend/__tests__/` and provider-specific
   adapter tests live beside their adapters.
