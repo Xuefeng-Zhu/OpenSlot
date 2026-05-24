@@ -93,6 +93,75 @@ describe("SettingsClient", () => {
     expect(screen.getByText("No webhook endpoints configured.")).toBeDefined();
   });
 
+  it("keeps a new webhook secret visible when deleting another endpoint", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          secretToken: "secret-token",
+          endpoint: {
+            id: "endpoint-new",
+            url: "https://new.example.com/webhook",
+            description: "New endpoint",
+            subscribedEvents: ["booking.confirmed"],
+            isActive: true,
+            createdAt: "2026-05-08T00:00:00.000Z",
+            updatedAt: "2026-05-08T00:00:00.000Z",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[
+          {
+            id: "endpoint-existing",
+            url: "https://existing.example.com/webhook",
+            description: "Existing endpoint",
+            subscribedEvents: ["booking.cancelled"],
+            isActive: true,
+            createdAt: "2026-05-01T00:00:00.000Z",
+            updatedAt: "2026-05-01T00:00:00.000Z",
+          },
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
+    fireEvent.change(screen.getByLabelText("Endpoint URL"), {
+      target: { value: "https://new.example.com/webhook" },
+    });
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "New endpoint" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Add endpoint" }));
+
+    expect(await screen.findByDisplayValue("secret-token")).toBeDefined();
+    expect(screen.getByText("https://existing.example.com/webhook")).toBeDefined();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[1]);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText("https://existing.example.com/webhook")
+      ).toBeNull();
+    });
+
+    expect(screen.getByDisplayValue("secret-token")).toBeDefined();
+    expect(screen.getByText("https://new.example.com/webhook")).toBeDefined();
+  });
+
   it("shows manual copy feedback when webhook secret clipboard copy is unavailable", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,

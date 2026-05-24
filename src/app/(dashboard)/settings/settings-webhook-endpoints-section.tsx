@@ -25,6 +25,11 @@ const webhookEventOptions = [
   { value: "*", label: "All" },
 ] as const;
 
+interface NewWebhookSecret {
+  endpointId: string;
+  secretToken: string;
+}
+
 export function SettingsWebhookEndpointsSection({
   webhookEndpoints: initialWebhookEndpoints,
   webhookEndpointsLoadFailed = false,
@@ -40,7 +45,8 @@ export function SettingsWebhookEndpointsSection({
   ]);
   const [webhookCreating, setWebhookCreating] = useState(false);
   const [webhookActionId, setWebhookActionId] = useState<string | null>(null);
-  const [newWebhookSecret, setNewWebhookSecret] = useState<string | null>(null);
+  const [newWebhookSecret, setNewWebhookSecret] =
+    useState<NewWebhookSecret | null>(null);
 
   const toggleWebhookEvent = (eventType: string, checked: boolean) => {
     setWebhookEvents((current) => {
@@ -77,7 +83,10 @@ export function SettingsWebhookEndpointsSection({
       setWebhookUrl("");
       setWebhookDescription("");
       setWebhookEvents(["booking.confirmed"]);
-      setNewWebhookSecret(data.secretToken);
+      setNewWebhookSecret({
+        endpointId: data.endpoint.id,
+        secretToken: data.secretToken,
+      });
       toast({
         title: "Webhook created",
         description: "The signing secret is shown once.",
@@ -149,7 +158,9 @@ export function SettingsWebhookEndpointsSection({
       setWebhookEndpoints((current) =>
         current.filter((item) => item.id !== endpoint.id)
       );
-      setNewWebhookSecret(null);
+      setNewWebhookSecret((current) =>
+        current?.endpointId === endpoint.id ? null : current
+      );
     } catch (error) {
       toast({
         title: "Webhook not deleted",
@@ -166,7 +177,7 @@ export function SettingsWebhookEndpointsSection({
     if (!newWebhookSecret) return;
 
     try {
-      await copyTextToClipboard(newWebhookSecret);
+      await copyTextToClipboard(newWebhookSecret.secretToken);
       toast({
         title: "Secret copied",
         description: "Use it to verify OpenSlot webhook signatures.",
@@ -202,7 +213,7 @@ export function SettingsWebhookEndpointsSection({
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
               <Input
                 id="webhook-secret"
-                value={newWebhookSecret}
+                value={newWebhookSecret.secretToken}
                 readOnly
                 className="font-mono text-xs"
               />
