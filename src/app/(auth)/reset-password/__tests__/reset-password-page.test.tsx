@@ -108,6 +108,37 @@ describe("ResetPasswordPage", () => {
     );
   });
 
+  it("shows a safe generic error when the reset request throws", async () => {
+    fetchMock.mockRejectedValue(new Error("network unavailable"));
+
+    render(<ResetPasswordPage />);
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "sarah@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Reset code"), {
+      target: { value: "123456" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "correct-horse" },
+    });
+    fireEvent.change(screen.getByLabelText("Confirm new password"), {
+      target: { value: "correct-horse" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(
+      await screen.findByText(
+        "Unable to update password. Please request a new code."
+      )
+    ).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "Update password" }).getAttribute(
+        "disabled"
+      )
+    ).toBeNull();
+  });
+
   it("validates password length and confirmation before updating", () => {
     render(<ResetPasswordPage />);
 

@@ -35,22 +35,24 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
 
-    const backendClient = createBrowserBackendClient();
-    const { error: resetError } = await backendClient.auth.resetPasswordForEmail(
-      trimmedEmail,
-      {
-        redirectTo: `${window.location.origin}/reset-password`,
+    try {
+      const backendClient = createBrowserBackendClient();
+      const { error: resetError } =
+        await backendClient.auth.resetPasswordForEmail(trimmedEmail, {
+          redirectTo: `${window.location.origin}/reset-password`,
+        });
+
+      if (resetError) {
+        setError("Unable to send reset email. Please try again.");
+        return;
       }
-    );
 
-    setLoading(false);
-
-    if (resetError) {
+      setSent(true);
+    } catch {
       setError("Unable to send reset email. Please try again.");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setSent(true);
   }
 
   return (

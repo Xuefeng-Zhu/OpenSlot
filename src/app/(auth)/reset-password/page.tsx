@@ -49,28 +49,34 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
 
-    const response = await fetch("/api/auth/reset-password", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email.trim(),
-        code: code.trim(),
-        password,
-      }),
-    });
-    const result = await response.json().catch(() => ({}));
+    try {
+      const response = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          code: code.trim(),
+          password,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
 
-    setLoading(false);
+      if (!response.ok || !result.success) {
+        setError(
+          result.error ?? "Unable to update password. Please request a new code."
+        );
+        return;
+      }
 
-    if (!response.ok || !result.success) {
-      setError(result.error ?? "Unable to update password. Please request a new code.");
-      return;
+      setSuccess(true);
+      setCode("");
+      setPassword("");
+      setConfirmPassword("");
+    } catch {
+      setError("Unable to update password. Please request a new code.");
+    } finally {
+      setLoading(false);
     }
-
-    setSuccess(true);
-    setCode("");
-    setPassword("");
-    setConfirmPassword("");
   }
 
   return (

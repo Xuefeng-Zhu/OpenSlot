@@ -76,4 +76,24 @@ describe("ForgotPasswordPage", () => {
       "Unable to send reset email. Please try again."
     );
   });
+
+  it("shows a safe generic error when the reset request throws", async () => {
+    resetPasswordForEmail.mockRejectedValue(new Error("network unavailable"));
+
+    render(<ForgotPasswordPage />);
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "sarah@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send reset code" }));
+
+    expect(
+      await screen.findByText("Unable to send reset email. Please try again.")
+    ).toBeDefined();
+    expect(
+      screen.getByRole("button", { name: "Send reset code" }).getAttribute(
+        "disabled"
+      )
+    ).toBeNull();
+  });
 });
