@@ -200,7 +200,7 @@ artifacts belong under `backend/butterbase/`:
 | Route | Auth | Main module |
 | --- | --- | --- |
 | `/api/auth/*` | Public and authenticated Butterbase auth helpers for login, signup, session, logout, reset, update, and code exchange | `src/app/api/auth/*` |
-| `POST /api/backend/query` | Authenticated compatibility query proxy with table and operator allowlists | `src/lib/backend/compat/query-client.ts` |
+| `POST /api/backend/query` | Authenticated compatibility query proxy limited to allowlisted browser mutations | `src/lib/backend/compat/query-client.ts` |
 | `POST /api/booking-agent/message` | Public ephemeral assistant turn, service-key read, public rate limit, Butterbase AI gateway call | `src/lib/booking-agent/agent.ts` |
 | `GET /api/slots` | Public route, service-key read after active host/event validation | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service-key function with reservation guard | `src/app/api/holds/route.ts` |
