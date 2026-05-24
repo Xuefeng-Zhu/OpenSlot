@@ -22,7 +22,7 @@ import { AvailabilityScheduleControls } from "@/components/dashboard/availabilit
 import {
   errorToastDescription,
   requestJson,
-} from "@/components/dashboard/availability-request"
+} from "@/components/dashboard/request-json"
 import {
   DAYS,
   buildAvailabilitySaveRequest,

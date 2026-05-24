@@ -9,6 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  errorToastDescription,
+  requestJson,
+} from "@/components/dashboard/request-json";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import {
@@ -26,6 +30,27 @@ interface NewWebhookSecret {
   endpointId: string;
   secretToken: string;
 }
+
+type WebhookEndpointCreateResponse =
+  | {
+      success: true;
+      endpoint: WebhookEndpointSummary;
+      secretToken: string;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
+
+type WebhookEndpointMutationResponse =
+  | {
+      success: true;
+      endpoint?: WebhookEndpointSummary;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
 
 export function SettingsWebhookEndpointsSection({
   webhookEndpoints: initialWebhookEndpoints,
@@ -61,28 +86,36 @@ export function SettingsWebhookEndpointsSection({
     setNewWebhookSecret(null);
 
     try {
-      const response = await fetch("/api/webhooks/endpoints", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url: webhookUrl.trim(),
-          description: webhookDescription.trim() || undefined,
-          subscribedEvents: webhookEvents,
-        }),
-      });
-      const data = await response.json();
+      const data = await requestJson<WebhookEndpointCreateResponse>(
+        "/api/webhooks/endpoints",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: webhookUrl.trim(),
+            description: webhookDescription.trim() || undefined,
+            subscribedEvents: webhookEvents,
+          }),
+        },
+        "Failed to create webhook endpoint"
+      );
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error ?? "Failed to create webhook endpoint");
       }
 
-      setWebhookEndpoints((current) => [data.endpoint, ...current]);
+      const { endpoint, secretToken } = data;
+      if (!endpoint || !secretToken) {
+        throw new Error("Failed to create webhook endpoint");
+      }
+
+      setWebhookEndpoints((current) => [endpoint, ...current]);
       setWebhookUrl("");
       setWebhookDescription("");
       setWebhookEvents(["booking.confirmed"]);
       setNewWebhookSecret({
-        endpointId: data.endpoint.id,
-        secretToken: data.secretToken,
+        endpointId: endpoint.id,
+        secretToken,
       });
       toast({
         title: "Webhook created",
@@ -91,8 +124,7 @@ export function SettingsWebhookEndpointsSection({
     } catch (error) {
       toast({
         title: "Webhook not created",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {
@@ -107,14 +139,17 @@ export function SettingsWebhookEndpointsSection({
     setWebhookActionId(endpoint.id);
 
     try {
-      const response = await fetch(`/api/webhooks/endpoints/${endpoint.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive }),
-      });
-      const data = await response.json();
+      const data = await requestJson<WebhookEndpointMutationResponse>(
+        `/api/webhooks/endpoints/${endpoint.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive }),
+        },
+        "Failed to update webhook endpoint"
+      );
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error ?? "Failed to update webhook endpoint");
       }
 
@@ -126,8 +161,7 @@ export function SettingsWebhookEndpointsSection({
     } catch (error) {
       toast({
         title: "Webhook not updated",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {
@@ -143,12 +177,15 @@ export function SettingsWebhookEndpointsSection({
     setWebhookActionId(endpoint.id);
 
     try {
-      const response = await fetch(`/api/webhooks/endpoints/${endpoint.id}`, {
-        method: "DELETE",
-      });
-      const data = await response.json();
+      const data = await requestJson<WebhookEndpointMutationResponse>(
+        `/api/webhooks/endpoints/${endpoint.id}`,
+        {
+          method: "DELETE",
+        },
+        "Failed to delete webhook endpoint"
+      );
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error ?? "Failed to delete webhook endpoint");
       }
 
@@ -161,8 +198,7 @@ export function SettingsWebhookEndpointsSection({
     } catch (error) {
       toast({
         title: "Webhook not deleted",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {
