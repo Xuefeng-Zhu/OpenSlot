@@ -223,6 +223,75 @@ describe('SlotPicker', () => {
     expect(screen.getByRole('button', { name: /10:00 AM/i })).toBeDefined()
   })
 
+  it('ignores stale hold responses after the selected date changes', async () => {
+    const holdRequest = createDeferredResponse()
+    const heldDate = addDays(new Date(), 3)
+    const nextDate = addDays(new Date(), 4)
+    const heldDateKey = format(heldDate, 'yyyy-MM-dd')
+    const nextDateKey = format(nextDate, 'yyyy-MM-dd')
+    const heldSlot = {
+      start: `${heldDateKey}T14:00:00.000Z`,
+      end: `${heldDateKey}T14:30:00.000Z`,
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/slots')) {
+        return new Response(
+          JSON.stringify({
+            slotsByDate: {
+              [heldDateKey]: [heldSlot],
+              [nextDateKey]: [],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      if (url === '/api/holds') {
+        return holdRequest.promise
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/New_York')
+
+    render(<SlotPicker eventType={eventType} hostProfile={hostProfile} />)
+
+    fireEvent.click(
+      await screen.findByLabelText(new RegExp(format(heldDate, 'MMMM d'), 'i'))
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /10:00 AM/i }))
+    expect(await screen.findByText('Confirm your booking')).toBeDefined()
+
+    fireEvent.click(
+      screen.getByLabelText(new RegExp(format(nextDate, 'MMMM d'), 'i'))
+    )
+    expect(screen.queryByText('Confirm your booking')).toBeNull()
+
+    holdRequest.resolve(
+      new Response(
+        JSON.stringify({
+          holdId: '33333333-3333-4333-8333-333333333333',
+          holdToken: '44444444-4444-4444-8444-444444444444',
+          expiresAt: '2026-06-16T16:05:00.000Z',
+        }),
+        {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    )
+
+    await waitFor(() =>
+      expect(screen.queryByText('Confirm your booking')).toBeNull()
+    )
+  })
+
   it('deep merges booking assistant draft answers across turns', () => {
     expect(
       mergeBookingAgentDrafts(
