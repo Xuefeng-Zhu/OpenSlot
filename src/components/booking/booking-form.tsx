@@ -38,6 +38,10 @@ import {
   isTurnstileEnabled,
   TurnstileWidget,
 } from "@/components/booking/turnstile-widget";
+import {
+  computeRemainingSeconds,
+  formatRemainingSeconds,
+} from "@/components/booking/hold-timer";
 import { BookingInviteeQuestionFields } from "@/components/booking/booking-invitee-question-fields";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 
@@ -105,12 +109,7 @@ export function BookingForm({
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const userEditedFieldsRef = useRef<Set<string>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState<number>(
-    expiresAt
-      ? Math.max(
-          0,
-          Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
-        )
-      : 0
+    expiresAt ? computeRemainingSeconds(expiresAt, new Date()) : 0
   );
   const bookingFormSchema = useMemo(
     () => createConfirmBookingFormSchema(inviteeQuestions),
@@ -205,17 +204,11 @@ export function BookingForm({
       return;
     }
 
-    const initialRemaining = Math.max(
-      0,
-      Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
-    );
+    const initialRemaining = computeRemainingSeconds(expiresAt, new Date());
     setTimeRemaining(initialRemaining);
 
     const interval = setInterval(() => {
-      const remaining = Math.max(
-        0,
-        Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000)
-      );
+      const remaining = computeRemainingSeconds(expiresAt, new Date());
       setTimeRemaining(remaining);
 
       if (remaining <= 0) {
@@ -226,12 +219,6 @@ export function BookingForm({
 
     return () => clearInterval(interval);
   }, [expiresAt, onHoldExpired]);
-
-  const formatCountdown = useCallback((seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  }, []);
 
   const onSubmit = async (data: ConfirmBookingFormValues) => {
     if (!holdToken) {
@@ -380,9 +367,9 @@ export function BookingForm({
                   : "bg-muted text-muted-foreground"
               }`}
               role="timer"
-              aria-label={`Hold expires in ${formatCountdown(timeRemaining)}`}
+              aria-label={`Hold expires in ${formatRemainingSeconds(timeRemaining)}`}
             >
-              Hold expires in {formatCountdown(timeRemaining)}
+              Hold expires in {formatRemainingSeconds(timeRemaining)}
             </div>
           )}
         </div>
