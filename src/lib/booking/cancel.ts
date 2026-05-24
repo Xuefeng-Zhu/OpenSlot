@@ -5,6 +5,7 @@ import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
 import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
 import { touchContactForBookingEvent } from '@/lib/contacts/contacts'
 import { appendBookingEvent } from './events'
+import { shouldUseFunctionFallback } from '@/lib/backend/compat/function-fallback'
 
 /**
  * Cancels a confirmed booking using its cancellation token.
@@ -52,7 +53,7 @@ export async function cancelBooking(
     cancelReason,
   })
 
-  if (functionResult.attempted) {
+  if (functionResult.attempted && !('fallback' in functionResult)) {
     if (!functionResult.success) {
       return { success: false, error: functionResult.error }
     }
@@ -138,6 +139,7 @@ type CancelFunctionResult =
   | { attempted: false }
   | { attempted: true; success: true }
   | { attempted: true; success: false; error: string }
+  | { attempted: true; fallback: true }
 
 async function cancelBookingWithBackendFunction(
   adminClient: BackendCompatClient<Database>,
@@ -154,6 +156,14 @@ async function cancelBookingWithBackendFunction(
   })
 
   if (error) {
+    if (shouldUseFunctionFallback(error)) {
+      console.warn(
+        'Falling back to non-transactional booking cancellation because the backend function is unavailable:',
+        error
+      )
+      return { attempted: true, fallback: true }
+    }
+
     console.error('Error cancelling booking through backend function:', error)
     return {
       attempted: true,

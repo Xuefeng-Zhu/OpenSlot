@@ -17,6 +17,7 @@ import {
 } from '@/lib/validations/invitee-questions'
 import type { Json } from '@/lib/types/database'
 import { verifyFinalProviderAvailability } from '@/lib/calendar/final-availability'
+import { shouldUseFunctionFallback } from '@/lib/backend/compat/function-fallback'
 
 /**
  * Confirms a booking from an active hold.
@@ -125,7 +126,7 @@ export async function confirmBooking(
     conferenceProvider,
   })
 
-  if (functionResult.attempted) {
+  if (functionResult.attempted && !('fallback' in functionResult)) {
     if (!functionResult.success) {
       return {
         success: false,
@@ -283,6 +284,7 @@ type ConfirmFunctionResult =
   | { attempted: false }
   | { attempted: true; success: true; booking: ConfirmFunctionBooking }
   | { attempted: true; success: false; error: string }
+  | { attempted: true; fallback: true }
 
 async function confirmBookingWithBackendFunction(
   adminClient: BackendCompatClient<Database>,
@@ -322,6 +324,14 @@ async function confirmBookingWithBackendFunction(
     }>()
 
   if (error || !data) {
+    if (shouldUseFunctionFallback(error)) {
+      console.warn(
+        'Falling back to non-transactional booking confirmation because the backend function is unavailable:',
+        error
+      )
+      return { attempted: true, fallback: true }
+    }
+
     if (error?.code === '23P01') {
       return {
         attempted: true,

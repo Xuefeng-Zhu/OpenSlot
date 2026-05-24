@@ -4,7 +4,7 @@ import { POST } from '../route'
 const mocks = vi.hoisted(() => ({
   adminClient: {
     rpc: vi.fn(),
-    from: vi.fn(() => {
+    from: vi.fn((_table: string): any => {
       throw new Error('Unexpected table write in availability route')
     }),
   },
@@ -184,5 +184,69 @@ describe('POST /api/availability', () => {
     })
     expect(mocks.loadOwnedSchedule).not.toHaveBeenCalled()
     expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
+  })
+
+  it('falls back to direct writes when the backend function is unavailable', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const savedRules = [{ ...validBody.rules[0], id: existingRuleId }]
+    const savedOverrides = [
+      {
+        id: '55555555-5555-4555-8555-555555555555',
+        ...validBody.overrides[0],
+      },
+    ]
+    const fallbackResults = [
+      { data: [], error: null },
+      { data: [], error: null },
+      { data: [validBody.rules[0]], error: null },
+      { data: [validBody.overrides[0]], error: null },
+      { data: savedRules, error: null },
+      { data: savedOverrides, error: null },
+    ]
+
+    mocks.adminClient.rpc.mockReturnValue(
+      rpcResult({
+        data: null,
+        error: {
+          message: 'Butterbase request failed with 404',
+          status: 404,
+          details: { error: 'Function not found' },
+        },
+      })
+    )
+    mocks.adminClient.from.mockImplementation((table: string) => {
+      const result = fallbackResults.shift()
+      if (!result) throw new Error(`Unexpected fallback table: ${table}`)
+      const builder: any = {
+        delete: vi.fn(() => builder),
+        eq: vi.fn(() => builder),
+        in: vi.fn(() => builder),
+        insert: vi.fn(() => builder),
+        order: vi.fn(() => builder),
+        select: vi.fn(() => builder),
+        update: vi.fn(() => builder),
+        then: (resolve: any) => Promise.resolve(result).then(resolve),
+      }
+      return builder
+    })
+
+    const response = await POST(requestWithJson(validBody) as never)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toEqual({
+      success: true,
+      rules: savedRules,
+      overrides: savedOverrides,
+    })
+    expect(mocks.adminClient.from).toHaveBeenCalledWith('schedules')
+    expect(mocks.adminClient.from).toHaveBeenCalledWith('availability_rules')
+    expect(mocks.adminClient.from).toHaveBeenCalledWith('availability_overrides')
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Falling back to non-transactional availability save because the backend function is unavailable:',
+      expect.objectContaining({ status: 404 })
+    )
+    consoleWarn.mockRestore()
+  })
   })
 })
