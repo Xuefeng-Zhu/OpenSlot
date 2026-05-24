@@ -135,12 +135,6 @@ describe('confirmBooking', () => {
 
   it('successfully confirms a booking from a valid active hold', async () => {
     // Setup: hold fetch succeeds
-    let fromCallCount = 0
-    mockClient.from.mockImplementation((table: string) => {
-      fromCallCount++
-      return mockClient
-    })
-
     let singleCallCount = 0
     mockClient.single.mockImplementation(() => {
       singleCallCount++

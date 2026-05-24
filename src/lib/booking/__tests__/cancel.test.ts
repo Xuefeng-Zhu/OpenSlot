@@ -105,59 +105,10 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    // Update call returns no error (non-single terminal)
-    mockClient.eq.mockImplementation(() => {
-      // For the update().eq() chain, we need to resolve the update promise
-      return { ...mockClient, then: (resolve: any) => resolve({ error: null }) }
-    })
-
-    // Re-mock to handle the update flow properly
-    // The update chain: from('bookings').update({...}).eq('id', booking.id)
-    // This doesn't call .single(), it just resolves
-    let eqCallCount = 0
-    mockClient.eq.mockImplementation((...args: any[]) => {
-      eqCallCount++
-      // After the update().eq() call, it should resolve with no error
-      // But we also need eq() to chain for the select queries
-      const result = { ...mockClient }
-      // If this is the eq after update (3rd eq call - after from.select.eq.eq for the first query)
-      // We need to handle this carefully
-      return result
-    })
-
-    // Simpler approach: mock the full chain behavior
-    mockClient = createMockClient()
-    let fromCallCount = 0
-    mockClient.from.mockImplementation((table: string) => {
-      fromCallCount++
-      return mockClient
-    })
-
-    singleCallCount = 0
-    mockClient.single.mockImplementation(() => {
-      singleCallCount++
-      if (singleCallCount === 1) {
-        return Promise.resolve({ data: confirmedBooking, error: null })
-      }
-      if (singleCallCount === 2) {
-        return Promise.resolve({ data: { title: '30 Minute Meeting' }, error: null })
-      }
-      if (singleCallCount === 3) {
-        return Promise.resolve({ data: { name: 'Host User', email: 'host@example.com' }, error: null })
-      }
-      return Promise.resolve({ data: null, error: null })
-    })
-
     // For the update chain (from.update.eq), it doesn't call single
     // The eq() at the end of update chain should resolve as a promise with { error: null }
-    // We handle this by making the mock return a thenable when appropriate
     // Since the code does: await adminClient.from('bookings').update({...}).eq('id', booking.id)
-    // The last .eq() call needs to resolve as { error: null }
-    
-    // Override eq to be both chainable and thenable
-    let updateCalled = false
-    mockClient.update.mockImplementation((...args: any[]) => {
-      updateCalled = true
+    mockClient.update.mockImplementation(() => {
       return {
         eq: vi.fn().mockResolvedValue({ error: null }),
       }

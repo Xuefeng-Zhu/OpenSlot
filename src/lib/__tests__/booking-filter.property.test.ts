@@ -22,10 +22,6 @@ const baseBookingArb = fc.record({
   event_type_title: fc.string({ minLength: 1, maxLength: 100 }),
 })
 
-// Generate a booking with a specific event type title
-const bookingWithTitleArb = (title: string) =>
-  baseBookingArb.map((booking) => ({ ...booking, event_type_title: title }))
-
 // Generate a non-empty, non-whitespace filter string
 const nonEmptyFilterArb = fc.string({ minLength: 1, maxLength: 30 }).filter((s) => s.trim().length > 0)
 

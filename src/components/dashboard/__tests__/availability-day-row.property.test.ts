@@ -23,12 +23,6 @@ const timeStringArb = fc
     return `${hh}:${mm}`
   })
 
-/** Convert "HH:mm" to total minutes for comparison */
-function toMinutes(time: string): number {
-  const [h, m] = time.split(':').map(Number)
-  return h * 60 + m
-}
-
 describe('Property 10: Time Interval Validation', () => {
   it('invalid intervals (end <= start) always produce a non-null validation error', () => {
     fc.assert(
