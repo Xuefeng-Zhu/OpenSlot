@@ -14,7 +14,7 @@ import {
   bookingReminderTemplate,
   cancellationTemplate,
 } from './templates'
-import { videoProviderLabel } from '@/lib/calendar/video-providers'
+import { formatBookingLocationLabel } from '@/lib/location-labels'
 import type { BookingAnswerSummary } from '@/lib/validations/invitee-questions'
 
 /**
@@ -132,29 +132,6 @@ function buildRescheduleUrl(rescheduleToken: string | undefined): string | undef
   return `${baseUrl}/booking/reschedule/${rescheduleToken}`
 }
 
-function bookingLocationLabel(booking: BookingDetails): string | undefined {
-  const generatedVideoLabel = videoProviderLabel(booking.conferenceProvider)
-  if (generatedVideoLabel) return generatedVideoLabel
-
-  if (booking.locationValue) {
-    return booking.locationValue
-  }
-
-  if (booking.locationType === 'phone') {
-    return 'Phone call'
-  }
-
-  if (booking.locationType === 'in_person') {
-    return 'In person'
-  }
-
-  if (booking.locationType === 'online') {
-    return 'Online'
-  }
-
-  return undefined
-}
-
 function emailErrorMessage(context: string, error: unknown): string {
   if (error instanceof Error && error.message) {
     return `${context}: ${error.message}`
@@ -188,7 +165,11 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
   const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
   const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
   const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
-  const locationLabel = bookingLocationLabel(booking)
+  const locationLabel = formatBookingLocationLabel({
+    locationType: booking.locationType,
+    locationValue: booking.locationValue,
+    conferenceProvider: booking.conferenceProvider,
+  }) ?? undefined
 
   const { subject, html, text } = bookingConfirmationGuestTemplate({
     eventTitle: booking.eventTitle,
@@ -221,7 +202,11 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
  */
 export async function sendBookingNotificationToHost(booking: BookingDetails): Promise<void> {
   const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
-  const locationLabel = bookingLocationLabel(booking)
+  const locationLabel = formatBookingLocationLabel({
+    locationType: booking.locationType,
+    locationValue: booking.locationValue,
+    conferenceProvider: booking.conferenceProvider,
+  }) ?? undefined
 
   const { subject, html, text } = bookingNotificationHostTemplate({
     eventTitle: booking.eventTitle,

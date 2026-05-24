@@ -64,6 +64,7 @@ export interface Database {
       }
       user_settings: {
         Row: {
+          id: string
           profile_id: string
           date_format: string
           time_format: string
@@ -75,6 +76,7 @@ export interface Database {
           updated_at: string
         }
         Insert: {
+          id?: string
           profile_id: string
           date_format?: string
           time_format?: string
@@ -86,6 +88,7 @@ export interface Database {
           updated_at?: string
         }
         Update: {
+          id?: string
           profile_id?: string
           date_format?: string
           time_format?: string
