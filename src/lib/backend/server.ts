@@ -7,10 +7,8 @@ import {
 } from './compat/query-client'
 import {
   BACKEND_ACCESS_TOKEN_COOKIE,
-  BACKEND_REFRESH_TOKEN_COOKIE,
   backendSessionCookies,
   clearBackendSessionCookies,
-  shouldKeepAuthSession,
   type BackendCookieToSet,
 } from './session'
 
@@ -41,16 +39,6 @@ export async function createRequestBackend() {
 export async function currentBackendAccessToken() {
   const cookieStore = await cookies()
   return cookieStore.get(BACKEND_ACCESS_TOKEN_COOKIE)?.value
-}
-
-export async function currentBackendRefreshToken() {
-  const cookieStore = await cookies()
-  return cookieStore.get(BACKEND_REFRESH_TOKEN_COOKIE)?.value
-}
-
-export async function currentBackendKeepSignedIn() {
-  const cookieStore = await cookies()
-  return shouldKeepAuthSession((name) => cookieStore.get(name)?.value)
 }
 
 export function cookiesForBackendSession(
