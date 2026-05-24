@@ -1,38 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { updateWebhookEndpointSchema } from '@/lib/validations/webhooks'
 
 interface WebhookEndpointRouteProps {
   params: Promise<{ id: string }>
-}
-
-/**
- * Resolves the current session to a profile id for endpoint ownership checks.
- * Route handlers pair this with service-key writes so callers cannot update or
- * delete another profile's webhook endpoint by guessing an id.
- */
-async function getAuthenticatedProfileId() {
-  const backendClient = await createServerBackendClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await backendClient.auth.getUser()
-
-  if (authError || !user) {
-    return { ok: false as const, status: 401, error: 'Unauthorized' }
-  }
-
-  const { data: profile, error: profileError } = await backendClient
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    return { ok: false as const, status: 404, error: 'Profile not found' }
-  }
-
-  return { ok: true as const, profileId: (profile as { id: string }).id }
 }
 
 /**
@@ -47,7 +19,7 @@ export async function PATCH(
   { params }: WebhookEndpointRouteProps
 ) {
   try {
-    const auth = await getAuthenticatedProfileId()
+    const auth = await getAuthenticatedProfile()
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -129,7 +101,7 @@ export async function DELETE(
   { params }: WebhookEndpointRouteProps
 ) {
   try {
-    const auth = await getAuthenticatedProfileId()
+    const auth = await getAuthenticatedProfile()
 
     if (!auth.ok) {
       return NextResponse.json(

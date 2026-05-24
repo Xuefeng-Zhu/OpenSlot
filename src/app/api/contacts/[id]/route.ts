@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { anonymizeContact } from '@/lib/contacts/contacts'
 
 interface ContactRouteProps {
@@ -8,34 +9,6 @@ interface ContactRouteProps {
 }
 
 const contactIdSchema = z.string().uuid()
-
-/**
- * Resolves the current session to a profile id before service-key contact
- * writes, so a guessed contact id cannot cross tenant boundaries.
- */
-async function getAuthenticatedProfileId() {
-  const backendClient = await createServerBackendClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await backendClient.auth.getUser()
-
-  if (authError || !user) {
-    return { ok: false as const, status: 401, error: 'Unauthorized' }
-  }
-
-  const { data: profile, error: profileError } = await backendClient
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    return { ok: false as const, status: 404, error: 'Profile not found' }
-  }
-
-  return { ok: true as const, profileId: (profile as { id: string }).id }
-}
 
 /**
  * Soft-anonymizes a host-owned contact and matching booking display fields.
@@ -47,7 +20,7 @@ export async function DELETE(
   { params }: ContactRouteProps
 ) {
   try {
-    const auth = await getAuthenticatedProfileId()
+    const auth = await getAuthenticatedProfile()
 
     if (!auth.ok) {
       return NextResponse.json(
