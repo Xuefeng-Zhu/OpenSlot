@@ -1,40 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { webhookEndpointSchema } from '@/lib/validations/webhooks'
 import {
   listWebhookEndpointSummaries,
   toWebhookEndpointSummary,
 } from '@/lib/webhooks/endpoints'
 import type { Tables } from '@/lib/types/database'
-
-/**
- * Resolves the current session to a profile id for webhook endpoint ownership.
- * Mutations still use the service-key client, so every write must scope by this
- * profile id instead of trusting client-provided ownership.
- */
-async function getAuthenticatedProfileId() {
-  const backendClient = await createServerBackendClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await backendClient.auth.getUser()
-
-  if (authError || !user) {
-    return { ok: false as const, status: 401, error: 'Unauthorized' }
-  }
-
-  const { data: profile, error: profileError } = await backendClient
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    return { ok: false as const, status: 404, error: 'Profile not found' }
-  }
-
-  return { ok: true as const, profileId: (profile as { id: string }).id }
-}
 
 /**
  * Returns safe webhook endpoint summaries for the authenticated profile.
@@ -44,7 +16,7 @@ export const runtime = 'edge'
 
 export async function GET() {
   try {
-    const auth = await getAuthenticatedProfileId()
+    const auth = await getAuthenticatedProfile()
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -76,7 +48,7 @@ export async function GET() {
  */
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedProfileId()
+    const auth = await getAuthenticatedProfile()
 
     if (!auth.ok) {
       return NextResponse.json(

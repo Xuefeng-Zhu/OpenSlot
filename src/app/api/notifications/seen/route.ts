@@ -1,40 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
-
-async function getAuthenticatedProfile() {
-  const backendClient = await createServerBackendClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await backendClient.auth.getUser()
-
-  if (authError || !user) {
-    return {
-      ok: false as const,
-      status: 401,
-      error: 'Unauthorized',
-    }
-  }
-
-  const { data: profile, error: profileError } = await backendClient
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    return {
-      ok: false as const,
-      status: 404,
-      error: 'Profile not found',
-    }
-  }
-
-  return {
-    ok: true as const,
-    profile: profile as { id: string },
-  }
-}
+import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import { createAdminBackendClient } from '@/lib/backend/server'
 
 /**
  * Marks dashboard booking activity as seen for the signed-in host.
@@ -58,7 +24,7 @@ export async function POST() {
       .from('user_settings')
       .upsert(
         {
-          profile_id: auth.profile.id,
+          profile_id: auth.profileId,
           notifications_seen_at: notificationsSeenAt,
           updated_at: notificationsSeenAt,
         },

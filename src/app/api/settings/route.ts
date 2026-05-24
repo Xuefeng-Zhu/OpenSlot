@@ -1,42 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { settingsSchema } from '@/lib/validations/settings'
-
-async function getAuthenticatedProfile() {
-  const backendClient = await createServerBackendClient()
-  const {
-    data: { user },
-    error: authError,
-  } = await backendClient.auth.getUser()
-
-  if (authError || !user) {
-    return {
-      ok: false as const,
-      status: 401,
-      error: 'Unauthorized',
-    }
-  }
-
-  const { data: profile, error: profileError } = await backendClient
-    .from('profiles')
-    .select('id, auth_user_id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  if (profileError || !profile) {
-    return {
-      ok: false as const,
-      status: 404,
-      error: 'Profile not found',
-    }
-  }
-
-  return {
-    ok: true as const,
-    user,
-    profile: profile as { id: string; auth_user_id: string },
-  }
-}
 
 /**
  * Saves profile and notification/preference settings for the signed-in host.
@@ -91,7 +56,7 @@ export async function PATCH(request: NextRequest) {
         default_timezone: settings.defaultTimezone,
         updated_at: now,
       })
-      .eq('id', auth.profile.id)
+      .eq('id', auth.profileId)
 
     if (profileError) {
       console.error('Error updating profile settings:', profileError)
@@ -105,7 +70,7 @@ export async function PATCH(request: NextRequest) {
       .from('user_settings')
       .upsert(
         {
-          profile_id: auth.profile.id,
+          profile_id: auth.profileId,
           date_format: settings.dateFormat,
           time_format: settings.timeFormat,
           notify_new_booking: settings.notifyNewBooking,
@@ -151,7 +116,7 @@ export async function DELETE() {
     }
 
     const adminClient = createAdminBackendClient()
-    const { error } = await adminClient.auth.admin?.deleteUser(auth.user.id) ?? {
+    const { error } = await adminClient.auth.admin?.deleteUser(auth.userId) ?? {
       error: { message: 'Admin auth is unavailable' },
     }
 
