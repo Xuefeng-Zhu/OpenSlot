@@ -84,6 +84,50 @@ describe('Butterbase backend adapter', () => {
     )
   })
 
+  it('maps wrapped signup user responses from Butterbase auth', async () => {
+    const fetchImpl = mockFetch({
+      user: {
+        id: 'auth-user-2',
+        email: 'new-host@example.com',
+        email_verified: false,
+        display_name: 'New Host',
+        avatar_url: null,
+      },
+    })
+    const backend = createButterbaseBackend({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.butterbase.ai',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    const result = await backend.auth.signUp({
+      email: 'new-host@example.com',
+      password: 'Passw0rd!',
+      displayName: 'New Host',
+    })
+
+    expect(result.error).toBeNull()
+    expect(result.data).toMatchObject({
+      id: 'auth-user-2',
+      email: 'new-host@example.com',
+      emailVerified: false,
+      displayName: 'New Host',
+    })
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.butterbase.ai/auth/app_openslot/signup',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          email: 'new-host@example.com',
+          password: 'Passw0rd!',
+          display_name: 'New Host',
+        }),
+      })
+    )
+    expect(requestHeaders(fetchImpl).get('Authorization')).toBeNull()
+  })
+
   it('treats empty current user responses as unauthorized', async () => {
     const fetchImpl = mockFetch(null)
     const backend = createButterbaseBackend({
