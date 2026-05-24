@@ -7,11 +7,8 @@ const MAX_QUERY_LIMIT = 500
 const MAX_QUERY_OFFSET = 10_000
 
 type BrowserQueryOperation =
-  | 'select'
-  | 'insert'
   | 'update'
   | 'delete'
-  | 'upsert'
 
 interface QueryPolicy {
   operations: ReadonlySet<BrowserQueryOperation>
@@ -66,12 +63,6 @@ const queryRequestSchema = z
     table: z.string().min(1),
     operation: z.string().min(1),
     payload: z.unknown().optional(),
-    upsertOptions: z
-      .object({
-        onConflict: z.string().min(1).max(256).optional(),
-      })
-      .strict()
-      .optional(),
     selected: z.string().min(1).max(2_000).default('*'),
     selectOptions: z
       .object({
@@ -116,28 +107,13 @@ export async function POST(request: NextRequest) {
     const client = createBackendCompatClient({ accessToken, authMode: 'user' })
     let query = client.from(body.table)
 
-    switch (body.operation) {
-      case 'insert':
-        query = query.insert(body.payload)
-        break
+    switch (policyResult.operation) {
       case 'update':
         query = query.update(body.payload)
         break
       case 'delete':
         query = query.delete()
         break
-      case 'upsert':
-        query = query.upsert(body.payload, body.upsertOptions)
-        break
-      case 'select':
-        query = query.select(body.selected, body.selectOptions)
-        break
-      default:
-        return queryErrorResponse('Unsupported operation', 400)
-    }
-
-    if (body.operation !== 'select' && body.selected && body.selected !== '*') {
-      query = query.select(body.selected, body.selectOptions)
     }
 
     for (const filter of body.filters) {
@@ -147,15 +123,6 @@ export async function POST(request: NextRequest) {
       }
       query = applied.query
     }
-
-    for (const order of body.orders) {
-      query = query.order(order.column, { ascending: order.ascending !== false })
-    }
-
-    if (body.limitCount !== undefined) query = query.limit(body.limitCount)
-    if (body.offsetCount !== undefined) query = query.offset(body.offsetCount)
-    if (body.responseMode === 'single') query = query.single()
-    if (body.responseMode === 'maybeSingle') query = query.maybeSingle()
 
     const result = await query
     return NextResponse.json(result, {
@@ -173,7 +140,10 @@ function validateQueryPolicy(body: QueryRequest) {
     return { ok: false as const, error: 'Unsupported table' }
   }
 
-  if (!policy.operations.has(body.operation as BrowserQueryOperation)) {
+  if (
+    !isBrowserQueryOperation(body.operation) ||
+    !policy.operations.has(body.operation)
+  ) {
     return { ok: false as const, error: 'Unsupported operation' }
   }
 
@@ -229,7 +199,7 @@ function validateQueryPolicy(body: QueryRequest) {
     if (!payloadResult.ok) return payloadResult
   }
 
-  return { ok: true as const }
+  return { ok: true as const, operation: body.operation }
 }
 
 function validatePayloadColumns(payload: unknown, policy: QueryPolicy) {
@@ -257,20 +227,6 @@ function applyFilter(query: QueryBuilder, filter: QueryFilter) {
   switch (filter.operator) {
     case 'eq':
       return { ok: true as const, query: query.eq(filter.column, filter.value) }
-    case 'gt':
-      return { ok: true as const, query: query.gt(filter.column, filter.value) }
-    case 'gte':
-      return { ok: true as const, query: query.gte(filter.column, filter.value) }
-    case 'lt':
-      return { ok: true as const, query: query.lt(filter.column, filter.value) }
-    case 'lte':
-      return { ok: true as const, query: query.lte(filter.column, filter.value) }
-    case 'is':
-      return { ok: true as const, query: query.is(filter.column, filter.value) }
-    case 'in':
-      return Array.isArray(filter.value)
-        ? { ok: true as const, query: query.in(filter.column, filter.value) }
-        : { ok: false as const, error: 'Filter "in" expects an array value' }
     default:
       return {
         ok: false as const,
@@ -281,4 +237,10 @@ function applyFilter(query: QueryBuilder, filter: QueryFilter) {
 
 function queryErrorResponse(message: string, status: number) {
   return NextResponse.json({ data: null, error: { message } }, { status })
+}
+
+function isBrowserQueryOperation(
+  operation: string
+): operation is BrowserQueryOperation {
+  return operation === 'update' || operation === 'delete'
 }
