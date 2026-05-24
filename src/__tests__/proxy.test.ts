@@ -74,4 +74,26 @@ describe('proxy session refresh', () => {
       'new-access-token'
     )
   })
+
+  it('redirects signed-out dashboard routes with their return URL', async () => {
+    const request = new NextRequest(
+      'https://openslot.test/bookings?status=upcoming'
+    )
+
+    const response = await proxy(request)
+
+    expect(response.status).toBe(307)
+    expect(response.headers.get('location')).toBe(
+      'https://openslot.test/login?returnUrl=%2Fbookings%3Fstatus%3Dupcoming'
+    )
+  })
+
+  it('does not protect public routes', async () => {
+    const request = new NextRequest('https://openslot.test/demo/intro-call')
+
+    const response = await proxy(request)
+
+    expect(response.status).toBe(200)
+    expect(response.headers.get('location')).toBeNull()
+  })
 })
