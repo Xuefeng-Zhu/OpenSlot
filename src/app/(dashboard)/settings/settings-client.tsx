@@ -35,6 +35,7 @@ import {
   getVideoProviderReadiness,
   videoProviderOptions,
 } from "@/lib/calendar/video-providers";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import type { SettingsFormValues } from "@/lib/validations/settings";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 
@@ -385,10 +386,10 @@ export function SettingsClient({
   };
 
   const copyWebhookSecret = async () => {
-    if (!newWebhookSecret || !navigator.clipboard) return;
+    if (!newWebhookSecret) return;
 
     try {
-      await navigator.clipboard.writeText(newWebhookSecret);
+      await copyTextToClipboard(newWebhookSecret);
       toast({
         title: "Secret copied",
         description: "Use it to verify OpenSlot webhook signatures.",
