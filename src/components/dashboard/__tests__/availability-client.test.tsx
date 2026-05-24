@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AvailabilityClient } from '../availability-client'
 import type { AvailabilitySchedule } from '../availability-model'
 
@@ -73,6 +73,10 @@ describe('AvailabilityClient', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('renders the selected default schedule as working hours', () => {
     renderAvailability()
 
@@ -140,5 +144,73 @@ describe('AvailabilityClient', () => {
         name: 'Delete schedule',
       }) as HTMLButtonElement).disabled
     ).toBe(true)
+  })
+
+  it('preserves weekly interval ids when deleting the first interval', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body))
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            rules: body.rules,
+            overrides: body.overrides,
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAvailability({
+      initialRules: [
+        {
+          id: 'rule-first',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '10:00',
+          is_active: true,
+        },
+        {
+          id: 'rule-second',
+          weekday: 1,
+          start_time: '11:00',
+          end_time: '12:00',
+          is_active: true,
+        },
+      ],
+    })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Remove interval 1 for Monday' })
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Save availability' })
+    )
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/availability',
+        expect.any(Object)
+      )
+    )
+
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit
+    const body = JSON.parse(String(requestInit.body))
+
+    expect(body.rules).toEqual([
+      {
+        id: 'rule-second',
+        weekday: 1,
+        start_time: '11:00',
+        end_time: '12:00',
+        is_active: true,
+      },
+    ])
+    expect(body.deletedRuleIds).toEqual(['rule-first'])
   })
 })

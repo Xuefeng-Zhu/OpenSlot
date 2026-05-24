@@ -213,23 +213,12 @@ export function AvailabilityClient({
   const handleIntervalsChange = useCallback(
     (day: string, intervals: TimeInterval[]) => {
       setDayStates((prev) => {
-        const existing = prev[day]
         // Preserve IDs for existing intervals, assign temp IDs for new ones
-        const updatedIntervals = intervals.map((interval, idx) => {
-          const existingInterval = existing.intervals[idx]
-          return {
-            id: existingInterval?.id,
-            start: interval.start,
-            end: interval.end,
-          }
-        })
-
-        // If new intervals were added (more than before), assign temp IDs
-        for (let i = existing.intervals.length; i < updatedIntervals.length; i++) {
-          if (!updatedIntervals[i].id) {
-            updatedIntervals[i] = { ...updatedIntervals[i], id: tempId() }
-          }
-        }
+        const updatedIntervals = intervals.map((interval) => ({
+          id: interval.id ?? tempId(),
+          start: interval.start,
+          end: interval.end,
+        }))
 
         return {
           ...prev,
@@ -807,6 +796,7 @@ export function AvailabilityClient({
                 day={day}
                 enabled={dayStates[day].enabled}
                 intervals={dayStates[day].intervals.map((interval) => ({
+                  id: interval.id,
                   start: interval.start,
                   end: interval.end,
                 }))}

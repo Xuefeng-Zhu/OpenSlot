@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export interface TimeInterval {
+  id?: string;
   start: string; // "HH:mm"
   end: string; // "HH:mm"
 }
@@ -104,7 +105,7 @@ export function AvailabilityDayRow({
               interval.end
             );
             return (
-              <div key={index} className="space-y-1">
+              <div key={interval.id ?? `${day}-${index}`} className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="time"
