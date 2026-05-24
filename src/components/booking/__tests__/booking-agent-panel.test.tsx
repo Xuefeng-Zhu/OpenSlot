@@ -135,6 +135,110 @@ describe('BookingAgentPanel', () => {
     expect(onSelectSlot).not.toHaveBeenCalled()
   })
 
+  it('ignores stale assistant responses after booking context changes', async () => {
+    const staleRequest = createDeferredResponse()
+    let requestCount = 0
+    const fetchMock = vi.fn(async () => {
+      requestCount += 1
+
+      if (requestCount === 1) {
+        return staleRequest.promise
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          reply: 'Fresh reply',
+          suggestedSlots: [
+            {
+              start: '2026-06-17T18:00:00.000Z',
+              end: '2026-06-17T18:30:00.000Z',
+              label: 'Wed, Jun 17, 2:00 PM',
+            },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const onDraftChange = vi.fn()
+
+    const { rerender } = render(
+      <BookingAgentPanel
+        mode="booking"
+        eventTypeId="11111111-1111-4111-8111-111111111111"
+        hostUserId="22222222-2222-4222-8222-222222222222"
+        timezone="America/New_York"
+        selectedDate="2026-06-16"
+        selectedSlot={null}
+        onDraftChange={onDraftChange}
+        onSelectSlot={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /AI assistant/i }))
+    fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
+      target: { value: 'Tuesday afternoon' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    rerender(
+      <BookingAgentPanel
+        mode="booking"
+        eventTypeId="11111111-1111-4111-8111-111111111111"
+        hostUserId="22222222-2222-4222-8222-222222222222"
+        timezone="America/New_York"
+        selectedDate="2026-06-17"
+        selectedSlot={null}
+        onDraftChange={onDraftChange}
+        onSelectSlot={vi.fn()}
+      />
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /send/i })).toHaveProperty(
+        'disabled',
+        false
+      )
+    )
+    fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
+      target: { value: 'Wednesday afternoon' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    await screen.findByText('Fresh reply')
+    expect(screen.getByRole('button', { name: /Wed, Jun 17/ })).toBeDefined()
+
+    staleRequest.resolve(
+      new Response(
+        JSON.stringify({
+          success: true,
+          reply: 'Stale reply',
+          suggestedSlots: [
+            {
+              start: '2026-06-16T18:00:00.000Z',
+              end: '2026-06-16T18:30:00.000Z',
+              label: 'Tue, Jun 16, 2:00 PM',
+            },
+          ],
+          draft: {
+            guestName: 'Stale Guest',
+          },
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    )
+    await staleRequest.promise
+    await Promise.resolve()
+
+    expect(onDraftChange).not.toHaveBeenCalled()
+    expect(screen.queryByText('Stale reply')).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /Tue, Jun 16/ })
+    ).toBeNull()
+  })
+
   it('can close the floating assistant panel back to the launcher', () => {
     render(
       <BookingAgentPanel
@@ -182,3 +286,12 @@ describe('BookingAgentPanel', () => {
     expect(classes).not.toContain('fixed')
   })
 })
+
+function createDeferredResponse() {
+  let resolve!: (response: Response) => void
+  const promise = new Promise<Response>((next) => {
+    resolve = next
+  })
+
+  return { promise, resolve }
+}
