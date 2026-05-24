@@ -17,6 +17,7 @@ import {
   isTurnstileEnabled,
   TurnstileWidget,
 } from "@/components/booking/turnstile-widget";
+import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 
 interface CancelBookingFormProps {
   bookingId: string;
@@ -54,7 +55,7 @@ export function CancelBookingForm({
   const [state, setState] = useState<CancelState>("confirm");
   const [cancelReason, setCancelReason] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [idempotencyKey] = useState(() => createIdempotencyKey());
+  const [idempotencyKey] = useState(() => createClientIdempotencyKey());
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRequired = isTurnstileEnabled();
@@ -282,12 +283,4 @@ export function CancelBookingForm({
       </CardContent>
     </Card>
   );
-}
-
-function createIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
