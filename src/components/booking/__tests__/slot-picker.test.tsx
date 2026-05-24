@@ -153,6 +153,80 @@ describe('SlotPicker', () => {
     expect(body.slotToken).toBe('signed-slot-token')
   })
 
+  it('shows assistant-suggested hold failures before a date is selected', async () => {
+    const suggestedSlot = {
+      start: '2026-06-16T16:00:00.000Z',
+      end: '2026-06-16T16:30:00.000Z',
+      label: 'Tue, Jun 16, 9:00 AM',
+      slotToken: 'signed-slot-token',
+    }
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/slots')) {
+        return new Response(JSON.stringify({ slotsByDate: {} }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+
+      if (url === '/api/booking-agent/message') {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            reply: 'I found one option.',
+            suggestedSlots: [suggestedSlot],
+            nextAction: 'show_slots',
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      if (url === '/api/holds') {
+        return new Response(
+          JSON.stringify({
+            error: 'This slot has already been held.',
+          }),
+          {
+            status: 409,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/Los_Angeles')
+
+    render(
+      <SlotPicker
+        eventType={eventType}
+        hostProfile={hostProfile}
+        bookingAgentEnabled
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'AI assistant' }))
+    fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
+      target: { value: 'next Tuesday morning' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Tue, Jun 16, 9:00 AM/ })
+    )
+
+    expect(
+      await screen.findByText(
+        'This slot has been taken by another guest. Please select a different time.'
+      )
+    ).toBeDefined()
+    expect(screen.getByRole('button', { name: 'Dismiss' })).toBeDefined()
+  })
+
   it('ignores stale slot fetch failures after a newer date request starts', async () => {
     const staleRequest = createDeferredResponse()
     const staleDate = addDays(new Date(), 3)
