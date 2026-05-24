@@ -174,6 +174,47 @@ describe('E2E demo auth setup', () => {
       password: demoHost.password,
     })
   })
+
+  it('fails clearly when replacement signup does not return an auth user id', async () => {
+    const backend = {
+      auth: {
+        signUp: vi.fn(async () => ({
+          data: {},
+          error: null,
+        })),
+        signInWithPassword: vi.fn(async () => ({
+          data: null,
+          error: { message: 'Butterbase request failed with 401' },
+        })),
+      },
+    } as unknown as BackendPorts
+    const profileQuery = createMaybeSingleQuery({
+      auth_user_id: 'auth-user-1',
+    })
+    const adminClient = {
+      auth: {
+        updateUser: vi.fn(async () => ({
+          data: null,
+          error: {
+            message: 'Auth user updates are not supported by this function yet',
+          },
+        })),
+        admin: {
+          deleteUser: vi.fn(async () => ({
+            data: null,
+            error: {
+              message: 'Auth user deletion is not supported by this function yet',
+            },
+          })),
+        },
+      },
+      from: vi.fn(() => profileQuery),
+    } as unknown as E2EAdminClient
+
+    await expect(ensureDemoAuthUser(backend, adminClient)).rejects.toThrow(
+      'replacement signup failed: signup did not return an auth user id'
+    )
+  })
 })
 
 function createMaybeSingleQuery(data: unknown) {

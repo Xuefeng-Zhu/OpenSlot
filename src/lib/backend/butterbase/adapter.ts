@@ -109,7 +109,7 @@ class ButterbaseAuthPort implements BackendAuthPort {
     password: string
     displayName?: string
   }) {
-    const result = await this.client.result<ButterbaseAuthUser>({
+    const result = await this.client.result<unknown>({
       method: 'POST',
       path: `/auth/${this.client.appId}/signup`,
       auth: 'none',
@@ -120,7 +120,17 @@ class ButterbaseAuthPort implements BackendAuthPort {
       },
     })
 
-    return mapResult(result, mapUser)
+    if (result.error) return result
+
+    const user = normalizeAuthUser(result.data)
+    if (!user) {
+      return backendFailure({
+        message: 'Butterbase signup response did not include a user',
+        status: 502,
+      })
+    }
+
+    return { data: mapUser(user), error: null }
   }
 
   async refreshSession(refreshToken: string) {

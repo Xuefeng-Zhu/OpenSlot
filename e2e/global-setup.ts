@@ -147,7 +147,14 @@ async function recreateDemoAuthUser(
 
     const signup = await createDemoAuthUser(backend);
     if (!signup.error) {
-      return { userId: signup.data.id, errors };
+      if (signup.data.id) {
+        return { userId: signup.data.id, errors };
+      }
+
+      errors.push(
+        `${userId}: recreate failed: signup did not return an auth user id`
+      );
+      continue;
     }
 
     errors.push(`${userId}: recreate failed: ${signup.error.message}`);
@@ -174,6 +181,13 @@ async function createReplacementDemoAuthUser(
     return {
       userId: null,
       error: `replacement signup failed: ${signup.error.message}`,
+    };
+  }
+
+  if (!signup.data.id) {
+    return {
+      userId: null,
+      error: "replacement signup failed: signup did not return an auth user id",
     };
   }
 
