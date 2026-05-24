@@ -2,10 +2,7 @@ import { redirect } from "next/navigation"
 import { createServerBackendClient } from "@/lib/backend/server"
 import type { Tables } from "@/lib/types/database"
 import { AvailabilityClient } from "@/components/dashboard/availability-client"
-
-function toTimeInputValue(time: string | null): string | null {
-  return time ? time.slice(0, 5) : null
-}
+import { toTimeInputValue } from "@/lib/utils/time"
 
 interface AvailabilityPageProps {
   searchParams?: Promise<{ scheduleId?: string }>
