@@ -12,6 +12,11 @@ import {
   getFreshAccessToken,
   refreshProviderCalendarBusyCache,
 } from './provider-sync'
+import {
+  calendarErrorMessage,
+  parseProviderJson,
+  providerHeaders,
+} from './provider-http'
 
 type ProviderConnectionRow = Tables<'provider_connections'>
 type ProviderCalendarRow = Tables<'provider_calendars'>
@@ -622,7 +627,7 @@ async function markCalendarWatchError({
     provider: connection.provider,
     external_calendar_id: calendar.external_calendar_id,
     status: 'error',
-    last_error: errorMessage(error),
+    last_error: calendarErrorMessage(error),
     metadata: metadataObject(existing?.metadata),
   }
 
@@ -656,7 +661,7 @@ async function updateWatchError(
     .from('provider_watches')
     .update({
       status: 'error',
-      last_error: errorMessage(error),
+      last_error: calendarErrorMessage(error),
       updated_at: new Date().toISOString(),
     })
     .eq('id', watch.id)
@@ -712,13 +717,6 @@ function microsoftNotifications(body: unknown): MicrosoftNotification[] {
   return Array.isArray(value) ? (value as MicrosoftNotification[]) : []
 }
 
-function providerHeaders(accessToken: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  }
-}
-
 function randomWatchId(prefix: string): string {
   return `${prefix}-${randomHex(16)}`
 }
@@ -751,25 +749,4 @@ function metadataObject(metadata: Json | undefined): Record<string, Json> {
   }
 
   return metadata as Record<string, Json>
-}
-
-async function parseProviderJson<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => ({}))) as T & {
-    error?: { message?: string }
-    error_description?: string
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data.error?.message ??
-        data.error_description ??
-        `Provider request failed with HTTP ${response.status}`
-    )
-  }
-
-  return data
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
