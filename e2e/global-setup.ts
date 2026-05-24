@@ -36,18 +36,6 @@ export default async function globalSetup() {
   );
   await ensureDemoBooking(adminClient, demoProfile.profileId);
   await ensureDemoContact(adminClient, demoProfile.profileId);
-
-  const { error: signInError } = await backend.auth.signInWithPassword({
-    email: demoHost.email,
-    password: demoHost.password,
-  });
-
-  if (signInError) {
-    throw new Error(
-      `Seeded demo auth credentials failed verification: ${signInError.message}`
-    );
-  }
-
 }
 
 async function ensureDemoProfile(

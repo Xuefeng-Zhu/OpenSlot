@@ -3,6 +3,12 @@ import type { BackendPorts } from "@/lib/backend/ports";
 import { demoHost, setRuntimeDemoHost } from "../demo-data";
 import type { E2EAdminClient } from "./db/types";
 
+interface DemoAuthCredentials {
+  authUserId?: string;
+  email: string;
+  password: string;
+}
+
 export async function ensureDemoAuthUser(
   backend: BackendPorts,
   adminClient: E2EAdminClient
@@ -10,6 +16,12 @@ export async function ensureDemoAuthUser(
   const signin = await signInDemoHost(backend);
   if (!signin.error) {
     return signin.data.user.id;
+  }
+
+  if (isAuthRateLimitError(signin.error.message)) {
+    throw new Error(
+      `Could not verify demo auth credentials because Butterbase auth is rate-limited: ${signin.error.message}`
+    );
   }
 
   const repairResult = await repairExistingDemoAuthUser(
@@ -35,9 +47,16 @@ function createDemoAuthUser(backend: BackendPorts) {
 }
 
 function signInDemoHost(backend: BackendPorts) {
+  return signInWithCredentials(backend, demoHost);
+}
+
+function signInWithCredentials(
+  backend: BackendPorts,
+  credentials: DemoAuthCredentials
+) {
   return backend.auth.signInWithPassword({
-    email: demoHost.email,
-    password: demoHost.password,
+    email: credentials.email,
+    password: credentials.password,
   });
 }
 
@@ -121,13 +140,21 @@ async function recreateDemoAuthUser(
     const signup = await createDemoAuthUser(backend);
     if (!signup.error) {
       if (signup.data.id) {
-        return { userId: signup.data.id, errors };
-      }
+        const signin = await signInDemoHost(backend);
+        if (!signin.error) {
+          return { userId: signin.data.user.id, errors };
+        }
 
-      errors.push(
-        `${userId}: recreate failed: signup did not return an auth user id`
-      );
-      continue;
+        errors.push(
+          `${userId}: recreate verification failed: ${signin.error.message}`
+        );
+        continue;
+      } else {
+        errors.push(
+          `${userId}: recreate failed: signup did not return an auth user id`
+        );
+        continue;
+      }
     }
 
     errors.push(`${userId}: recreate failed: ${signup.error.message}`);
@@ -139,14 +166,16 @@ async function recreateDemoAuthUser(
 async function createReplacementDemoAuthUser(
   backend: BackendPorts
 ): Promise<{ userId: string | null; error: string }> {
-  const email = `demo.e2e.${Date.now()}.${randomUUID().slice(0, 8)}@openslot.dev`;
-  const password =
-    process.env.E2E_DEMO_HOST_PASSWORD ??
-    process.env.E2E_DEMO_PASSWORD ??
-    `E2e-Demo-${Date.now()}!Aa1`;
+  const credentials = {
+    email: `demo.e2e.${Date.now()}.${randomUUID().slice(0, 8)}@openslot.dev`,
+    password:
+      process.env.E2E_DEMO_HOST_PASSWORD ??
+      process.env.E2E_DEMO_PASSWORD ??
+      `E2e-Demo-${Date.now()}!Aa1`,
+  };
   const signup = await backend.auth.signUp({
-    email,
-    password,
+    email: credentials.email,
+    password: credentials.password,
     displayName: "Demo User",
   });
 
@@ -164,13 +193,23 @@ async function createReplacementDemoAuthUser(
     };
   }
 
-  setRuntimeDemoHost({
-    authUserId: signup.data.id,
-    email,
-    password,
-  });
+  const verified = await signInWithCredentials(backend, credentials);
+  if (verified.error) {
+    return {
+      userId: null,
+      error: `replacement verification failed: ${verified.error.message}`,
+    };
+  }
 
-  return { userId: signup.data.id, error: "" };
+  const runtimeCredentials = {
+    authUserId: signup.data.id,
+    email: credentials.email,
+    password: credentials.password,
+  };
+
+  setRuntimeDemoHost(runtimeCredentials);
+
+  return { userId: verified.data.user.id, error: "" };
 }
 
 async function findDemoAuthUserIdCandidates(
@@ -202,4 +241,8 @@ async function findDemoAuthUserIdCandidates(
 
   candidates.add(demoHost.authUserId);
   return Array.from(candidates);
+}
+
+function isAuthRateLimitError(message: string) {
+  return /rate limit/i.test(message);
 }

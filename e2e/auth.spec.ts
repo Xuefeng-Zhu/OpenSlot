@@ -1,4 +1,5 @@
 import { demoHost } from "./demo-data";
+import { saveDemoHostAuthState } from "./support/auth";
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
 const protectedRoutes = [
@@ -47,6 +48,7 @@ test.describe("authentication and access control", () => {
     await page.getByLabel("Password").fill(demoHost.password);
     await page.getByRole("button", { name: "Log in" }).click();
     await expect(page).toHaveURL(/\/event-types$/);
+    await saveDemoHostAuthState(page);
     await expect(
       page.getByRole("heading", { name: "Event types" })
     ).toBeVisible();

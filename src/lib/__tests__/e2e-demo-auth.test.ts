@@ -80,10 +80,19 @@ describe('E2E demo auth setup', () => {
           data: { id: 'auth-user-2', email: demoHost.email },
           error: null,
         })),
-        signInWithPassword: vi.fn(async () => ({
-          data: null,
-          error: { message: 'Butterbase request failed with 401' },
-        })),
+        signInWithPassword: vi
+          .fn()
+          .mockResolvedValueOnce({
+            data: null,
+            error: { message: 'Butterbase request failed with 401' },
+          })
+          .mockResolvedValueOnce({
+            data: {
+              accessToken: 'access-token',
+              user: { id: 'auth-user-2', email: demoHost.email },
+            },
+            error: null,
+          }),
       },
     } as unknown as BackendPorts
     const profileQuery = createMaybeSingleQuery({
@@ -127,10 +136,19 @@ describe('E2E demo auth setup', () => {
     const backend = {
       auth: {
         signUp,
-        signInWithPassword: vi.fn(async () => ({
-          data: null,
-          error: { message: 'Butterbase request failed with 401' },
-        })),
+        signInWithPassword: vi
+          .fn()
+          .mockResolvedValueOnce({
+            data: null,
+            error: { message: 'Butterbase request failed with 401' },
+          })
+          .mockResolvedValueOnce({
+            data: {
+              accessToken: 'access-token',
+              user: { id: 'auth-user-2', email: 'demo+e2e-1@openslot.dev' },
+            },
+            error: null,
+          }),
       },
     } as unknown as BackendPorts
     const profileQuery = createMaybeSingleQuery({
@@ -174,6 +192,35 @@ describe('E2E demo auth setup', () => {
       email: replacementInput.email,
       password: demoHost.password,
     })
+  })
+
+  it('does not attempt auth repair when the auth service is rate limited', async () => {
+    const backend = {
+      auth: {
+        signUp: vi.fn(),
+        signInWithPassword: vi.fn(async () => ({
+          data: null,
+          error: { message: 'Rate limit exceeded, retry in 9 minutes' },
+        })),
+      },
+    } as unknown as BackendPorts
+    const adminClient = {
+      auth: {
+        updateUser: vi.fn(),
+        admin: {
+          deleteUser: vi.fn(),
+        },
+      },
+      from: vi.fn(),
+    } as unknown as E2EAdminClient
+
+    await expect(ensureDemoAuthUser(backend, adminClient)).rejects.toThrow(
+      'Butterbase auth is rate-limited'
+    )
+    expect(adminClient.auth.updateUser).not.toHaveBeenCalled()
+    expect(adminClient.auth.admin?.deleteUser).not.toHaveBeenCalled()
+    expect(backend.auth.signUp).not.toHaveBeenCalled()
+    expect(adminClient.from).not.toHaveBeenCalled()
   })
 
   it('fails clearly when replacement signup does not return an auth user id', async () => {
