@@ -41,40 +41,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-
-// --- Types ---
-
-interface AvailabilityRule {
-  id: string
-  weekday: number
-  start_time: string
-  end_time: string
-  is_active: boolean
-}
-
-interface AvailabilityOverride {
-  id: string
-  date: string
-  start_time: string | null
-  end_time: string | null
-  is_available: boolean
-  reason: string | null
-}
-
-interface AssignedEventTypeSummary {
-  id: string
-  title: string
-  slug: string
-}
-
-export interface AvailabilitySchedule {
-  id: string
-  name: string
-  timezone: string
-  is_default: boolean
-  assignedEventTypes: AssignedEventTypeSummary[]
-  assignedEventTypeCount: number
-}
+import {
+  DAYS,
+  buildAvailabilitySaveRequest,
+  buildDayStates,
+  hasAvailabilityChanges,
+  normalizeSavedAvailability,
+  type AvailabilityOverride,
+  type AvailabilityRule,
+  type AvailabilitySaveResponse,
+  type AvailabilitySchedule,
+  type DayState,
+} from "@/components/dashboard/availability-model"
 
 export interface AvailabilityClientProps {
   schedules: AvailabilitySchedule[]
@@ -85,82 +63,9 @@ export interface AvailabilityClientProps {
   userId: string
 }
 
-// --- Helpers ---
-
-const DAYS = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-] as const
-
-/**
- * Maps weekday index (0=Sunday, 1=Monday, ..., 6=Saturday) from the DB
- * to our DAYS array index (0=Monday, ..., 6=Sunday).
- * DB uses 0=Sunday, 1=Monday, ..., 6=Saturday.
- * Our DAYS array uses 0=Monday, ..., 6=Sunday.
- */
-function dbWeekdayToDayIndex(dbWeekday: number): number {
-  // DB: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  // UI: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
-  return dbWeekday === 0 ? 6 : dbWeekday - 1
-}
-
-function dayIndexToDbWeekday(dayIndex: number): number {
-  // UI: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
-  // DB: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
-  return dayIndex === 6 ? 0 : dayIndex + 1
-}
-
-interface DayState {
-  enabled: boolean
-  intervals: Array<{ id?: string; start: string; end: string }>
-}
-
-/**
- * Converts database availability rules into the Monday-first editor state.
- * Rule ids are preserved so later saves can distinguish updates/deletes from
- * newly added intervals.
- */
-function buildDayStates(rules: AvailabilityRule[]): Record<string, DayState> {
-  const states: Record<string, DayState> = {}
-  for (const day of DAYS) {
-    states[day] = { enabled: false, intervals: [] }
-  }
-
-  for (const rule of rules) {
-    const dayIndex = dbWeekdayToDayIndex(rule.weekday)
-    const dayName = DAYS[dayIndex]
-    if (dayName) {
-      states[dayName].enabled = states[dayName].enabled || rule.is_active
-      states[dayName].intervals.push({
-        id: rule.id,
-        start: rule.start_time,
-        end: rule.end_time,
-      })
-    }
-  }
-
-  // If a day has intervals, mark it as enabled
-  for (const day of DAYS) {
-    if (states[day].intervals.length > 0) {
-      states[day].enabled = true
-    }
-  }
-
-  return states
-}
-
 // Generate a temporary client-side ID for new items
 function tempId(): string {
   return `temp_${crypto.randomUUID()}`
-}
-
-function toTimeInputValue(time: string | null): string | null {
-  return time ? time.slice(0, 5) : null
 }
 
 function getScheduleDisplayName(schedule: AvailabilitySchedule | undefined) {
@@ -287,59 +192,13 @@ export function AvailabilityClient({
   // Saving state
   const [isSaving, setIsSaving] = useState(false)
 
-  // Detect changes by comparing current state to saved state
   const hasChanges = useMemo(() => {
-    // Check rules changes
-    const currentRules = flattenDayStatesToRules(dayStates)
-    if (currentRules.length !== savedRules.length) return true
-
-    // Compare each rule
-    for (const saved of savedRules) {
-      const dayIndex = dbWeekdayToDayIndex(saved.weekday)
-      const dayName = DAYS[dayIndex]
-      const dayState = dayStates[dayName]
-      if (!dayState) return true
-
-      const matchingInterval = dayState.intervals.find((i) => i.id === saved.id)
-      if (!matchingInterval) return true
-      if (
-        matchingInterval.start !== saved.start_time ||
-        matchingInterval.end !== saved.end_time
-      ) {
-        return true
-      }
-      // Check if enabled state changed
-      if (!dayState.enabled && saved.is_active) return true
-    }
-
-    // Check for new intervals (no id or temp id)
-    for (const day of DAYS) {
-      const state = dayStates[day]
-      if (state.enabled) {
-        for (const interval of state.intervals) {
-          if (!interval.id || interval.id.startsWith("temp_")) return true
-        }
-      }
-    }
-
-    // Check overrides changes
-    if (overrides.length !== savedOverrides.length) return true
-    for (let i = 0; i < overrides.length; i++) {
-      const curr = overrides[i]
-      const saved = savedOverrides.find((o) => o.id === curr.id)
-      if (!saved) return true
-      if (
-        curr.date !== saved.date ||
-        curr.start_time !== saved.start_time ||
-        curr.end_time !== saved.end_time ||
-        curr.is_available !== saved.is_available ||
-        curr.reason !== saved.reason
-      ) {
-        return true
-      }
-    }
-
-    return false
+    return hasAvailabilityChanges({
+      dayStates,
+      overrides,
+      savedRules,
+      savedOverrides,
+    })
   }, [dayStates, overrides, savedRules, savedOverrides])
 
   // --- Day row handlers ---
@@ -676,105 +535,30 @@ export function AvailabilityClient({
     setIsSaving(true)
 
     try {
-      // Compute diff for rules
-      const currentRules = flattenDayStatesToRules(dayStates)
-      const currentRuleIds = new Set(
-        currentRules.filter((r) => !r.id?.startsWith("temp_")).map((r) => r.id)
-      )
-
-      // Deleted rules: in saved but not in current
-      const deletedRuleIds = savedRules
-        .filter((r) => !currentRuleIds.has(r.id))
-        .map((r) => r.id)
-
-      // Rules to send: new (temp id or no id) and updated (existing id)
-      const rulesToSend = currentRules.map((r) => {
-        if (r.id?.startsWith("temp_")) {
-          // New rule - don't send id
-          return {
-            weekday: r.weekday,
-            start_time: r.start_time,
-            end_time: r.end_time,
-            is_active: r.is_active,
-          }
-        }
-        // Existing rule - send id for update
-        return {
-          id: r.id,
-          weekday: r.weekday,
-          start_time: r.start_time,
-          end_time: r.end_time,
-          is_active: r.is_active,
-        }
+      const { currentRules, payload } = buildAvailabilitySaveRequest({
+        dayStates,
+        overrides,
+        savedRules,
+        savedOverrides,
+        selectedScheduleId,
+        timezone,
       })
-
-      // Compute diff for overrides
-      const currentOverrideIds = new Set(
-        overrides.filter((o) => !o.id.startsWith("temp_")).map((o) => o.id)
-      )
-
-      // Deleted overrides: in saved but not in current
-      const deletedOverrideIds = savedOverrides
-        .filter((o) => !currentOverrideIds.has(o.id))
-        .map((o) => o.id)
-
-      // Overrides to send
-      const overridesToSend = overrides.map((o) => {
-        if (o.id.startsWith("temp_")) {
-          return {
-            date: o.date,
-            start_time: o.start_time,
-            end_time: o.end_time,
-            is_available: o.is_available,
-            reason: o.reason,
-          }
-        }
-        return {
-          id: o.id,
-          date: o.date,
-          start_time: o.start_time,
-          end_time: o.end_time,
-          is_available: o.is_available,
-          reason: o.reason,
-        }
-      })
-
-      const savedData = await requestJson<{
-        rules?: AvailabilityRule[]
-        overrides?: AvailabilityOverride[]
-      }>(
+      const savedData = await requestJson<AvailabilitySaveResponse>(
         "/api/availability",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            scheduleId: selectedScheduleId,
-            rules: rulesToSend,
-            overrides: overridesToSend,
-            deletedRuleIds,
-            deletedOverrideIds,
-            timezone,
-          }),
+          body: JSON.stringify(payload),
         },
         "Failed to save availability"
       )
-      const nextRules = (savedData?.rules ?? currentRules).map((rule) => ({
-        id: rule.id || tempId(),
-        weekday: rule.weekday,
-        start_time: toTimeInputValue(rule.start_time) ?? "",
-        end_time: toTimeInputValue(rule.end_time) ?? "",
-        is_active: rule.is_active,
-      }))
-      const nextOverrides = (savedData?.overrides ?? overrides).map(
-        (override) => ({
-          id: override.id,
-          date: override.date,
-          start_time: toTimeInputValue(override.start_time),
-          end_time: toTimeInputValue(override.end_time),
-          is_available: override.is_available,
-          reason: override.reason,
+      const { rules: nextRules, overrides: nextOverrides } =
+        normalizeSavedAvailability({
+          savedData,
+          currentRules,
+          currentOverrides: overrides,
+          createTempId: tempId,
         })
-      )
 
       setSavedRules(nextRules)
       setSavedOverrides(nextOverrides)
@@ -1381,51 +1165,4 @@ export function AvailabilityClient({
       )}
     </div>
   )
-}
-
-// --- Utility: flatten day states back to rule-like objects for diff ---
-
-/**
- * Converts the editor's Monday-first day state back to database-shaped rules.
- * Disabled days still emit their intervals with is_active=false so existing rows
- * can be updated rather than silently dropped.
- */
-function flattenDayStatesToRules(
-  dayStates: Record<string, DayState>
-): Array<{
-  id?: string
-  weekday: number
-  start_time: string
-  end_time: string
-  is_active: boolean
-}> {
-  const rules: Array<{
-    id?: string
-    weekday: number
-    start_time: string
-    end_time: string
-    is_active: boolean
-  }> = []
-
-  for (let dayIndex = 0; dayIndex < DAYS.length; dayIndex++) {
-    const day = DAYS[dayIndex]
-    const state = dayStates[day]
-    if (!state) continue
-
-    const dbWeekday = dayIndexToDbWeekday(dayIndex)
-
-    for (const interval of state.intervals) {
-      if (interval.start && interval.end) {
-        rules.push({
-          id: interval.id,
-          weekday: dbWeekday,
-          start_time: interval.start,
-          end_time: interval.end,
-          is_active: state.enabled,
-        })
-      }
-    }
-  }
-
-  return rules
 }
