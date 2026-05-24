@@ -140,7 +140,10 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json(result)
     } catch (error) {
-      if (error instanceof BookingAgentGatewayError && error.status === 402) {
+      if (
+        error instanceof BookingAgentGatewayError &&
+        shouldUseDeterministicFallback(error)
+      ) {
         console.warn('Butterbase AI gateway unavailable for booking assistant', {
           status: error.status,
           code: error.code,
@@ -176,6 +179,10 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     )
   }
+}
+
+function shouldUseDeterministicFallback(error: BookingAgentGatewayError) {
+  return error.status === 402 || error.status === 504
 }
 
 async function loadBookingAgentEventContext(

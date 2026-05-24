@@ -7,6 +7,7 @@ import {
 describe('ButterbaseBookingAgentProvider', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
+    vi.useRealTimers()
   })
 
   it('calls the Butterbase model gateway with the default DeepSeek model', async () => {
@@ -88,6 +89,42 @@ describe('ButterbaseBookingAgentProvider', () => {
     expect(JSON.parse(String(fetchImpl.mock.calls[0][1]?.body)).model).toBe(
       'deepseek/deepseek-v4-flash'
     )
+  })
+
+  it('aborts gateway calls that exceed the configured timeout', async () => {
+    vi.useFakeTimers()
+    const fetchImpl = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('Aborted')
+            error.name = 'AbortError'
+            reject(error)
+          })
+        })
+      }
+    )
+    const provider = new ButterbaseBookingAgentProvider({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.butterbase.ai',
+      apiKey: 'service-key',
+      fetchImpl,
+      timeoutMs: 25,
+    })
+
+    const result = expect(
+      provider.complete({
+        messages: [{ role: 'user', content: 'Find a time' }],
+      })
+    ).rejects.toMatchObject({
+      message: 'Butterbase AI gateway timed out',
+      status: 504,
+      code: 'timeout',
+    } satisfies Partial<BookingAgentGatewayError>)
+
+    await vi.advanceTimersByTimeAsync(25)
+    await result
+    expect(fetchImpl.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal)
   })
 })
 
