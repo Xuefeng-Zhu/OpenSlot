@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerBackendClient } from '@/lib/backend/server'
 import {
   eventTypeFieldErrors,
   eventTypeWritePayload,
@@ -18,8 +18,8 @@ export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     const scheduleResult = await scheduleBelongsToProfile(
-      supabase,
+      backendClient,
       parsed.data.schedule_id,
       auth.profile.id
     )
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { data: eventType, error } = await (supabase
+    const { data: eventType, error } = await (backendClient
       .from('event_types') as any)
       .insert(eventTypeWritePayload(parsed.data, auth.profile.id))
       .select('id, slug')

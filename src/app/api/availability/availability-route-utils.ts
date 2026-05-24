@@ -23,18 +23,18 @@ export type AuthenticatedAvailabilityProfile =
     }
 
 export async function getAuthenticatedAvailabilityProfile(
-  supabase: ProfileLookupClient
+  backendClient: ProfileLookupClient
 ): Promise<AuthenticatedAvailabilityProfile> {
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (authError || !user) {
     return { ok: false, error: 'Unauthorized', status: 401 }
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from('profiles')
     .select('id, default_timezone')
     .eq('auth_user_id', user.id)
@@ -53,14 +53,14 @@ export async function getAuthenticatedAvailabilityProfile(
 }
 
 export async function loadOwnedSchedule(
-  supabase: BackendCompatClient<Database>,
+  backendClient: BackendCompatClient<Database>,
   scheduleId: string,
   userId: string
 ): Promise<
   | { ok: true; schedule: Pick<Tables<'schedules'>, 'id' | 'is_default'> }
   | { ok: false; error: string; status: 404 | 500 }
 > {
-  const { data, error } = await supabase
+  const { data, error } = await backendClient
     .from('schedules')
     .select('id, is_default')
     .eq('id', scheduleId)

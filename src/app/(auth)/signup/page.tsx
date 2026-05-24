@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight, Check, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { AppIcon } from "@/components/shared/app-icon";
 import { Button } from "@/components/ui/button";
@@ -72,10 +72,10 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
+      const backendClient = createBrowserBackendClient();
 
       const { data: signUpData, error: signUpError } =
-        await supabase.auth.signUp({
+        await backendClient.auth.signUp({
           email,
           password,
           options: {

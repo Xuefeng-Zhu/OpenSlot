@@ -1,6 +1,5 @@
 import { notFound, redirect } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
 import { ContactProfileClient } from "@/components/dashboard/contact-profile-client";
 import {
   buildContactSummaries,
@@ -35,17 +34,17 @@ interface BookingRow {
 
 export default async function ContactPage({ params }: ContactPageProps) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id")
     .eq("auth_user_id", user.id)
@@ -57,7 +56,7 @@ export default async function ContactPage({ params }: ContactPageProps) {
     redirect("/onboarding");
   }
 
-  const adminClient = createAdminClient();
+  const adminClient = createAdminBackendClient();
   const { data: contactData, error: contactError } = await adminClient
     .from("contacts")
     .select(
@@ -105,7 +104,7 @@ export default async function ContactPage({ params }: ContactPageProps) {
 }
 
 async function loadBookingEvents(
-  adminClient: ReturnType<typeof createAdminClient>,
+  adminClient: ReturnType<typeof createAdminBackendClient>,
   bookingIds: string[]
 ): Promise<ContactEventRecord[]> {
   if (bookingIds.length === 0) return [];

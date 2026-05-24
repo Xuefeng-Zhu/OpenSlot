@@ -14,7 +14,7 @@ import {
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import type { Json } from '@/lib/types/database'
 import { createHoldSchema } from '@/lib/validations/booking'
 
@@ -32,7 +32,7 @@ import { createHoldSchema } from '@/lib/validations/booking'
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  let adminClient: ReturnType<typeof createAdminClient> | null = null
+  let adminClient: ReturnType<typeof createAdminBackendClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null
 
   try {
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    adminClient = createAdminClient()
+    adminClient = createAdminBackendClient()
     const { idempotencyKey, turnstileToken, slotToken, ...holdInput } =
       parsed.data
     const { eventTypeId, hostUserId, startAt, endAt, guestEmail } = holdInput
@@ -227,7 +227,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function cacheIdempotentResponse(
-  adminClient: ReturnType<typeof createAdminClient> | null,
+  adminClient: ReturnType<typeof createAdminBackendClient> | null,
   entry: IdempotencyEntry | null,
   body: unknown,
   status: number
@@ -242,7 +242,7 @@ async function cacheIdempotentResponse(
 }
 
 async function abandonIdempotentMarker(
-  adminClient: ReturnType<typeof createAdminClient> | null,
+  adminClient: ReturnType<typeof createAdminBackendClient> | null,
   entry: IdempotencyEntry | null
 ) {
   if (!adminClient || !entry) return

@@ -19,13 +19,13 @@ import {
   consumePublicRateLimit,
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import type { Tables } from '@/lib/types/database'
 import { normalizeInviteeQuestions } from '@/lib/validations/invitee-questions'
 
 export const runtime = 'edge'
 
-type AdminClient = ReturnType<typeof createAdminClient>
+type AdminClient = ReturnType<typeof createAdminBackendClient>
 
 type BookingAgentEventType = Pick<
   Tables<'event_types'>,
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const rateLimit = await consumePublicRateLimit({
       request,
       adminClient,

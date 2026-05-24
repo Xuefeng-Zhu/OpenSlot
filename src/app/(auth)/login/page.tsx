@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerBackendClient } from "@/lib/backend/server";
 import { LoginForm } from "./login-form";
 import { loginReturnUrl } from "./return-url";
 
@@ -16,10 +16,10 @@ export const dynamic = "force-dynamic";
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const returnUrl = loginReturnUrl(params?.returnUrl);
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (user) {
     redirect(returnUrl);

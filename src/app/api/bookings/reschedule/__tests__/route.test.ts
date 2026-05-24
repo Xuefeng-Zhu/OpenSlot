@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
   verifyTurnstileToken: vi.fn(),
 }))
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => mocks.adminClient),
+vi.mock('@/lib/backend/server', () => ({
+  createAdminBackendClient: vi.fn(() => mocks.adminClient),
 }))
 
 vi.mock('@/lib/booking/reschedule', () => ({

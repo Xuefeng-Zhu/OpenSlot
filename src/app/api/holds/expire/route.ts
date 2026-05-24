@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { expireStaleSlotHolds } from '@/lib/booking/hold-expiry'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
 /**
@@ -41,7 +41,7 @@ async function runHoldExpiry(
   }
 
   const result = await expireStaleSlotHolds({
-    adminClient: createAdminClient(),
+    adminClient: createAdminBackendClient(),
     limit: options.limit,
   })
 

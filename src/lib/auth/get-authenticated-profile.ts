@@ -1,4 +1,4 @@
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerBackendClient } from '@/lib/backend/server'
 
 export type AuthenticatedProfileResult =
   | { ok: true; profileId: string; userId: string; email: string | null }
@@ -10,17 +10,17 @@ export type AuthenticatedProfileResult =
  * and onboarding failures to stable HTTP responses.
  */
 export async function getAuthenticatedProfile(): Promise<AuthenticatedProfileResult> {
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (authError || !user) {
     return { ok: false, status: 401, error: 'Unauthorized' }
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await backendClient
     .from('profiles')
     .select('id')
     .eq('auth_user_id', user.id)

@@ -46,11 +46,10 @@ feature-local tests in `__tests__` directories.
 | `src/lib/booking/` | Confirm, cancel, reschedule, and booking audit behavior. |
 | `src/lib/calendar/` | Calendar OAuth, provider sync, busy cache, and provider event writes. |
 | `src/lib/email/` | Email rendering and provider selection. |
-| `src/lib/backend/` | Provider-neutral backend ports plus the active Butterbase adapter and compatibility client. |
+| `src/lib/backend/` | Provider-neutral backend ports plus the active Butterbase adapter and compatibility clients. |
 | `src/lib/idempotency/` | Request idempotency hashing, conflict detection, and cached responses. |
 | `src/lib/outbox/` | Side-effect event enqueueing and processing. |
 | `src/lib/reservations/` | Host reservation ledger mirrors for holds and bookings. |
-| `src/lib/supabase/` | Legacy import-path shims that delegate to the backend/Butterbase runtime. |
 | `src/lib/validations/` | Zod schemas for forms and API boundaries. |
 | `src/lib/webhooks/` | Webhook endpoint summaries, delivery queueing, signatures, and retries. |
 | `src/lib/workers/` | Shared worker route authentication. |

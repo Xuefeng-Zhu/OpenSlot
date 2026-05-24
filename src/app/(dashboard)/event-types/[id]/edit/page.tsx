@@ -7,8 +7,7 @@ import {
 } from "../../event-type-editor";
 import { Button } from "@/components/ui/button";
 import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
 import type { Tables } from "@/lib/types/database";
 import type { EventTypeFormValues } from "@/lib/validations/event-type";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
@@ -21,17 +20,17 @@ export default async function EditEventTypePage({
   params,
 }: EditEventTypePageProps) {
   const { id } = await params;
-  const supabase = await createServerSupabaseClient();
+  const backendClient = await createServerBackendClient();
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await backendClient.auth.getUser();
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id, name, username, avatar_url")
     .eq("auth_user_id", user.id)
@@ -46,7 +45,7 @@ export default async function EditEventTypePage({
     redirect("/onboarding");
   }
 
-  const { data: eventTypeData } = await supabase
+  const { data: eventTypeData } = await backendClient
     .from("event_types")
     .select(
       "id, schedule_id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active, reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
@@ -110,11 +109,11 @@ export default async function EditEventTypePage({
   };
 
   const calendarConnections = await loadDashboardCalendarConnections(
-    createAdminClient(),
+    createAdminBackendClient(),
     profile.id
   );
 
-  const { data: schedulesData } = await supabase
+  const { data: schedulesData } = await backendClient
     .from("schedules")
     .select("id, name, is_default")
     .eq("user_id", profile.id)

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import type { InsertTables, Tables } from '@/lib/types/database'
 import { duplicateScheduleSchema } from '@/lib/validations/availability'
 import { getAuthenticatedAvailabilityProfile } from '../../../availability-route-utils'
@@ -21,8 +20,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedAvailabilityProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedAvailabilityProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -45,7 +44,7 @@ export async function POST(
       )
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const { data: sourceSchedule, error: sourceError } = await adminClient
       .from('schedules')
       .select('id, timezone')

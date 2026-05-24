@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 
 async function getAuthenticatedProfile() {
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (authError || !user) {
     return {
@@ -17,7 +16,7 @@ async function getAuthenticatedProfile() {
     }
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const { data: profile, error: profileError } = await backendClient
     .from('profiles')
     .select('id')
     .eq('auth_user_id', user.id)
@@ -55,7 +54,7 @@ export async function POST() {
     }
 
     const notificationsSeenAt = new Date().toISOString()
-    const { error } = await createAdminClient()
+    const { error } = await createAdminBackendClient()
       .from('user_settings')
       .upsert(
         {

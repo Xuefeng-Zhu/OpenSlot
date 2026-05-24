@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import { createScheduleSchema } from '@/lib/validations/availability'
 import { getAuthenticatedAvailabilityProfile } from '../availability-route-utils'
 
@@ -12,8 +11,8 @@ export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedAvailabilityProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedAvailabilityProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -36,7 +35,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const { data: schedule, error } = await adminClient
       .from('schedules')
       .insert({

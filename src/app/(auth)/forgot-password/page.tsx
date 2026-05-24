@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
+import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,8 +35,8 @@ export default function ForgotPasswordPage() {
 
     setLoading(true);
 
-    const supabase = createClient();
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+    const backendClient = createBrowserBackendClient();
+    const { error: resetError } = await backendClient.auth.resetPasswordForEmail(
       trimmedEmail,
       {
         redirectTo: `${window.location.origin}/reset-password`,

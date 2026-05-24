@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncActiveCalendarConnections } from '@/lib/calendar/provider-sync'
 import { maintainCalendarWatches } from '@/lib/calendar/watches'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
 
 /**
@@ -42,7 +42,7 @@ async function runCalendarSync(
     )
   }
 
-  const adminClient = createAdminClient()
+  const adminClient = createAdminBackendClient()
   const result = await syncActiveCalendarConnections(adminClient, options.limit)
   const watches = await maintainCalendarWatches(adminClient, options.limit)
 

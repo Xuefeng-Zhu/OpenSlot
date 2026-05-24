@@ -9,7 +9,7 @@ import {
   consumePublicRateLimit,
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 
 /**
  * GET /api/slots
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const rateLimit = await consumePublicRateLimit({
       request,
       adminClient,

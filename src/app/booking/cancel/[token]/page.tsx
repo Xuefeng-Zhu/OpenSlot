@@ -2,7 +2,7 @@ import { AlertCircle, Calendar, Clock, User, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { CancelBookingForm } from "@/components/booking/cancel-booking-form";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminBackendClient } from "@/lib/backend/server";
 import {
   getCancellationDetails,
   isValidCancellationToken,
@@ -29,7 +29,7 @@ export default async function CancelBookingPage({
     );
   }
 
-  const result = await getCancellationDetails(token, createAdminClient());
+  const result = await getCancellationDetails(token, createAdminBackendClient());
 
   if (result.status === "invalid") {
     return (

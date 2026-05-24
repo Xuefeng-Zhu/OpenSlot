@@ -12,8 +12,8 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
+vi.mock("@/lib/backend/compat/browser-client", () => ({
+  createBrowserBackendClient: () => ({
     auth: {
       signUp: vi.fn(),
     },

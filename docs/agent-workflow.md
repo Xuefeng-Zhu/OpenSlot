@@ -52,7 +52,7 @@ This guide is for autonomous coding agents working in OpenSlot.
 - `backend/database/migrations/`
 - `backend/sql/provider-portability.sql`
 - `src/lib/backend/*`
-- `src/lib/supabase/admin.ts` legacy shim behavior
+- `src/lib/backend/server.ts` admin client boundaries
 
 ## Do Not
 

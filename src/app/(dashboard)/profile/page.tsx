@@ -1,21 +1,21 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerBackendClient } from '@/lib/backend/server'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ProfileForm } from './profile-form'
 import type { Tables } from '@/lib/types/database'
 
 export default async function ProfilePage() {
-  const supabase = await createServerSupabaseClient()
+  const backendClient = await createServerBackendClient()
 
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await backendClient.auth.getUser()
 
   if (!user) {
     redirect('/login')
   }
 
-  const { data: profile } = await supabase
+  const { data: profile } = await backendClient
     .from('profiles')
     .select('*')
     .eq('auth_user_id', user.id)

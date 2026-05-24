@@ -4,7 +4,7 @@ import type {
   BackendCompatSession,
   BackendCompatUser,
 } from '@/lib/backend/compat/query-client'
-import { setBrowserAuthSessionPersistence } from './auth-cookie-persistence'
+import { setBrowserAuthSessionPersistence } from './session-persistence'
 
 type CreateClientOptions = {
   keepSignedIn?: boolean
@@ -30,7 +30,7 @@ type BrowserQueryRequest = {
  * Creates a browser-safe backend client. Auth and data calls go through
  * OpenSlot route handlers so Butterbase access tokens stay in HTTP-only cookies.
  */
-export function createClient(options: CreateClientOptions = {}) {
+export function createBrowserBackendClient(options: CreateClientOptions = {}) {
   return {
     auth: {
       async signInWithPassword(input: { email: string; password: string }) {

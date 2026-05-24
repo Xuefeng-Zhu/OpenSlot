@@ -5,8 +5,8 @@ import ForgotPasswordPage from "../page";
 
 const resetPasswordForEmail = vi.fn();
 
-vi.mock("@/lib/supabase/client", () => ({
-  createClient: () => ({
+vi.mock("@/lib/backend/compat/browser-client", () => ({
+  createBrowserBackendClient: () => ({
     auth: {
       resetPasswordForEmail,
     },

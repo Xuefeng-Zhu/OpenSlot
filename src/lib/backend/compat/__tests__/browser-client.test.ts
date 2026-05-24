@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createClient } from '../client'
+import { createBrowserBackendClient } from '../browser-client'
 
 const fetchMock = vi.fn()
 
@@ -26,7 +26,7 @@ describe('browser backend client', () => {
       json: async () => ({ success: true, session }),
     })
 
-    const result = await createClient().auth.exchangeCodeForSession(
+    const result = await createBrowserBackendClient().auth.exchangeCodeForSession(
       'recovery-code'
     )
 
@@ -58,7 +58,7 @@ describe('browser backend client', () => {
       }),
     })
 
-    const result = await createClient()
+    const result = await createBrowserBackendClient()
       .from('profiles')
       .update({ username: 'taken' })
       .eq('auth_user_id', 'auth-user-1')

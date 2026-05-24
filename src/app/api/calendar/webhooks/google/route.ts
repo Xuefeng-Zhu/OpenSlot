@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleGoogleCalendarWebhook } from '@/lib/calendar/watches'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createAdminBackendClient } from '@/lib/backend/server'
 
 /**
  * Receives Google Calendar push notifications for availability calendars.
@@ -10,7 +10,7 @@ export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
   const result = await handleGoogleCalendarWebhook(
-    createAdminClient(),
+    createAdminBackendClient(),
     request.headers
   )
 

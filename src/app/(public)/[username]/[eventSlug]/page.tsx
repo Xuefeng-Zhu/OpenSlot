@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createAdminBackendClient } from "@/lib/backend/server";
 import type { Tables } from "@/lib/types/database";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
@@ -11,10 +11,10 @@ interface BookingPageProps {
 
 export default async function PublicBookingPage({ params }: BookingPageProps) {
   const { username, eventSlug } = await params;
-  const supabase = createAdminClient();
+  const backendClient = createAdminBackendClient();
 
   // Fetch profile by username
-  const { data: profileData } = await supabase
+  const { data: profileData } = await backendClient
     .from("profiles")
     .select("id, name, username, avatar_url")
     .eq("username", username)
@@ -30,7 +30,7 @@ export default async function PublicBookingPage({ params }: BookingPageProps) {
   }
 
   // Fetch active event type by slug for this host
-  const { data: eventTypeData } = await supabase
+  const { data: eventTypeData } = await backendClient
     .from("event_types")
     .select("id, title, slug, description, duration_minutes, location_type, location_value, video_provider, invitee_questions, user_id")
     .eq("user_id", profile.id)

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import { updateScheduleSchema } from '@/lib/validations/availability'
 import {
   getAuthenticatedAvailabilityProfile,
@@ -22,8 +21,8 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedAvailabilityProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedAvailabilityProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -46,7 +45,7 @@ export async function PATCH(
       )
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const scheduleResult = await loadOwnedSchedule(
       adminClient,
       id,
@@ -125,8 +124,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = await createServerSupabaseClient()
-    const auth = await getAuthenticatedAvailabilityProfile(supabase)
+    const backendClient = await createServerBackendClient()
+    const auth = await getAuthenticatedAvailabilityProfile(backendClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -135,7 +134,7 @@ export async function DELETE(
       )
     }
 
-    const adminClient = createAdminClient()
+    const adminClient = createAdminBackendClient()
     const scheduleResult = await loadOwnedSchedule(
       adminClient,
       id,
