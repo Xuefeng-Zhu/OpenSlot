@@ -151,30 +151,140 @@ describe('buildDashboardNotifications', () => {
 })
 
 describe('listDashboardNotifications', () => {
+  it('loads host bookings before querying booking events', async () => {
+    const bookingsQuery = createQuery()
+    bookingsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          id: 'booking-1',
+          guest_name: 'Alex Lee',
+          event_types: { title: 'Discovery Call' },
+        },
+      ],
+      error: null,
+    })
+    const eventsQuery = createQuery()
+    eventsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          id: 'event-1',
+          booking_id: 'booking-1',
+          event_type: 'booking.confirmed',
+          created_at: '2026-05-16T17:00:00.000Z',
+        },
+      ],
+      error: null,
+    })
+    const settingsQuery = createQuery()
+    settingsQuery.maybeSingle.mockResolvedValue({
+      data: { notifications_seen_at: null },
+      error: null,
+    })
+    const adminClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'bookings') return bookingsQuery
+        if (table === 'booking_events') return eventsQuery
+        if (table === 'user_settings') return settingsQuery
+        throw new Error(`Unexpected table: ${table}`)
+      }),
+    } as unknown as BackendCompatClient<Database>
+
+    await expect(
+      listDashboardNotifications(adminClient, 'profile-1')
+    ).resolves.toMatchObject({
+      items: [
+        {
+          id: 'event-1',
+          bookingId: 'booking-1',
+          title: 'New booking confirmed',
+        },
+      ],
+      unseenCount: 1,
+    })
+
+    expect(bookingsQuery.eq).toHaveBeenCalledWith('host_user_id', 'profile-1')
+    expect(bookingsQuery.order).toHaveBeenCalledWith('updated_at', {
+      ascending: false,
+    })
+    expect(bookingsQuery.limit).toHaveBeenCalledWith(100)
+    expect(eventsQuery.in).toHaveBeenCalledWith('booking_id', ['booking-1'])
+    expect(eventsQuery.in).toHaveBeenCalledWith('event_type', [
+      'booking.confirmed',
+      'booking.cancelled',
+      'booking.rescheduled',
+    ])
+    expect(eventsQuery.eq).not.toHaveBeenCalled()
+  })
+
+  it('bounds the booking id filter before loading booking events', async () => {
+    const bookings = Array.from({ length: 105 }, (_, index) => ({
+      id: `booking-${index}`,
+      guest_name: 'Alex Lee',
+      event_types: { title: 'Discovery Call' },
+    }))
+    const bookingsQuery = createQuery()
+    bookingsQuery.limit.mockResolvedValue({
+      data: bookings,
+      error: null,
+    })
+    const eventsQuery = createQuery()
+    eventsQuery.limit.mockResolvedValue({
+      data: [],
+      error: null,
+    })
+    const settingsQuery = createQuery()
+    settingsQuery.maybeSingle.mockResolvedValue({
+      data: { notifications_seen_at: null },
+      error: null,
+    })
+    const adminClient = {
+      from: vi.fn((table: string) => {
+        if (table === 'bookings') return bookingsQuery
+        if (table === 'booking_events') return eventsQuery
+        if (table === 'user_settings') return settingsQuery
+        throw new Error(`Unexpected table: ${table}`)
+      }),
+    } as unknown as BackendCompatClient<Database>
+
+    await listDashboardNotifications(adminClient, 'profile-1')
+
+    expect(bookingsQuery.limit).toHaveBeenCalledWith(100)
+    expect(eventsQuery.in).toHaveBeenCalledWith(
+      'booking_id',
+      bookings.slice(0, 100).map((booking) => booking.id)
+    )
+  })
+
   it('logs and falls back to an empty list when loading fails', async () => {
-    const query = {
-      select: vi.fn(),
-      eq: vi.fn(),
-      in: vi.fn(),
-      order: vi.fn(),
-      limit: vi.fn(),
-      maybeSingle: vi.fn(),
-    }
-    query.select.mockReturnValue(query)
-    query.eq.mockReturnValue(query)
-    query.in.mockReturnValue(query)
-    query.order.mockReturnValue(query)
-    query.limit.mockResolvedValue({
+    const bookingsQuery = createQuery()
+    bookingsQuery.limit.mockResolvedValue({
+      data: [
+        {
+          id: 'booking-1',
+          guest_name: 'Alex Lee',
+          event_types: { title: 'Discovery Call' },
+        },
+      ],
+      error: null,
+    })
+    const eventsQuery = createQuery()
+    eventsQuery.limit.mockResolvedValue({
       data: null,
       error: new Error('database unavailable'),
     })
-    query.maybeSingle.mockResolvedValue({
+    const settingsQuery = createQuery()
+    settingsQuery.maybeSingle.mockResolvedValue({
       data: null,
       error: null,
     })
 
     const adminClient = {
-      from: vi.fn(() => query),
+      from: vi.fn((table: string) => {
+        if (table === 'bookings') return bookingsQuery
+        if (table === 'booking_events') return eventsQuery
+        if (table === 'user_settings') return settingsQuery
+        throw new Error(`Unexpected table: ${table}`)
+      }),
     } as unknown as BackendCompatClient<Database>
     const consoleError = vi
       .spyOn(console, 'error')
@@ -190,3 +300,16 @@ describe('listDashboardNotifications', () => {
     )
   })
 })
+
+function createQuery(): any {
+  const query = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    in: vi.fn(() => query),
+    order: vi.fn(() => query),
+    limit: vi.fn(),
+    maybeSingle: vi.fn(),
+  }
+
+  return query
+}
