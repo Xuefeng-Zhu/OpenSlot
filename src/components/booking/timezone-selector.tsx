@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
+import { getTimezones } from "@/lib/utils/timezone";
 
 export interface TimezoneSelectorProps {
   value: string;
@@ -17,15 +18,6 @@ export function filterTimezones(timezones: string[], query: string): string[] {
   if (!query) return timezones;
   const lowerQuery = query.toLowerCase();
   return timezones.filter((tz) => tz.toLowerCase().includes(lowerQuery));
-}
-
-function getTimezones(): string[] {
-  try {
-    return Intl.supportedValuesOf("timeZone");
-  } catch {
-    // Fallback for environments that don't support Intl.supportedValuesOf
-    return [];
-  }
 }
 
 const TimezoneSelector = React.forwardRef<HTMLDivElement, TimezoneSelectorProps>(
