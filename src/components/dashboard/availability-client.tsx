@@ -42,7 +42,6 @@ export interface AvailabilityClientProps {
   initialRules: AvailabilityRule[]
   initialOverrides: AvailabilityOverride[]
   timezone: string
-  userId: string
 }
 
 // Generate a temporary client-side ID for new items
