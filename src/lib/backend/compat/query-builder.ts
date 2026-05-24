@@ -19,6 +19,11 @@ const primaryKeys: Partial<Record<TableName, string>> = {
   user_settings: 'profile_id',
 }
 
+const jsonbArrayColumns: Partial<Record<TableName, ReadonlySet<string>>> = {
+  bookings: new Set(['booking_answers']),
+  event_types: new Set(['invitee_questions']),
+}
+
 export class BackendQueryBuilder<TData = any>
   implements PromiseLike<BackendCompatResponse<TData>>
 {
@@ -214,7 +219,7 @@ export class BackendQueryBuilder<TData = any>
           method: 'POST',
           path: `/v1/${this.httpClient.appId}/${this.table}`,
           auth: this.authMode,
-          body: payload,
+          body: serializeJsonbArrayColumns(this.table, payload),
         })
       )
     }
@@ -230,7 +235,7 @@ export class BackendQueryBuilder<TData = any>
           method: 'PATCH',
           path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(directId)}`,
           auth: this.authMode,
-          body: this.payload,
+          body: serializeJsonbArrayColumns(this.table, this.payload),
         }),
       ]
     }
@@ -245,7 +250,7 @@ export class BackendQueryBuilder<TData = any>
           method: 'PATCH',
           path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
           auth: this.authMode,
-          body: this.payload,
+          body: serializeJsonbArrayColumns(this.table, this.payload),
         })
       )
     }
@@ -292,7 +297,7 @@ export class BackendQueryBuilder<TData = any>
             method: 'PATCH',
             path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
             auth: this.authMode,
-            body: payload,
+            body: serializeJsonbArrayColumns(this.table, payload),
           })
         )
       } else {
@@ -301,7 +306,7 @@ export class BackendQueryBuilder<TData = any>
             method: 'POST',
             path: `/v1/${this.httpClient.appId}/${this.table}`,
             auth: this.authMode,
-            body: payload,
+            body: serializeJsonbArrayColumns(this.table, payload),
           })
         )
       }
@@ -407,6 +412,26 @@ function primaryKeyValue(table: string, row: unknown) {
   }
 
   return String(value)
+}
+
+function serializeJsonbArrayColumns(table: string, payload: unknown) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return payload
+  }
+
+  const columns = jsonbArrayColumns[table as TableName]
+  if (!columns) return payload
+
+  let serialized: Record<string, unknown> | null = null
+  const record = payload as Record<string, unknown>
+
+  for (const column of columns) {
+    if (!Array.isArray(record[column])) continue
+    serialized ??= { ...record }
+    serialized[column] = JSON.stringify(record[column])
+  }
+
+  return serialized ?? payload
 }
 
 function serializeFilterValue(value: unknown) {
