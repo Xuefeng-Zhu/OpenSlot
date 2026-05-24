@@ -99,12 +99,6 @@ export function buildDayStates(
     }
   }
 
-  for (const day of DAYS) {
-    if (states[day].intervals.length > 0) {
-      states[day].enabled = true
-    }
-  }
-
   return states
 }
 
@@ -134,7 +128,7 @@ export function hasAvailabilityChanges({
     ) {
       return true
     }
-    if (!dayState.enabled && saved.is_active) return true
+    if (dayState.enabled !== saved.is_active) return true
   }
 
   for (const day of DAYS) {
