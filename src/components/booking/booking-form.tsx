@@ -39,6 +39,7 @@ import {
   TurnstileWidget,
 } from "@/components/booking/turnstile-widget";
 import { BookingInviteeQuestionFields } from "@/components/booking/booking-invitee-question-fields";
+import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 
 interface BookingFormProps {
   holdToken?: string;
@@ -99,7 +100,7 @@ export function BookingForm({
     pageTimezone;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [idempotencyKey] = useState(() => createIdempotencyKey());
+  const [idempotencyKey] = useState(() => createClientIdempotencyKey());
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const userEditedFieldsRef = useRef<Set<string>>(new Set());
@@ -548,14 +549,6 @@ export function BookingForm({
       </CardContent>
     </Card>
   );
-}
-
-function createIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function defaultAnswerValues(inviteeQuestions: InviteeQuestion[]) {

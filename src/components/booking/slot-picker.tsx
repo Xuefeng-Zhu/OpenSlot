@@ -13,6 +13,7 @@ import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
 } from "@/lib/utils/timezone";
+import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 
@@ -307,7 +308,8 @@ export function SlotPicker({
     });
     const holdKey = holdIdempotencyKeyForSlot(slot);
     const idempotencyKey =
-      holdIdempotencyKeysRef.current.get(holdKey) ?? createIdempotencyKey();
+      holdIdempotencyKeysRef.current.get(holdKey) ??
+      createClientIdempotencyKey();
     holdIdempotencyKeysRef.current.set(holdKey, idempotencyKey);
 
     try {
@@ -557,12 +559,4 @@ export function mergeBookingAgentDrafts(
 
 function holdIdempotencyKeyForSlot(slot: TimeSlot): string {
   return `${slot.start}:${slot.end}:${slot.slotToken ?? ""}`;
-}
-
-function createIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
