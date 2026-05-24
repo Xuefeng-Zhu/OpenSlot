@@ -85,12 +85,18 @@ export default function ResetPasswordPage() {
         <form onSubmit={handleSubmit} noValidate>
           <CardContent className="space-y-4">
             {success && (
-              <div className="rounded-md bg-success/10 p-3 text-sm text-success">
+              <div
+                className="rounded-md bg-success/10 p-3 text-sm text-success"
+                role="status"
+              >
                 Your password has been updated.
               </div>
             )}
             {error && (
-              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              <div
+                className="rounded-md bg-destructive/10 p-3 text-sm text-destructive"
+                role="alert"
+              >
                 {error}
               </div>
             )}
