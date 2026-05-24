@@ -1,14 +1,7 @@
 import { z } from 'zod'
+import { webhookEventTypes } from '@/lib/webhooks/event-types'
 
-/**
- * Tenant-facing webhook event names supported by endpoint subscriptions.
- */
-export const webhookEventTypes = [
-  '*',
-  'booking.confirmed',
-  'booking.cancelled',
-  'booking.rescheduled',
-] as const
+export { webhookEventTypes } from '@/lib/webhooks/event-types'
 
 /**
  * Create schema for webhook endpoints managed from settings.

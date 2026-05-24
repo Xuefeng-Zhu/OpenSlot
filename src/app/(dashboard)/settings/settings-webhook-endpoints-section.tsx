@@ -11,19 +11,16 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
+import {
+  webhookEventLabel,
+  webhookEventOptions,
+} from "@/lib/webhooks/event-types";
 import { IntegrationLoadWarning } from "./settings-integration-load-warning";
 
 interface SettingsWebhookEndpointsSectionProps {
   webhookEndpoints: WebhookEndpointSummary[];
   webhookEndpointsLoadFailed?: boolean;
 }
-
-const webhookEventOptions = [
-  { value: "booking.confirmed", label: "Confirmed" },
-  { value: "booking.cancelled", label: "Cancelled" },
-  { value: "booking.rescheduled", label: "Rescheduled" },
-  { value: "*", label: "All" },
-] as const;
 
 interface NewWebhookSecret {
   endpointId: string;
@@ -368,12 +365,5 @@ function WebhookEndpointCard({
         </div>
       </div>
     </div>
-  );
-}
-
-function webhookEventLabel(eventType: string): string {
-  return (
-    webhookEventOptions.find((option) => option.value === eventType)?.label ??
-    eventType
   );
 }
