@@ -139,7 +139,7 @@ booking. That suppresses stale reminders after cancellation or rescheduling.
   -> local diff state
   -> POST /api/availability
   -> authenticated profile lookup
-  -> service-key delete/update/insert scoped by user_id
+  -> service-key save-availability transaction scoped by user_id and schedule_id
 ```
 
 Availability rules use database weekday values where `0 = Sunday` and `6 = Saturday`. The dashboard UI displays Monday first, so conversion helpers live in `src/components/dashboard/availability-client.tsx`.

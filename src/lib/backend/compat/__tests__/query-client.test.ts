@@ -118,6 +118,61 @@ describe('createBackendCompatClient', () => {
       'Bearer function-secret'
     )
   })
+
+  it('maps availability save RPC calls to the atomic Butterbase function', async () => {
+    const savedAvailability = {
+      rules: [
+        {
+          id: 'rule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '17:00',
+          is_active: true,
+        },
+      ],
+      overrides: [],
+    }
+    const fetchImpl = mockFetch(savedAvailability)
+    const client = createBackendCompatClient({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.example.test',
+      apiKey: 'service-key',
+      functionSecret: 'function-secret',
+      fetchImpl,
+    })
+
+    const result = await client
+      .rpc('save_availability', {
+        p_user_id: 'host-1',
+        p_schedule_id: 'schedule-1',
+        p_timezone: 'America/New_York',
+        p_rules: savedAvailability.rules,
+        p_overrides: [],
+        p_deleted_rule_ids: ['rule-2'],
+        p_deleted_override_ids: [],
+      })
+      .single()
+
+    expect(result.data).toEqual(savedAvailability)
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://api.example.test/v1/app_openslot/fn/save-availability',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          userId: 'host-1',
+          scheduleId: 'schedule-1',
+          timezone: 'America/New_York',
+          rules: savedAvailability.rules,
+          overrides: [],
+          deletedRuleIds: ['rule-2'],
+          deletedOverrideIds: [],
+        }),
+      })
+    )
+    expect(new Headers(fetchImpl.mock.calls[0][1]?.headers).get('Authorization')).toBe(
+      'Bearer function-secret'
+    )
+  })
 })
 
 function mockFetch(body: unknown) {

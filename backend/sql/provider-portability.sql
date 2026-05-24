@@ -32,6 +32,7 @@ ALTER TABLE host_reservations
 -- - claim-webhook-deliveries
 -- - consume-public-rate-limit
 -- - expire-stale-slot-holds
+-- - save-availability
 --
 -- These can be implemented as database functions, edge/serverless functions
 -- that run SQL in a transaction, or provider-native atomic operations. REST-only
