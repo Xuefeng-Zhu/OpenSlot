@@ -4,6 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
+import { browserTimezoneOrDefault } from "@/lib/utils/timezone";
 import {
   ONBOARDING_STEPS,
   ProgressIndicator,
@@ -172,14 +173,6 @@ function hasValidationErrors(errors: unknown): boolean {
   });
 }
 
-function getBrowserTimezone(): string {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  } catch {
-    return "UTC";
-  }
-}
-
 /**
  * Multi-step onboarding flow that collects the first profile, availability, and
  * event type in one client-side wizard before submitting a single setup payload.
@@ -237,7 +230,7 @@ export default function OnboardingPage() {
           profile: profileData,
           availability: availabilityData,
           eventType: eventTypeData,
-          timezone: getBrowserTimezone(),
+          timezone: browserTimezoneOrDefault(),
         }),
       });
 
