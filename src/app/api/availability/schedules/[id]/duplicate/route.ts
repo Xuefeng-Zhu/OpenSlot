@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import type { InsertTables, Tables } from '@/lib/types/database'
 import { duplicateScheduleSchema } from '@/lib/validations/availability'
 import { getAuthenticatedAvailabilityProfile } from '../../../availability-route-utils'
@@ -30,8 +31,10 @@ export async function POST(
       )
     }
 
-    const body = await request.json()
-    const parsed = duplicateScheduleSchema.safeParse(body)
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
+
+    const parsed = duplicateScheduleSchema.safeParse(json.body)
 
     if (!parsed.success) {
       return NextResponse.json(

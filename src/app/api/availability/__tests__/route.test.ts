@@ -61,6 +61,14 @@ function requestWithJson(body: unknown) {
   })
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/availability', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"rules"',
+  })
+}
+
 function rpcResult(result: { data: unknown; error: unknown | null }) {
   return {
     single: vi.fn(async () => result),
@@ -114,6 +122,19 @@ describe('POST /api/availability', () => {
       p_deleted_override_ids: [],
     })
     expect(mocks.adminClient.from).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed JSON before ownership checks or saving', async () => {
+    const response = await POST(malformedJsonRequest() as never)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.loadOwnedSchedule).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
   })
 
   it('returns a save error when the atomic backend function fails', async () => {

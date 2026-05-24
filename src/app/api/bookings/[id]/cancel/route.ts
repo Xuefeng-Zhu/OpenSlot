@@ -16,6 +16,7 @@ import {
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { Json } from '@/lib/types/database'
+import { parseJsonBody } from '@/lib/http/json'
 import { getBookingCancellationErrorStatus } from '../../error-status'
 
 /**
@@ -39,10 +40,11 @@ export async function POST(request: NextRequest) {
   let idempotencyEntry: IdempotencyEntry | null = null
 
   try {
-    const body = await request.json()
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
 
     // Validate input with Zod
-    const parsed = cancelBookingSchema.safeParse(body)
+    const parsed = cancelBookingSchema.safeParse(json.body)
     if (!parsed.success) {
       return NextResponse.json(
         {

@@ -8,6 +8,7 @@ import {
   getAuthenticatedAvailabilityProfile,
   loadOwnedSchedule,
 } from './availability-route-utils'
+import { parseJsonBody } from '@/lib/http/json'
 
 /**
  * POST /api/availability
@@ -41,9 +42,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Parse and validate request body
-    const body = await request.json()
-    const parsed = saveAvailabilitySchema.safeParse(body)
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
+
+    const parsed = saveAvailabilitySchema.safeParse(json.body)
 
     if (!parsed.success) {
       return NextResponse.json(

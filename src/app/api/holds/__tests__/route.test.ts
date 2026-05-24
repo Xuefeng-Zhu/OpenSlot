@@ -81,6 +81,14 @@ function requestWithJson(
   })
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/holds', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"eventTypeId"',
+  })
+}
+
 describe('POST /api/holds', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -158,6 +166,20 @@ describe('POST /api/holds', () => {
     })
     expect(mocks.beginIdempotentRequest).not.toHaveBeenCalled()
     expect(mocks.completeIdempotentRequest).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed JSON before rate limiting or hold creation', async () => {
+    const response = await POST(malformedJsonRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.validateHoldSlotRequest).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
   })
 
   it('records a fresh idempotent hold request and caches the response', async () => {
