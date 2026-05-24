@@ -2,38 +2,16 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { addDays, format } from "date-fns";
-import { AlertCircle, CalendarDays, Clock3 } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { BookingForm } from "@/components/booking/booking-form";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
-import { TimeSlotButton } from "@/components/booking/time-slot-button";
 import { BookingAgentPanel } from "@/components/booking/booking-agent-panel";
-import {
-  isTurnstileEnabled,
-  TurnstileWidget,
-} from "@/components/booking/turnstile-widget";
-import { EmptyState } from "@/components/shared/empty-state";
+import { SlotPickerTimezoneControl } from "@/components/booking/slot-picker-timezone-control";
+import { SlotSelectionGrid } from "@/components/booking/slot-selection-grid";
+import { isTurnstileEnabled } from "@/components/booking/turnstile-widget";
 import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
-import { cn } from "@/lib/utils";
 import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
-  timezoneOptionsWithCurrent,
 } from "@/lib/utils/timezone";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
@@ -437,7 +415,12 @@ export function SlotPicker({
     });
   }
 
-  const timezoneOptions = timezoneOptionsWithCurrent(timezone);
+  function handleRetrySlots() {
+    setError(null);
+    if (selectedDate) {
+      fetchSlots(selectedDate, timezone, { force: true });
+    }
+  }
 
   // If booking is confirmed, show the confirmation page
   if (flowState.step === "confirmed") {
@@ -472,141 +455,28 @@ export function SlotPicker({
         hostProfile={hostProfile}
       />
 
-      {/* Timezone selector */}
-      <div className="mb-6 flex flex-col items-stretch gap-2 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-center">
-        <label
-          htmlFor="timezone-select"
-          className="text-sm font-medium text-foreground"
-        >
-          Timezone
-        </label>
-        <Select value={timezone} onValueChange={handleTimezoneChange}>
-          <SelectTrigger className="w-full sm:w-[280px]" id="timezone-select">
-            <SelectValue placeholder="Select timezone" />
-          </SelectTrigger>
-          <SelectContent>
-            {timezoneOptions.map((tz) => (
-              <SelectItem key={tz} value={tz}>
-                {tz.replace(/_/g, " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SlotPickerTimezoneControl
+        timezone={timezone}
+        onTimezoneChange={handleTimezoneChange}
+      />
 
-      {/* Date picker and slots */}
-      <div
-        className={cn(
-          "grid grid-cols-1 gap-6",
-          layout === "public" && "md:grid-cols-2"
-        )}
-      >
-        {/* Calendar */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Select a date</CardTitle>
-            <CardDescription>
-              Choose a date to see available times
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={handleDateSelect}
-              disabled={(date) =>
-                date < new Date(new Date().setHours(0, 0, 0, 0))
-              }
-            />
-          </CardContent>
-        </Card>
-
-        {/* Available slots */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Available times</CardTitle>
-            <CardDescription>
-              {selectedDate
-                ? format(selectedDate, "EEEE, MMMM d, yyyy")
-                : "Select a date to view available times"}
-            </CardDescription>
-          </CardHeader>
-          <CardContent aria-live="polite">
-            {!selectedDate && !error && (
-              <EmptyState
-                icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
-                heading="Choose a date"
-                description="Pick an available date from the calendar to see times in your timezone."
-                className="border-0 bg-muted/30 py-10"
-              />
-            )}
-
-            {selectedDate && loading && (
-              <div className="flex items-center justify-center rounded-lg bg-muted/30 py-10" role="status">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary/25 border-t-primary" />
-                <span className="ml-2 text-sm text-muted-foreground">
-                  Loading available slots...
-                </span>
-              </div>
-            )}
-
-            {!loading && error && (
-              <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-8 text-center" role="alert">
-                <AlertCircle className="mx-auto h-6 w-6 text-destructive" aria-hidden="true" />
-                <p className="mt-2 text-sm text-destructive">{error}</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => {
-                    setError(null);
-                    if (selectedDate) {
-                      fetchSlots(selectedDate, timezone, { force: true });
-                    }
-                  }}
-                >
-                  {selectedDate ? "Try Again" : "Dismiss"}
-                </Button>
-              </div>
-            )}
-
-            {selectedDate && !loading && !error && slots.length === 0 && (
-              <EmptyState
-                icon={<Clock3 className="h-6 w-6" aria-hidden="true" />}
-                heading="No slots on this date"
-                description="Try another date on the calendar to find a time that works."
-                className="border-0 bg-muted/30 py-10"
-              />
-            )}
-
-            {selectedDate && !loading && !error && slots.length > 0 && (
-              <div className="space-y-3">
-                <TurnstileWidget
-                  action="hold"
-                  resetKey={holdTurnstileResetKey}
-                  onTokenChange={setHoldTurnstileToken}
-                />
-                <div className="grid max-h-[400px] grid-cols-2 gap-2 overflow-y-auto pr-1">
-                  {slots.map((slot) => (
-                    <TimeSlotButton
-                      key={slot.start}
-                      time={formatSlotTime(slot.start)}
-                      selected={selectedSlot?.start === slot.start}
-                      onClick={() => handleSlotSelect(slot)}
-                      disabled={
-                        holdLoading ||
-                        (turnstileRequired && !holdTurnstileToken)
-                      }
-                      loading={holdLoading && selectedSlot?.start === slot.start}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-      </div>
+      <SlotSelectionGrid
+        layout={layout}
+        selectedDate={selectedDate}
+        loading={loading}
+        error={error}
+        slots={slots}
+        selectedSlot={selectedSlot}
+        holdLoading={holdLoading}
+        holdTurnstileToken={holdTurnstileToken}
+        holdTurnstileResetKey={holdTurnstileResetKey}
+        turnstileRequired={turnstileRequired}
+        onDateSelect={handleDateSelect}
+        onRetrySlots={handleRetrySlots}
+        onSlotSelect={handleSlotSelect}
+        onHoldTurnstileTokenChange={setHoldTurnstileToken}
+        formatSlotTime={formatSlotTime}
+      />
 
       {showBookingAgent && (
         <BookingAgentPanel
