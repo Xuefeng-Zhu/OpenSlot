@@ -10,6 +10,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Profile settings with public username and default timezone.
 - Public host profile page at `/<username>`.
 - Public event booking page at `/<username>/<eventSlug>`.
+- Public booking assistant for date/time suggestions, timezone help, slot lookup, and booking-form draft prefill when Butterbase AI is configured.
 - Event-type-level invitee questions with required/optional text, dropdown, and checkbox answers.
 - Guest slot selection with timezone display and connected-calendar conflict checks.
 - Five-minute slot holds before confirmation.
@@ -34,6 +35,7 @@ These areas have important implementation notes:
 | Area | Current state |
 | --- | --- |
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
+| Booking assistant | Public event and reschedule pages can show an AI assistant when `BUTTERBASE_API_KEY` is configured. The assistant can suggest slots and draft guest form details, but all mutations still go through hold/booking routes. |
 | Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo. |
 | Reminders | Event types can schedule one pre-meeting reminder through the outbox worker. Cancelled/rescheduled bookings are rechecked and skipped before email send. |
 | Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, provider availability conflict checks, provider event writes, provider watch/subscription callbacks, and watch renewal exist. |

@@ -42,7 +42,10 @@ availability aligned with that auth user.
 
 Override the login used by browser specs with `E2E_DEMO_HOST_EMAIL`,
 `E2E_DEMO_HOST_PASSWORD`, and `E2E_DEMO_AUTH_USER_ID` when a shared Butterbase
-test app already has known seeded credentials.
+test app already has known seeded credentials. The legacy aliases
+`E2E_DEMO_EMAIL` and `E2E_DEMO_PASSWORD` are still honored. Set
+`E2E_DEMO_HOST_FILE` to change where the disposable runtime login is cached;
+the default is `test-results/e2e-demo-host.json`.
 
 The CI `Dashboard E2E` job installs Chromium and runs `npm run test:e2e` when
 the Butterbase app id and service key are configured for the repository. If

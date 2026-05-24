@@ -15,6 +15,8 @@ NEXT_PUBLIC_APP_URL=...
 NEXT_PUBLIC_BUTTERBASE_APP_ID=...
 NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
 BUTTERBASE_API_KEY=...
+BUTTERBASE_FUNCTION_SECRET=...
+SLOT_HOLD_TOKEN_SECRET=...
 ```
 
 Worker and cron routes:
@@ -49,10 +51,19 @@ RESEND_API_KEY=...
 MAILEROO_API_KEY=...
 ```
 
+Optional runtime controls:
+
+```env
+CALENDAR_FINAL_AVAILABILITY_CHECK=stale
+CALENDAR_STALE_AFTER_MINUTES=10
+BOOKING_AGENT_MODEL=deepseek/deepseek-v4-flash
+```
+
 Rules:
 
 - `NEXT_PUBLIC_*` values are browser-visible.
-- `BUTTERBASE_API_KEY` must only be used in server-only code.
+- `BUTTERBASE_API_KEY`, `BUTTERBASE_FUNCTION_SECRET`, and
+  `SLOT_HOLD_TOKEN_SECRET` must only be used in server-only code.
 - Do not commit `.env.local` or real credentials.
 
 ## Butterbase Access Boundaries
@@ -93,6 +104,9 @@ Contacts are host-scoped aggregates derived from booking attendees. Contact iden
 Important safeguards:
 
 - `/api/holds` checks overlapping active holds and confirmed bookings.
+- `/api/slots` signs short-lived slot hold tokens; use
+  `SLOT_HOLD_TOKEN_SECRET` for a dedicated signing secret, or rely on the
+  server-only Butterbase secrets fallback.
 - `/api/holds` creates the hold through `create_slot_hold_with_reservation()`, which inserts `slot_holds` and `host_reservations` in one database transaction.
 - `/api/slots` validates that the event type is active and belongs to the requested host before using service-key reads to compute availability.
 - `/api/slots`, `/api/holds`, `/api/bookings`, `/api/bookings/reschedule`, and `/api/bookings/[id]/cancel` consume DB-backed public rate limits before expensive reads or guest mutations. Rate-limit identifiers are hashed before storage.
@@ -128,6 +142,8 @@ persisted by OpenSlot. The request sent to the gateway is bounded to recent chat
 turns, safe public event context, and guest-provided scheduling preferences or
 draft form details. Booking, cancellation, and reschedule tokens are not sent to
 the model, and the assistant cannot confirm bookings directly.
+`BOOKING_AGENT_MODEL` changes only the model name sent to the Butterbase AI
+gateway; it does not change the route's read-only/mutation boundary.
 
 ## Browser Security Headers
 
