@@ -5,6 +5,11 @@ import type { Database, Json, Tables } from '@/lib/types/database'
 import type { VideoProvider } from '@/lib/calendar/video-providers'
 import { decryptToken, encryptToken } from '@/lib/security/token-encryption'
 import { refreshCalendarAccessToken } from './oauth'
+import {
+  calendarErrorMessage,
+  parseProviderJson,
+  providerHeaders,
+} from './provider-http'
 
 type ProviderConnectionRow = Tables<'provider_connections'>
 type ProviderCalendarRow = Tables<'provider_calendars'>
@@ -231,7 +236,7 @@ export async function syncCalendarsForConnection(
       .from('provider_connections')
       .update({
         status: 'error',
-        last_error: errorMessage(error),
+        last_error: calendarErrorMessage(error),
         updated_at: new Date().toISOString(),
       })
       .eq('id', connection.id)
@@ -1048,13 +1053,6 @@ function microsoftEventTime(value?: {
   return new Date(hasOffset ? value.dateTime : `${value.dateTime}Z`).toISOString()
 }
 
-function providerHeaders(accessToken: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  }
-}
-
 function googleConferenceUrl(data: GoogleEventResponse): string | null {
   const videoEntryPoint = data.conferenceData?.entryPoints?.find(
     (entryPoint) => entryPoint.entryPointType === 'video' && entryPoint.uri
@@ -1113,23 +1111,6 @@ function hasDateTimeOffset(value: string): boolean {
   return /(?:z|[+-]\d\d:\d\d)$/i.test(value)
 }
 
-async function parseProviderJson<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => ({}))) as T & {
-    error?: { message?: string }
-    error_description?: string
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data.error?.message ??
-        data.error_description ??
-        `Provider request failed with HTTP ${response.status}`
-    )
-  }
-
-  return data
-}
-
 function googleDeleteEventUrl(
   externalCalendarId: string,
   externalEventId: string
@@ -1141,8 +1122,4 @@ function googleDeleteEventUrl(
   )
   url.searchParams.set('sendUpdates', 'none')
   return url
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

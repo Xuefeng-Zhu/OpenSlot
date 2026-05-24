@@ -14,6 +14,7 @@ import {
   getFreshAccessToken,
   type ProviderCalendarEventInput,
 } from './provider-sync'
+import { calendarErrorMessage } from './provider-http'
 
 type BookingRow = Tables<'bookings'>
 type OutboxEventRow = Tables<'outbox_events'>
@@ -148,7 +149,7 @@ export async function createCalendarEventsForBooking(
       if (booking.conferenceProvider) {
         await updateBookingConference(adminClient, booking.bookingId, {
           status: 'failed',
-          error: errorMessage(error),
+          error: calendarErrorMessage(error),
         })
       }
       throw error
@@ -256,7 +257,7 @@ export async function cancelCalendarEventsForBooking(
       await adminClient
         .from('calendar_event_refs')
         .update({
-          last_error: errorMessage(error),
+          last_error: calendarErrorMessage(error),
           updated_at: new Date().toISOString(),
         })
         .eq('id', ref.id)
@@ -506,8 +507,4 @@ function jsonObject(value: Json): { [key: string]: Json | undefined } {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value
     : {}
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
