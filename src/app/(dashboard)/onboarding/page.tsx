@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { useCopyFeedback } from "@/components/shared/use-copy-feedback";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import {
   ONBOARDING_STEPS,
@@ -187,7 +188,7 @@ function getBrowserTimezone(): string {
 export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(0);
-  const [copied, setCopied] = React.useState(false);
+  const { copied, resetCopied, showCopied } = useCopyFeedback();
   const [copyError, setCopyError] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState("");
@@ -316,11 +317,10 @@ export default function OnboardingPage() {
     const link = absoluteBookingLink(savedBookingLink);
     try {
       await copyTextToClipboard(link);
-      setCopied(true);
+      showCopied();
       setCopyError("");
-      setTimeout(() => setCopied(false), 2000);
     } catch {
-      setCopied(false);
+      resetCopied();
       setCopyError("Could not copy link. Select the URL and copy it manually.");
     }
   };

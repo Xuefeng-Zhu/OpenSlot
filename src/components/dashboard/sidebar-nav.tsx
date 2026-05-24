@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -20,6 +20,7 @@ import { AppIcon } from '@/components/shared/app-icon'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { copyTextToClipboard } from '@/lib/utils/clipboard'
+import { useCopyFeedback } from '@/components/shared/use-copy-feedback'
 
 const navItems = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -38,7 +39,7 @@ interface SidebarNavProps {
 export function SidebarNav({ username }: SidebarNavProps) {
   const pathname = usePathname()
   const { toast } = useToast()
-  const [copied, setCopied] = useState(false)
+  const { copied, showCopied } = useCopyFeedback()
 
   const publicBookingUrl = useMemo(() => {
     if (!username) return ''
@@ -59,12 +60,11 @@ export function SidebarNav({ username }: SidebarNavProps) {
 
     try {
       await copyTextToClipboard(publicBookingUrl)
-      setCopied(true)
+      showCopied()
       toast({
         title: 'Booking link copied',
         description: 'Your public booking page URL is ready to share.',
       })
-      setTimeout(() => setCopied(false), 2000)
     } catch {
       toast({
         title: 'Could not copy link',
