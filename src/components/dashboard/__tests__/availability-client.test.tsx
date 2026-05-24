@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AvailabilityClient } from '../availability-client'
-import type { AvailabilitySchedule } from '../availability-client'
+import type { AvailabilitySchedule } from '../availability-model'
 
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
