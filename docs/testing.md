@@ -171,7 +171,7 @@ This comes from jsdom when a test triggers browser navigation. It is currently n
 | Forms and validation | Schema tests plus component tests |
 | Dashboard UI polish | Relevant component/page test, accessibility if inputs/actions change |
 | Page smoke, authenticated dashboard behavior, guest booking, or E2E regressions | `npm run test:e2e` with Butterbase test app data |
-| Butterbase schema or RLS | Provider schema/function review, manual Butterbase check, full build/test |
+| Shared DB migrations, Butterbase functions, or RLS | Provider artifact review, manual Butterbase check, full build/test |
 | Docs only | `npm run lint`, `npm run typecheck`, `npm run test` when feasible |
 
 ## Related Docs

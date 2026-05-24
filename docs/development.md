@@ -102,11 +102,11 @@ the Butterbase AI configuration.
 
 ## Backend Schema
 
-Butterbase is the active backend. Keep provider-neutral invariants in
-`backend/sql/provider-portability.sql` and Butterbase-specific schema/function
-artifacts under `backend/butterbase/`. The historical `supabase/migrations/`
-directory remains source material for constraints and table contracts during the
-cutover, but new backend runtime work should not add Supabase-only code paths.
+Butterbase is the active backend. Keep shared database migrations in
+`backend/database/migrations/`, provider-neutral invariants in
+`backend/sql/provider-portability.sql`, and Butterbase-specific function/runtime
+artifacts under `backend/butterbase/`. New backend runtime work should not add
+Supabase-only code paths.
 
 ## App Commands
 

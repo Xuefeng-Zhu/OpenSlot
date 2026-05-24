@@ -161,10 +161,10 @@ and stores created weekly availability rules under that schedule.
 
 ## Database Schema
 
-Canonical schema history still exists in `supabase/migrations/` as the legacy
-Postgres source material, while active provider-portability invariants live in
-`backend/sql/provider-portability.sql` and Butterbase schema/function artifacts
-belong under `backend/butterbase/`:
+Canonical shared schema history lives in `backend/database/migrations/` as
+Postgres source material. Active provider-portability invariants live in
+`backend/sql/provider-portability.sql`, while Butterbase function/runtime
+artifacts belong under `backend/butterbase/`:
 
 - `001_enable_extensions.sql`: `uuid-ossp` and `btree_gist`.
 - `002_create_profiles.sql`: profile records linked to `auth.users`.

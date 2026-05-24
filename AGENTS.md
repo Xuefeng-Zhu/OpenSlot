@@ -42,9 +42,8 @@ src/lib/validations/             Zod schemas
 src/lib/utils/                   Slug and timezone helpers
 src/proxy.ts                     Butterbase session refresh and dashboard redirect proxy
 backend/sql/                     Provider-portable SQL invariants
-backend/butterbase/              Butterbase schema/function artifacts
-supabase/migrations/             Historical PostgreSQL migration source
-supabase/seed.sql                Historical local demo data reference
+backend/database/                Shared database migrations and seed reference
+backend/butterbase/              Butterbase function/runtime artifacts
 docs/                            Contributor and architecture documentation
 ```
 
@@ -119,8 +118,8 @@ worker cron config exists in `vercel.json`.
    ```
 
 4. Ensure the configured Butterbase app has the OpenSlot schema, RLS policies,
-   and functions described by `backend/sql/provider-portability.sql` and
-   `backend/butterbase/`.
+   and functions described by `backend/database/migrations/`,
+   `backend/sql/provider-portability.sql`, and `backend/butterbase/`.
 
 5. Start the app:
 
@@ -296,7 +295,7 @@ See [docs/security.md](docs/security.md).
 - Prefer extending existing schemas and helpers over duplicating validation.
 - Avoid speculative rewrites of large dashboard components.
 - Keep public behavior changes explicit in docs and tests.
-- For backend schema changes, update provider-owned schema/function artifacts and keep `backend/sql/provider-portability.sql` aligned.
+- For backend schema changes, update `backend/database/migrations/`, provider-owned function artifacts, and `backend/sql/provider-portability.sql` together.
 
 ## Release and Build Notes
 
