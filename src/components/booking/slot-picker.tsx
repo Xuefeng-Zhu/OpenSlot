@@ -124,7 +124,6 @@ export function SlotPicker({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
   const [timezoneReady, setTimezoneReady] = useState(false);
-  const [slotsByDate, setSlotsByDate] = useState<SlotsByDate>({});
   const [slots, setSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +134,7 @@ export function SlotPicker({
   );
   const [holdTurnstileResetKey, setHoldTurnstileResetKey] = useState(0);
   const [agentDraft, setAgentDraft] = useState<BookingAgentDraft>({});
+  const slotsByDateRef = useRef<SlotsByDate>({});
   const holdIdempotencyKeysRef = useRef<Map<string, string>>(new Map());
   const slotWindowRequestRef = useRef(0);
   const holdRequestRef = useRef(0);
@@ -203,10 +203,10 @@ export function SlotPicker({
         if (!isLatestRequest()) return;
         const nextSlotsByDate = (data.slotsByDate ?? {}) as SlotsByDate;
 
-        setSlotsByDate((current) => ({
-          ...current,
+        slotsByDateRef.current = {
+          ...slotsByDateRef.current,
           ...nextSlotsByDate,
-        }));
+        };
 
         if (applyDateString) {
           setSlots(nextSlotsByDate[applyDateString] ?? []);
@@ -230,9 +230,11 @@ export function SlotPicker({
     async (date: Date, tz: string, options: FetchSlotsOptions = {}) => {
       const dateStr = format(date, "yyyy-MM-dd");
 
-      if (!options.force && hasSlotsForDate(slotsByDate, dateStr)) {
+      const cachedSlotsByDate = slotsByDateRef.current;
+
+      if (!options.force && hasSlotsForDate(cachedSlotsByDate, dateStr)) {
         setError(null);
-        setSlots(slotsByDate[dateStr] ?? []);
+        setSlots(cachedSlotsByDate[dateStr] ?? []);
         setSelectedSlot(null);
         setLoading(false);
         return;
@@ -240,7 +242,7 @@ export function SlotPicker({
 
       await fetchSlotWindow(date, tz, date);
     },
-    [fetchSlotWindow, slotsByDate]
+    [fetchSlotWindow]
   );
 
   useEffect(() => {
@@ -252,7 +254,7 @@ export function SlotPicker({
     slotPickerIdentityRef.current = currentIdentity;
     slotWindowRequestRef.current += 1;
     holdRequestRef.current += 1;
-    setSlotsByDate({});
+    slotsByDateRef.current = {};
     setSlots([]);
     setSelectedSlot(null);
     setAgentDraft({});
@@ -298,7 +300,7 @@ export function SlotPicker({
     slotWindowRequestRef.current += 1;
     holdRequestRef.current += 1;
     setTimezone(tz);
-    setSlotsByDate({});
+    slotsByDateRef.current = {};
     setSlots([]);
     setSelectedSlot(null);
     setHoldLoading(false);
