@@ -247,6 +247,42 @@ describe('POST /api/booking-agent/message', () => {
     )
   })
 
+  it('uses deterministic fallback when the Butterbase gateway times out', async () => {
+    const consoleWarn = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined)
+    const eventQuery = createQuery({
+      data: validEventType(),
+      error: null,
+    })
+    const profileQuery = createQuery({
+      data: validProfile(),
+      error: null,
+    })
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventQuery)
+      .mockReturnValueOnce(profileQuery)
+    mocks.runBookingAgentTurn.mockRejectedValue(
+      new BookingAgentGatewayError('Butterbase AI gateway timed out', 504)
+    )
+
+    const response = await POST(requestWithJson(validBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.reply).toBe('I checked that date directly.')
+    expect(mocks.runBookingAgentFallbackTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        request: expect.objectContaining(validBody),
+      })
+    )
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Butterbase AI gateway unavailable for booking assistant',
+      expect.objectContaining({ status: 504 })
+    )
+    consoleWarn.mockRestore()
+  })
+
   it('returns 404 when the public event context is missing', async () => {
     const eventQuery = createQuery({
       data: null,

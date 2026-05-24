@@ -36,6 +36,7 @@ export interface ButterbaseBookingAgentProviderOptions
   model?: string
   maxTokens?: number
   temperature?: number
+  timeoutMs?: number
 }
 
 /**
@@ -49,6 +50,7 @@ export class ButterbaseBookingAgentProvider implements BookingAgentProvider {
   private readonly model: string
   private readonly maxTokens: number
   private readonly temperature: number
+  private readonly timeoutMs: number
 
   constructor(options: ButterbaseBookingAgentProviderOptions = {}) {
     const config = resolveButterbaseConfig(options)
@@ -63,6 +65,7 @@ export class ButterbaseBookingAgentProvider implements BookingAgentProvider {
       DEFAULT_BOOKING_AGENT_MODEL
     this.maxTokens = options.maxTokens ?? 700
     this.temperature = options.temperature ?? 0.2
+    this.timeoutMs = options.timeoutMs ?? 12_000
   }
 
   async complete(input: BookingAgentProviderInput): Promise<string> {
@@ -70,48 +73,81 @@ export class ButterbaseBookingAgentProvider implements BookingAgentProvider {
       throw new BookingAgentGatewayError('Butterbase AI gateway is not configured')
     }
 
-    const response = await this.fetchImpl(
-      `${this.apiUrl}/v1/${this.appId}/chat/completions`,
-      {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: this.model,
-          messages: input.messages,
-          max_tokens: this.maxTokens,
-          temperature: this.temperature,
-          stream: false,
-        }),
+    const controller =
+      this.timeoutMs > 0 && typeof AbortController !== 'undefined'
+        ? new AbortController()
+        : null
+    const timeout =
+      controller && typeof setTimeout !== 'undefined'
+        ? setTimeout(() => controller.abort(), this.timeoutMs)
+        : null
+
+    try {
+      const response = await this.fetchImpl(
+        `${this.apiUrl}/v1/${this.appId}/chat/completions`,
+        {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${this.apiKey}`,
+          },
+          signal: controller?.signal,
+          body: JSON.stringify({
+            model: this.model,
+            messages: input.messages,
+            max_tokens: this.maxTokens,
+            temperature: this.temperature,
+            stream: false,
+          }),
+        }
+      )
+
+      const parsed = (await response.json().catch(() => null)) as
+        | ButterbaseChatCompletionResponse
+        | null
+
+      if (!response.ok) {
+        throw new BookingAgentGatewayError(
+          gatewayErrorMessage(parsed) ??
+            `Butterbase AI gateway returned HTTP ${response.status}`,
+          response.status,
+          parsed?.error?.code
+        )
       }
-    )
 
-    const parsed = (await response.json().catch(() => null)) as
-      | ButterbaseChatCompletionResponse
-      | null
+      const content = parsed?.choices?.[0]?.message?.content
+      if (!content) {
+        throw new BookingAgentGatewayError(
+          'Butterbase AI gateway returned an empty response',
+          response.status
+        )
+      }
 
-    if (!response.ok) {
-      throw new BookingAgentGatewayError(
-        gatewayErrorMessage(parsed) ??
-          `Butterbase AI gateway returned HTTP ${response.status}`,
-        response.status,
-        parsed?.error?.code
-      )
+      return content
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new BookingAgentGatewayError(
+          'Butterbase AI gateway timed out',
+          504,
+          'timeout'
+        )
+      }
+
+      throw error
+    } finally {
+      if (timeout) clearTimeout(timeout)
     }
-
-    const content = parsed?.choices?.[0]?.message?.content
-    if (!content) {
-      throw new BookingAgentGatewayError(
-        'Butterbase AI gateway returned an empty response',
-        response.status
-      )
-    }
-
-    return content
   }
+}
+
+function isAbortError(error: unknown) {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'name' in error &&
+    error.name === 'AbortError'
+  )
 }
 
 export function isBookingAgentConfigured() {

@@ -47,6 +47,8 @@ interface AgentResponse {
   nextAction?: string;
 }
 
+const BOOKING_AGENT_REQUEST_TIMEOUT_MS = 20_000;
+
 export function BookingAgentPanel({
   mode,
   eventTypeId,
@@ -77,10 +79,13 @@ export function BookingAgentPanel({
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const requestRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
   const conversationContextRef = useRef(conversationContextKey);
 
   useEffect(() => {
     requestRef.current += 1;
+    abortRef.current?.abort();
+    abortRef.current = null;
     setLoading(false);
     setError(null);
     setSuggestedSlots([]);
@@ -97,6 +102,12 @@ export function BookingAgentPanel({
     selectedSlot?.slotToken,
     selectedSlot?.start,
   ]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -116,10 +127,19 @@ export function BookingAgentPanel({
     setError(null);
     setLoading(true);
 
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timeout = setTimeout(
+      () => controller.abort(),
+      BOOKING_AGENT_REQUEST_TIMEOUT_MS
+    );
+
     try {
       const response = await fetch("/api/booking-agent/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           mode,
           eventTypeId,
@@ -159,11 +179,19 @@ export function BookingAgentPanel({
           },
         ].slice(-10)
       );
-    } catch {
+    } catch (fetchError) {
       if (isLatestRequest()) {
-        setError("The assistant is unavailable right now.");
+        setError(
+          isAbortError(fetchError)
+            ? "The assistant took too long to respond. Please try again or choose a time below."
+            : "The assistant is unavailable right now."
+        );
       }
     } finally {
+      clearTimeout(timeout);
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
       if (isLatestRequest()) {
         setLoading(false);
       }
@@ -314,6 +342,15 @@ function formatFallbackSlotLabel(isoString: string, timezone: string) {
     minute: "2-digit",
     timeZone: timezone || undefined,
   }).format(new Date(isoString));
+}
+
+function isAbortError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
 }
 
 function initialAssistantMessage(mode: BookingAgentPanelProps["mode"]) {

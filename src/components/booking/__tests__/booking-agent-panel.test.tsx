@@ -1,10 +1,11 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BookingAgentPanel } from '../booking-agent-panel'
 
 describe('BookingAgentPanel', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.useRealTimers()
   })
 
   it('sends chat turns, applies draft values, and selects suggested slots', async () => {
@@ -133,6 +134,55 @@ describe('BookingAgentPanel', () => {
     expect(slotButton).toHaveProperty('disabled', true)
     fireEvent.click(slotButton)
     expect(onSelectSlot).not.toHaveBeenCalled()
+  })
+
+  it('times out a hanging assistant request and clears the loading state', async () => {
+    vi.useFakeTimers()
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        return new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            const error = new Error('Aborted')
+            error.name = 'AbortError'
+            reject(error)
+          })
+        })
+      }
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <BookingAgentPanel
+        mode="booking"
+        eventTypeId="11111111-1111-4111-8111-111111111111"
+        hostUserId="22222222-2222-4222-8222-222222222222"
+        timezone="America/New_York"
+        selectedSlot={null}
+        onDraftChange={vi.fn()}
+        onSelectSlot={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /AI assistant/i }))
+    fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
+      target: { value: 'Tuesday afternoon' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000)
+    })
+
+    expect(screen.getByRole('alert').textContent).toContain(
+      'The assistant took too long to respond.'
+    )
+    expect(screen.queryByText('Checking availability...')).toBeNull()
+    expect(screen.getByRole('button', { name: /send/i })).toHaveProperty(
+      'disabled',
+      false
+    )
   })
 
   it('ignores stale assistant responses after booking context changes', async () => {
