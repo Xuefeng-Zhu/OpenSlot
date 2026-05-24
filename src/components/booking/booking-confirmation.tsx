@@ -10,6 +10,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import {
+  formatBookingDate,
+  formatBookingTime,
+} from "@/lib/booking/date-time-format";
 import { formatBookingLocationLabel } from "@/lib/location-labels";
 
 interface BookingConfirmationProps {
@@ -46,26 +50,6 @@ export function BookingConfirmation({
   conferenceUrl,
   variant = "booking",
 }: BookingConfirmationProps) {
-  function formatDateTime(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleDateString([], {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: timezone || undefined,
-    });
-  }
-
-  function formatTime(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: timezone || undefined,
-    });
-  }
-
   const cancellationUrl = `/booking/cancel/${cancellationToken}`;
   const rescheduleUrl = rescheduleToken
     ? `/booking/reschedule/${rescheduleToken}`
@@ -118,7 +102,9 @@ export function BookingConfirmation({
                 <p className="text-xs font-medium uppercase text-muted-foreground">
                   Date
                 </p>
-                <p className="font-medium">{formatDateTime(startAt)}</p>
+                <p className="font-medium">
+                  {formatBookingDate(startAt, timezone)}
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -128,7 +114,8 @@ export function BookingConfirmation({
                   Time
                 </p>
                 <p className="font-medium">
-                  {formatTime(startAt)} - {formatTime(endAt)}
+                  {formatBookingTime(startAt, timezone)} -{" "}
+                  {formatBookingTime(endAt, timezone)}
                 </p>
               </div>
             </div>

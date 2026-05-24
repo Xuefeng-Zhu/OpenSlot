@@ -8,6 +8,10 @@ import {
   isValidCancellationToken,
   type CancellationBookingDetails,
 } from "@/lib/booking/cancellation-details";
+import {
+  formatBookingDate,
+  formatBookingTime,
+} from "@/lib/booking/date-time-format";
 
 export const runtime = "edge";
 
@@ -170,22 +174,4 @@ function BookingDetailsSummary({
       </div>
     </div>
   );
-}
-
-function formatBookingDate(isoString: string, timezone: string): string {
-  return new Date(isoString).toLocaleDateString([], {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    timeZone: timezone || undefined,
-  });
-}
-
-function formatBookingTime(isoString: string, timezone: string): string {
-  return new Date(isoString).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: timezone || undefined,
-  });
 }

@@ -44,6 +44,10 @@ import {
 } from "@/components/booking/hold-timer";
 import { BookingInviteeQuestionFields } from "@/components/booking/booking-invitee-question-fields";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
+import {
+  formatBookingDate,
+  formatBookingTime,
+} from "@/lib/booking/date-time-format";
 
 interface BookingFormProps {
   holdToken?: string;
@@ -301,26 +305,6 @@ export function BookingForm({
     }
   };
 
-  function formatSlotTime(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: displayTimezone,
-    });
-  }
-
-  function formatSlotDate(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleDateString([], {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: displayTimezone,
-    });
-  }
-
   // Ensure the timezone list includes the current timezone
   const timezoneOptions = timezoneOptionsWithCurrent(
     initialGuestTimezone,
@@ -383,7 +367,9 @@ export function BookingForm({
               <p className="text-xs font-medium uppercase text-muted-foreground">
                 Date
               </p>
-              <p className="font-medium">{formatSlotDate(selectedSlot.start)}</p>
+              <p className="font-medium">
+                {formatBookingDate(selectedSlot.start, displayTimezone)}
+              </p>
             </div>
           </div>
           <div className="flex items-start gap-3">
@@ -393,8 +379,8 @@ export function BookingForm({
                 Time
               </p>
               <p className="font-medium">
-                {formatSlotTime(selectedSlot.start)} -{" "}
-                {formatSlotTime(selectedSlot.end)}
+                {formatBookingTime(selectedSlot.start, displayTimezone)} -{" "}
+                {formatBookingTime(selectedSlot.end, displayTimezone)}
               </p>
             </div>
           </div>
