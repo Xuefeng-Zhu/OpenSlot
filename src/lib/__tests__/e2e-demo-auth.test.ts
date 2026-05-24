@@ -7,10 +7,8 @@ import {
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  cleanupStaleDemoEventTypes,
-  ensureDemoAuthUser,
-} from '../../../e2e/global-setup'
+import { cleanupStaleDemoEventTypes } from '../../../e2e/global-setup'
+import { ensureDemoAuthUser } from '../../../e2e/support/demo-auth'
 import { demoHost, resetRuntimeDemoHostForTests } from '../../../e2e/demo-data'
 import type { E2EAdminClient } from '../../../e2e/support/db/types'
 import type { BackendPorts } from '@/lib/backend/ports'
