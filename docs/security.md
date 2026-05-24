@@ -2,7 +2,8 @@
 
 OpenSlot stores scheduling and guest booking data in Butterbase. Treat guest
 names, emails, notes, timezones, booking times, contact records, and
-cancellation tokens as sensitive application data.
+cancellation tokens as sensitive application data. Treat MCP API tokens as
+host account credentials.
 
 For the short repository security policy, see [../SECURITY.md](../SECURITY.md).
 
@@ -85,10 +86,14 @@ Current public access:
 
 - Public profile and event pages are rendered server-side with the service key and return only selected fields.
 - Public slot lookup goes through `/api/slots` and returns computed slot times only.
+- MCP access goes through `/api/mcp` with host-scoped Bearer tokens. Tool
+  execution is scoped to the token's `profile_id`.
 - Browser code never receives the Butterbase service key; auth tokens are stored
   in HTTP-only cookies.
 
-The Butterbase service key bypasses RLS and is used only in server-side route handlers/libraries. Application code must still scope writes by user, hold token, or cancellation token.
+The Butterbase service key bypasses RLS and is used only in server-side route
+handlers/libraries. Application code must still scope writes by user, MCP token
+profile, hold token, or cancellation token.
 
 ## Contact Privacy
 
@@ -124,8 +129,27 @@ Important safeguards:
 - Booking confirmation, cancellation, and rescheduling append ID-based audit events in `booking_events`.
 - Cancellation page lookup and cancellation writes use `cancellation_token` rather than only a booking ID.
 - Rescheduling page lookup and writes use `reschedule_token` plus a fresh hold token; `reschedule_booking_with_hold()` performs the old/new booking transition and reservation updates in one database transaction.
+- MCP booking tools bypass browser Turnstile because they are host-authorized by
+  API token, but they still use the same availability, hold, confirmation,
+  cancellation, rescheduling, idempotency, rate-limit, reservation, audit,
+  contact, and outbox code paths.
 
 Do not weaken any of these without replacing the protection and updating tests.
+
+## MCP Token Security
+
+- MCP tokens are generated with the `os_mcp_` prefix and shown once in Settings.
+- Only `token_hash`, a short display prefix, scopes, timestamps, and revocation
+  metadata are stored in `mcp_api_tokens`.
+- `mcp_api_tokens` has RLS enabled and no direct `anon` or `authenticated`
+  grants; dashboard and MCP routes use service-key code after session or token
+  authentication.
+- Read tools require `mcp:read`; mutation tools require `mcp:write`.
+- Booking list tools do not return cancellation or reschedule tokens. Cancel and
+  reschedule tools accept `bookingId` and load the required token internally
+  after checking host ownership.
+- Revoke tokens from Settings immediately if a client machine or config file is
+  lost.
 
 ## Email Privacy
 
@@ -163,6 +187,7 @@ Calendar OAuth, email providers, and tenant webhook deliveries are server-side i
 - `CALENDAR_TOKEN_ENCRYPTION_SECRET` must be server-only, high entropy, and stable; rotating it requires decrypting/re-encrypting stored provider tokens or asking hosts to reconnect.
 - Webhook endpoint `secret_token` values are never returned from list APIs; create returns the secret once so the settings dashboard can show it to the host for verification setup.
 - Webhook delivery requests are signed with `X-OpenSlot-Signature` using the endpoint secret and timestamped payload.
+- MCP raw tokens are never returned by list APIs; create returns the token once.
 - Vercel Cron Jobs should use a random `CRON_SECRET`; manual worker triggers can use route-specific worker secrets.
 
 ## Security Review Checklist
@@ -178,5 +203,6 @@ Calendar OAuth, email providers, and tenant webhook deliveries are server-side i
 ## Related Docs
 
 - [Architecture](architecture.md)
+- [MCP](mcp.md)
 - [Release](release.md)
 - [Troubleshooting](troubleshooting.md)

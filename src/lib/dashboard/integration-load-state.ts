@@ -5,6 +5,10 @@ import {
 } from '@/lib/calendar/connections'
 import type { Database } from '@/lib/types/database'
 import {
+  listMcpTokenSummaries,
+  type McpTokenSummary,
+} from '@/lib/mcp/tokens'
+import {
   listWebhookEndpointSummaries,
   type WebhookEndpointSummary,
 } from '@/lib/webhooks/endpoints'
@@ -46,5 +50,14 @@ export function loadDashboardWebhookEndpoints(
 ): Promise<DashboardIntegrationLoadResult<WebhookEndpointSummary>> {
   return loadDashboardIntegrationSummaries('webhook endpoints', () =>
     listWebhookEndpointSummaries(adminClient, profileId)
+  )
+}
+
+export function loadDashboardMcpTokens(
+  adminClient: BackendCompatClient<Database>,
+  profileId: string
+): Promise<DashboardIntegrationLoadResult<McpTokenSummary>> {
+  return loadDashboardIntegrationSummaries('MCP tokens', () =>
+    listMcpTokenSummaries(adminClient, profileId)
   )
 }

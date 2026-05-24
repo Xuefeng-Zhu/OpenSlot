@@ -23,6 +23,15 @@ ALTER TABLE host_reservations
     tstzrange(start_at, end_at) WITH &&
   ) WHERE (status = 'active');
 
+-- MCP API tokens are host-scoped credentials. Providers must store only a
+-- one-way token hash plus safe display metadata, never the raw token value.
+ALTER TABLE mcp_api_tokens
+  ADD CONSTRAINT mcp_api_tokens_allowed_scopes
+  CHECK (scopes <@ ARRAY['mcp:read', 'mcp:write']::TEXT[]);
+
+CREATE UNIQUE INDEX ux_mcp_api_tokens_token_hash
+  ON mcp_api_tokens(token_hash);
+
 -- Provider adapters must expose equivalent transaction entrypoints:
 -- - create-slot-hold
 -- - confirm-booking

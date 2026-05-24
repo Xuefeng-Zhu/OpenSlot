@@ -5,6 +5,18 @@ import {
   User,
   Settings2,
   Bell,
+  Puzzle,
+  Calendar,
+  Video,
+  CreditCard,
+  Mail,
+  RefreshCw,
+  Copy,
+  KeyRound,
+  Plus,
+  Power,
+  Trash2,
+  Webhook,
 } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -22,6 +34,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import type { SettingsFormValues } from "@/lib/validations/settings";
+import type { McpTokenSummary } from "@/lib/mcp/tokens";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { SettingsIntegrationsTab } from "./settings-integrations-tab";
 
@@ -31,6 +44,8 @@ interface SettingsClientProps {
   calendarConnectionsLoadFailed?: boolean;
   webhookEndpoints: WebhookEndpointSummary[];
   webhookEndpointsLoadFailed?: boolean;
+  mcpTokens?: McpTokenSummary[];
+  mcpTokensLoadFailed?: boolean;
 }
 
 type SaveAction = "account" | "preferences" | "notifications";
@@ -55,6 +70,8 @@ export function SettingsClient({
   calendarConnectionsLoadFailed = false,
   webhookEndpoints: initialWebhookEndpoints,
   webhookEndpointsLoadFailed = false,
+  mcpTokens: initialMcpTokens = [],
+  mcpTokensLoadFailed = false,
 }: SettingsClientProps) {
   const { toast } = useToast();
   const [savedSettings, setSavedSettings] = useState(initialSettings);
@@ -83,6 +100,22 @@ export function SettingsClient({
   const [savingAction, setSavingAction] = useState<SaveAction | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
+  const [webhookEndpoints, setWebhookEndpoints] = useState(
+    initialWebhookEndpoints
+  );
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [webhookDescription, setWebhookDescription] = useState("");
+  const [webhookEvents, setWebhookEvents] = useState<string[]>([
+    "booking.confirmed",
+  ]);
+  const [webhookCreating, setWebhookCreating] = useState(false);
+  const [webhookActionId, setWebhookActionId] = useState<string | null>(null);
+  const [newWebhookSecret, setNewWebhookSecret] = useState<string | null>(null);
+  const [mcpTokens, setMcpTokens] = useState(initialMcpTokens);
+  const [mcpTokenName, setMcpTokenName] = useState("");
+  const [mcpCreating, setMcpCreating] = useState(false);
+  const [mcpActionId, setMcpActionId] = useState<string | null>(null);
+  const [newMcpToken, setNewMcpToken] = useState<string | null>(null);
 
   const currentSettings = (): SettingsFormValues => ({
     name: name.trim(),
@@ -229,6 +262,99 @@ export function SettingsClient({
       toast({
         title: "Account not deleted",
         description: errorToastDescription(error),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createMcpToken = async () => {
+    setMcpCreating(true);
+    setNewMcpToken(null);
+
+    try {
+      const response = await fetch("/api/mcp/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: mcpTokenName.trim() || "MCP client",
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error ?? "Failed to create MCP token");
+      }
+
+      setMcpTokens((current) => [data.token, ...current]);
+      setMcpTokenName("");
+      setNewMcpToken(data.rawToken);
+      toast({
+        title: "MCP token created",
+        description: "The token is shown once.",
+      });
+    } catch (error) {
+      toast({
+        title: "MCP token not created",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setMcpCreating(false);
+    }
+  };
+
+  const revokeMcpToken = async (token: McpTokenSummary) => {
+    if (!window.confirm("Revoke this MCP token?")) {
+      return;
+    }
+
+    setMcpActionId(token.id);
+
+    try {
+      const response = await fetch(`/api/mcp/tokens/${token.id}`, {
+        method: "DELETE",
+      });
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error ?? "Failed to revoke MCP token");
+      }
+
+      const revokedAt = new Date().toISOString();
+      setMcpTokens((current) =>
+        current.map((item) =>
+          item.id === token.id
+            ? { ...item, revokedAt, updatedAt: revokedAt }
+            : item
+        )
+      );
+      setNewMcpToken(null);
+    } catch (error) {
+      toast({
+        title: "MCP token not revoked",
+        description:
+          error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setMcpActionId(null);
+    }
+  };
+
+  const copyMcpToken = async () => {
+    if (!newMcpToken || !navigator.clipboard) return;
+
+    try {
+      await navigator.clipboard.writeText(newMcpToken);
+      toast({
+        title: "Token copied",
+        description: "Use it as a Bearer token for /api/mcp.",
+      });
+    } catch {
+      toast({
+        title: "Token not copied",
+        description: "Select the value and copy it manually.",
         variant: "destructive",
       });
     }
@@ -461,13 +587,553 @@ export function SettingsClient({
           </div>
         </TabsContent>
 
+<<<<<<< HEAD
         <SettingsIntegrationsTab
           calendarConnections={calendarConnections}
           calendarConnectionsLoadFailed={calendarConnectionsLoadFailed}
           webhookEndpoints={initialWebhookEndpoints}
           webhookEndpointsLoadFailed={webhookEndpointsLoadFailed}
         />
+=======
+        <TabsContent value="integrations">
+          <div className="space-y-6 mt-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Puzzle className="h-4 w-4" aria-hidden="true" />
+                  Integrations
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {calendarConnectionsLoadFailed ? (
+                  <IntegrationLoadWarning>
+                    Calendar connection status could not be loaded. Existing
+                    connections may not appear here.
+                  </IntegrationLoadWarning>
+                ) : null}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="rounded-md border border-border p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                          <Calendar className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Google Calendar</p>
+                          <p className="text-xs text-muted-foreground">
+                            Sync your bookings
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={googleConnection ? "default" : "secondary"}>
+                        {connectionBadgeText(
+                          googleConnection,
+                          calendarConnectionsLoadFailed
+                        )}
+                      </Badge>
+                    </div>
+                    {googleConnection && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {googleConnection.accountEmail} ·{" "}
+                        {googleConnection.calendars.length} calendars
+                      </p>
+                    )}
+                    <Button
+                      asChild
+                      variant={googleConnection ? "outline" : "default"}
+                      size="sm"
+                      className="mt-4"
+                    >
+                      <Link href="/api/calendar/oauth/google/start" prefetch={false}>
+                        {googleConnection && (
+                          <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {googleConnection ? "Reconnect" : "Connect"}
+                      </Link>
+                    </Button>
+                  </div>
+
+                  <div className="rounded-md border border-border p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                          <Mail className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            Microsoft Outlook
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Sync your calendar
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant={microsoftConnection ? "default" : "secondary"}>
+                        {connectionBadgeText(
+                          microsoftConnection,
+                          calendarConnectionsLoadFailed
+                        )}
+                      </Badge>
+                    </div>
+                    {microsoftConnection && (
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {microsoftConnection.accountEmail} ·{" "}
+                        {microsoftConnection.calendars.length} calendars
+                      </p>
+                    )}
+                    <Button
+                      asChild
+                      variant={microsoftConnection ? "outline" : "default"}
+                      size="sm"
+                      className="mt-4"
+                    >
+                      <Link href="/api/calendar/oauth/microsoft/start" prefetch={false}>
+                        {microsoftConnection && (
+                          <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                        )}
+                        {microsoftConnection ? "Reconnect" : "Connect"}
+                      </Link>
+                    </Button>
+                  </div>
+
+                  {calendarConnectionsLoadFailed ? (
+                    <div className="rounded-md border border-border p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                            <Video className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">
+                              Video provider readiness
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Generated meeting links
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant="secondary">Unavailable</Badge>
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        Calendar connection status did not load, so video link
+                        readiness cannot be verified.
+                      </p>
+                    </div>
+                  ) : (
+                    videoProviderReadiness.map((health) => (
+                    <div
+                      key={health.provider}
+                      className="rounded-md border border-border p-4"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                            <Video className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium">{health.label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Generated meeting links
+                            </p>
+                          </div>
+                        </div>
+                        <Badge variant={health.ready ? "default" : "secondary"}>
+                          {health.badgeLabel}
+                        </Badge>
+                      </div>
+                      <p className="mt-3 text-xs text-muted-foreground">
+                        {health.description}
+                      </p>
+                    </div>
+                    ))
+                  )}
+
+                  <div className="rounded-md border border-border p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-md bg-accent">
+                          <CreditCard className="h-5 w-5 text-accent-foreground" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">Stripe</p>
+                          <p className="text-xs text-muted-foreground">
+                            Accept payments
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary">Available soon</Badge>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <KeyRound className="h-4 w-4" aria-hidden="true" />
+                  MCP API tokens
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {mcpTokensLoadFailed ? (
+                  <IntegrationLoadWarning>
+                    MCP tokens could not be loaded. Existing tokens may not
+                    appear here.
+                  </IntegrationLoadWarning>
+                ) : null}
+
+                {newMcpToken && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                    <Label htmlFor="mcp-token">MCP token</Label>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        id="mcp-token"
+                        value={newMcpToken}
+                        readOnly
+                        className="font-mono text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={copyMcpToken}
+                      >
+                        <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Copy
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-amber-900">
+                      This token is only shown once.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <div className="space-y-2">
+                    <Label htmlFor="mcp-token-name">Token name</Label>
+                    <Input
+                      id="mcp-token-name"
+                      value={mcpTokenName}
+                      onChange={(event) => setMcpTokenName(event.target.value)}
+                      placeholder="Claude Desktop"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      onClick={createMcpToken}
+                      disabled={mcpCreating}
+                    >
+                      <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                      {mcpCreating ? "Creating..." : "Create token"}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {mcpTokens.length === 0 && !mcpTokensLoadFailed ? (
+                    <EmptyState
+                      icon={<KeyRound className="h-6 w-6" aria-hidden="true" />}
+                      heading="No MCP tokens configured."
+                      description="Create a token to connect OpenSlot to an MCP-compatible client."
+                      className="bg-muted/30 py-10"
+                    />
+                  ) : (
+                    mcpTokens.map((token) => {
+                      const isRevoked = Boolean(token.revokedAt);
+                      const isExpired = isMcpTokenExpired(token);
+
+                      return (
+                        <div
+                          key={token.id}
+                          className="rounded-md border border-border p-4"
+                        >
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="min-w-0 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-medium">
+                                  {token.name}
+                                </p>
+                                <Badge
+                                  variant={
+                                    isRevoked || isExpired
+                                      ? "secondary"
+                                      : "default"
+                                  }
+                                >
+                                  {isRevoked
+                                    ? "Revoked"
+                                    : isExpired
+                                      ? "Expired"
+                                      : "Active"}
+                                </Badge>
+                              </div>
+                              <p className="font-mono text-xs text-muted-foreground">
+                                {token.tokenPrefix}...
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Last used {formatTokenDate(token.lastUsedAt)} ·
+                                Created {formatTokenDate(token.createdAt)}
+                              </p>
+                            </div>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={
+                                mcpActionId === token.id ||
+                                isRevoked ||
+                                isExpired
+                              }
+                              onClick={() => revokeMcpToken(token)}
+                            >
+                              <Trash2 className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                              Revoke
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Webhook className="h-4 w-4" aria-hidden="true" />
+                  Webhook endpoints
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {webhookEndpointsLoadFailed ? (
+                  <IntegrationLoadWarning>
+                    Webhook endpoints could not be loaded. Existing endpoints
+                    may not appear here.
+                  </IntegrationLoadWarning>
+                ) : null}
+
+                {newWebhookSecret && (
+                  <div className="rounded-md border border-amber-200 bg-amber-50 p-4">
+                    <Label htmlFor="webhook-secret">Signing secret</Label>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <Input
+                        id="webhook-secret"
+                        value={newWebhookSecret}
+                        readOnly
+                        className="font-mono text-xs"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={copyWebhookSecret}
+                      >
+                        <Copy className="mr-2 h-4 w-4" aria-hidden="true" />
+                        Copy
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-xs text-amber-900">
+                      This secret is only shown once.
+                    </p>
+                  </div>
+                )}
+
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_220px]">
+                  <div className="space-y-2">
+                    <Label htmlFor="webhook-url">Endpoint URL</Label>
+                    <Input
+                      id="webhook-url"
+                      type="url"
+                      value={webhookUrl}
+                      onChange={(event) => setWebhookUrl(event.target.value)}
+                      placeholder="https://example.com/webhook"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="webhook-description">Description</Label>
+                    <Input
+                      id="webhook-description"
+                      value={webhookDescription}
+                      onChange={(event) =>
+                        setWebhookDescription(event.target.value)
+                      }
+                      placeholder="Production"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Events</Label>
+                  <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                    {webhookEventOptions.map((option) => (
+                      <label
+                        key={option.value}
+                        className="flex min-h-10 items-center gap-2 rounded-md border border-border px-3 text-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={webhookEvents.includes(option.value)}
+                          onChange={(event) =>
+                            toggleWebhookEvent(
+                              option.value,
+                              event.target.checked
+                            )
+                          }
+                          className="h-4 w-4 rounded border-border"
+                        />
+                        {option.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={createWebhookEndpoint}
+                  disabled={!webhookUrl.trim() || webhookCreating}
+                >
+                  <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {webhookCreating ? "Creating..." : "Add endpoint"}
+                </Button>
+
+                <div className="space-y-3">
+                  {webhookEndpoints.length === 0 &&
+                  !webhookEndpointsLoadFailed ? (
+                    <EmptyState
+                      icon={<Webhook className="h-6 w-6" aria-hidden="true" />}
+                      heading="No webhook endpoints configured."
+                      description="Add an endpoint to receive signed booking lifecycle events in your own systems."
+                      className="bg-muted/30 py-10"
+                    />
+                  ) : (
+                    webhookEndpoints.map((endpoint) => (
+                      <div
+                        key={endpoint.id}
+                        className="rounded-md border border-border p-4"
+                      >
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 space-y-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="break-all font-mono text-xs text-foreground">
+                                {endpoint.url}
+                              </p>
+                              <Badge
+                                variant={
+                                  endpoint.isActive ? "default" : "secondary"
+                                }
+                              >
+                                {endpoint.isActive ? "Active" : "Paused"}
+                              </Badge>
+                            </div>
+                            {endpoint.description && (
+                              <p className="text-sm text-muted-foreground">
+                                {endpoint.description}
+                              </p>
+                            )}
+                            <div className="flex flex-wrap gap-1 pt-1">
+                              {endpoint.subscribedEvents.map((eventType) => (
+                                <Badge key={eventType} variant="secondary">
+                                  {webhookEventLabel(eventType)}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={webhookActionId === endpoint.id}
+                              onClick={() =>
+                                setWebhookActive(
+                                  endpoint,
+                                  !endpoint.isActive
+                                )
+                              }
+                            >
+                              <Power className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                              {endpoint.isActive ? "Pause" : "Enable"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              disabled={webhookActionId === endpoint.id}
+                              onClick={() => deleteWebhookEndpoint(endpoint)}
+                            >
+                              <Trash2 className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+>>>>>>> 16f8ea5 (Add OpenSlot MCP support)
       </Tabs>
     </div>
   );
 }
+<<<<<<< HEAD
+=======
+
+function connectionBadgeText(
+  connection: CalendarConnectionSummary | undefined,
+  loadFailed = false
+): string {
+  if (!connection && loadFailed) {
+    return "Unavailable";
+  }
+
+  if (!connection) {
+    return "Not connected";
+  }
+
+  if (connection.status === "active") {
+    return "Connected";
+  }
+
+  if (connection.status === "error") {
+    return "Needs attention";
+  }
+
+  return "Disconnected";
+}
+
+function IntegrationLoadWarning({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"
+      role="alert"
+    >
+      {children}
+    </div>
+  );
+}
+
+function webhookEventLabel(eventType: string): string {
+  return (
+    webhookEventOptions.find((option) => option.value === eventType)?.label ??
+    eventType
+  );
+}
+
+function isMcpTokenExpired(token: McpTokenSummary): boolean {
+  return Boolean(token.expiresAt && new Date(token.expiresAt) <= new Date());
+}
+
+function formatTokenDate(value: string | null): string {
+  if (!value) return "never";
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+>>>>>>> 16f8ea5 (Add OpenSlot MCP support)
