@@ -18,6 +18,10 @@ import {
   TurnstileWidget,
 } from "@/components/booking/turnstile-widget";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
+import {
+  formatBookingDate,
+  formatBookingTime,
+} from "@/lib/booking/date-time-format";
 
 interface CancelBookingFormProps {
   bookingId: string;
@@ -59,26 +63,6 @@ export function CancelBookingForm({
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const turnstileRequired = isTurnstileEnabled();
-
-  function formatDateTime(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleDateString([], {
-      weekday: "long",
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: guestTimezone || undefined,
-    });
-  }
-
-  function formatTime(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: guestTimezone || undefined,
-    });
-  }
 
   async function handleCancel() {
     if (turnstileRequired && !turnstileToken) {
@@ -155,12 +139,15 @@ export function CancelBookingForm({
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-muted-foreground">Date</span>
-              <span className="text-right font-medium">{formatDateTime(startAt)}</span>
+              <span className="text-right font-medium">
+                {formatBookingDate(startAt, guestTimezone)}
+              </span>
             </div>
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-muted-foreground">Time</span>
               <span className="text-right font-medium">
-                {formatTime(startAt)} - {formatTime(endAt)}
+                {formatBookingTime(startAt, guestTimezone)} -{" "}
+                {formatBookingTime(endAt, guestTimezone)}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -209,12 +196,15 @@ export function CancelBookingForm({
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Date</span>
-            <span className="text-right font-medium">{formatDateTime(startAt)}</span>
+            <span className="text-right font-medium">
+              {formatBookingDate(startAt, guestTimezone)}
+            </span>
           </div>
           <div className="flex items-center justify-between gap-4">
             <span className="text-sm text-muted-foreground">Time</span>
             <span className="text-right font-medium">
-              {formatTime(startAt)} - {formatTime(endAt)}
+              {formatBookingTime(startAt, guestTimezone)} -{" "}
+              {formatBookingTime(endAt, guestTimezone)}
             </span>
           </div>
           <div className="flex items-center justify-between gap-4">

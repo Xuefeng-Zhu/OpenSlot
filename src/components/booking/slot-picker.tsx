@@ -13,6 +13,7 @@ import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
 } from "@/lib/utils/timezone";
+import { formatBookingTime } from "@/lib/booking/date-time-format";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
@@ -410,15 +411,6 @@ export function SlotPicker({
     }
   }
 
-  function formatSlotTime(isoString: string): string {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: timezone || undefined,
-    });
-  }
-
   function handleRetrySlots() {
     setError(null);
     if (selectedDate) {
@@ -479,7 +471,7 @@ export function SlotPicker({
         onRetrySlots={handleRetrySlots}
         onSlotSelect={handleSlotSelect}
         onHoldTurnstileTokenChange={setHoldTurnstileToken}
-        formatSlotTime={formatSlotTime}
+        formatSlotTime={(isoString) => formatBookingTime(isoString, timezone)}
       />
 
       {showBookingAgent && (
