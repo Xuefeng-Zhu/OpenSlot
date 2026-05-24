@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { expireStaleSlotHolds } from '@/lib/booking/hold-expiry'
 import { createAdminBackendClient } from '@/lib/backend/server'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
+import {
+  numberFromSearchParam,
+  readWorkerJsonObject,
+} from '@/lib/workers/request-options'
 
 /**
  * Expires stale slot holds from a worker POST body.
@@ -10,9 +14,9 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}))
+  const body = await readWorkerJsonObject(request)
   return runHoldExpiry(request, {
-    limit: normalizeLimit((body as { limit?: unknown }).limit),
+    limit: normalizeLimit(body.limit),
   })
 }
 
@@ -21,9 +25,9 @@ export async function POST(request: NextRequest) {
  * Provides the same behavior as POST for schedulers that can only call GET.
  */
 export async function GET(request: NextRequest) {
-  const limit = new URL(request.url).searchParams.get('limit')
+  const searchParams = new URL(request.url).searchParams
   return runHoldExpiry(request, {
-    limit: normalizeLimit(limit ? Number(limit) : undefined),
+    limit: normalizeLimit(numberFromSearchParam(searchParams.get('limit'))),
   })
 }
 
