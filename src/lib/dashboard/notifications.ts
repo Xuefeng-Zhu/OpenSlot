@@ -16,6 +16,13 @@ interface DashboardNotificationBookingRow {
   event_types: { title: string | null } | { title: string | null }[] | null
 }
 
+interface DashboardNotificationEventDataRow {
+  id: string
+  booking_id: string
+  event_type: string
+  created_at: string
+}
+
 export interface DashboardNotificationEventRow {
   id: string
   booking_id: string
@@ -54,29 +61,19 @@ export async function listDashboardNotifications(
   limit = 5
 ): Promise<DashboardNotifications> {
   try {
-    const [eventsResult, settingsResult] = await Promise.all([
+    const [bookingsResult, settingsResult] = await Promise.all([
       adminClient
-        .from('booking_events')
+        .from('bookings')
         .select(
           `
             id,
-            booking_id,
-            event_type,
-            created_at,
-            bookings!inner (
-              id,
-              guest_name,
-              host_user_id,
-              event_types (
-                title
-              )
+            guest_name,
+            event_types (
+              title
             )
           `
         )
-        .eq('bookings.host_user_id', profileId)
-        .in('event_type', [...DASHBOARD_NOTIFICATION_EVENT_TYPES])
-        .order('created_at', { ascending: false })
-        .limit(limit),
+        .eq('host_user_id', profileId),
       adminClient
         .from('user_settings')
         .select('notifications_seen_at')
@@ -84,8 +81,11 @@ export async function listDashboardNotifications(
         .maybeSingle(),
     ])
 
-    if (eventsResult.error) {
-      console.error('Error loading dashboard notifications:', eventsResult.error)
+    if (bookingsResult.error) {
+      console.error(
+        'Error loading dashboard notification bookings:',
+        bookingsResult.error
+      )
       return emptyDashboardNotifications
     }
 
@@ -96,8 +96,45 @@ export async function listDashboardNotifications(
       )
     }
 
+    const bookings =
+      (bookingsResult.data as DashboardNotificationBookingRow[] | null) ?? []
+    const bookingIds = bookings.map((booking) => booking.id).filter(Boolean)
+    const bookingById = new Map(
+      bookings.map((booking) => [booking.id, booking])
+    )
+    let rows: DashboardNotificationEventRow[] = []
+
+    if (bookingIds.length > 0) {
+      const eventsResult = await adminClient
+        .from('booking_events')
+        .select(
+          `
+            id,
+            booking_id,
+            event_type,
+            created_at
+          `
+        )
+        .in('booking_id', bookingIds)
+        .in('event_type', [...DASHBOARD_NOTIFICATION_EVENT_TYPES])
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (eventsResult.error) {
+        console.error('Error loading dashboard notifications:', eventsResult.error)
+        return emptyDashboardNotifications
+      }
+
+      rows = (
+        (eventsResult.data as DashboardNotificationEventDataRow[] | null) ?? []
+      ).map((event) => ({
+        ...event,
+        bookings: bookingById.get(event.booking_id) ?? null,
+      }))
+    }
+
     return buildDashboardNotifications(
-      (eventsResult.data as DashboardNotificationEventRow[] | null) ?? [],
+      rows,
       {
         seenAt:
           (settingsResult.data as { notifications_seen_at: string | null } | null)
