@@ -16,16 +16,24 @@ import { saveAvailabilitySchema } from '@/lib/validations/availability'
 // --- Generators ---
 
 /** Generate a valid HH:MM time string */
-const timeStringArb = fc
-  .record({
-    hour: fc.integer({ min: 0, max: 23 }),
-    minute: fc.integer({ min: 0, max: 59 }),
-  })
-  .map(({ hour, minute }) => {
-    const hh = hour.toString().padStart(2, '0')
-    const mm = minute.toString().padStart(2, '0')
-    return `${hh}:${mm}`
-  })
+function minutesToTimeString(totalMinutes: number) {
+  const hour = Math.floor(totalMinutes / 60)
+  const minute = totalMinutes % 60
+  const hh = hour.toString().padStart(2, '0')
+  const mm = minute.toString().padStart(2, '0')
+  return `${hh}:${mm}`
+}
+
+const timeRangeArb = fc
+  .integer({ min: 0, max: 23 * 60 + 58 })
+  .chain((startMinutes) =>
+    fc
+      .integer({ min: startMinutes + 1, max: 23 * 60 + 59 })
+      .map((endMinutes) => ({
+        start_time: minutesToTimeString(startMinutes),
+        end_time: minutesToTimeString(endMinutes),
+      }))
+  )
 
 /** Generate a valid YYYY-MM-DD date string */
 const dateStringArb = fc
@@ -41,26 +49,48 @@ const dateStringArb = fc
   })
 
 /** Generate a valid availability rule */
-const ruleArb = fc.record({
-  id: fc.option(fc.uuid(), { nil: undefined }),
-  weekday: fc.integer({ min: 0, max: 6 }),
-  start_time: timeStringArb,
-  end_time: timeStringArb,
-  is_active: fc.boolean(),
-})
+const ruleArb = fc
+  .record({
+    id: fc.option(fc.uuid(), { nil: undefined }),
+    weekday: fc.integer({ min: 0, max: 6 }),
+    timeRange: timeRangeArb,
+    is_active: fc.boolean(),
+  })
+  .map(({ timeRange, ...rule }) => ({
+    ...rule,
+    start_time: timeRange.start_time,
+    end_time: timeRange.end_time,
+  }))
 
 /** Generate a valid availability override */
-const overrideArb = fc.record({
+const overrideBaseArb = fc.record({
   id: fc.option(fc.uuid(), { nil: undefined }),
   date: dateStringArb,
-  start_time: fc.option(timeStringArb, { nil: null }),
-  end_time: fc.option(timeStringArb, { nil: null }),
-  is_available: fc.boolean(),
   reason: fc.option(
     fc.string({ minLength: 1, maxLength: 100 }).filter((s) => s.trim().length > 0),
     { nil: null }
   ),
 })
+
+const overrideArb = fc.oneof(
+  overrideBaseArb.map((override) => ({
+    ...override,
+    start_time: null,
+    end_time: null,
+    is_available: false,
+  })),
+  fc
+    .record({
+      override: overrideBaseArb,
+      timeRange: timeRangeArb,
+    })
+    .map(({ override, timeRange }) => ({
+      ...override,
+      start_time: timeRange.start_time,
+      end_time: timeRange.end_time,
+      is_available: true,
+    }))
+)
 
 /** Valid IANA timezone arbitrary (only timezones recognized by Intl.supportedValuesOf) */
 const timezoneArb = fc.constantFrom(
@@ -216,16 +246,15 @@ describe('Property 6: Availability save round-trip preserves state', () => {
     fc.assert(
       fc.property(
         fc.integer({ min: 0, max: 6 }),
-        timeStringArb,
-        timeStringArb,
+        timeRangeArb,
         fc.boolean(),
-        (weekday, startTime, endTime, isActive) => {
+        (weekday, timeRange, isActive) => {
           const input = {
             rules: [
               {
                 weekday,
-                start_time: startTime,
-                end_time: endTime,
+                start_time: timeRange.start_time,
+                end_time: timeRange.end_time,
                 is_active: isActive,
               },
             ],
@@ -241,8 +270,8 @@ describe('Property 6: Availability save round-trip preserves state', () => {
           if (!result.success) return
 
           expect(result.data.rules[0].weekday).toBe(weekday)
-          expect(result.data.rules[0].start_time).toBe(startTime)
-          expect(result.data.rules[0].end_time).toBe(endTime)
+          expect(result.data.rules[0].start_time).toBe(timeRange.start_time)
+          expect(result.data.rules[0].end_time).toBe(timeRange.end_time)
           expect(result.data.rules[0].is_active).toBe(isActive)
         }
       ),
@@ -252,39 +281,26 @@ describe('Property 6: Availability save round-trip preserves state', () => {
 
   it('overrides with nullable time fields preserve null/non-null state', () => {
     fc.assert(
-      fc.property(
-        dateStringArb,
-        fc.option(timeStringArb, { nil: null }),
-        fc.option(timeStringArb, { nil: null }),
-        fc.boolean(),
-        (date, startTime, endTime, isAvailable) => {
-          const input = {
-            scheduleId: '11111111-1111-4111-8111-111111111111',
-            rules: [],
-            overrides: [
-              {
-                date,
-                start_time: startTime,
-                end_time: endTime,
-                is_available: isAvailable,
-              },
-            ],
-            deletedRuleIds: [],
-            deletedOverrideIds: [],
-            timezone: 'America/New_York',
-          }
-
-          const result = saveAvailabilitySchema.safeParse(input)
-          expect(result.success).toBe(true)
-          if (!result.success) return
-
-          const parsedOverride = result.data.overrides[0]
-          expect(parsedOverride.date).toBe(date)
-          expect(parsedOverride.start_time).toBe(startTime)
-          expect(parsedOverride.end_time).toBe(endTime)
-          expect(parsedOverride.is_available).toBe(isAvailable)
+      fc.property(overrideArb, (override) => {
+        const input = {
+          scheduleId: '11111111-1111-4111-8111-111111111111',
+          rules: [],
+          overrides: [override],
+          deletedRuleIds: [],
+          deletedOverrideIds: [],
+          timezone: 'America/New_York',
         }
-      ),
+
+        const result = saveAvailabilitySchema.safeParse(input)
+        expect(result.success).toBe(true)
+        if (!result.success) return
+
+        const parsedOverride = result.data.overrides[0]
+        expect(parsedOverride.date).toBe(override.date)
+        expect(parsedOverride.start_time).toBe(override.start_time)
+        expect(parsedOverride.end_time).toBe(override.end_time)
+        expect(parsedOverride.is_available).toBe(override.is_available)
+      }),
       { numRuns: 100 }
     )
   })
