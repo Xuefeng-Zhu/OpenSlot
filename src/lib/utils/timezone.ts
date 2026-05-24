@@ -67,7 +67,9 @@ export function isValidTimezone(timezone: string): boolean {
  */
 export function getTimezones(): string[] {
   try {
-    return Intl.supportedValuesOf('timeZone')
+    return Array.from(
+      new Set([DEFAULT_TIMEZONE, ...Intl.supportedValuesOf('timeZone')])
+    )
   } catch {
     return COMMON_TIMEZONES
   }

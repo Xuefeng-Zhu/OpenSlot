@@ -41,6 +41,19 @@ describe('timezone utilities', () => {
   })
 
   describe('getTimezones', () => {
+    it('keeps UTC in the timezone list when Intl timezone values are available', () => {
+      vi.spyOn(Intl, 'supportedValuesOf').mockImplementation(() => [
+        'America/New_York',
+        DEFAULT_TIMEZONE,
+        'Europe/London',
+      ])
+
+      const timezones = getTimezones()
+
+      expect(timezones[0]).toBe(DEFAULT_TIMEZONE)
+      expect(timezones.filter((timezone) => timezone === DEFAULT_TIMEZONE)).toHaveLength(1)
+    })
+
     it('keeps UTC in the fallback timezone list', () => {
       vi.spyOn(Intl, 'supportedValuesOf').mockImplementation(() => {
         throw new Error('supportedValuesOf unavailable')
