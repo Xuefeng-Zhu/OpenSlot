@@ -22,9 +22,13 @@ export function DurationBuffersSection({
           }}
           min={1}
           max={480}
+          aria-invalid={!!errors.duration_minutes}
+          aria-describedby={
+            errors.duration_minutes ? "duration-error" : undefined
+          }
         />
         {errors.duration_minutes ? (
-          <p className="text-xs text-destructive mt-1">
+          <p id="duration-error" className="text-xs text-destructive mt-1">
             {errors.duration_minutes}
           </p>
         ) : null}
@@ -41,9 +45,16 @@ export function DurationBuffersSection({
               clearFieldError("buffer_before_minutes");
             }}
             min={0}
+            aria-invalid={!!errors.buffer_before_minutes}
+            aria-describedby={
+              errors.buffer_before_minutes ? "buffer-before-error" : undefined
+            }
           />
           {errors.buffer_before_minutes ? (
-            <p className="text-xs text-destructive mt-1">
+            <p
+              id="buffer-before-error"
+              className="text-xs text-destructive mt-1"
+            >
               {errors.buffer_before_minutes}
             </p>
           ) : null}
@@ -59,9 +70,16 @@ export function DurationBuffersSection({
               clearFieldError("buffer_after_minutes");
             }}
             min={0}
+            aria-invalid={!!errors.buffer_after_minutes}
+            aria-describedby={
+              errors.buffer_after_minutes ? "buffer-after-error" : undefined
+            }
           />
           {errors.buffer_after_minutes ? (
-            <p className="text-xs text-destructive mt-1">
+            <p
+              id="buffer-after-error"
+              className="text-xs text-destructive mt-1"
+            >
               {errors.buffer_after_minutes}
             </p>
           ) : null}

@@ -44,6 +44,15 @@ describe("NewEventTypePage editor", () => {
 
     expect(screen.getByText("Title is required")).toBeDefined();
     expect(screen.getByText("URL slug is required")).toBeDefined();
+    expect(screen.getByLabelText("Title").getAttribute("aria-invalid")).toBe(
+      "true"
+    );
+    expect(
+      screen.getByLabelText("Title").getAttribute("aria-describedby")
+    ).toBe("title-error");
+    expect(
+      screen.getByLabelText("URL Slug").getAttribute("aria-describedby")
+    ).toBe("slug-error");
 
     fireEvent.change(screen.getByLabelText("Title"), {
       target: { value: "QA Coffee Chat" },
@@ -111,6 +120,19 @@ describe("NewEventTypePage editor", () => {
     expect(
       screen.getByText("Select at least one reminder recipient")
     ).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Select at least one reminder recipient"
+    );
+    expect(
+      screen
+        .getByRole("switch", { name: "Email guest reminders" })
+        .getAttribute("aria-describedby")
+    ).toBe("reminder-recipient-error");
+    expect(
+      screen
+        .getByRole("switch", { name: "Email host reminders" })
+        .getAttribute("aria-describedby")
+    ).toBe("reminder-recipient-error");
   });
 
   it("surfaces calendar connection load failures", () => {
