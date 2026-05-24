@@ -133,6 +133,48 @@ describe('POST /api/backend/query', () => {
     expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
   })
 
+  it.each(['insert', 'upsert'] as const)(
+    'rejects broad mutation operation %s even for allowlisted tables',
+    async (operation) => {
+      const response = await POST(
+        requestWithJson({
+          table: 'profiles',
+          operation,
+          payload: { name: 'Ada Lovelace' },
+          filters: [
+            { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
+          ],
+        }) as any
+      )
+      const data = await response.json()
+
+      expect(response.status).toBe(400)
+      expect(data.error.message).toBe('Unsupported operation')
+      expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects selected mutation response columns before creating a query client', async () => {
+    const response = await POST(
+      requestWithJson({
+        table: 'profiles',
+        operation: 'update',
+        payload: { name: 'Ada Lovelace' },
+        selected: 'id,name',
+        filters: [
+          { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
+        ],
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error.message).toBe(
+      'Selecting mutation response columns is not supported'
+    )
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+  })
+
   it('rejects unsupported filters before creating a query client', async () => {
     const response = await POST(
       requestWithJson({
