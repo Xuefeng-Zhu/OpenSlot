@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { CalendarCheck, Clock3 } from "lucide-react";
@@ -101,6 +101,7 @@ export function BookingForm({
   const [idempotencyKey] = useState(() => createIdempotencyKey());
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const userEditedFieldsRef = useRef<Set<string>>(new Set());
   const [timeRemaining, setTimeRemaining] = useState<number>(
     expiresAt
       ? Math.max(
@@ -148,28 +149,44 @@ export function BookingForm({
 
   useEffect(() => {
     if (!initialDraft) return;
+    const hasUserEdited = (field: string) =>
+      userEditedFieldsRef.current.has(field);
 
-    if (!initialGuest?.name && initialDraft.guestName) {
+    if (
+      !initialGuest?.name &&
+      initialDraft.guestName &&
+      !hasUserEdited("guestName")
+    ) {
       setValue("guestName", initialDraft.guestName, { shouldValidate: true });
     }
 
-    if (!initialGuest?.email && initialDraft.guestEmail) {
+    if (
+      !initialGuest?.email &&
+      initialDraft.guestEmail &&
+      !hasUserEdited("guestEmail")
+    ) {
       setValue("guestEmail", initialDraft.guestEmail, { shouldValidate: true });
     }
 
     const draftTimezone = validTimezoneOrNull(initialDraft.guestTimezone);
-    if (!initialGuest?.timezone && draftTimezone) {
+    if (
+      !initialGuest?.timezone &&
+      draftTimezone &&
+      !hasUserEdited("guestTimezone")
+    ) {
       setValue("guestTimezone", draftTimezone, { shouldValidate: true });
     }
 
-    if (initialDraft.notes !== undefined) {
+    if (initialDraft.notes !== undefined && !hasUserEdited("notes")) {
       setValue("notes", initialDraft.notes, { shouldValidate: true });
     }
 
     for (const [questionId, answer] of Object.entries(
       initialDraft.answers ?? {}
     )) {
-      setValue(`answers.${questionId}`, answer, { shouldValidate: true });
+      if (!hasUserEdited(`answers.${questionId}`)) {
+        setValue(`answers.${questionId}`, answer, { shouldValidate: true });
+      }
     }
   }, [
     initialDraft,
@@ -320,6 +337,9 @@ export function BookingForm({
     initialGuestTimezone,
     pageTimezone
   );
+  const markUserEdited = useCallback((field: string) => {
+    userEditedFieldsRef.current.add(field);
+  }, []);
 
   return (
     <Card className="mt-6">
@@ -388,7 +408,9 @@ export function BookingForm({
             <Input
               id="guestName"
               placeholder="Your full name"
-              {...register("guestName")}
+              {...register("guestName", {
+                onChange: () => markUserEdited("guestName"),
+              })}
               aria-invalid={!!errors.guestName}
               aria-describedby={errors.guestName ? "guestName-error" : undefined}
             />
@@ -406,7 +428,9 @@ export function BookingForm({
               id="guestEmail"
               type="email"
               placeholder="you@example.com"
-              {...register("guestEmail")}
+              {...register("guestEmail", {
+                onChange: () => markUserEdited("guestEmail"),
+              })}
               aria-invalid={!!errors.guestEmail}
               aria-describedby={
                 errors.guestEmail ? "guestEmail-error" : undefined
@@ -424,7 +448,13 @@ export function BookingForm({
             <Label htmlFor="guestTimezone">Timezone</Label>
             <Select
               value={selectedTimezone}
-              onValueChange={(value) => setValue("guestTimezone", value)}
+              onValueChange={(value) => {
+                markUserEdited("guestTimezone");
+                setValue("guestTimezone", value, {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                });
+              }}
             >
               <SelectTrigger id="guestTimezone">
                 <SelectValue placeholder="Select timezone" />
@@ -457,11 +487,13 @@ export function BookingForm({
                 <Textarea
                   id={`answer-${question.id}`}
                   value={(answers?.[question.id] as string | undefined) ?? ""}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    markUserEdited(`answers.${question.id}`);
                     setValue(`answers.${question.id}`, event.target.value, {
+                      shouldDirty: true,
                       shouldValidate: true,
-                    })
-                  }
+                    });
+                  }}
                   aria-invalid={!!answerErrors?.[question.id]}
                   aria-describedby={
                     answerErrors?.[question.id]
@@ -475,11 +507,13 @@ export function BookingForm({
                 <Input
                   id={`answer-${question.id}`}
                   value={(answers?.[question.id] as string | undefined) ?? ""}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    markUserEdited(`answers.${question.id}`);
                     setValue(`answers.${question.id}`, event.target.value, {
+                      shouldDirty: true,
                       shouldValidate: true,
-                    })
-                  }
+                    });
+                  }}
                   aria-invalid={!!answerErrors?.[question.id]}
                   aria-describedby={
                     answerErrors?.[question.id]
@@ -492,11 +526,13 @@ export function BookingForm({
               {question.type === "select" && (
                 <Select
                   value={(answers?.[question.id] as string | undefined) ?? ""}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
+                    markUserEdited(`answers.${question.id}`);
                     setValue(`answers.${question.id}`, value, {
+                      shouldDirty: true,
                       shouldValidate: true,
-                    })
-                  }
+                    });
+                  }}
                 >
                   <SelectTrigger
                     id={`answer-${question.id}`}
@@ -524,11 +560,13 @@ export function BookingForm({
                     type="checkbox"
                     className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                     checked={Boolean(answers?.[question.id])}
-                    onChange={(event) =>
+                    onChange={(event) => {
+                      markUserEdited(`answers.${question.id}`);
                       setValue(`answers.${question.id}`, event.target.checked, {
+                        shouldDirty: true,
                         shouldValidate: true,
-                      })
-                    }
+                      });
+                    }}
                     aria-invalid={!!answerErrors?.[question.id]}
                     aria-describedby={
                       answerErrors?.[question.id]
@@ -560,7 +598,9 @@ export function BookingForm({
             <Textarea
               id="notes"
               placeholder="Anything you'd like the host to know..."
-              {...register("notes")}
+              {...register("notes", {
+                onChange: () => markUserEdited("notes"),
+              })}
               aria-invalid={!!errors.notes}
               aria-describedby={errors.notes ? "notes-error" : undefined}
             />

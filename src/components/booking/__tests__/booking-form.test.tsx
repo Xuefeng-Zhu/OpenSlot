@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { BookingForm } from '../booking-form'
@@ -163,6 +163,83 @@ describe('BookingForm', () => {
     expect(screen.getByLabelText('What should we discuss? *')).toHaveProperty(
       'value',
       'Implementation details'
+    )
+  })
+
+  it('does not overwrite guest-edited fields with later assistant drafts', () => {
+    const props = {
+      holdToken: '550e8400-e29b-41d4-a716-446655440000',
+      expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+      selectedSlot: {
+        start: '2026-05-15T17:00:00.000Z',
+        end: '2026-05-15T17:30:00.000Z',
+      },
+      eventTitle: 'Discovery Call',
+      hostName: 'Sarah Chen',
+      timezone: 'America/Los_Angeles',
+      inviteeQuestions: [
+        {
+          id: 'topic',
+          label: 'What should we discuss?',
+          type: 'textarea',
+          required: true,
+          options: [],
+        },
+      ],
+      onConfirmed: vi.fn(),
+      onHoldExpired: vi.fn(),
+      onSlotTaken: vi.fn(),
+    } satisfies ComponentProps<typeof BookingForm>
+    const { rerender } = render(<BookingForm {...props} />)
+
+    fireEvent.change(screen.getByLabelText('Name *'), {
+      target: { value: 'Alex Guest' },
+    })
+    fireEvent.change(screen.getByLabelText('Email *'), {
+      target: { value: 'alex@example.com' },
+    })
+    fireEvent.change(screen.getByLabelText('Notes (optional)'), {
+      target: { value: 'Please use the manual note.' },
+    })
+    fireEvent.change(screen.getByLabelText('Notes (optional)'), {
+      target: { value: '' },
+    })
+    fireEvent.change(screen.getByLabelText('What should we discuss? *'), {
+      target: { value: 'Manual topic' },
+    })
+    fireEvent.change(screen.getByLabelText('What should we discuss? *'), {
+      target: { value: '' },
+    })
+
+    rerender(
+      <BookingForm
+        {...props}
+        initialDraft={{
+          guestName: 'Jane Doe',
+          guestEmail: 'jane@example.com',
+          notes: 'Assistant note',
+          answers: {
+            topic: 'Assistant topic',
+          },
+        }}
+      />
+    )
+
+    expect(screen.getByLabelText('Name *')).toHaveProperty(
+      'value',
+      'Alex Guest'
+    )
+    expect(screen.getByLabelText('Email *')).toHaveProperty(
+      'value',
+      'alex@example.com'
+    )
+    expect(screen.getByLabelText('Notes (optional)')).toHaveProperty(
+      'value',
+      ''
+    )
+    expect(screen.getByLabelText('What should we discuss? *')).toHaveProperty(
+      'value',
+      ''
     )
   })
 
