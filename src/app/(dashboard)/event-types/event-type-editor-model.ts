@@ -150,14 +150,7 @@ export function isVideoProviderValue(value: string): value is VideoProvider {
   return isVideoProvider(value);
 }
 
-export function locationPlaceholder(
-  locationType: EventTypeFormValues["location_type"]
-) {
-  if (locationType === "phone") return "e.g. +1 555 123 4567";
-  if (locationType === "in_person") return "e.g. 123 Market Street";
-  if (locationType === "custom") return "e.g. https://example.com/meeting";
-  return "e.g. Online meeting details";
-}
+export { eventLocationPlaceholder as locationPlaceholder } from "@/lib/event-location-options";
 
 export function locationPreviewType(
   locationType: EventTypeFormValues["location_type"],
