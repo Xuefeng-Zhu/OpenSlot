@@ -38,6 +38,10 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { useToast } from "@/components/ui/use-toast";
 import {
+  errorToastDescription,
+  requestJson,
+} from "@/components/dashboard/request-json";
+import {
   type Booking,
   type BookingCategory,
   categorizeBookings,
@@ -51,6 +55,15 @@ import { formatBookingDateTime } from "@/components/dashboard/bookings-format";
 interface BookingsClientProps {
   bookings: Booking[];
 }
+
+type BookingCancelResponse =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
 
 /**
  * Dashboard booking manager with local categorization, filtering, detail drawer,
@@ -93,18 +106,21 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
 
     setCancelling(true);
     try {
-      const response = await fetch(`/api/bookings/${selectedBooking.id}/cancel`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          cancellationToken: selectedBooking.cancellation_token,
-          cancelReason: cancelReason || undefined,
-        }),
-      });
+      const data = await requestJson<BookingCancelResponse>(
+        `/api/bookings/${selectedBooking.id}/cancel`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cancellationToken: selectedBooking.cancellation_token,
+            cancelReason: cancelReason || undefined,
+          }),
+        },
+        "Failed to cancel booking"
+      );
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to cancel booking");
+      if (!data.success) {
+        throw new Error(data.error ?? "Failed to cancel booking");
       }
 
       // Update local state: change the booking's status to cancelled
@@ -125,7 +141,7 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to cancel booking",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {
