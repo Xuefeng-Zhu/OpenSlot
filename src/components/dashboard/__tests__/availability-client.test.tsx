@@ -62,7 +62,6 @@ function renderAvailability(
       ]}
       initialOverrides={[]}
       timezone="America/New_York"
-      userId="profile-1"
       {...overrides}
     />
   )

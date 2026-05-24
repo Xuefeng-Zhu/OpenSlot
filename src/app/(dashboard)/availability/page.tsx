@@ -134,7 +134,6 @@ export default async function AvailabilityPage({
       initialRules={rules}
       initialOverrides={overrides}
       timezone={selectedSchedule.timezone || profile.default_timezone || "UTC"}
-      userId={profile.id}
     />
   )
 }
