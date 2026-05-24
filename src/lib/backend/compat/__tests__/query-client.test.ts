@@ -70,6 +70,78 @@ describe('createBackendCompatClient', () => {
     expect(String(fetchImpl.mock.calls[1][0])).toContain('id=in.%28event-type-1%29')
   })
 
+  it('serializes JSONB array columns before table writes', async () => {
+    const fetchImpl = mockFetch({
+      id: 'event-type-1',
+      invitee_questions: [
+        {
+          id: 'question-1',
+          label: 'What should we cover?',
+          type: 'text',
+          required: true,
+        },
+      ],
+    })
+    const client = createBackendCompatClient({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.example.test',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    await client.from('event_types').insert({
+      user_id: 'profile-1',
+      title: 'Discovery Call',
+      invitee_questions: [
+        {
+          id: 'question-1',
+          label: 'What should we cover?',
+          type: 'text',
+          required: true,
+        },
+      ],
+    })
+
+    await client.from('bookings').insert({
+      event_type_id: 'event-type-1',
+      host_user_id: 'profile-1',
+      booking_answers: [
+        {
+          questionId: 'question-1',
+          label: 'What should we cover?',
+          value: 'Hiring plan',
+        },
+      ],
+    })
+
+    const eventTypeBody = JSON.parse(String(fetchImpl.mock.calls[0][1]?.body)) as {
+      invitee_questions?: unknown
+    }
+    const bookingBody = JSON.parse(String(fetchImpl.mock.calls[1][1]?.body)) as {
+      booking_answers?: unknown
+    }
+
+    expect(eventTypeBody.invitee_questions).toBe(
+      JSON.stringify([
+        {
+          id: 'question-1',
+          label: 'What should we cover?',
+          type: 'text',
+          required: true,
+        },
+      ])
+    )
+    expect(bookingBody.booking_answers).toBe(
+      JSON.stringify([
+        {
+          questionId: 'question-1',
+          label: 'What should we cover?',
+          value: 'Hiring plan',
+        },
+      ])
+    )
+  })
+
   it('patches existing user settings rows by provider row id after profile_id conflict lookup', async () => {
     const fetchImpl = vi
       .fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
