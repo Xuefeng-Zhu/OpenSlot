@@ -17,9 +17,18 @@ import type {
 
 const primaryKeys: Partial<Record<TableName, string>> = {}
 
-const jsonbArrayColumns: Partial<Record<TableName, ReadonlySet<string>>> = {
+const jsonColumns: Partial<Record<TableName, ReadonlySet<string>>> = {
   bookings: new Set(['booking_answers']),
+  booking_events: new Set(['payload']),
+  calendar_event_refs: new Set(['metadata']),
   event_types: new Set(['invitee_questions']),
+  external_busy_cache: new Set(['metadata']),
+  outbox_events: new Set(['payload']),
+  provider_calendars: new Set(['metadata']),
+  provider_connections: new Set(['metadata']),
+  provider_watches: new Set(['metadata']),
+  request_idempotency: new Set(['response_json']),
+  webhook_deliveries: new Set(['payload']),
 }
 
 export class BackendQueryBuilder<TData = any>
@@ -217,7 +226,7 @@ export class BackendQueryBuilder<TData = any>
           method: 'POST',
           path: `/v1/${this.httpClient.appId}/${this.table}`,
           auth: this.authMode,
-          body: serializeJsonbArrayColumns(this.table, payload),
+          body: serializeJsonColumns(this.table, payload),
         })
       )
     }
@@ -233,7 +242,7 @@ export class BackendQueryBuilder<TData = any>
           method: 'PATCH',
           path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(directId)}`,
           auth: this.authMode,
-          body: serializeJsonbArrayColumns(this.table, this.payload),
+          body: serializeJsonColumns(this.table, this.payload),
         }),
       ]
     }
@@ -248,7 +257,7 @@ export class BackendQueryBuilder<TData = any>
           method: 'PATCH',
           path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
           auth: this.authMode,
-          body: serializeJsonbArrayColumns(this.table, this.payload),
+          body: serializeJsonColumns(this.table, this.payload),
         })
       )
     }
@@ -295,7 +304,7 @@ export class BackendQueryBuilder<TData = any>
             method: 'PATCH',
             path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
             auth: this.authMode,
-            body: serializeJsonbArrayColumns(this.table, payload),
+            body: serializeJsonColumns(this.table, payload),
           })
         )
       } else {
@@ -304,7 +313,7 @@ export class BackendQueryBuilder<TData = any>
             method: 'POST',
             path: `/v1/${this.httpClient.appId}/${this.table}`,
             auth: this.authMode,
-            body: serializeJsonbArrayColumns(this.table, payload),
+            body: serializeJsonColumns(this.table, payload),
           })
         )
       }
@@ -412,24 +421,28 @@ function primaryKeyValue(table: string, row: unknown) {
   return String(value)
 }
 
-function serializeJsonbArrayColumns(table: string, payload: unknown) {
+function serializeJsonColumns(table: string, payload: unknown) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return payload
   }
 
-  const columns = jsonbArrayColumns[table as TableName]
+  const columns = jsonColumns[table as TableName]
   if (!columns) return payload
 
   let serialized: Record<string, unknown> | null = null
   const record = payload as Record<string, unknown>
 
   for (const column of columns) {
-    if (!Array.isArray(record[column])) continue
+    if (!shouldSerializeJsonColumnValue(record[column])) continue
     serialized ??= { ...record }
     serialized[column] = JSON.stringify(record[column])
   }
 
   return serialized ?? payload
+}
+
+function shouldSerializeJsonColumnValue(value: unknown) {
+  return value !== null && typeof value === 'object'
 }
 
 function serializeFilterValue(value: unknown) {
