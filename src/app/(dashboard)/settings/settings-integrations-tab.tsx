@@ -29,6 +29,7 @@ import {
   type VideoProviderReadiness,
   videoProviderOptions,
 } from "@/lib/calendar/video-providers";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 
 interface SettingsIntegrationsTabProps {
@@ -197,10 +198,10 @@ export function SettingsIntegrationsTab({
   };
 
   const copyWebhookSecret = async () => {
-    if (!newWebhookSecret || !navigator.clipboard) return;
+    if (!newWebhookSecret) return;
 
     try {
-      await navigator.clipboard.writeText(newWebhookSecret);
+      await copyTextToClipboard(newWebhookSecret);
       toast({
         title: "Secret copied",
         description: "Use it to verify OpenSlot webhook signatures.",
