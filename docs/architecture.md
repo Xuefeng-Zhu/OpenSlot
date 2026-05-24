@@ -39,7 +39,7 @@ Browser UI
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
 | `src/app/booking/cancel/[token]/page.tsx` | Public token-backed booking cancellation page. |
 | `src/app/booking/reschedule/[token]/page.tsx` | Public token-backed booking rescheduling page. |
-| `src/app/api/*` | Slot, hold, booking, cancellation, rescheduling, settings, calendar, webhook, event type, and availability APIs. |
+| `src/app/api/*` | Auth, compatibility query, slot, hold, booking, cancellation, rescheduling, settings, notification, calendar, webhook, event type, and availability APIs. |
 
 ## Data Access Patterns
 
@@ -195,6 +195,8 @@ belong under `backend/butterbase/`:
 
 | Route | Auth | Main module |
 | --- | --- | --- |
+| `/api/auth/*` | Public and authenticated Butterbase auth helpers for login, signup, session, logout, reset, update, and code exchange | `src/app/api/auth/*` |
+| `POST /api/backend/query` | Authenticated compatibility query proxy with table and operator allowlists | `src/lib/backend/compat/query-client.ts` |
 | `POST /api/booking-agent/message` | Public ephemeral assistant turn, service-key read, public rate limit, Butterbase AI gateway call | `src/lib/booking-agent/agent.ts` |
 | `GET /api/slots` | Public route, service-key read after active host/event validation | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service-key function with reservation guard | `src/app/api/holds/route.ts` |
@@ -215,9 +217,13 @@ belong under `backend/butterbase/`:
 | `PATCH/DELETE /api/webhooks/endpoints/[id]` | Authenticated host webhook endpoint management scoped to own profile | `src/app/api/webhooks/endpoints/[id]/route.ts` |
 | `GET/POST /api/webhooks/process` | Bearer-token webhook delivery worker trigger, service-key write | `src/lib/webhooks/deliveries.ts` |
 | `POST /api/onboarding` | Authenticated host setup | `src/app/api/onboarding/route.ts` |
+| `POST /api/notifications/seen` | Authenticated host notification badge clearing | `src/app/api/notifications/seen/route.ts` |
 | `POST /api/event-types` | Authenticated host | `src/app/api/event-types/route.ts` |
 | `PATCH/DELETE /api/event-types/[id]` | Authenticated host, scoped to own profile | `src/app/api/event-types/[id]/route.ts` |
 | `POST /api/availability` | Authenticated host | `src/app/api/availability/route.ts` |
+| `POST /api/availability/schedules` | Authenticated host schedule creation | `src/app/api/availability/schedules/route.ts` |
+| `PATCH/DELETE /api/availability/schedules/[id]` | Authenticated host schedule rename/default/delete, scoped to owned schedules | `src/app/api/availability/schedules/[id]/route.ts` |
+| `POST /api/availability/schedules/[id]/duplicate` | Authenticated host schedule copy without event type reassignment | `src/app/api/availability/schedules/[id]/duplicate/route.ts` |
 
 ## Current Gaps to Preserve in Docs
 

@@ -39,6 +39,9 @@ Keep `BUTTERBASE_API_KEY` server-only. It is used by server route handlers and
 the Butterbase adapter under `src/lib/backend/butterbase/`.
 Keep `BUTTERBASE_FUNCTION_SECRET` separate from `BUTTERBASE_API_KEY`; it is the
 server-only bearer token OpenSlot sends when invoking Butterbase functions.
+Set `SLOT_HOLD_TOKEN_SECRET` only when you want a dedicated HMAC secret for
+short-lived public slot hold tokens; omit it when you want signing to fall
+back to `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`.
 
 Worker routes can run without secrets outside production. Set
 `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,
@@ -58,7 +61,9 @@ Calendar watch callbacks use `NEXT_PUBLIC_APP_URL` to register
 providers. Production provider apps must use an HTTPS app URL. Set
 `CALENDAR_FINAL_AVAILABILITY_CHECK=stale` to live-check provider free/busy
 before booking confirmation whenever cache or watch health is stale; leave it
-unset or set to `off` to disable that final check.
+unset or set to `off` to disable that final check. Use
+`CALENDAR_STALE_AFTER_MINUTES` to tune the stale-cache window; the app defaults
+to 10 minutes.
 
 To configure calendar OAuth credentials locally:
 
@@ -79,6 +84,9 @@ scripts derive redirect URIs from `NEXT_PUBLIC_APP_URL`; override them with
 `GOOGLE_CALENDAR_REDIRECT_URI` or `MICROSOFT_CALENDAR_REDIRECT_URI` only when
 the provider app needs a non-default callback. The Google helper also accepts
 `GOOGLE_CALENDAR_JS_ORIGIN` and `GOOGLE_CLOUD_PROJECT` or `GCLOUD_PROJECT`.
+`npm run oauth:calendar` runs both providers by default; use
+`npm run oauth:calendar -- --google` or
+`npm run oauth:calendar -- --microsoft` to configure only one provider.
 
 The Google script enables the Calendar API when `gcloud` is installed, opens the Google Auth Platform client page, then securely prompts for the one-time client ID and secret. Google does not expose a general CLI/API flow for creating Calendar-capable web OAuth clients, so the client creation step remains a console action.
 

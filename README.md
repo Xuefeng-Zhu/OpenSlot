@@ -25,10 +25,12 @@ Screenshots are not committed yet. Suggested first additions:
 - Butterbase email/password authentication.
 - Host onboarding with profile, availability, and first event type setup.
 - Butterbase-backed event type create, edit, pause, delete, and share flows.
-- Weekly availability and date overrides with timezone-aware slot generation.
+- Named availability schedules, weekly rules, and date overrides with timezone-aware slot generation.
 - Public booking pages at `/{username}` and `/{username}/{eventSlug}`.
+- Public booking assistant for date/time and form-draft help when Butterbase AI is configured.
 - Five-minute slot holds backed by a host reservation ledger.
 - Confirmed booking, cancellation, and rescheduling flows with idempotency keys.
+- DB-backed public rate limiting and optional Cloudflare Turnstile checks for public booking mutations.
 - PostgreSQL exclusion constraints to prevent overlapping active reservations.
 - Outbox events for email, calendar, and tenant webhook side effects.
 - Console email provider by default, with Resend and Maileroo provider support.
@@ -38,7 +40,7 @@ Screenshots are not committed yet. Suggested first additions:
 
 | Area | Stack |
 | --- | --- |
-| App framework | Next.js 16 App Router, React 18 |
+| App framework | Next.js 16 App Router, React 19 |
 | Language | TypeScript strict mode |
 | Database and auth | Butterbase Auth, REST data API, Postgres/RLS, service-key route handlers |
 | Styling | Tailwind CSS and local shadcn-style primitives |
@@ -58,8 +60,9 @@ OpenSlot is server-first around booking integrity:
 - Guest holds use `/api/holds` and the `create-slot-hold` backend function.
 - Booking confirmation, cancellation, and rescheduling enqueue outbox events
   for provider writes, emails, and tenant webhooks.
-- Worker routes under `/api/outbox/process`, `/api/calendar/sync`, and
-  `/api/webhooks/process` are protected by route secrets or `CRON_SECRET`.
+- Worker routes under `/api/outbox/process`, `/api/calendar/sync`,
+  `/api/webhooks/process`, and `/api/holds/expire` are protected by route
+  secrets or `CRON_SECRET`.
 - Butterbase RLS and explicit route boundaries keep browser access narrow.
   Service-key reads/writes stay in server-only modules and route handlers.
 
@@ -140,17 +143,25 @@ valid Butterbase configuration.
 | `NEXT_PUBLIC_BUTTERBASE_APP_ID` | Yes | Browser-safe Butterbase app id. |
 | `NEXT_PUBLIC_BUTTERBASE_API_URL` | Yes | Butterbase API base URL, usually `https://api.butterbase.ai`. |
 | `BUTTERBASE_API_KEY` | Yes | Server-only service key for privileged route handlers. Never expose to client code. |
+| `BUTTERBASE_FUNCTION_SECRET` | Backend functions | Server-only bearer token sent to Butterbase functions. Keep separate from `BUTTERBASE_API_KEY`. |
+| `SLOT_HOLD_TOKEN_SECRET` | Optional | Dedicated HMAC secret for short-lived public slot hold tokens. Omit it to fall back to `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`. |
 | `NEXT_PUBLIC_APP_URL` | Yes | Public app origin for links and OAuth callbacks. Use `http://localhost:3000` locally. |
 | `OUTBOX_PROCESS_SECRET` | Production | Protects manual `/api/outbox/process` calls. |
 | `WEBHOOK_PROCESS_SECRET` | Production | Protects manual `/api/webhooks/process` calls. |
 | `CALENDAR_SYNC_SECRET` | Production | Protects manual `/api/calendar/sync` calls. |
+| `HOLD_EXPIRY_PROCESS_SECRET` | Production | Protects manual `/api/holds/expire` calls. |
 | `CRON_SECRET` | Production | Shared Vercel Cron bearer token. |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Optional bot protection | Browser-safe Cloudflare Turnstile site key. |
+| `TURNSTILE_SECRET_KEY` | Optional bot protection | Server-only Turnstile secret; public booking mutations enforce Turnstile only when configured. |
 | `GOOGLE_CALENDAR_CLIENT_ID` | Calendar integration | Google OAuth client ID. |
 | `GOOGLE_CALENDAR_CLIENT_SECRET` | Calendar integration | Google OAuth client secret. |
 | `MICROSOFT_CALENDAR_CLIENT_ID` | Calendar integration | Microsoft OAuth app client ID. |
 | `MICROSOFT_CALENDAR_CLIENT_SECRET` | Calendar integration | Microsoft OAuth client secret. |
 | `MICROSOFT_CALENDAR_TENANT` | Calendar integration | Defaults to `common`. |
 | `CALENDAR_TOKEN_ENCRYPTION_SECRET` | Calendar integration | Stable high-entropy server-only encryption secret. |
+| `CALENDAR_FINAL_AVAILABILITY_CHECK` | Optional calendar hardening | Set to `stale` to live-check provider free/busy when cache or watch health is stale. |
+| `CALENDAR_STALE_AFTER_MINUTES` | Optional calendar hardening | Staleness window for the final live availability check. Defaults to `10`. |
+| `BOOKING_AGENT_MODEL` | Optional assistant override | Butterbase AI model for the public booking assistant. Defaults to `deepseek/deepseek-v4-flash`. |
 | `EMAIL_PROVIDER` | Optional | `console`, `resend`, or `maileroo`. Defaults to console behavior. |
 | `EMAIL_FROM` | Email provider | Required for real provider sends. |
 | `RESEND_API_KEY` | Resend | Required when `EMAIL_PROVIDER=resend`. |
@@ -183,7 +194,8 @@ or shell `ENV_FILE=<path>` to target another file. The scripts derive callback
 URLs from `NEXT_PUBLIC_APP_URL`; shell overrides are available as
 `GOOGLE_CALENDAR_REDIRECT_URI`, `GOOGLE_CALENDAR_JS_ORIGIN`,
 `GOOGLE_CLOUD_PROJECT` or `GCLOUD_PROJECT`, and
-`MICROSOFT_CALENDAR_REDIRECT_URI`.
+`MICROSOFT_CALENDAR_REDIRECT_URI`. `npm run oauth:calendar` runs both
+providers by default; pass `-- --google` or `-- --microsoft` to run only one.
 
 ## Testing
 

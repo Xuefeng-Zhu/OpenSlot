@@ -60,7 +60,8 @@ Use separate staging and production environments:
   service keys.
 - Separate app deploy targets and `NEXT_PUBLIC_APP_URL` values.
 - Separate `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,
-  `CALENDAR_SYNC_SECRET`, `CRON_SECRET`, and calendar token encryption secrets.
+  `CALENDAR_SYNC_SECRET`, `HOLD_EXPIRY_PROCESS_SECRET`, `CRON_SECRET`,
+  function, slot-token, and calendar token encryption secrets.
 - Separate email provider credentials. Use `EMAIL_PROVIDER=console` in staging
   unless a verified test sender is intentionally configured.
 - Separate Google and Microsoft OAuth apps or clearly separated redirect URI
@@ -72,12 +73,16 @@ in the deployment platform or a secrets manager, not in the repository.
 
 ## Required Runtime Configuration
 
-Each deployed environment must provide:
+Each deployed environment should provide the app, backend, worker, and
+enabled-integration values it uses:
 
 ```env
 NEXT_PUBLIC_BUTTERBASE_APP_ID=...
 NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
 BUTTERBASE_API_KEY=...
+BUTTERBASE_FUNCTION_SECRET=...
+# Optional but recommended dedicated token signing secret.
+SLOT_HOLD_TOKEN_SECRET=...
 NEXT_PUBLIC_APP_URL=https://your-production-origin.example
 OUTBOX_PROCESS_SECRET=...
 WEBHOOK_PROCESS_SECRET=...
@@ -101,7 +106,7 @@ RESEND_API_KEY=...
 MAILEROO_API_KEY=...
 ```
 
-`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, and `HOLD_EXPIRY_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. `BUTTERBASE_FUNCTION_SECRET` authorizes Butterbase function calls. `SLOT_HOLD_TOKEN_SECRET` signs short-lived public slot hold tokens; if it is unset, signing falls back to `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, and `HOLD_EXPIRY_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
 
 Set both `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to enforce
 Cloudflare Turnstile on public booking mutations. Leave them unset for local
