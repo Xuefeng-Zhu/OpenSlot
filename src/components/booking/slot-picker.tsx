@@ -532,7 +532,7 @@ export function SlotPicker({
             </CardDescription>
           </CardHeader>
           <CardContent aria-live="polite">
-            {!selectedDate && (
+            {!selectedDate && !error && (
               <EmptyState
                 icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
                 heading="Choose a date"
@@ -550,7 +550,7 @@ export function SlotPicker({
               </div>
             )}
 
-            {selectedDate && !loading && error && (
+            {!loading && error && (
               <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-8 text-center" role="alert">
                 <AlertCircle className="mx-auto h-6 w-6 text-destructive" aria-hidden="true" />
                 <p className="mt-2 text-sm text-destructive">{error}</p>
@@ -560,10 +560,12 @@ export function SlotPicker({
                   className="mt-3"
                   onClick={() => {
                     setError(null);
-                    fetchSlots(selectedDate, timezone, { force: true });
+                    if (selectedDate) {
+                      fetchSlots(selectedDate, timezone, { force: true });
+                    }
                   }}
                 >
-                  Try Again
+                  {selectedDate ? "Try Again" : "Dismiss"}
                 </Button>
               </div>
             )}
