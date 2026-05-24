@@ -26,6 +26,10 @@ Browser UI
 | `src/app/page.tsx` | Public landing page. |
 | `src/app/(auth)/login/page.tsx` | Butterbase password login. |
 | `src/app/(auth)/signup/page.tsx` | Butterbase password signup. |
+| `src/app/(auth)/forgot-password/page.tsx` | Public password reset request page. |
+| `src/app/(auth)/reset-password/page.tsx` | Public reset-code password update page. |
+| `src/app/terms/page.tsx` | Static terms page. |
+| `src/app/privacy/page.tsx` | Static privacy page. |
 | `src/app/(dashboard)/layout.tsx` | Authenticated dashboard layout and shell. |
 | `src/app/(dashboard)/dashboard/page.tsx` | Dashboard overview with profile, bookings, active event type count. |
 | `src/app/(dashboard)/availability/page.tsx` | Server-fetched availability editor. |

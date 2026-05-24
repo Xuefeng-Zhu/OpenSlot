@@ -23,7 +23,9 @@ Screenshots are not committed yet. Suggested first additions:
 ## Features
 
 - Butterbase email/password authentication.
+- Password reset and authenticated password update flows.
 - Host onboarding with profile, availability, and first event type setup.
+- Static legal pages at `/terms` and `/privacy`.
 - Butterbase-backed event type create, edit, pause, delete, and share flows.
 - Named availability schedules, weekly rules, and date overrides with timezone-aware slot generation.
 - Public booking pages at `/{username}` and `/{username}/{eventSlug}`.
@@ -72,7 +74,7 @@ See [docs/architecture.md](docs/architecture.md) for the deeper system map.
 
 ```text
 src/app/                         Next.js App Router routes and API handlers
-src/app/(auth)/                  Login and signup routes
+src/app/(auth)/                  Login, signup, and password reset routes
 src/app/(dashboard)/             Authenticated host dashboard routes
 src/app/(public)/[username]/     Public host profile and event booking pages
 src/components/booking/          Guest booking flow components
