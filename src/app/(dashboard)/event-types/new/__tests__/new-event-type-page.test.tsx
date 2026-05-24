@@ -113,6 +113,50 @@ describe("NewEventTypePage editor", () => {
     ).toBeDefined();
   });
 
+  it("reopens collapsed sections that contain validation errors", () => {
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
+
+    const remindersSection = screen.getByRole("button", {
+      name: "Reminders",
+    });
+
+    fireEvent.click(remindersSection);
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Enable pre-meeting reminders" })
+    );
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Email guest reminders" })
+    );
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Email host reminders" })
+    );
+    fireEvent.click(remindersSection);
+
+    expect(remindersSection.getAttribute("aria-expanded")).toBe("false");
+    expect(
+      screen.queryByText("Select at least one reminder recipient")
+    ).toBeNull();
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "QA Coffee Chat" },
+    });
+    fireEvent.change(screen.getByLabelText("URL Slug"), {
+      target: { value: "qa-coffee-chat" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(remindersSection.getAttribute("aria-expanded")).toBe("true");
+    expect(
+      screen.getByText("Select at least one reminder recipient")
+    ).toBeDefined();
+  });
+
   it("surfaces calendar connection load failures", () => {
     render(
       <EventTypeEditor
