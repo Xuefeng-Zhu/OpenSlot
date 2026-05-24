@@ -70,7 +70,7 @@ describe('createBackendCompatClient', () => {
     expect(String(fetchImpl.mock.calls[1][0])).toContain('id=in.%28event-type-1%29')
   })
 
-  it('serializes JSONB array columns before table writes', async () => {
+  it('serializes JSON columns before table writes', async () => {
     const fetchImpl = mockFetch({
       id: 'event-type-1',
       invitee_questions: [
@@ -114,11 +114,41 @@ describe('createBackendCompatClient', () => {
       ],
     })
 
+    await client.from('provider_connections').insert({
+      profile_id: 'profile-1',
+      provider: 'google',
+      account_email: 'host@example.com',
+      scopes: ['calendar.readonly'],
+      metadata: {
+        accountId: 'external-account-1',
+      },
+    })
+
+    await client.from('outbox_events').insert({
+      aggregate_type: 'booking',
+      aggregate_id: 'booking-1',
+      event_type: 'booking.confirmed',
+      dedupe_key: 'booking-1:confirmed',
+      payload: {
+        bookingId: 'booking-1',
+        hostUserId: 'profile-1',
+      },
+    })
+
     const eventTypeBody = JSON.parse(String(fetchImpl.mock.calls[0][1]?.body)) as {
       invitee_questions?: unknown
     }
     const bookingBody = JSON.parse(String(fetchImpl.mock.calls[1][1]?.body)) as {
       booking_answers?: unknown
+    }
+    const providerConnectionBody = JSON.parse(
+      String(fetchImpl.mock.calls[2][1]?.body)
+    ) as {
+      metadata?: unknown
+      scopes?: unknown
+    }
+    const outboxBody = JSON.parse(String(fetchImpl.mock.calls[3][1]?.body)) as {
+      payload?: unknown
     }
 
     expect(eventTypeBody.invitee_questions).toBe(
@@ -139,6 +169,18 @@ describe('createBackendCompatClient', () => {
           value: 'Hiring plan',
         },
       ])
+    )
+    expect(providerConnectionBody.scopes).toEqual(['calendar.readonly'])
+    expect(providerConnectionBody.metadata).toBe(
+      JSON.stringify({
+        accountId: 'external-account-1',
+      })
+    )
+    expect(outboxBody.payload).toBe(
+      JSON.stringify({
+        bookingId: 'booking-1',
+        hostUserId: 'profile-1',
+      })
     )
   })
 
