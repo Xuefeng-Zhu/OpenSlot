@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, Copy, User, Calendar, FileText, Link2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -268,6 +269,7 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [currentStep, setCurrentStep] = React.useState(0);
   const [copied, setCopied] = React.useState(false);
+  const [copyError, setCopyError] = React.useState("");
   const [isSaving, setIsSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState("");
   const [savedBookingLink, setSavedBookingLink] = React.useState("");
@@ -332,6 +334,7 @@ export default function OnboardingPage() {
       }
 
       setSavedBookingLink(data.bookingLink);
+      setCopyError("");
       setValidationErrors(getEmptyValidationErrors());
       setCurrentStep(STEPS.length - 1);
       router.refresh();
@@ -393,13 +396,13 @@ export default function OnboardingPage() {
   const handleCopyLink = async () => {
     const link = absoluteBookingLink(savedBookingLink);
     try {
-      await navigator.clipboard.writeText(link);
+      await copyTextToClipboard(link);
       setCopied(true);
+      setCopyError("");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: just show copied state briefly
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setCopied(false);
+      setCopyError("Could not copy link. Select the URL and copy it manually.");
     }
   };
 
@@ -455,6 +458,7 @@ export default function OnboardingPage() {
           <StepBookingLink
             bookingLink={savedBookingLink}
             copied={copied}
+            copyError={copyError}
             onCopy={handleCopyLink}
           />
         )}
@@ -820,10 +824,12 @@ function StepEventType({
 function StepBookingLink({
   bookingLink,
   copied,
+  copyError,
   onCopy,
 }: {
   bookingLink: string;
   copied: boolean;
+  copyError: string;
   onCopy: () => void;
 }) {
   const displayLink = absoluteBookingLink(bookingLink);
@@ -862,6 +868,11 @@ function StepBookingLink({
             </>
           )}
         </Button>
+        {copyError ? (
+          <p className="mt-3 text-sm text-destructive" role="alert">
+            {copyError}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex justify-center">
