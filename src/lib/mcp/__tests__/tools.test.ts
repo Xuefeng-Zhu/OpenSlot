@@ -2,12 +2,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { callMcpTool, listMcpToolsForScopes } from '../tools'
 
 const mocks = vi.hoisted(() => ({
+  abandonIdempotentRequest: vi.fn(),
+  beginIdempotentRequest: vi.fn(),
   cancelBooking: vi.fn(),
+  completeIdempotentRequest: vi.fn(),
+  confirmBooking: vi.fn(),
   consumePublicRateLimit: vi.fn(),
 }))
 
 vi.mock('@/lib/booking/cancel', () => ({
   cancelBooking: mocks.cancelBooking,
+}))
+
+vi.mock('@/lib/booking/confirm', () => ({
+  confirmBooking: mocks.confirmBooking,
 }))
 
 vi.mock('@/lib/security/rate-limit', () => ({
@@ -19,13 +27,25 @@ vi.mock('@/lib/idempotency/request-idempotency', async () => {
     typeof import('@/lib/idempotency/request-idempotency')
   >('@/lib/idempotency/request-idempotency')
 
-  return actual
+  return {
+    ...actual,
+    abandonIdempotentRequest: mocks.abandonIdempotentRequest,
+    beginIdempotentRequest: mocks.beginIdempotentRequest,
+    completeIdempotentRequest: mocks.completeIdempotentRequest,
+  }
 })
 
 const auth = {
   tokenId: 'token-1',
   profileId: 'profile-1',
   scopes: ['mcp:read' as const, 'mcp:write' as const],
+}
+
+const validConfirmArguments = {
+  holdToken: '550e8400-e29b-41d4-a716-446655440000',
+  guestName: 'Jane Guest',
+  guestEmail: 'jane@example.com',
+  guestTimezone: 'America/New_York',
 }
 
 function context(adminClient: unknown) {
@@ -228,4 +248,119 @@ describe('MCP tools', () => {
       adminClient
     )
   })
+
+  it('requires confirm-booking holds to belong to the authenticated host', async () => {
+    const { adminClient, filters } = scopedHoldClient(null)
+
+    const result = await callMcpTool({
+      name: 'openslot_confirm_booking',
+      argumentsValue: validConfirmArguments,
+      context: context(adminClient),
+    })
+
+    expect(result).toMatchObject({
+      isError: true,
+      content: [{ type: 'text', text: 'Hold not found or already used' }],
+    })
+    expect(filters).toEqual([
+      { column: 'hold_token', value: validConfirmArguments.holdToken },
+      { column: 'host_user_id', value: 'profile-1' },
+      { column: 'status', value: 'active' },
+    ])
+    expect(mocks.confirmBooking).not.toHaveBeenCalled()
+  })
+
+  it('replays cached MCP failures as errors when the stored status failed', async () => {
+    mocks.beginIdempotentRequest.mockResolvedValueOnce({
+      type: 'replay',
+      response: {
+        status: 400,
+        body: { error: 'Prior validation failed' },
+      },
+    })
+
+    const result = await callMcpTool({
+      name: 'openslot_confirm_booking',
+      argumentsValue: {
+        ...validConfirmArguments,
+        idempotencyKey: 'retry-1',
+      },
+      context: context({ from: vi.fn() }),
+    })
+
+    expect(result).toMatchObject({
+      isError: true,
+      content: [{ type: 'text', text: 'Prior validation failed' }],
+      structuredContent: { error: 'Prior validation failed' },
+    })
+    expect(mocks.confirmBooking).not.toHaveBeenCalled()
+  })
+
+  it('stores MCP mutation failures with an explicit error flag for replays', async () => {
+    mocks.beginIdempotentRequest.mockResolvedValueOnce({
+      type: 'started',
+      entry: {
+        scope: 'confirm-booking',
+        key: 'retry-1',
+        requestHash: 'request-hash',
+      },
+    })
+    mocks.confirmBooking.mockResolvedValueOnce({
+      success: false,
+      error: 'Final availability check failed',
+    })
+    const { adminClient } = scopedHoldClient({ id: 'hold-1' })
+
+    const result = await callMcpTool({
+      name: 'openslot_confirm_booking',
+      argumentsValue: {
+        ...validConfirmArguments,
+        idempotencyKey: 'retry-1',
+      },
+      context: context(adminClient),
+    })
+
+    expect(result.isError).toBe(true)
+    expect(mocks.completeIdempotentRequest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        response: {
+          status: 400,
+          body: {
+            content: [
+              {
+                type: 'text',
+                text: 'Final availability check failed',
+              },
+            ],
+            structuredContent: null,
+            isError: true,
+          },
+        },
+      })
+    )
+  })
 })
+
+function scopedHoldClient(hold: { id: string } | null) {
+  const filters: Array<{ column: string; value: unknown }> = []
+  const builder = {
+    select: () => builder,
+    eq: (column: string, value: unknown) => {
+      filters.push({ column, value })
+      return builder
+    },
+    single: async () => ({
+      data: hold,
+      error: hold ? null : { message: 'not found' },
+    }),
+  }
+
+  const adminClient = {
+    from: vi.fn((table: string) => {
+      expect(table).toBe('slot_holds')
+      return builder
+    }),
+  }
+
+  return { adminClient, filters }
+}

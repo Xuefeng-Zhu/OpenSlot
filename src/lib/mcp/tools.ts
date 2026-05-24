@@ -593,6 +593,11 @@ async function handleConfirmBooking(
         return rateLimitToolError(rateLimit)
       }
 
+      const hold = await loadScopedActiveHold(context, bookingInput.holdToken)
+      if (!hold) {
+        return toolError('Hold not found or already used')
+      }
+
       const result = await confirmBooking(bookingInput, context.adminClient)
 
       if (!result.success) {
@@ -757,7 +762,7 @@ async function runIdempotentMutation({
       idempotency.type === 'conflict' ||
       idempotency.type === 'error'
     ) {
-      return toolResultFromCachedResponse(idempotency.response.body)
+      return toolResultFromCachedResponse(idempotency.response)
     }
 
     entry = idempotency.entry
@@ -770,7 +775,7 @@ async function runIdempotentMutation({
       adminClient,
       entry,
       response: {
-        body: (result.structuredContent ?? { error: result.content[0]?.text }) as Json,
+        body: cachedMcpToolResultBody(result),
         status: result.isError ? 400 : 200,
       },
     })
@@ -837,6 +842,21 @@ async function loadScopedBookingToken(
     cancellationToken: booking.cancellation_token,
     rescheduleToken: booking.reschedule_token,
   }
+}
+
+async function loadScopedActiveHold(
+  { adminClient, auth }: McpToolContext,
+  holdToken: string
+) {
+  const { data, error } = await adminClient
+    .from('slot_holds')
+    .select('id')
+    .eq('hold_token', holdToken)
+    .eq('host_user_id', auth.profileId)
+    .eq('status', 'active')
+    .single()
+
+  return error || !data ? null : data
 }
 
 async function addSlotHoldTokensByDate({
@@ -963,13 +983,39 @@ function rateLimitToolError(
   })
 }
 
-function toolResultFromCachedResponse(body: unknown): McpToolResult {
+function cachedMcpToolResultBody(result: McpToolResult): Json {
+  return {
+    content: result.content,
+    structuredContent: result.structuredContent ?? null,
+    isError: result.isError === true,
+  } as Json
+}
+
+function toolResultFromCachedResponse(
+  response: { body: unknown; status?: number | null }
+): McpToolResult {
+  if (isCachedMcpToolResultBody(response.body)) {
+    const structuredContent = isRecord(response.body.structuredContent)
+      ? response.body.structuredContent
+      : undefined
+    const isError =
+      response.body.isError === true || Number(response.status ?? 0) >= 400
+
+    return {
+      content: response.body.content,
+      ...(structuredContent ? { structuredContent } : {}),
+      ...(isError ? { isError: true } : {}),
+    }
+  }
+
+  const body = response.body
   const structuredContent =
     typeof body === 'object' && body !== null
       ? (body as Record<string, unknown>)
       : { result: body }
   const isError =
-    'success' in structuredContent && structuredContent.success === false
+    Number(response.status ?? 0) >= 400 ||
+    ('success' in structuredContent && structuredContent.success === false)
 
   return {
     content: [
@@ -983,6 +1029,27 @@ function toolResultFromCachedResponse(body: unknown): McpToolResult {
     structuredContent,
     ...(isError ? { isError: true } : {}),
   }
+}
+
+function isCachedMcpToolResultBody(
+  body: unknown
+): body is {
+  content: McpToolResult['content']
+  structuredContent?: unknown
+  isError?: unknown
+} {
+  if (!isRecord(body) || !Array.isArray(body.content)) return false
+
+  return body.content.every(
+    (item) =>
+      isRecord(item) &&
+      item.type === 'text' &&
+      typeof item.text === 'string'
+  )
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function holdCreationErrorMessage(error: { code?: string; message?: string } | null) {
