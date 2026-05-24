@@ -60,79 +60,114 @@ describe('POST /api/backend/query', () => {
     mocks.currentBackendAccessToken.mockResolvedValue('access-token')
   })
 
-  it('applies supported browser query filters', async () => {
-    const query = createQuery({ data: [{ id: 'event-type-1' }], error: null })
-    mocks.createBackendCompatClient.mockReturnValue({
-      from: vi.fn(() => query),
-    })
+  it('allows the profile update mutation used by the browser profile form', async () => {
+    const query = createQuery({ data: [], error: null })
+    const from = vi.fn(() => query)
+    mocks.createBackendCompatClient.mockReturnValue({ from })
+
+    const payload = {
+      name: 'Ada Lovelace',
+      username: 'ada',
+      default_timezone: 'America/New_York',
+      public_headline: 'Booking page',
+      public_bio: null,
+      response_time_label: 'Usually replies within a day',
+      updated_at: '2026-06-16T16:00:00.000Z',
+    }
 
     const response = await POST(
       requestWithJson({
-        table: 'event_types',
-        operation: 'select',
-        selected: 'id',
+        table: 'profiles',
+        operation: 'update',
+        payload,
         filters: [
-          { column: 'user_id', operator: 'eq', value: 'host-1' },
-          { column: 'id', operator: 'in', value: ['event-type-1'] },
+          { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
         ],
-        orders: [{ column: 'created_at', ascending: false }],
-        limitCount: 25,
-        offsetCount: 5,
-        responseMode: 'maybeSingle',
       }) as any
     )
     const data = await response.json()
 
     expect(response.status).toBe(200)
-    expect(data.data).toEqual([{ id: 'event-type-1' }])
-    expect(query.eq).toHaveBeenCalledWith('user_id', 'host-1')
-    expect(query.in).toHaveBeenCalledWith('id', ['event-type-1'])
-    expect(query.order).toHaveBeenCalledWith('created_at', { ascending: false })
-    expect(query.limit).toHaveBeenCalledWith(25)
-    expect(query.offset).toHaveBeenCalledWith(5)
-    expect(query.maybeSingle).toHaveBeenCalled()
+    expect(data.data).toEqual([])
+    expect(from).toHaveBeenCalledWith('profiles')
+    expect(query.update).toHaveBeenCalledWith(payload)
+    expect(query.eq).toHaveBeenCalledWith('auth_user_id', 'auth-user-1')
+    expect(query.select).not.toHaveBeenCalled()
   })
 
-  it('rejects unsupported filters instead of silently dropping them', async () => {
-    const query = createQuery()
-    mocks.createBackendCompatClient.mockReturnValue({
-      from: vi.fn(() => query),
-    })
+  it('allows event type deletion by id', async () => {
+    const query = createQuery({ data: [], error: null })
+    const from = vi.fn(() => query)
+    mocks.createBackendCompatClient.mockReturnValue({ from })
 
+    const response = await POST(
+      requestWithJson({
+        table: 'event_types',
+        operation: 'delete',
+        filters: [{ column: 'id', operator: 'eq', value: 'event-type-1' }],
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.data).toEqual([])
+    expect(from).toHaveBeenCalledWith('event_types')
+    expect(query.delete).toHaveBeenCalled()
+    expect(query.eq).toHaveBeenCalledWith('id', 'event-type-1')
+    expect(query.select).not.toHaveBeenCalled()
+  })
+
+  it('rejects table operations outside the browser mutation allowlist', async () => {
     const response = await POST(
       requestWithJson({
         table: 'event_types',
         operation: 'select',
         selected: 'id',
-        filters: [{ column: 'title', operator: 'ilike', value: '%call%' }],
+        filters: [{ column: 'id', operator: 'eq', value: 'event-type-1' }],
       }) as any
     )
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error.message).toBe('Unsupported filter operator: ilike')
-    expect(query.then).not.toHaveBeenCalled()
+    expect(data.error.message).toBe('Unsupported operation')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
   })
 
-  it('rejects malformed in filters', async () => {
-    const query = createQuery()
-    mocks.createBackendCompatClient.mockReturnValue({
-      from: vi.fn(() => query),
-    })
-
+  it('rejects unsupported filters before creating a query client', async () => {
     const response = await POST(
       requestWithJson({
-        table: 'event_types',
-        operation: 'select',
-        selected: 'id',
-        filters: [{ column: 'id', operator: 'in', value: 'event-type-1' }],
+        table: 'profiles',
+        operation: 'update',
+        payload: { name: 'Ada Lovelace' },
+        filters: [{ column: 'id', operator: 'eq', value: 'profile-1' }],
       }) as any
     )
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data.error.message).toBe('Filter "in" expects an array value')
-    expect(query.in).not.toHaveBeenCalled()
+    expect(data.error.message).toBe('Missing required filter: auth_user_id')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+  })
+
+  it('rejects unexpected update columns', async () => {
+    const response = await POST(
+      requestWithJson({
+        table: 'profiles',
+        operation: 'update',
+        payload: {
+          name: 'Ada Lovelace',
+          role: 'admin',
+        },
+        filters: [
+          { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
+        ],
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error.message).toBe('Unsupported payload column: role')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
   })
 
   it('rejects malformed filter containers before creating a query client', async () => {
@@ -185,8 +220,9 @@ describe('POST /api/backend/query', () => {
 
   it('returns a structured error when query execution rejects', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const query = {
-      select: vi.fn(() => query),
+    const query: any = {
+      update: vi.fn(() => query),
+      eq: vi.fn(() => query),
       then: vi.fn(
         (
           _resolve: (value: unknown) => unknown,
@@ -202,9 +238,12 @@ describe('POST /api/backend/query', () => {
 
     const response = await POST(
       requestWithJson({
-        table: 'event_types',
-        operation: 'select',
-        selected: 'id',
+        table: 'profiles',
+        operation: 'update',
+        payload: { name: 'Ada Lovelace' },
+        filters: [
+          { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
+        ],
       }) as any
     )
     const data = await response.json()
