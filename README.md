@@ -87,12 +87,10 @@ src/lib/email/                   Email composition and provider selection
 src/lib/idempotency/             Retry-safe mutation helpers
 src/lib/outbox/                  Internal side-effect queue processing
 src/lib/reservations/            Host reservation mirror helpers
-src/lib/backend/                 Backend ports, Butterbase adapter, compatibility client
-src/lib/supabase/                Legacy shims delegating to the backend runtime
+src/lib/backend/                 Backend ports, Butterbase adapter, compatibility clients
 src/lib/validations/             Zod schemas
 backend/sql/                     Provider-portable SQL invariants
 backend/butterbase/              Butterbase schema/function artifacts
-supabase/migrations/             Historical PostgreSQL migration source
 docs/                            Architecture, development, testing, release docs
 ```
 
