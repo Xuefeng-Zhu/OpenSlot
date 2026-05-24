@@ -101,12 +101,6 @@ export function buildDayStates(
     }
   }
 
-  for (const day of DAYS) {
-    if (states[day].intervals.length > 0) {
-      states[day].enabled = true
-    }
-  }
-
   return states
 }
 
@@ -119,7 +113,8 @@ export function hasAvailabilityChanges({
   AvailabilitySaveRequestInput,
   "dayStates" | "overrides" | "savedRules" | "savedOverrides"
 >) {
-  const currentRules = flattenDayStatesToRules(dayStates)
+  const currentRules = flattenDayStatesToRules(dayStates, savedRules)
+  const savedDayEnabled = buildSavedDayEnabled(savedRules)
   if (currentRules.length !== savedRules.length) return true
 
   for (const saved of savedRules) {
@@ -136,7 +131,9 @@ export function hasAvailabilityChanges({
     ) {
       return true
     }
-    if (!dayState.enabled && saved.is_active) return true
+    if (dayState.enabled !== (savedDayEnabled.get(dayName) ?? false)) {
+      return true
+    }
   }
 
   for (const day of DAYS) {
@@ -177,7 +174,7 @@ export function buildAvailabilitySaveRequest({
   currentRules: AvailabilityRuleDraft[]
   payload: AvailabilitySavePayload
 } {
-  const currentRules = flattenDayStatesToRules(dayStates)
+  const currentRules = flattenDayStatesToRules(dayStates, savedRules)
   const currentRuleIds = new Set(
     currentRules.filter((rule) => !isTempId(rule.id)).map((rule) => rule.id)
   )
@@ -247,9 +244,12 @@ export function normalizeSavedAvailability({
  * can be updated rather than silently dropped.
  */
 export function flattenDayStatesToRules(
-  dayStates: Record<string, DayState>
+  dayStates: Record<string, DayState>,
+  savedRules: AvailabilityRule[] = []
 ): AvailabilityRuleDraft[] {
   const rules: AvailabilityRuleDraft[] = []
+  const savedRuleById = new Map(savedRules.map((rule) => [rule.id, rule]))
+  const savedDayEnabled = buildSavedDayEnabled(savedRules)
 
   for (let dayIndex = 0; dayIndex < DAYS.length; dayIndex++) {
     const day = DAYS[dayIndex]
@@ -260,12 +260,16 @@ export function flattenDayStatesToRules(
 
     for (const interval of state.intervals) {
       if (interval.start && interval.end) {
+        const savedRule = interval.id ? savedRuleById.get(interval.id) : null
+        const dayEnabledUnchanged =
+          state.enabled === (savedDayEnabled.get(day) ?? false)
         rules.push({
           id: interval.id,
           weekday: dbWeekday,
           start_time: interval.start,
           end_time: interval.end,
-          is_active: state.enabled,
+          is_active:
+            savedRule && dayEnabledUnchanged ? savedRule.is_active : state.enabled,
         })
       }
     }
@@ -280,6 +284,23 @@ function dbWeekdayToDayIndex(dbWeekday: number): number {
 
 function dayIndexToDbWeekday(dayIndex: number): number {
   return dayIndex === 6 ? 0 : dayIndex + 1
+}
+
+function buildSavedDayEnabled(rules: AvailabilityRule[]): Map<string, boolean> {
+  const enabledByDay = new Map<string, boolean>(
+    DAYS.map((day) => [day, false])
+  )
+
+  for (const rule of rules) {
+    const dayName = DAYS[dbWeekdayToDayIndex(rule.weekday)]
+    if (!dayName) continue
+    enabledByDay.set(
+      dayName,
+      Boolean(enabledByDay.get(dayName) || rule.is_active)
+    )
+  }
+
+  return enabledByDay
 }
 
 function stripTempId<TRecord extends { id?: string }>(

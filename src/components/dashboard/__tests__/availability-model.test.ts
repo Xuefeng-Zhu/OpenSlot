@@ -48,6 +48,112 @@ describe('availability model helpers', () => {
     ).toBe(false)
   })
 
+  it('preserves inactive saved rules through unchanged editor state', () => {
+    const inactiveRules: AvailabilityRule[] = [
+      {
+        id: 'rule-inactive-monday',
+        weekday: 1,
+        start_time: '09:00',
+        end_time: '17:00',
+        is_active: false,
+      },
+    ]
+    const dayStates = buildDayStates(inactiveRules)
+
+    expect(dayStates.Monday.enabled).toBe(false)
+    expect(dayStates.Monday.intervals).toEqual([
+      {
+        id: 'rule-inactive-monday',
+        start: '09:00',
+        end: '17:00',
+      },
+    ])
+    expect(
+      hasAvailabilityChanges({
+        dayStates,
+        overrides: [],
+        savedRules: inactiveRules,
+        savedOverrides: [],
+      })
+    ).toBe(false)
+
+    const { payload } = buildAvailabilitySaveRequest({
+      dayStates,
+      overrides: [],
+      savedRules: inactiveRules,
+      savedOverrides: [],
+      selectedScheduleId: 'schedule-1',
+      timezone: 'America/New_York',
+    })
+
+    expect(payload.rules).toEqual([
+      {
+        id: 'rule-inactive-monday',
+        weekday: 1,
+        start_time: '09:00',
+        end_time: '17:00',
+        is_active: false,
+      },
+    ])
+    expect(payload.deletedRuleIds).toEqual([])
+  })
+
+  it('does not mark unchanged mixed-activity days as dirty', () => {
+    const mixedRules: AvailabilityRule[] = [
+      {
+        id: 'rule-active-monday',
+        weekday: 1,
+        start_time: '09:00',
+        end_time: '12:00',
+        is_active: true,
+      },
+      {
+        id: 'rule-inactive-monday',
+        weekday: 1,
+        start_time: '13:00',
+        end_time: '17:00',
+        is_active: false,
+      },
+    ]
+    const dayStates = buildDayStates(mixedRules)
+
+    expect(dayStates.Monday.enabled).toBe(true)
+    expect(
+      hasAvailabilityChanges({
+        dayStates,
+        overrides: [],
+        savedRules: mixedRules,
+        savedOverrides: [],
+      })
+    ).toBe(false)
+
+    const { payload } = buildAvailabilitySaveRequest({
+      dayStates,
+      overrides: [],
+      savedRules: mixedRules,
+      savedOverrides: [],
+      selectedScheduleId: 'schedule-1',
+      timezone: 'America/New_York',
+    })
+
+    expect(payload.rules).toEqual([
+      {
+        id: 'rule-active-monday',
+        weekday: 1,
+        start_time: '09:00',
+        end_time: '12:00',
+        is_active: true,
+      },
+      {
+        id: 'rule-inactive-monday',
+        weekday: 1,
+        start_time: '13:00',
+        end_time: '17:00',
+        is_active: false,
+      },
+    ])
+  })
+
   it('builds a save payload with temp ids stripped and deleted ids preserved', () => {
     const dayStates = buildDayStates(savedRules)
     dayStates.Monday.intervals.push({
