@@ -201,8 +201,14 @@ describe('BookingForm', () => {
     fireEvent.change(screen.getByLabelText('Notes (optional)'), {
       target: { value: 'Please use the manual note.' },
     })
+    fireEvent.change(screen.getByLabelText('Notes (optional)'), {
+      target: { value: '' },
+    })
     fireEvent.change(screen.getByLabelText('What should we discuss? *'), {
       target: { value: 'Manual topic' },
+    })
+    fireEvent.change(screen.getByLabelText('What should we discuss? *'), {
+      target: { value: '' },
     })
 
     rerender(
@@ -229,11 +235,11 @@ describe('BookingForm', () => {
     )
     expect(screen.getByLabelText('Notes (optional)')).toHaveProperty(
       'value',
-      'Please use the manual note.'
+      ''
     )
     expect(screen.getByLabelText('What should we discuss? *')).toHaveProperty(
       'value',
-      'Manual topic'
+      ''
     )
   })
 
