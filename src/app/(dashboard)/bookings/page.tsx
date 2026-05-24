@@ -34,13 +34,14 @@ export default async function BookingsPage() {
   const { data: bookingsData } = await backendClient
     .from("bookings")
     .select(
-      "id, guest_name, guest_email, guest_timezone, notes, booking_answers, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"
+      "id, event_type_id, guest_name, guest_email, guest_timezone, notes, booking_answers, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"
     )
     .eq("host_user_id", profile.id);
 
   const bookings: Booking[] = (
     (bookingsData as Array<{
       id: string;
+      event_type_id: string;
       guest_name: string;
       guest_email: string;
       guest_timezone: string;
