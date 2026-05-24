@@ -68,6 +68,13 @@ function renderAvailability(
   )
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 describe('AvailabilityClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -144,6 +151,110 @@ describe('AvailabilityClient', () => {
         name: 'Delete schedule',
       }) as HTMLButtonElement).disabled
     ).toBe(true)
+  })
+
+  it('creates a schedule from the schedule dropdown', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        jsonResponse({
+          schedule: {
+            id: 'schedule-project',
+            name: 'Project hours',
+            timezone: 'America/New_York',
+            is_default: false,
+            assignedEventTypeCount: 0,
+            assignedEventTypes: [],
+          },
+        })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAvailability()
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Active schedule' }), {
+      button: 0,
+      ctrlKey: false,
+    })
+    fireEvent.click(
+      await screen.findByRole('menuitem', { name: 'Create schedule' })
+    )
+    fireEvent.change(await screen.findByLabelText('New schedule'), {
+      target: { value: 'Project hours' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Create schedule' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/availability/schedules',
+        expect.objectContaining({ method: 'POST' })
+      )
+    )
+
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(String(requestInit.body))).toEqual({
+      name: 'Project hours',
+      timezone: 'America/New_York',
+    })
+    expect(routerMocks.push).toHaveBeenCalledWith(
+      '/availability?scheduleId=schedule-project'
+    )
+    expect(routerMocks.refresh).toHaveBeenCalled()
+  })
+
+  it('renames the selected schedule from the action menu', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        jsonResponse({
+          schedule: {
+            id: 'schedule-default',
+            name: 'Client hours',
+            timezone: 'America/New_York',
+            is_default: true,
+            assignedEventTypeCount: 1,
+            assignedEventTypes: [
+              {
+                id: 'event-1',
+                title: 'Intro call',
+                slug: 'intro-call',
+              },
+            ],
+          },
+        })
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAvailability()
+
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: 'Schedule actions' }),
+      {
+        button: 0,
+        ctrlKey: false,
+      }
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
+    fireEvent.change(await screen.findByLabelText('Schedule name'), {
+      target: { value: 'Client hours' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/availability/schedules/schedule-default',
+        expect.objectContaining({ method: 'PATCH' })
+      )
+    )
+
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit
+    expect(JSON.parse(String(requestInit.body))).toEqual({
+      name: 'Client hours',
+    })
+    await waitFor(() =>
+      expect(
+        screen.getByRole('button', { name: 'Active schedule' }).textContent
+      ).toContain('Client hours (default)')
+    )
+    expect(routerMocks.refresh).toHaveBeenCalled()
   })
 
   it('preserves weekly interval ids when deleting the first interval', async () => {
