@@ -26,6 +26,7 @@ describe("Onboarding validation", () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it("keeps users on profile setup until required profile fields are filled", () => {
