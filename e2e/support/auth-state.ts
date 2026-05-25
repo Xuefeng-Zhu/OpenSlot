@@ -98,7 +98,7 @@ export function hasBackendAuthCookie(state: DemoHostAuthState) {
 export function demoHostAuthStatePath() {
   return (
     process.env.E2E_DEMO_AUTH_STATE_FILE ??
-    path.join(process.cwd(), "test-results", "e2e-demo-auth-state.json")
+    path.join(process.cwd(), ".e2e-auth", "demo-auth-state.json")
   );
 }
 

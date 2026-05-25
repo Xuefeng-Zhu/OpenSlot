@@ -107,7 +107,7 @@ The suite loads `.env.local` and verifies the demo host password before browser
 login tests run. If the fixed demo auth user is stale, setup refreshes or
 recreates it when the configured Butterbase app supports auth-user admin
 functions. If those functions are unavailable, setup creates a disposable
-runtime demo login, stores it under gitignored `test-results/`, and keeps the
+runtime demo login, stores it under gitignored `.e2e-auth/`, and keeps the
 public `/demo` profile, default schedule, and weekday availability aligned with
 that auth user. Mutating specs create unique event types, bookings,
 availability schedules, and webhook endpoints, then clean them with the service
