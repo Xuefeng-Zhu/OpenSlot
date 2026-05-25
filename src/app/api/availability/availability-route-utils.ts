@@ -1,16 +1,6 @@
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Tables } from '@/lib/types/database'
 
-type ProfileLookupClient = {
-  auth: {
-    getUser: () => Promise<{
-      data: { user: { id: string } | null }
-      error: unknown
-    }>
-  }
-  from: (table: 'profiles') => any
-}
-
 export type AuthenticatedAvailabilityProfile =
   | {
       ok: true
@@ -23,7 +13,7 @@ export type AuthenticatedAvailabilityProfile =
     }
 
 export async function getAuthenticatedAvailabilityProfile(
-  backendClient: ProfileLookupClient
+  backendClient: BackendCompatClient<Database>
 ): Promise<AuthenticatedAvailabilityProfile> {
   const {
     data: { user },
