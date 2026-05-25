@@ -59,6 +59,27 @@ describe('Turnstile verification', () => {
     })
   })
 
+  it('treats malformed provider responses as verification outages', async () => {
+    process.env.TURNSTILE_SECRET_KEY = 'turnstile-secret'
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      json: async () => {
+        throw new Error('Unexpected token')
+      },
+    } as unknown as Response)
+
+    const result = await verifyTurnstileToken({
+      request: requestWithHeaders() as any,
+      token: 'valid-token',
+    })
+
+    expect(result).toEqual({
+      ok: false,
+      status: 503,
+      error: 'Could not verify challenge',
+    })
+  })
+
   it('accepts successful challenge responses', async () => {
     process.env.TURNSTILE_SECRET_KEY = 'turnstile-secret'
     vi.mocked(fetch).mockResolvedValue({

@@ -14,6 +14,12 @@ interface TurnstileSiteverifyResponse {
   'error-codes'?: string[]
 }
 
+async function readTurnstileSiteverifyResponse(
+  response: Response
+): Promise<TurnstileSiteverifyResponse | null> {
+  return (await response.json().catch(() => null)) as TurnstileSiteverifyResponse | null
+}
+
 /**
  * Verifies a Cloudflare Turnstile token when TURNSTILE_SECRET_KEY is configured.
  * Unconfigured environments skip enforcement so local development and previews
@@ -41,38 +47,19 @@ export async function verifyTurnstileToken({
     }
   }
 
-  try {
-    const body = new URLSearchParams({
-      secret,
-      response: normalizedToken,
-      remoteip: getClientIp(request),
-      idempotency_key: randomUuid(),
-    })
+  const body = new URLSearchParams({
+    secret,
+    response: normalizedToken,
+    remoteip: getClientIp(request),
+    idempotency_key: randomUuid(),
+  })
 
-    const response = await fetch(TURNSTILE_SITEVERIFY_URL, {
+  let response: Response
+  try {
+    response = await fetch(TURNSTILE_SITEVERIFY_URL, {
       method: 'POST',
       body,
     })
-
-    if (!response.ok) {
-      return {
-        ok: false,
-        status: 503,
-        error: 'Could not verify challenge',
-      }
-    }
-
-    const result = (await response.json()) as TurnstileSiteverifyResponse
-
-    if (!result.success) {
-      return {
-        ok: false,
-        status: 400,
-        error: 'Verification challenge failed',
-      }
-    }
-
-    return { ok: true, enforced: true }
   } catch (error) {
     console.error('Error verifying Turnstile token:', error)
     return {
@@ -81,4 +68,31 @@ export async function verifyTurnstileToken({
       error: 'Could not verify challenge',
     }
   }
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'Could not verify challenge',
+    }
+  }
+
+  const result = await readTurnstileSiteverifyResponse(response)
+  if (!result) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'Could not verify challenge',
+    }
+  }
+
+  if (!result.success) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'Verification challenge failed',
+    }
+  }
+
+  return { ok: true, enforced: true }
 }
