@@ -141,6 +141,28 @@ describe("LoginForm", () => {
     });
   });
 
+  it("trims pasted email whitespace before browser sign-in", async () => {
+    mocks.signInWithPassword.mockResolvedValue({ error: null });
+
+    render(<LoginForm returnUrl="/dashboard" />);
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "  sarah@example.com  " },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct-horse" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => {
+      expect(mocks.signInWithPassword).toHaveBeenCalledWith({
+        email: "sarah@example.com",
+        password: "correct-horse",
+      });
+      expect(mocks.push).toHaveBeenCalledWith("/dashboard");
+    });
+  });
+
   it("signs in with a browser-session login when keep signed in is disabled", async () => {
     mocks.signInWithPassword.mockResolvedValue({ error: null });
 
