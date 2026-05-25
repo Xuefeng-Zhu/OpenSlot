@@ -3,6 +3,7 @@ import {
   buildCalendarAuthorizationUrl,
   exchangeCalendarAuthorizationCode,
   fetchCalendarProviderIdentity,
+  refreshCalendarAccessToken,
 } from '../oauth'
 
 describe('calendar OAuth helpers', () => {
@@ -69,6 +70,35 @@ describe('calendar OAuth helpers', () => {
       'https://oauth2.googleapis.com/token',
       expect.objectContaining({ method: 'POST' })
     )
+  })
+
+  it('rejects malformed successful token exchange responses', async () => {
+    process.env.GOOGLE_CALENDAR_CLIENT_ID = 'google-client'
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET = 'google-secret'
+    const fetchImpl = vi.fn(async () => new Response('not json', { status: 200 }))
+
+    await expect(
+      exchangeCalendarAuthorizationCode({
+        provider: 'google',
+        code: 'code',
+        redirectUri: 'http://localhost/callback',
+        fetchImpl: fetchImpl as typeof fetch,
+      })
+    ).rejects.toThrow('Calendar token exchange returned malformed JSON')
+  })
+
+  it('rejects malformed successful token refresh responses', async () => {
+    process.env.GOOGLE_CALENDAR_CLIENT_ID = 'google-client'
+    process.env.GOOGLE_CALENDAR_CLIENT_SECRET = 'google-secret'
+    const fetchImpl = vi.fn(async () => new Response('not json', { status: 200 }))
+
+    await expect(
+      refreshCalendarAccessToken({
+        provider: 'google',
+        refreshToken: 'refresh-token',
+        fetchImpl: fetchImpl as typeof fetch,
+      })
+    ).rejects.toThrow('Calendar token refresh returned malformed JSON')
   })
 
   it('uses provider HTTP fallback errors for malformed identity responses', async () => {
