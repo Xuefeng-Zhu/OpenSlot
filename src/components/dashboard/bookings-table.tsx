@@ -2,7 +2,6 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import type { Booking, BookingCategory } from "@/lib/booking-utils";
 import {
   formatBookingDateTime,
@@ -55,17 +54,7 @@ export function BookingsTable({
                 return (
                   <tr
                     key={booking.id}
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30 focus:outline-none focus-visible:bg-accent/70"
-                    onClick={() => onBookingClick(booking)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onBookingClick(booking);
-                      }
-                    }}
-                    aria-label={`View booking with ${booking.guest_name}`}
+                    className="border-b border-border last:border-0 hover:bg-muted/30"
                   >
                     <td className="p-3">
                       <div>
@@ -85,20 +74,18 @@ export function BookingsTable({
                       </div>
                     </td>
                     <td className="p-3">
-                      <Badge
-                        variant={
-                          category === "upcoming"
-                            ? "success"
-                            : category === "cancelled"
-                              ? "danger"
-                              : "secondary"
-                        }
-                      >
+                      <Badge variant={statusBadgeVariant(category)}>
                         {getBookingStatusLabel(category)}
                       </Badge>
                     </td>
                     <td className="p-3">
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onBookingClick(booking)}
+                        aria-label={`View booking with ${booking.guest_name}`}
+                      >
                         View
                       </Button>
                     </td>
@@ -118,49 +105,49 @@ export function BookingsTable({
           );
           const { time: endTime } = formatBookingDateTime(booking.end_at);
           return (
-            <Card
+            <button
               key={booking.id}
-              className="cursor-pointer hover:border-primary/50 transition-colors"
+              type="button"
+              className="block w-full rounded-lg border border-border bg-card p-4 text-left shadow-sm transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               onClick={() => onBookingClick(booking)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onBookingClick(booking);
-                }
-              }}
               aria-label={`View booking with ${booking.guest_name}`}
             >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium truncate">{booking.guest_name}</p>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {booking.event_type_title}
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {date} · {startTime} – {endTime}
-                    </p>
-                  </div>
-                  <Badge
-                    variant={
-                      category === "upcoming"
-                        ? "success"
-                        : category === "cancelled"
-                          ? "danger"
-                          : "secondary"
-                    }
-                    className="ml-2 shrink-0"
-                  >
-                    {getBookingStatusLabel(category)}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
+              <span className="flex items-start justify-between">
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">
+                    {booking.guest_name}
+                  </span>
+                  <span className="block truncate text-sm text-muted-foreground">
+                    {booking.event_type_title}
+                  </span>
+                  <span className="mt-1 block text-sm text-muted-foreground">
+                    {date} · {startTime} – {endTime}
+                  </span>
+                </span>
+                <span
+                  className={`ml-2 inline-flex shrink-0 items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${mobileStatusBadgeClass(
+                    category
+                  )}`}
+                >
+                  {getBookingStatusLabel(category)}
+                </span>
+              </span>
+            </button>
           );
         })}
       </div>
     </>
   );
+}
+
+function statusBadgeVariant(category: BookingCategory): "success" | "danger" | "secondary" {
+  if (category === "upcoming") return "success";
+  if (category === "cancelled") return "danger";
+  return "secondary";
+}
+
+function mobileStatusBadgeClass(category: BookingCategory) {
+  if (category === "upcoming") return "border-transparent bg-success text-success-foreground";
+  if (category === "cancelled") return "border-transparent bg-destructive text-destructive-foreground";
+  return "border-transparent bg-muted text-muted-foreground";
 }
