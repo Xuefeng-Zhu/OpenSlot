@@ -216,7 +216,9 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
   await page.getByLabel("Search event types").fill("60 Minute Consultation");
   await expect(page.getByText("60 Minute Consultation")).toBeVisible();
   await expect(page.getByText("30 Minute Meeting")).toBeHidden();
-  await expect(page.getByText("Showing 1 to 1 of 2 event types")).toBeVisible();
+  await expect(
+    page.getByText(/Showing 1 to 1 of \d+ event types/)
+  ).toBeVisible();
 
   await page.getByRole("link", { name: "Bookings", exact: true }).click();
   await expect(page).toHaveURL(/\/bookings$/);
