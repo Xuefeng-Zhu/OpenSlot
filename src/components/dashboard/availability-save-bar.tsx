@@ -15,7 +15,10 @@ export function AvailabilitySaveBar({
   onDiscard,
   onSave,
 }: AvailabilitySaveBarProps) {
-  const saveDisabled = isSaving || Boolean(saveBlockedReason)
+  const visibleSaveBlockedReason = saveBlockedReason?.trim()
+    ? saveBlockedReason
+    : undefined
+  const saveDisabled = isSaving || Boolean(visibleSaveBlockedReason)
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 flex flex-col gap-3 border-t border-border bg-card px-4 py-3 shadow-lg sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -29,7 +32,7 @@ export function AvailabilitySaveBar({
             You have unsaved changes.
           </span>{" "}
           <span className="text-muted-foreground">
-            {saveBlockedReason ?? "Save before leaving this page."}
+            {visibleSaveBlockedReason ?? "Save before leaving this page."}
           </span>
         </div>
       </div>
