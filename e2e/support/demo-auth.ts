@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { BackendPorts } from "@/lib/backend/ports";
+import type { BackendPorts, BackendSession } from "@/lib/backend/ports";
 import { demoHost, setRuntimeDemoHost } from "../demo-data";
 import type { E2EAdminClient } from "./db/types";
 
@@ -9,13 +9,25 @@ interface DemoAuthCredentials {
   password: string;
 }
 
+export interface DemoAuthSessionSetup {
+  userId: string;
+  session: BackendSession;
+}
+
 export async function ensureDemoAuthUser(
   backend: BackendPorts,
   adminClient: E2EAdminClient
 ): Promise<string> {
+  return (await ensureDemoAuthSession(backend, adminClient)).userId;
+}
+
+export async function ensureDemoAuthSession(
+  backend: BackendPorts,
+  adminClient: E2EAdminClient
+): Promise<DemoAuthSessionSetup> {
   const signin = await signInDemoHost(backend);
   if (!signin.error) {
-    return signin.data.user.id;
+    return authSessionSetup(signin.data);
   }
 
   if (isAuthRateLimitError(signin.error.message)) {
@@ -64,7 +76,7 @@ async function repairExistingDemoAuthUser(
   adminClient: E2EAdminClient,
   backend: BackendPorts,
   originalError: string
-): Promise<string | null> {
+): Promise<DemoAuthSessionSetup | null> {
   const candidateIds = await findDemoAuthUserIdCandidates(adminClient);
   const repairErrors: string[] = [];
 
@@ -82,7 +94,7 @@ async function repairExistingDemoAuthUser(
 
     const signin = await signInDemoHost(backend);
     if (!signin.error) {
-      return signin.data.user.id;
+      return authSessionSetup(signin.data);
     }
 
     repairErrors.push(`${userId}: sign-in failed: ${signin.error.message}`);
@@ -93,15 +105,15 @@ async function repairExistingDemoAuthUser(
     backend,
     candidateIds
   );
-  if (recreateResult.userId) {
-    return recreateResult.userId;
+  if (recreateResult.setup) {
+    return recreateResult.setup;
   }
 
   repairErrors.push(...recreateResult.errors);
 
   const replacementResult = await createReplacementDemoAuthUser(backend);
-  if (replacementResult.userId) {
-    return replacementResult.userId;
+  if (replacementResult.setup) {
+    return replacementResult.setup;
   }
 
   repairErrors.push(replacementResult.error);
@@ -119,11 +131,11 @@ async function recreateDemoAuthUser(
   adminClient: E2EAdminClient,
   backend: BackendPorts,
   candidateIds: string[]
-): Promise<{ userId: string | null; errors: string[] }> {
+): Promise<{ setup: DemoAuthSessionSetup | null; errors: string[] }> {
   const deleteUser = adminClient.auth.admin?.deleteUser;
   if (!deleteUser) {
     return {
-      userId: null,
+      setup: null,
       errors: ["admin auth deletion is unavailable"],
     };
   }
@@ -142,7 +154,7 @@ async function recreateDemoAuthUser(
       if (signup.data.id) {
         const signin = await signInDemoHost(backend);
         if (!signin.error) {
-          return { userId: signin.data.user.id, errors };
+          return { setup: authSessionSetup(signin.data), errors };
         }
 
         errors.push(
@@ -160,12 +172,12 @@ async function recreateDemoAuthUser(
     errors.push(`${userId}: recreate failed: ${signup.error.message}`);
   }
 
-  return { userId: null, errors };
+  return { setup: null, errors };
 }
 
 async function createReplacementDemoAuthUser(
   backend: BackendPorts
-): Promise<{ userId: string | null; error: string }> {
+): Promise<{ setup: DemoAuthSessionSetup | null; error: string }> {
   const credentials = {
     email: `demo.e2e.${Date.now()}.${randomUUID().slice(0, 8)}@openslot.dev`,
     password:
@@ -181,14 +193,14 @@ async function createReplacementDemoAuthUser(
 
   if (signup.error) {
     return {
-      userId: null,
+      setup: null,
       error: `replacement signup failed: ${signup.error.message}`,
     };
   }
 
   if (!signup.data.id) {
     return {
-      userId: null,
+      setup: null,
       error: "replacement signup failed: signup did not return an auth user id",
     };
   }
@@ -196,7 +208,7 @@ async function createReplacementDemoAuthUser(
   const verified = await signInWithCredentials(backend, credentials);
   if (verified.error) {
     return {
-      userId: null,
+      setup: null,
       error: `replacement verification failed: ${verified.error.message}`,
     };
   }
@@ -209,7 +221,7 @@ async function createReplacementDemoAuthUser(
 
   setRuntimeDemoHost(runtimeCredentials);
 
-  return { userId: verified.data.user.id, error: "" };
+  return { setup: authSessionSetup(verified.data), error: "" };
 }
 
 async function findDemoAuthUserIdCandidates(
@@ -245,4 +257,11 @@ async function findDemoAuthUserIdCandidates(
 
 function isAuthRateLimitError(message: string) {
   return /rate limit/i.test(message);
+}
+
+function authSessionSetup(session: BackendSession): DemoAuthSessionSetup {
+  return {
+    userId: session.user.id,
+    session,
+  };
 }
