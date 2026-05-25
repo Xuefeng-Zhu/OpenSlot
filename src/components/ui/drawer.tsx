@@ -15,6 +15,22 @@ interface DrawerProps {
 
 const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
   ({ open, onClose, children, className, title }, ref) => {
+    const panelRef = React.useRef<HTMLDivElement | null>(null);
+    const previouslyFocusedElementRef = React.useRef<HTMLElement | null>(null);
+
+    const setPanelRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        panelRef.current = node;
+
+        if (typeof ref === "function") {
+          ref(node);
+        } else if (ref) {
+          (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
+        }
+      },
+      [ref]
+    );
+
     // Handle Escape key to close
     React.useEffect(() => {
       if (!open) return;
@@ -29,6 +45,26 @@ const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
       return () => document.removeEventListener("keydown", handleKeyDown);
     }, [open, onClose]);
 
+    // Move focus into the modal drawer and restore it when the drawer closes.
+    React.useEffect(() => {
+      if (!open) return;
+
+      previouslyFocusedElementRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+
+      const focusTimer = window.setTimeout(() => {
+        panelRef.current?.focus();
+      }, 0);
+
+      return () => {
+        window.clearTimeout(focusTimer);
+        previouslyFocusedElementRef.current?.focus();
+        previouslyFocusedElementRef.current = null;
+      };
+    }, [open]);
+
     // Prevent body scroll when drawer is open
     React.useEffect(() => {
       if (open) {
@@ -40,6 +76,40 @@ const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
         document.body.style.overflow = "";
       };
     }, [open]);
+
+    const handlePanelKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+      if (event.key !== "Tab") return;
+
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      const focusableElements = getFocusableElements(panel);
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+
+      if (activeElement === panel) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          lastElement.focus();
+        } else {
+          firstElement.focus();
+        }
+      } else if (event.shiftKey && activeElement === firstElement) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
 
     if (!open) return null;
 
@@ -53,10 +123,12 @@ const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
         />
         {/* Drawer panel */}
         <div
-          ref={ref}
+          ref={setPanelRef}
           role="dialog"
           aria-modal="true"
           aria-label={title}
+          tabIndex={-1}
+          onKeyDown={handlePanelKeyDown}
           className={cn(
             "fixed right-0 top-0 h-full w-full max-w-md border-l border-border rounded-l-lg shadow-lg bg-card animate-slide-in-right",
             "flex flex-col",
@@ -65,6 +137,7 @@ const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
         >
           {/* Close button */}
           <button
+            type="button"
             onClick={onClose}
             className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           >
@@ -78,6 +151,25 @@ const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
   }
 );
 Drawer.displayName = "Drawer";
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(
+      [
+        'a[href]',
+        'button:not([disabled])',
+        'textarea:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(',')
+    )
+  ).filter(
+    (element) =>
+      !element.hasAttribute("disabled") &&
+      element.getAttribute("aria-hidden") !== "true"
+  );
+}
 
 const DrawerHeader = ({
   className,
