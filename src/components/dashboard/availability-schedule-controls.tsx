@@ -1,42 +1,25 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  Check,
-  ChevronDown,
-  Copy,
-  Edit3,
-  MoreVertical,
-  Plus,
-  Trash2,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  CreateScheduleDialog,
+  DeleteScheduleDialog,
+  DuplicateScheduleDialog,
+  RenameScheduleDialog,
+} from "@/components/dashboard/availability-schedule-dialogs"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+  AssignedEventTypesMenu,
+  ScheduleActionsMenu,
+  SchedulePickerMenu,
+} from "@/components/dashboard/availability-schedule-menus"
 import { useToast } from "@/components/ui/use-toast"
 import {
   errorToastDescription,
   requestJson,
 } from "@/components/dashboard/request-json"
 import type { AvailabilitySchedule } from "@/components/dashboard/availability-model"
+import { getScheduleDisplayName } from "@/components/dashboard/availability-schedule-controls-utils"
 
 interface AvailabilityScheduleControlsProps {
   schedules: AvailabilitySchedule[]
@@ -326,331 +309,69 @@ export function AvailabilityScheduleControls({
               <p className="text-sm font-semibold text-muted-foreground">
                 Schedule
               </p>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-label="Active schedule"
-                    className="h-auto max-w-full justify-start gap-2 px-0 py-0 text-left text-2xl font-semibold leading-tight text-primary hover:bg-transparent hover:text-primary"
-                  >
-                    <span className="min-w-0 truncate">
-                      {getScheduleLabel(selectedSchedule)}
-                    </span>
-                    <ChevronDown
-                      className="h-5 w-5 shrink-0"
-                      aria-hidden="true"
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  align="start"
-                  className="w-[min(22rem,calc(100vw-2rem))] p-0"
-                >
-                  <DropdownMenuLabel className="px-4 py-3 text-xs font-semibold uppercase text-muted-foreground">
-                    Availability schedules
-                  </DropdownMenuLabel>
-                  <div className="max-h-72 overflow-y-auto py-1">
-                    {schedules.map((schedule) => {
-                      const isSelected = schedule.id === selectedScheduleId
-
-                      return (
-                        <DropdownMenuItem
-                          key={schedule.id}
-                          onSelect={() => handleScheduleChange(schedule.id)}
-                          className="flex items-center justify-between gap-3 px-4 py-3"
-                        >
-                          <span className="min-w-0 truncate">
-                            {getScheduleLabel(schedule)}
-                          </span>
-                          {isSelected ? (
-                            <Check
-                              className="h-4 w-4 shrink-0 text-primary"
-                              aria-hidden="true"
-                            />
-                          ) : null}
-                        </DropdownMenuItem>
-                      )
-                    })}
-                  </div>
-                  <DropdownMenuSeparator className="m-0" />
-                  <DropdownMenuItem
-                    onSelect={() => {
-                      handleCreateDialogOpenChange(true)
-                    }}
-                    className="gap-2 px-4 py-3"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" />
-                    Create schedule
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <SchedulePickerMenu
+                schedules={schedules}
+                selectedSchedule={selectedSchedule}
+                selectedScheduleId={selectedScheduleId}
+                onScheduleChange={handleScheduleChange}
+                onCreateSchedule={() => handleCreateDialogOpenChange(true)}
+              />
             </div>
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-auto justify-start gap-1.5 px-0 py-0 text-base hover:bg-transparent"
-                >
-                  <span className="font-semibold text-foreground">
-                    Active on:
-                  </span>
-                  <span className="font-semibold text-primary">
-                    {getEventTypeCountLabel(assignedEventTypeCount)}
-                  </span>
-                  <ChevronDown
-                    className="h-4 w-4 text-primary"
-                    aria-hidden="true"
-                  />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="start"
-                className="w-[min(20rem,calc(100vw-2rem))]"
-              >
-                <DropdownMenuLabel>Assigned event types</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {assignedEventTypes.length > 0 ? (
-                  assignedEventTypes.map((eventType) => (
-                    <DropdownMenuItem key={eventType.id} asChild>
-                      <Link
-                        href={`/event-types/${eventType.id}/edit`}
-                        className="flex w-full flex-col items-start gap-0.5"
-                      >
-                        <span className="font-medium">{eventType.title}</span>
-                        <span className="text-xs text-muted-foreground">
-                          /{eventType.slug}
-                        </span>
-                      </Link>
-                    </DropdownMenuItem>
-                  ))
-                ) : (
-                  <div className="px-2 py-3 text-sm text-muted-foreground">
-                    No event types use this schedule.
-                  </div>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <AssignedEventTypesMenu
+              assignedEventTypes={assignedEventTypes}
+              assignedEventTypeCount={assignedEventTypeCount}
+            />
           </div>
 
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label="Schedule actions"
-                className="h-9 w-9 rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <MoreVertical className="h-5 w-5" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52">
-              {!selectedSchedule?.is_default ? (
-                <>
-                  <DropdownMenuItem
-                    onSelect={() => void handleSetDefaultSchedule()}
-                    disabled={isSavingSchedule || !selectedSchedule}
-                    className="gap-2"
-                  >
-                    <Check className="h-4 w-4" aria-hidden="true" />
-                    Set as default
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                </>
-              ) : null}
-              <DropdownMenuItem
-                onSelect={() => handleRenameDialogOpenChange(true)}
-                disabled={isSavingSchedule || !selectedSchedule}
-                className="gap-2"
-              >
-                <Edit3 className="h-4 w-4" aria-hidden="true" />
-                Rename
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onSelect={() => handleDuplicateDialogOpenChange(true)}
-                disabled={isSavingSchedule || !selectedSchedule}
-                className="gap-2"
-              >
-                <Copy className="h-4 w-4" aria-hidden="true" />
-                Duplicate
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onSelect={() => setDeleteDialogOpen(true)}
-                disabled={isSavingSchedule || !selectedSchedule}
-                className="gap-2 text-destructive focus:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" aria-hidden="true" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ScheduleActionsMenu
+            selectedSchedule={selectedSchedule}
+            isSavingSchedule={isSavingSchedule}
+            onSetDefaultSchedule={handleSetDefaultSchedule}
+            onRenameSchedule={() => handleRenameDialogOpenChange(true)}
+            onDuplicateSchedule={() => handleDuplicateDialogOpenChange(true)}
+            onDeleteSchedule={() => setDeleteDialogOpen(true)}
+          />
         </div>
       </section>
 
-      <Dialog open={createDialogOpen} onOpenChange={handleCreateDialogOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create schedule</DialogTitle>
-            <DialogDescription>
-              Add a named schedule that can be assigned to event types.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="new-schedule-name">New schedule</Label>
-            <Input
-              id="new-schedule-name"
-              placeholder="e.g. Sales calls"
-              value={newScheduleName}
-              onChange={(event) => setNewScheduleName(event.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleCreateDialogOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleCreateSchedule}
-              disabled={isSavingSchedule || !newScheduleName.trim()}
-            >
-              Create schedule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <CreateScheduleDialog
+        open={createDialogOpen}
+        name={newScheduleName}
+        isSavingSchedule={isSavingSchedule}
+        onOpenChange={handleCreateDialogOpenChange}
+        onNameChange={setNewScheduleName}
+        onSubmit={handleCreateSchedule}
+      />
 
-      <Dialog open={renameDialogOpen} onOpenChange={handleRenameDialogOpenChange}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename schedule</DialogTitle>
-            <DialogDescription>
-              Update the display name for this availability schedule.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="schedule-name">Schedule name</Label>
-            <Input
-              id="schedule-name"
-              value={renameScheduleName}
-              onChange={(event) => setRenameScheduleName(event.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleRenameDialogOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleRenameSchedule}
-              disabled={
-                isSavingSchedule ||
-                !renameScheduleName.trim() ||
-                renameScheduleName.trim() === selectedSchedule?.name
-              }
-            >
-              Rename
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RenameScheduleDialog
+        open={renameDialogOpen}
+        name={renameScheduleName}
+        originalName={selectedSchedule?.name}
+        isSavingSchedule={isSavingSchedule}
+        onOpenChange={handleRenameDialogOpenChange}
+        onNameChange={setRenameScheduleName}
+        onSubmit={handleRenameSchedule}
+      />
 
-      <Dialog
+      <DuplicateScheduleDialog
         open={duplicateDialogOpen}
+        name={duplicateScheduleName}
+        isSavingSchedule={isSavingSchedule}
         onOpenChange={handleDuplicateDialogOpenChange}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Duplicate schedule</DialogTitle>
-            <DialogDescription>
-              Copy weekly hours and date-specific hours into a new schedule.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="duplicate-schedule-name">Schedule name</Label>
-            <Input
-              id="duplicate-schedule-name"
-              value={duplicateScheduleName}
-              onChange={(event) => setDuplicateScheduleName(event.target.value)}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleDuplicateDialogOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={handleDuplicateSchedule}
-              disabled={isSavingSchedule || !duplicateScheduleName.trim()}
-            >
-              Duplicate
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onNameChange={setDuplicateScheduleName}
+        onSubmit={handleDuplicateSchedule}
+      />
 
-      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete schedule</DialogTitle>
-            <DialogDescription>
-              {deleteBlockedReason ??
-                `Delete "${selectedSchedule?.name}"? This cannot be undone.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleDeleteSchedule}
-              disabled={isSavingSchedule || !canDeleteSelectedSchedule}
-            >
-              Delete schedule
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <DeleteScheduleDialog
+        open={deleteDialogOpen}
+        scheduleName={selectedSchedule?.name}
+        deleteBlockedReason={deleteBlockedReason}
+        isSavingSchedule={isSavingSchedule}
+        canDeleteSelectedSchedule={canDeleteSelectedSchedule}
+        onOpenChange={setDeleteDialogOpen}
+        onSubmit={handleDeleteSchedule}
+      />
     </>
   )
-}
-
-function getScheduleDisplayName(schedule: AvailabilitySchedule | undefined) {
-  if (!schedule) return "Schedule"
-  if (schedule.is_default && schedule.name === "Default schedule") {
-    return "Working hours"
-  }
-
-  return schedule.name
-}
-
-function getScheduleLabel(schedule: AvailabilitySchedule | undefined) {
-  if (!schedule) return "Schedule"
-  const name = getScheduleDisplayName(schedule)
-  return schedule.is_default ? `${name} (default)` : name
-}
-
-function getEventTypeCountLabel(count: number) {
-  return `${count} event type${count === 1 ? "" : "s"}`
 }
