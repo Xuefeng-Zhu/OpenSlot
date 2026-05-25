@@ -95,7 +95,14 @@ const Drawer = React.forwardRef<HTMLDivElement, DrawerProps>(
       const lastElement = focusableElements[focusableElements.length - 1];
       const activeElement = document.activeElement;
 
-      if (event.shiftKey && activeElement === firstElement) {
+      if (activeElement === panel) {
+        event.preventDefault();
+        if (event.shiftKey) {
+          lastElement.focus();
+        } else {
+          firstElement.focus();
+        }
+      } else if (event.shiftKey && activeElement === firstElement) {
         event.preventDefault();
         lastElement.focus();
       } else if (!event.shiftKey && activeElement === lastElement) {

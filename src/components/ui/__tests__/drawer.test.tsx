@@ -66,6 +66,16 @@ describe('Drawer', () => {
 
     expect(document.activeElement).toBe(closeButton)
 
+    dialog.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+
+    expect(document.activeElement).toBe(closeButton)
+
+    dialog.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
+
+    expect(document.activeElement).toBe(lastButton)
+
     closeButton.focus()
     fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true })
 
