@@ -95,6 +95,14 @@ function requestWithJson(body: unknown) {
   } as Request
 }
 
+function requestWithMalformedJson() {
+  return new Request('http://localhost/api/settings', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{',
+  })
+}
+
 describe('PATCH /api/settings', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
@@ -156,6 +164,19 @@ describe('PATCH /api/settings', () => {
     expect(response.status).toBe(400)
     expect(data.success).toBe(false)
     expect(data.details.timeFormat).toBeDefined()
+  })
+
+  it('returns the shared invalid JSON error for malformed settings bodies', async () => {
+    const response = await PATCH(requestWithMalformedJson() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.profileUpdatePayload).toBeNull()
+    expect(mocks.settingsUpsertPayload).toBeNull()
   })
 })
 
