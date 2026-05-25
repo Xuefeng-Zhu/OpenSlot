@@ -370,7 +370,6 @@ export function SlotPicker({
         setError("Failed to hold slot. Please try again.");
         setSelectedSlot(null);
         setFlowState({ step: "select-slot" });
-        holdIdempotencyKeysRef.current.delete(holdKey);
         return;
       }
 
