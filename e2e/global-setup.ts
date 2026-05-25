@@ -5,7 +5,8 @@ import {
   cleanupEventType,
   cleanupEventTypesBySlug,
 } from "./support/db/cleanup";
-import { ensureDemoAuthUser } from "./support/demo-auth";
+import { saveDemoHostSessionState } from "./support/auth-state";
+import { ensureDemoAuthSession } from "./support/demo-auth";
 import { loadE2EEnv } from "./support/env";
 import type { E2EAdminClient } from "./support/db/types";
 
@@ -22,8 +23,9 @@ export default async function globalSetup() {
     apiKey: env.butterbaseApiKey,
   });
 
-  const demoAuthUserId = await ensureDemoAuthUser(backend, adminClient);
-  const demoProfile = await ensureDemoProfile(adminClient, demoAuthUserId);
+  const demoAuth = await ensureDemoAuthSession(backend, adminClient);
+  saveDemoHostSessionState(demoAuth.session);
+  const demoProfile = await ensureDemoProfile(adminClient, demoAuth.userId);
   await cleanupStaleDemoEventTypes(adminClient, demoProfile.profileId);
   await cleanupEventTypesBySlug(adminClient, [
     "30-minute-meeting",

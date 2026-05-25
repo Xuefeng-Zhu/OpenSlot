@@ -91,7 +91,7 @@ function readRuntimeDemoHost(): Partial<DemoHostConfig> | null {
 function runtimeDemoHostPath() {
   return (
     process.env.E2E_DEMO_HOST_FILE ??
-    path.join(process.cwd(), "test-results", "e2e-demo-host.json")
+    path.join(process.cwd(), ".e2e-auth", "demo-host.json")
   );
 }
 

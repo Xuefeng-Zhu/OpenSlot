@@ -36,7 +36,7 @@ run, Playwright verifies the demo host password through the real Butterbase Auth
 password flow. If the fixed demo auth user is stale and the configured
 Butterbase app supports auth-user admin functions, setup refreshes or recreates
 that auth user. If those admin functions are not available, setup provisions a
-disposable runtime demo login, stores it under the gitignored `test-results/`
+disposable runtime demo login, stores it under the gitignored `.e2e-auth/`
 directory, and keeps the public `/demo` profile, default schedule, and weekday
 availability aligned with that auth user.
 
@@ -45,7 +45,9 @@ Override the login used by browser specs with `E2E_DEMO_HOST_EMAIL`,
 test app already has known seeded credentials. The legacy aliases
 `E2E_DEMO_EMAIL` and `E2E_DEMO_PASSWORD` are still honored. Set
 `E2E_DEMO_HOST_FILE` to change where the disposable runtime login is cached;
-the default is `test-results/e2e-demo-host.json`.
+the default is `.e2e-auth/demo-host.json`. Set `E2E_DEMO_AUTH_STATE_FILE` to
+change where the reusable browser session is cached; the default is
+`.e2e-auth/demo-auth-state.json`.
 
 The CI `Dashboard E2E` job installs Chromium and runs `npm run test:e2e` when
 the Butterbase app id and service key are configured for the repository. If
