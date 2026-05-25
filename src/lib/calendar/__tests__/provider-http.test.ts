@@ -23,6 +23,14 @@ describe('calendar provider HTTP helpers', () => {
     })
   })
 
+  it('rejects successful responses when the provider body cannot be parsed', async () => {
+    const response = new Response('not json', { status: 200 })
+
+    await expect(parseProviderJson(response)).rejects.toThrow(
+      'Provider returned malformed JSON'
+    )
+  })
+
   it('uses provider error messages before generic HTTP fallback text', async () => {
     const response = new Response(
       JSON.stringify({ error: { message: 'Calendar API rejected the request' } }),
