@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
 import { createAdminBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import { webhookEndpointSchema } from '@/lib/validations/webhooks'
 import {
   listWebhookEndpointSummaries,
@@ -57,17 +58,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let body: unknown
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON body' },
-        { status: 400 }
-      )
-    }
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
 
-    const parsed = webhookEndpointSchema.safeParse(body)
+    const parsed = webhookEndpointSchema.safeParse(body.body)
 
     if (!parsed.success) {
       return NextResponse.json(
