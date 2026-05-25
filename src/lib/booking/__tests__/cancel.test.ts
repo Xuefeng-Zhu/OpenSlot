@@ -295,7 +295,7 @@ describe('cancelBooking', () => {
     consoleWarn.mockRestore()
   })
 
-  it('does not replay side effects when an inconclusive cancel response already changed booking status', async () => {
+  it('records side effects when an inconclusive cancel response already changed booking status with the requested reason', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockClient.rpc = vi.fn().mockResolvedValue({
       data: null,
@@ -312,6 +312,60 @@ describe('cancelBooking', () => {
       data: {
         ...confirmedBooking,
         cancel_reason: validInput.cancelReason,
+        status: 'cancelled',
+      },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventType: 'booking.cancelled',
+      actorType: 'guest',
+      payload: {
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+        cancelReasonProvided: true,
+      },
+    })
+    expect(touchContactForBookingEvent).toHaveBeenCalledWith(mockClient, {
+      hostUserId: 'host-user-1',
+      guestEmail: 'jane@example.com',
+    })
+    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+      cancelReasonProvided: true,
+    })
+    consoleWarn.mockRestore()
+  })
+
+  it('does not replay side effects when inconclusive cancellation reconciliation finds a different cancellation', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        cancel_reason: 'Cancelled by another request',
         status: 'cancelled',
       },
       error: null,

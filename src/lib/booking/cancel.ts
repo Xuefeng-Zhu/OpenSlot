@@ -86,6 +86,15 @@ export async function cancelBooking(
         return { success: false, error: 'Booking has already been cancelled' }
       }
 
+      if (cancellationReasonMatchesRequest(refreshedBooking, cancelReason)) {
+        await recordCancellationSideEffects(
+          adminClient,
+          refreshedBooking,
+          actor,
+          cancelReason
+        )
+      }
+
       return { success: true }
     }
 
@@ -141,6 +150,13 @@ async function loadBookingByCancellationToken(
   if (error || !data) return null
 
   return data as Tables<'bookings'>
+}
+
+function cancellationReasonMatchesRequest(
+  booking: Tables<'bookings'>,
+  cancelReason?: string
+) {
+  return (booking.cancel_reason ?? null) === (cancelReason ?? null)
 }
 
 type CancelFunctionResult =
