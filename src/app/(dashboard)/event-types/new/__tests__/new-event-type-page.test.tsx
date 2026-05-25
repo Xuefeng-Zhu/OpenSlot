@@ -1,8 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventTypeEditor } from "../../event-type-editor";
 
 const push = vi.fn();
+const refresh = vi.fn();
 const schedules = [
   {
     id: "33333333-3333-4333-8333-333333333333",
@@ -12,7 +13,7 @@ const schedules = [
 ];
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, refresh }),
 }));
 
 const hostProfile = {
@@ -22,9 +23,38 @@ const hostProfile = {
   avatar_url: null,
 };
 
+async function fillMinimalValidEventType() {
+  fireEvent.change(screen.getByLabelText("Title"), {
+    target: { value: "QA Coffee Chat" },
+  });
+  fireEvent.change(screen.getByLabelText("URL Slug"), {
+    target: { value: "qa-coffee-chat" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: /Location/ }));
+  fireEvent.change(screen.getByLabelText("Location type"), {
+    target: { value: "custom" },
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText("Location type")).toHaveProperty(
+      "value",
+      "custom"
+    )
+  );
+  fireEvent.change(screen.getByLabelText("Location details"), {
+    target: { value: "https://meet.example/qa-coffee-chat" },
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText("Location details")).toHaveProperty(
+      "value",
+      "https://meet.example/qa-coffee-chat"
+    )
+  );
+}
+
 describe("NewEventTypePage editor", () => {
   beforeEach(() => {
     push.mockClear();
+    refresh.mockClear();
   });
 
   afterEach(() => {
@@ -89,7 +119,7 @@ describe("NewEventTypePage editor", () => {
     expect(screen.getByText("Required")).toBeDefined();
   });
 
-  it("validates reminder recipient controls", () => {
+  it("validates reminder recipient controls", async () => {
     render(
       <EventTypeEditor
         mode="create"
@@ -109,12 +139,7 @@ describe("NewEventTypePage editor", () => {
       screen.getByRole("switch", { name: "Email host reminders" })
     );
 
-    fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "QA Coffee Chat" },
-    });
-    fireEvent.change(screen.getByLabelText("URL Slug"), {
-      target: { value: "qa-coffee-chat" },
-    });
+    await fillMinimalValidEventType();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(
@@ -135,7 +160,7 @@ describe("NewEventTypePage editor", () => {
     ).toBe("reminder-recipient-error");
   });
 
-  it("reopens collapsed sections that contain validation errors", () => {
+  it("reopens collapsed sections that contain validation errors", async () => {
     render(
       <EventTypeEditor
         mode="create"
@@ -165,12 +190,7 @@ describe("NewEventTypePage editor", () => {
       screen.queryByText("Select at least one reminder recipient")
     ).toBeNull();
 
-    fireEvent.change(screen.getByLabelText("Title"), {
-      target: { value: "QA Coffee Chat" },
-    });
-    fireEvent.change(screen.getByLabelText("URL Slug"), {
-      target: { value: "qa-coffee-chat" },
-    });
+    await fillMinimalValidEventType();
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(remindersSection.getAttribute("aria-expanded")).toBe("true");
@@ -221,5 +241,67 @@ describe("NewEventTypePage editor", () => {
 
     expect(screen.getByText("QA Coffee Chat")).toBeDefined();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("submits a valid event type and refreshes the event type list", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ success: true }), {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
+
+    await fillMinimalValidEventType();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/event-types",
+        expect.objectContaining({ method: "POST" })
+      )
+    );
+
+    const requestInit = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(requestInit.body))).toMatchObject({
+      title: "QA Coffee Chat",
+      slug: "qa-coffee-chat",
+      schedule_id: schedules[0].id,
+      location_value: "https://meet.example/qa-coffee-chat",
+    });
+    expect(push).toHaveBeenCalledWith("/event-types");
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("shows the save fallback when the API returns a non-JSON error", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("server unavailable", { status: 500 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
+
+    await fillMinimalValidEventType();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText("Failed to save event type.")).toBeDefined();
+    expect(push).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
   });
 });
