@@ -26,11 +26,15 @@ export async function POST(request: NextRequest) {
     return authError('We could not sign you in.', result.error.status ?? 401)
   }
 
-  await ensureProfileForAuthUser({
+  const profileSync = await ensureProfileForAuthUser({
     authUserId: result.data.user.id,
     email: result.data.user.email,
     displayName: result.data.user.displayName,
   })
+
+  if (!profileSync.ok) {
+    return authError(profileSync.error, 500)
+  }
 
   return sessionResponse(result.data, keepSignedIn)
 }

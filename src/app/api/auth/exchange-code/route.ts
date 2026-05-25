@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     return authError('Unable to exchange auth code.', result.error?.status ?? 400)
   }
 
-  await ensureProfileForAuthUser({
+  const profileSync = await ensureProfileForAuthUser({
     authUserId: result.data.user.id,
     email: result.data.user.email,
     displayName:
@@ -33,6 +33,10 @@ export async function POST(request: NextRequest) {
         ? result.data.user.user_metadata.full_name
         : null,
   })
+
+  if (!profileSync.ok) {
+    return authError(profileSync.error, 500)
+  }
 
   const response = authJson({
     success: true,

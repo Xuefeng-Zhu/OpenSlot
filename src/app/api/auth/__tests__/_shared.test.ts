@@ -4,6 +4,7 @@ import { ensureProfileForAuthUser } from '../_shared'
 const mocks = vi.hoisted(() => ({
   profileUpsertPayload: null as Record<string, unknown> | null,
   profileUpsertOptions: null as Record<string, unknown> | null,
+  profileUpsertError: null as { message: string } | null,
 }))
 
 vi.mock('@/lib/backend/server', () => ({
@@ -20,7 +21,7 @@ vi.mock('@/lib/backend/server', () => ({
         ) => {
           mocks.profileUpsertPayload = payload
           mocks.profileUpsertOptions = options
-          return Promise.resolve({ data: null, error: null })
+          return Promise.resolve({ data: null, error: mocks.profileUpsertError })
         },
       }
     },
@@ -34,6 +35,7 @@ describe('ensureProfileForAuthUser', () => {
   beforeEach(() => {
     mocks.profileUpsertPayload = null
     mocks.profileUpsertOptions = null
+    mocks.profileUpsertError = null
   })
 
   it('does not overwrite an existing profile name when auth has no display name', async () => {
@@ -75,5 +77,29 @@ describe('ensureProfileForAuthUser', () => {
       name: 'Sarah Chen',
       updated_at: expect.any(String),
     })
+  })
+
+  it('returns a safe failure when profile synchronization fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined)
+    mocks.profileUpsertError = { message: 'database unavailable' }
+
+    await expect(
+      ensureProfileForAuthUser({
+        authUserId: 'auth-user-1',
+        email: 'host@example.com',
+        displayName: 'Sarah Chen',
+      })
+    ).resolves.toEqual({
+      ok: false,
+      error: 'Unable to prepare your profile. Please try again.',
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      'Error ensuring auth profile:',
+      mocks.profileUpsertError
+    )
+
+    consoleError.mockRestore()
   })
 })

@@ -29,11 +29,15 @@ export async function POST(request: NextRequest) {
     return authError('Unable to create account.', signup.error.status ?? 400)
   }
 
-  await ensureProfileForAuthUser({
+  const profileSync = await ensureProfileForAuthUser({
     authUserId: signup.data.id,
     email: signup.data.email,
     displayName,
   })
+
+  if (!profileSync.ok) {
+    return authError(profileSync.error, 500)
+  }
 
   const signin = await backend.auth.signInWithPassword({ email, password })
   if (signin.error) {
