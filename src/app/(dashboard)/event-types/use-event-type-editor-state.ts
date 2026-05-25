@@ -140,18 +140,19 @@ export function useEventTypeEditorState(
           };
         }
 
+        const nextLocationType = nextValue as EventLocationType;
         return {
           ...prev,
-          location_type: nextValue as EventLocationType,
+          location_type: nextLocationType,
           video_provider: null,
+          location_value:
+            prev.location_type === nextLocationType ? prev.location_value : "",
         };
       });
 
       clearFieldError("location_type");
-      if (isVideoProviderValue(nextValue)) {
-        clearFieldError("video_provider");
-        clearFieldError("location_value");
-      }
+      clearFieldError("video_provider");
+      clearFieldError("location_value");
     },
     [clearFieldError]
   );

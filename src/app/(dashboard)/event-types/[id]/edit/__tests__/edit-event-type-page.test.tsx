@@ -184,4 +184,30 @@ describe("EditEventTypePage editor", () => {
       ).length
     ).toBeGreaterThan(0);
   });
+
+  it("clears stale manual location details when the location type changes", () => {
+    render(
+      <EventTypeEditor
+        mode="edit"
+        hostProfile={hostProfile}
+        schedules={schedules}
+        initialEventType={strategySession}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /Location/ }));
+
+    const locationDetails = screen.getByLabelText(
+      "Location details"
+    ) as HTMLInputElement;
+    expect(locationDetails.value).toBe("https://zoom.us/j/987654");
+
+    fireEvent.change(screen.getByLabelText("Location type"), {
+      target: { value: "phone" },
+    });
+
+    expect(
+      (screen.getByLabelText("Location details") as HTMLInputElement).value
+    ).toBe("");
+  });
 });
