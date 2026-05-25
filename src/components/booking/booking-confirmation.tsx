@@ -135,6 +135,8 @@ export function BookingConfirmation({
               <span className="text-sm text-muted-foreground">Join link</span>
               <a
                 href={conferenceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-right text-sm font-medium text-primary underline-offset-4 hover:underline"
               >
                 Open meeting
