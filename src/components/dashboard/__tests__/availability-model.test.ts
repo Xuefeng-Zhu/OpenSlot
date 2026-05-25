@@ -230,7 +230,7 @@ describe('availability model helpers', () => {
         overrides: [
           {
             id: 'override-saved',
-            date: '2026-06-18',
+            date: '2026-06-18T00:00:00.000Z',
             start_time: '08:15:00',
             end_time: '10:45:00',
             is_available: true,
@@ -250,6 +250,7 @@ describe('availability model helpers', () => {
     })
     expect(normalized.overrides[0]).toMatchObject({
       id: 'override-saved',
+      date: '2026-06-18',
       start_time: '08:15',
       end_time: '10:45',
     })
