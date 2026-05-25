@@ -84,7 +84,10 @@ export function createBrowserBackendClient(options: CreateClientOptions = {}) {
           },
           body: JSON.stringify({ code }),
         })
-        const body = await response.json().catch(() => ({}))
+        const body = await readJsonBody<{
+          success?: boolean
+          session?: BackendCompatSession | null
+        }>(response)
 
         if (!response.ok || body.success === false) {
           return {
@@ -103,7 +106,9 @@ export function createBrowserBackendClient(options: CreateClientOptions = {}) {
           method: 'GET',
           headers: { Accept: 'application/json' },
         })
-        const data = await response.json().catch(() => ({}))
+        const data = await readJsonBody<{ user?: BackendCompatUser | null }>(
+          response
+        )
 
         return {
           data: { user: data.user ?? null },
@@ -115,7 +120,9 @@ export function createBrowserBackendClient(options: CreateClientOptions = {}) {
           method: 'GET',
           headers: { Accept: 'application/json' },
         })
-        const data = await response.json().catch(() => ({}))
+        const data = await readJsonBody<{
+          session?: BackendCompatSession | null
+        }>(response)
 
         return {
           data: { session: data.session ?? null },
@@ -264,7 +271,7 @@ class BrowserQueryBuilder<TData = unknown>
       },
       body: JSON.stringify(this.request),
     })
-    const body = await response.json().catch(() => ({}))
+    const body = await readJsonBody<BackendCompatResponse<TData>>(response)
 
     if (!response.ok) {
       return {
@@ -299,7 +306,7 @@ async function authFetch<TResponse>(
     },
     body: JSON.stringify(body),
   })
-  const data = await response.json().catch(() => ({}))
+  const data = await readJsonBody<TResponse & { success?: boolean }>(response)
 
   if (!response.ok || data.success === false) {
     return {
@@ -309,6 +316,12 @@ async function authFetch<TResponse>(
   }
 
   return { data, error: null }
+}
+
+async function readJsonBody<TResponse = Record<string, unknown>>(
+  response: Response
+): Promise<TResponse> {
+  return (await response.json().catch(() => ({}))) as TResponse
 }
 
 function responseError(body: unknown, status: number): BackendCompatError {
