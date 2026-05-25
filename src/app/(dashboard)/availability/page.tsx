@@ -2,7 +2,7 @@ import { redirect } from "next/navigation"
 import { createServerBackendClient } from "@/lib/backend/server"
 import type { Tables } from "@/lib/types/database"
 import { AvailabilityClient } from "@/components/dashboard/availability-client"
-import { toTimeInputValue } from "@/lib/utils/time"
+import { toDateInputValue, toTimeInputValue } from "@/lib/utils/time"
 
 interface AvailabilityPageProps {
   searchParams?: Promise<{ scheduleId?: string }>
@@ -120,7 +120,7 @@ export default async function AvailabilityPage({
     "id" | "date" | "start_time" | "end_time" | "is_available" | "reason"
   >>) ?? []).map((override) => ({
     id: override.id,
-    date: override.date,
+    date: toDateInputValue(override.date) ?? "",
     start_time: toTimeInputValue(override.start_time),
     end_time: toTimeInputValue(override.end_time),
     is_available: override.is_available,

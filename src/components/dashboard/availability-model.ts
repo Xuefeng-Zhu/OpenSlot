@@ -1,4 +1,4 @@
-import { toTimeInputValue } from "@/lib/utils/time"
+import { toDateInputValue, toTimeInputValue } from "@/lib/utils/time"
 
 export interface AvailabilityRule {
   id: string
@@ -227,7 +227,7 @@ export function normalizeSavedAvailability({
   const overrides = (savedData?.overrides ?? currentOverrides).map(
     (override) => ({
       id: override.id || createTempId(),
-      date: override.date,
+      date: toDateInputValue(override.date) ?? "",
       start_time: toTimeInputValue(override.start_time),
       end_time: toTimeInputValue(override.end_time),
       is_available: override.is_available,
