@@ -28,15 +28,18 @@ const nonEmptyFilterArb = fc.string({ minLength: 1, maxLength: 30 }).filter((s) 
 // Generate an array of bookings
 const bookingsArrayArb = fc.array(baseBookingArb, { minLength: 0, maxLength: 20 })
 
+const normalizeEventTypeFilter = (filter: string) => filter.trim().toLowerCase()
+
 describe('Property 5: Event type filter returns only matching bookings', () => {
   it('filtered result contains ONLY bookings whose title includes the filter (no false positives)', () => {
     fc.assert(
       fc.property(bookingsArrayArb, nonEmptyFilterArb, (bookings, filter) => {
         const result = filterBookingsByEventType(bookings, filter)
+        const normalizedFilter = normalizeEventTypeFilter(filter)
 
-        // Every booking in the result must have a title that includes the filter (case-insensitive)
+        // Every booking in the result must have a title that includes the normalized filter.
         for (const booking of result) {
-          expect(booking.event_type_title.toLowerCase()).toContain(filter.toLowerCase())
+          expect(booking.event_type_title.toLowerCase()).toContain(normalizedFilter)
         }
       }),
       { numRuns: 100 }
@@ -47,10 +50,11 @@ describe('Property 5: Event type filter returns only matching bookings', () => {
     fc.assert(
       fc.property(bookingsArrayArb, nonEmptyFilterArb, (bookings, filter) => {
         const result = filterBookingsByEventType(bookings, filter)
+        const normalizedFilter = normalizeEventTypeFilter(filter)
 
         // Every booking from the original array that matches should be in the result
         const expected = bookings.filter((b) =>
-          b.event_type_title.toLowerCase().includes(filter.toLowerCase())
+          b.event_type_title.toLowerCase().includes(normalizedFilter)
         )
 
         expect(result).toHaveLength(expected.length)
