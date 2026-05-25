@@ -58,7 +58,9 @@ export async function restoreDemoState(
   }
 
   if (snapshot.settings) {
-    const { error } = await adminClient.from("user_settings").upsert(snapshot.settings);
+    const { error } = await adminClient
+      .from("user_settings")
+      .upsert(snapshot.settings, { onConflict: "profile_id" });
 
     if (error) {
       throw new Error(`Could not restore demo settings: ${error.message}`);
