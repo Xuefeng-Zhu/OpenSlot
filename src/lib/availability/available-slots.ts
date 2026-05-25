@@ -536,7 +536,8 @@ async function refreshCalendarAvailabilityForSlotLookup({
         hostUserId,
         rangeStart,
         rangeEnd,
-        fetchImpl
+        fetchImpl,
+        { abortSignal: abortController.signal }
       ),
       SLOT_CALENDAR_REFRESH_TIMEOUT_MS,
       { checked: 1, refreshed: 0, failed: 1 },

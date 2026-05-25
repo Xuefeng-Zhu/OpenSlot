@@ -273,7 +273,8 @@ describe('loadAvailableSlotsForDate', () => {
       hostUserId,
       '2025-01-05T00:00:00.000Z',
       '2025-01-07T23:59:59.999Z',
-      expect.any(Function)
+      expect.any(Function),
+      { abortSignal: expect.any(AbortSignal) }
     )
   })
 
@@ -424,7 +425,8 @@ describe('loadAvailableSlotsForDate', () => {
       hostUserId,
       '2025-01-05T00:00:00.000Z',
       '2025-01-08T23:59:59.999Z',
-      expect.any(Function)
+      expect.any(Function),
+      { abortSignal: expect.any(AbortSignal) }
     )
   })
 })

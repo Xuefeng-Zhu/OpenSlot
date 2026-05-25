@@ -409,6 +409,64 @@ describe('calendar provider event sync', () => {
     expect(connectionUpdates).toEqual([])
   })
 
+  it('does not mark a provider connection unhealthy when an aborted sync throws a wrapped error', async () => {
+    const connectionUpdates: unknown[] = []
+    const abortController = new AbortController()
+    abortController.abort()
+    const connection = {
+      id: 'connection-1',
+      profile_id: 'profile-1',
+      provider: 'google',
+      account_email: 'host@example.com',
+      scopes: [],
+      access_token_encrypted: 'encrypted-access-token',
+      refresh_token_encrypted: null,
+      token_expires_at: '2099-01-01T00:00:00.000Z',
+      status: 'active',
+      metadata: {},
+      connected_at: '2026-06-01T00:00:00.000Z',
+      last_synced_at: null,
+      last_error: null,
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const adminClient = {
+      from: vi.fn((table: string) =>
+        createSyncQuery({
+          table,
+          resultFor: (query) => {
+            if (query.table === 'provider_connections') {
+              if (query.operation === 'update') {
+                connectionUpdates.push(query.payload)
+              }
+
+              return {
+                data: query.operation === 'select' ? connection : null,
+                error: null,
+              }
+            }
+
+            return { data: null, error: null }
+          },
+        })
+      ),
+    }
+    const wrappedAbortError = new Error('Provider returned malformed JSON')
+    const fetchImpl = vi.fn(async () => {
+      throw wrappedAbortError
+    })
+
+    await expect(
+      syncCalendarsForConnection(
+        adminClient as any,
+        'connection-1',
+        fetchImpl as typeof fetch,
+        { abortSignal: abortController.signal }
+      )
+    ).rejects.toBe(wrappedAbortError)
+    expect(connectionUpdates).toEqual([])
+  })
+
   it('skips far-future on-demand availability refresh when the cache is fresh', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-06-01T12:00:00.000Z'))

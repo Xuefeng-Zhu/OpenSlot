@@ -13,6 +13,11 @@ import {
 
 type ProviderConnectionRow = Tables<'provider_connections'>
 type ProviderCalendarRow = Tables<'provider_calendars'>
+type SyncCalendarsOptions = {
+  abortSignal?: AbortSignal
+  windowStart?: string
+  windowEnd?: string
+}
 
 const TOKEN_REFRESH_WINDOW_MS = 5 * 60 * 1000
 const AVAILABILITY_REFRESH_INTERVAL_MS = 5 * 60 * 1000
@@ -190,7 +195,7 @@ export async function syncCalendarsForConnection(
   adminClient: BackendCompatClient<Database>,
   connectionId: string,
   fetchImpl: typeof fetch = fetch,
-  options: { windowStart?: string; windowEnd?: string } = {}
+  options: SyncCalendarsOptions = {}
 ): Promise<{ calendars: number }> {
   const connection = await loadProviderConnection(adminClient, connectionId)
 
@@ -232,7 +237,7 @@ export async function syncCalendarsForConnection(
 
     return { calendars: calendars.length }
   } catch (error) {
-    if (isAbortError(error)) {
+    if (options.abortSignal?.aborted || isAbortError(error)) {
       throw error
     }
 
@@ -261,7 +266,8 @@ export async function refreshCalendarAvailabilityForHost(
   profileId: string,
   rangeStart: string,
   rangeEnd: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  options: { abortSignal?: AbortSignal } = {}
 ): Promise<RefreshCalendarAvailabilityResult> {
   const { data, error } = await adminClient
     .from('provider_connections')
@@ -288,6 +294,7 @@ export async function refreshCalendarAvailabilityForHost(
 
     try {
       await syncCalendarsForConnection(adminClient, connection.id, fetchImpl, {
+        abortSignal: options.abortSignal,
         windowStart: rangeStart,
         windowEnd: rangeEnd,
       })
