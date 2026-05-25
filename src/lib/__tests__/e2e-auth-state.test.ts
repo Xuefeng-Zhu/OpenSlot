@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   hasBackendAuthCookie,
   mergeStoredBackendCookies,
+  readDemoHostBackendSessionTokens,
   readDemoHostAuthState,
   saveDemoHostSessionState,
   writeDemoHostAuthState,
@@ -121,5 +122,19 @@ describe("E2E demo auth state", () => {
         }),
       ])
     );
+  });
+
+  it("reads saved backend session tokens for global setup reuse", () => {
+    saveDemoHostSessionState({
+      accessToken: "cached-access-token",
+      refreshToken: "cached-refresh-token",
+      expiresIn: 3600,
+      user: { id: "auth-user-1", email: "demo@example.com" },
+    });
+
+    expect(readDemoHostBackendSessionTokens()).toEqual({
+      accessToken: "cached-access-token",
+      refreshToken: "cached-refresh-token",
+    });
   });
 });
