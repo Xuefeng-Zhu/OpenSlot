@@ -28,7 +28,7 @@ import {
   videoProviderHealth,
 } from "./event-type-editor-model";
 import { useEventTypeEditorState } from "./use-event-type-editor-state";
-import type { SlotPickerHostProfile } from "@/components/booking/slot-picker";
+import type { SlotPickerHostProfile } from "@/components/booking/slot-picker-types";
 
 export type { EditableEventType } from "./event-type-editor-model";
 

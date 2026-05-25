@@ -1,8 +1,8 @@
-import {
-  SlotPicker,
-  type SlotPickerEventType,
-  type SlotPickerHostProfile,
-} from "@/components/booking/slot-picker";
+import { SlotPicker } from "@/components/booking/slot-picker";
+import type {
+  SlotPickerEventType,
+  SlotPickerHostProfile,
+} from "@/components/booking/slot-picker-types";
 import { PublicSchedulePreviewShell } from "@/components/booking/public-schedule-preview-shell";
 import { type EventTypeEditorFormState } from "../event-type-editor-model";
 
