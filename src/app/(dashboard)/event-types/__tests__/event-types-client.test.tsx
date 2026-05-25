@@ -46,7 +46,6 @@ describe("EventTypesClient", () => {
       configurable: true,
       value: originalExecCommand,
     });
-    document.body.innerHTML = "";
     vi.restoreAllMocks();
   });
 
@@ -75,5 +74,41 @@ describe("EventTypesClient", () => {
       title: "Link copied!",
       description: "Booking URL has been copied to your clipboard.",
     });
+  });
+
+  it("shows the delete fallback when the API returns a non-JSON error", async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response("server unavailable", { status: 500 })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<EventTypesClient initialEventTypes={eventTypes} />);
+
+    fireEvent.pointerDown(
+      screen.getByRole("button", {
+        name: "More options for Intro call",
+      }),
+      { button: 0, ctrlKey: false }
+    );
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Delete",
+      })
+    );
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith("/api/event-types/event-type-1", {
+        method: "DELETE",
+      })
+    );
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "Could not delete event type",
+      description: "Please try again.",
+      variant: "destructive",
+    });
+    expect(refresh).not.toHaveBeenCalled();
+    expect(screen.getByText("Intro call")).toBeDefined();
   });
 });
