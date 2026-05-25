@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react"
 import {
   type TimeInterval,
+  validateTimeInterval,
 } from "@/components/dashboard/availability-day-row"
 import { useToast } from "@/components/ui/use-toast"
 import { AvailabilityOverridesCard } from "@/components/dashboard/availability-overrides-card"
@@ -101,6 +102,18 @@ export function AvailabilityClient({
     })
   }, [dayStates, overrides, savedRules, savedOverrides])
 
+  const weeklyTimeError = useMemo(() => {
+    for (const state of Object.values(dayStates)) {
+      if (!state.enabled) continue
+      for (const interval of state.intervals) {
+        if (validateTimeInterval(interval.start, interval.end)) {
+          return "Fix invalid weekly hours before saving."
+        }
+      }
+    }
+    return ""
+  }, [dayStates])
+
   // --- Day row handlers ---
 
   const handleToggle = useCallback((day: string, enabled: boolean) => {
@@ -165,6 +178,15 @@ export function AvailabilityClient({
   // --- Save logic ---
 
   const handleSave = useCallback(async () => {
+    if (weeklyTimeError) {
+      toast({
+        title: "Fix weekly hours",
+        description: weeklyTimeError,
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsSaving(true)
 
     try {
@@ -220,6 +242,7 @@ export function AvailabilityClient({
     selectedScheduleId,
     timezone,
     toast,
+    weeklyTimeError,
   ])
 
   const handleDiscard = useCallback(() => {
@@ -267,6 +290,7 @@ export function AvailabilityClient({
       {hasChanges && (
         <AvailabilitySaveBar
           isSaving={isSaving}
+          saveBlockedReason={weeklyTimeError}
           onDiscard={handleDiscard}
           onSave={handleSave}
         />
