@@ -303,6 +303,52 @@ describe('BookingAgentPanel', () => {
     ).toBeNull()
   })
 
+  it('ignores assistant responses that resolve after unmount', async () => {
+    const lateRequest = createDeferredResponse()
+    const fetchMock = vi.fn(async () => lateRequest.promise)
+    vi.stubGlobal('fetch', fetchMock)
+    const onDraftChange = vi.fn()
+
+    const { unmount } = render(
+      <BookingAgentPanel
+        mode="booking"
+        eventTypeId="11111111-1111-4111-8111-111111111111"
+        hostUserId="22222222-2222-4222-8222-222222222222"
+        timezone="America/New_York"
+        selectedSlot={null}
+        onDraftChange={onDraftChange}
+        onSelectSlot={vi.fn()}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /AI assistant/i }))
+    fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
+      target: { value: 'Tuesday afternoon' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /send/i }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    unmount()
+
+    await act(async () => {
+      lateRequest.resolve(
+        new Response(
+          JSON.stringify({
+            success: true,
+            reply: 'Late reply',
+            draft: {
+              guestName: 'Late Guest',
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      await lateRequest.promise
+    })
+
+    expect(onDraftChange).not.toHaveBeenCalled()
+  })
+
   it('can close the floating assistant panel back to the launcher', () => {
     render(
       <BookingAgentPanel

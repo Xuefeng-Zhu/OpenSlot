@@ -93,6 +93,14 @@ function requestWithJson(body: unknown) {
   } as Request
 }
 
+function requestWithInvalidJson() {
+  return {
+    json: async () => {
+      throw new SyntaxError('Unexpected token')
+    },
+  } as unknown as Request
+}
+
 function routeContext(id = 'schedule-1') {
   return {
     params: Promise.resolve({ id }),
@@ -145,6 +153,15 @@ describe('availability schedule routes', () => {
     })
   })
 
+  it('rejects malformed JSON when creating a schedule', async () => {
+    const response = await POST(requestWithInvalidJson() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
+    expect(mocks.adminTables).toHaveLength(0)
+  })
+
   it('promotes one owned schedule to default', async () => {
     mocks.adminQueries = [
       createQuery({
@@ -184,6 +201,18 @@ describe('availability schedule routes', () => {
         },
       },
     ])
+  })
+
+  it('rejects malformed JSON when updating a schedule', async () => {
+    const response = await PATCH(
+      requestWithInvalidJson() as any,
+      routeContext('schedule-2') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
+    expect(mocks.adminTables).toHaveLength(0)
   })
 
   it('blocks deleting schedules assigned to event types', async () => {
@@ -310,6 +339,18 @@ describe('availability schedule routes', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
     expect(mocks.inserts).toHaveLength(0)
+  })
+
+  it('rejects malformed JSON when duplicating a schedule', async () => {
+    const response = await DUPLICATE_POST(
+      requestWithInvalidJson() as any,
+      routeContext('schedule-1') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
+    expect(mocks.adminTables).toHaveLength(0)
   })
 
   it('rejects duplicate requests for foreign schedules', async () => {

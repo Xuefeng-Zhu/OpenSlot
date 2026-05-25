@@ -34,8 +34,9 @@ export function LoginForm({ returnUrl }: LoginFormProps) {
     e.preventDefault();
     setError(null);
 
+    const trimmedEmail = email.trim();
     const nextFieldErrors: typeof fieldErrors = {};
-    if (!email.trim()) {
+    if (!trimmedEmail) {
       nextFieldErrors.email = "Email is required.";
     }
     if (!password) {
@@ -52,7 +53,7 @@ export function LoginForm({ returnUrl }: LoginFormProps) {
       const backendClient = createBrowserBackendClient({ keepSignedIn });
 
       const { error: signInError } = await backendClient.auth.signInWithPassword({
-        email,
+        email: trimmedEmail,
         password,
       });
 

@@ -105,7 +105,9 @@ export function BookingAgentPanel({
 
   useEffect(() => {
     return () => {
+      requestRef.current += 1;
       abortRef.current?.abort();
+      abortRef.current = null;
     };
   }, []);
 

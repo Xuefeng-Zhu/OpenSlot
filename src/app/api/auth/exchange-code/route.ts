@@ -5,11 +5,12 @@ import {
   setResponseCookies,
 } from '@/lib/backend/server'
 import { authError, authJson, ensureProfileForAuthUser } from '../_shared'
+import { readAuthJsonObject } from '../_request'
 
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null)
+  const body = await readAuthJsonObject(request)
   const code = typeof body?.code === 'string' ? body.code.trim() : ''
   const keepSignedIn = body?.keepSignedIn !== false
 

@@ -26,6 +26,25 @@ describe('Property 2: Username and timezone validation correctness', () => {
       )
     })
 
+    it('trims surrounding username whitespace before validation', () => {
+      fc.assert(
+        fc.property(
+          fc.stringOf(
+            fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789-'.split('')),
+            { minLength: 3, maxLength: 30 }
+          ),
+          (username) => {
+            const result = profileSchema.shape.username.safeParse(` ${username}\n`)
+            expect(result.success).toBe(true)
+            if (result.success) {
+              expect(result.data).toBe(username)
+            }
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
     it('rejects strings that do not match the pattern', () => {
       // Generate strings containing at least one invalid character
       const invalidCharArb = fc.char().filter(
@@ -113,6 +132,42 @@ describe('Property 2: Username and timezone validation correctness', () => {
           ),
           (timezone) => {
             expect(isValidTimezone(timezone)).toBe(false)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+  })
+
+  describe('Name validation', () => {
+    it('trims surrounding name whitespace before returning parsed values', () => {
+      fc.assert(
+        fc.property(
+          fc.string({ minLength: 1, maxLength: 100 }).filter(
+            (name) => name.trim().length > 0 && name.trim().length <= 100
+          ),
+          (name) => {
+            const result = profileSchema.shape.name.safeParse(` ${name} `)
+            expect(result.success).toBe(true)
+            if (result.success) {
+              expect(result.data).toBe(name.trim())
+            }
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('rejects names that are blank after trimming', () => {
+      fc.assert(
+        fc.property(
+          fc.stringOf(fc.constantFrom(' ', '\t', '\n'), {
+            minLength: 1,
+            maxLength: 20,
+          }),
+          (name) => {
+            const result = profileSchema.shape.name.safeParse(name)
+            expect(result.success).toBe(false)
           }
         ),
         { numRuns: 100 }

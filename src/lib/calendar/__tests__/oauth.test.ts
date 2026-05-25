@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   buildCalendarAuthorizationUrl,
   exchangeCalendarAuthorizationCode,
+  fetchCalendarProviderIdentity,
 } from '../oauth'
 
 describe('calendar OAuth helpers', () => {
@@ -67,6 +68,24 @@ describe('calendar OAuth helpers', () => {
     expect(fetchImpl).toHaveBeenCalledWith(
       'https://oauth2.googleapis.com/token',
       expect.objectContaining({ method: 'POST' })
+    )
+  })
+
+  it('uses provider HTTP fallback errors for malformed identity responses', async () => {
+    const fetchImpl = vi.fn(async () => new Response('upstream unavailable', { status: 500 }))
+
+    await expect(
+      fetchCalendarProviderIdentity({
+        provider: 'google',
+        accessToken: 'access-token',
+        fetchImpl: fetchImpl as typeof fetch,
+      })
+    ).rejects.toThrow('Provider request failed with HTTP 500')
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://www.googleapis.com/oauth2/v3/userinfo',
+      {
+        headers: { Authorization: 'Bearer access-token' },
+      }
     )
   })
 })

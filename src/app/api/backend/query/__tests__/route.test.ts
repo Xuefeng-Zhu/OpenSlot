@@ -95,7 +95,7 @@ describe('POST /api/backend/query', () => {
     expect(query.select).not.toHaveBeenCalled()
   })
 
-  it('allows event type deletion by id', async () => {
+  it('rejects event type deletion through the generic browser query route', async () => {
     const query = createQuery({ data: [], error: null })
     const from = vi.fn(() => query)
     mocks.createBackendCompatClient.mockReturnValue({ from })
@@ -109,21 +109,21 @@ describe('POST /api/backend/query', () => {
     )
     const data = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(data.data).toEqual([])
-    expect(from).toHaveBeenCalledWith('event_types')
-    expect(query.delete).toHaveBeenCalled()
-    expect(query.eq).toHaveBeenCalledWith('id', 'event-type-1')
-    expect(query.select).not.toHaveBeenCalled()
+    expect(response.status).toBe(400)
+    expect(data.error.message).toBe('Unsupported table')
+    expect(mocks.createBackendCompatClient).not.toHaveBeenCalled()
+    expect(from).not.toHaveBeenCalled()
+    expect(query.delete).not.toHaveBeenCalled()
   })
 
   it('rejects table operations outside the browser mutation allowlist', async () => {
     const response = await POST(
       requestWithJson({
-        table: 'event_types',
+        table: 'profiles',
         operation: 'select',
-        selected: 'id',
-        filters: [{ column: 'id', operator: 'eq', value: 'event-type-1' }],
+        filters: [
+          { column: 'auth_user_id', operator: 'eq', value: 'auth-user-1' },
+        ],
       }) as any
     )
     const data = await response.json()
