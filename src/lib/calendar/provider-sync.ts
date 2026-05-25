@@ -229,7 +229,9 @@ export async function syncCalendarsForConnection(
       windowStart: busyWindow.start,
       windowEnd: busyWindow.end,
       fetchImpl,
+      abortSignal: options.abortSignal,
     })
+    throwIfAborted(options.abortSignal)
     await adminClient
       .from('provider_connections')
       .update({
@@ -242,7 +244,7 @@ export async function syncCalendarsForConnection(
 
     return { calendars: calendars.length }
   } catch (error) {
-    if (options.abortSignal?.aborted || isAbortError(error)) {
+    if (isAbortLikeError(error, options.abortSignal)) {
       throw error
     }
 
@@ -258,8 +260,27 @@ export async function syncCalendarsForConnection(
   }
 }
 
-function isAbortError(error: unknown) {
-  return error instanceof Error && error.name === 'AbortError'
+function isAbortLikeError(error: unknown, abortSignal?: AbortSignal): boolean {
+  if (abortSignal?.aborted) return true
+  if (!(error instanceof Error)) return false
+  if (error.name === 'AbortError') return true
+
+  return isAbortLikeError(
+    (error as Error & { cause?: unknown }).cause,
+    undefined
+  )
+}
+
+function throwIfAborted(abortSignal?: AbortSignal) {
+  if (!abortSignal?.aborted) return
+
+  if (abortSignal.reason instanceof Error) {
+    throw abortSignal.reason
+  }
+
+  const abortError = new Error('Calendar sync aborted')
+  abortError.name = 'AbortError'
+  throw abortError
 }
 
 /**
@@ -293,6 +314,10 @@ export async function refreshCalendarAvailabilityForHost(
   const nowMs = Date.now()
 
   for (const connection of connections) {
+    if (options.abortSignal?.aborted) {
+      break
+    }
+
     if (!shouldRefreshAvailabilityCache(connection, rangeEnd, nowMs)) {
       continue
     }
@@ -304,7 +329,11 @@ export async function refreshCalendarAvailabilityForHost(
         windowEnd: rangeEnd,
       })
       result.refreshed += 1
-    } catch {
+    } catch (error) {
+      if (isAbortLikeError(error, options.abortSignal)) {
+        break
+      }
+
       result.failed += 1
     }
   }
@@ -782,6 +811,7 @@ async function syncBusyCache({
   windowStart,
   windowEnd,
   fetchImpl,
+  abortSignal,
 }: {
   adminClient: BackendCompatClient<Database>
   connection: ProviderConnectionRow
@@ -790,8 +820,11 @@ async function syncBusyCache({
   windowStart: string
   windowEnd: string
   fetchImpl: typeof fetch
+  abortSignal?: AbortSignal
 }): Promise<void> {
   for (const calendar of calendars) {
+    throwIfAborted(abortSignal)
+
     const busyEvents = await listProviderBusyEvents({
       provider: connection.provider as CalendarProvider,
       accessToken,
@@ -801,6 +834,7 @@ async function syncBusyCache({
       windowEnd,
       fetchImpl,
     })
+    throwIfAborted(abortSignal)
 
     const currentSourceIds = new Set(
       busyEvents.map((event) => event.sourceEventId)
@@ -829,6 +863,7 @@ async function syncBusyCache({
         throw new Error(`Failed to write busy cache: ${upsertError.message}`)
       }
     }
+    throwIfAborted(abortSignal)
 
     // Add/update current rows before pruning stale rows so concurrent slot reads
     // never observe an empty cache window during a refresh.
@@ -845,16 +880,17 @@ async function syncBusyCache({
         `Failed to inspect busy cache: ${staleCandidateError.message}`
       )
     }
+    throwIfAborted(abortSignal)
 
-    const staleRows = ((staleCandidateData ?? []) as BusyCachePruneRow[]).filter(
-      (row) => !currentSourceIds.has(row.source_event_id)
-    )
+    const staleRowIds = ((staleCandidateData ?? []) as BusyCachePruneRow[])
+      .filter((row) => !currentSourceIds.has(row.source_event_id))
+      .map((row) => row.id)
 
-    for (const row of staleRows) {
+    if (staleRowIds.length > 0) {
       const { error: deleteError } = await adminClient
         .from('external_busy_cache')
         .delete()
-        .eq('id', row.id)
+        .in('id', staleRowIds)
 
       if (deleteError) {
         throw new Error(`Failed to prune busy cache: ${deleteError.message}`)

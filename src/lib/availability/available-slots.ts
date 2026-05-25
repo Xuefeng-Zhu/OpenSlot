@@ -541,7 +541,7 @@ async function refreshCalendarAvailabilityForSlotLookup({
       ),
       SLOT_CALENDAR_REFRESH_TIMEOUT_MS,
       { checked: 1, refreshed: 0, failed: 1 },
-      () => abortController.abort()
+      () => abortController.abort(calendarRefreshTimeoutError())
     )
   } catch (error) {
     console.warn('Skipping calendar availability refresh for slot lookup:', error)
@@ -556,27 +556,46 @@ async function withTimeout<T>(
   onTimeout?: () => void
 ): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined
-  let timedOut = false
 
   try {
-    return await Promise.race([
-      promise.catch((error) => {
-        if (timedOut) return fallback
-        throw error
-      }),
-      new Promise<T>((resolve) => {
+    const result = await Promise.race<
+      | { status: 'fulfilled'; value: T }
+      | { status: 'rejected'; reason: unknown }
+      | { status: 'timed-out' }
+    >([
+      promise.then(
+        (value) => ({ status: 'fulfilled', value }),
+        (reason) => ({ status: 'rejected', reason })
+      ),
+      new Promise<{ status: 'timed-out' }>((resolve) => {
         timeoutId = setTimeout(() => {
-          timedOut = true
           onTimeout?.()
-          resolve(fallback)
+          resolve({ status: 'timed-out' })
         }, timeoutMs)
       }),
     ])
+
+    if (result.status === 'timed-out') {
+      await promise.catch(() => undefined)
+      return fallback
+    }
+
+    if (result.status === 'rejected') {
+      throw result.reason
+    }
+
+    return result.value
   } finally {
     if (timeoutId) {
       clearTimeout(timeoutId)
     }
   }
+}
+
+function calendarRefreshTimeoutError() {
+  const error = new Error('Calendar availability refresh timed out')
+  error.name = 'AbortError'
+  return error
 }
 
 async function fetchWithTimeout(

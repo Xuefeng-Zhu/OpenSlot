@@ -358,10 +358,10 @@ describe('calendar provider event sync', () => {
     ])
   })
 
-  it('upserts current busy events before pruning stale busy cache rows', async () => {
+  it('upserts current busy events before pruning stale busy cache rows in bulk', async () => {
     const busyCacheOperations: string[] = []
     const upsertedBusyRows: unknown[] = []
-    const deletedBusyRowIds: unknown[] = []
+    const deletedBusyRowIdBatches: unknown[] = []
     const connection = {
       id: 'connection-1',
       profile_id: 'profile-1',
@@ -418,17 +418,18 @@ describe('calendar provider event sync', () => {
                   data: [
                     { id: 'current-row', source_event_id: 'current-busy' },
                     { id: 'stale-row', source_event_id: 'stale-busy' },
+                    { id: 'stale-row-2', source_event_id: 'stale-busy-2' },
                   ],
                   error: null,
                 }
               }
 
               if (query.operation === 'delete') {
-                const deletedId = query.filters.find(
+                const deletedIds = query.filters.find(
                   (filter) => filter.column === 'id'
                 )?.value
-                busyCacheOperations.push(`delete:${String(deletedId)}`)
-                deletedBusyRowIds.push(deletedId)
+                busyCacheOperations.push(`delete:${String(deletedIds)}`)
+                deletedBusyRowIdBatches.push(deletedIds)
                 return { data: null, error: null }
               }
             }
@@ -487,12 +488,142 @@ describe('calendar provider event sync', () => {
         source_event_id: 'current-busy',
       }),
     ])
-    expect(deletedBusyRowIds).toEqual(['stale-row'])
+    expect(deletedBusyRowIdBatches).toEqual([['stale-row', 'stale-row-2']])
     expect(busyCacheOperations).toEqual([
       'upsert',
       'select-stale',
-      'delete:stale-row',
+      'delete:stale-row,stale-row-2',
     ])
+  })
+
+  it('does not prune busy cache or update status when cancellation arrives after event upsert', async () => {
+    const busyCacheOperations: string[] = []
+    const connectionUpdates: unknown[] = []
+    const abortController = new AbortController()
+    const connection = {
+      id: 'connection-1',
+      profile_id: 'profile-1',
+      provider: 'google',
+      account_email: 'host@example.com',
+      scopes: [],
+      access_token_encrypted: 'encrypted-access-token',
+      refresh_token_encrypted: null,
+      token_expires_at: '2099-01-01T00:00:00.000Z',
+      status: 'active',
+      metadata: {},
+      connected_at: '2026-06-01T00:00:00.000Z',
+      last_synced_at: null,
+      last_error: null,
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const calendar = {
+      id: 'calendar-1',
+      connection_id: 'connection-1',
+      external_calendar_id: 'primary',
+      summary: 'Primary',
+      timezone: 'America/Los_Angeles',
+      is_primary: true,
+      use_for_availability: true,
+      use_for_writes: true,
+      metadata: {},
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const adminClient = {
+      from: vi.fn((table: string) =>
+        createSyncQuery({
+          table,
+          resultFor: (query) => {
+            if (query.table === 'provider_connections') {
+              if (query.operation === 'update') {
+                connectionUpdates.push(query.payload)
+              }
+
+              return {
+                data: query.operation === 'select' ? connection : null,
+                error: null,
+              }
+            }
+
+            if (query.table === 'provider_calendars') {
+              return { data: [calendar], error: null }
+            }
+
+            if (query.table === 'external_busy_cache') {
+              if (query.operation === 'upsert') {
+                busyCacheOperations.push('upsert')
+                abortController.abort()
+                return { data: null, error: null }
+              }
+
+              if (query.operation === 'select') {
+                busyCacheOperations.push('select-stale')
+                return {
+                  data: [{ id: 'stale-row', source_event_id: 'stale-busy' }],
+                  error: null,
+                }
+              }
+
+              if (query.operation === 'delete') {
+                busyCacheOperations.push('delete')
+                return { data: null, error: null }
+              }
+            }
+
+            return { data: null, error: null }
+          },
+        })
+      ),
+    }
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'primary',
+                summary: 'Primary',
+                timeZone: 'America/Los_Angeles',
+                primary: true,
+                accessRole: 'owner',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'current-busy',
+                start: { dateTime: '2026-06-15T09:00:00-07:00' },
+                end: { dateTime: '2026-06-15T10:00:00-07:00' },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+
+    await expect(
+      syncCalendarsForConnection(
+        adminClient as any,
+        'connection-1',
+        fetchImpl as typeof fetch,
+        {
+          abortSignal: abortController.signal,
+          windowStart: '2026-06-15T00:00:00.000Z',
+          windowEnd: '2026-06-16T00:00:00.000Z',
+        }
+      )
+    ).rejects.toMatchObject({ name: 'AbortError' })
+
+    expect(busyCacheOperations).toEqual(['upsert'])
+    expect(connectionUpdates).toEqual([])
   })
 
   it('does not mark a provider connection unhealthy when sync is aborted', async () => {
@@ -606,6 +737,91 @@ describe('calendar provider event sync', () => {
         { abortSignal: abortController.signal }
       )
     ).rejects.toBe(wrappedAbortError)
+    expect(connectionUpdates).toEqual([])
+  })
+
+  it('stops refreshing remaining availability connections after cancellation', async () => {
+    const loadedConnectionIds: string[] = []
+    const connectionUpdates: unknown[] = []
+    const connectionRows = [
+      {
+        id: 'connection-1',
+        status: 'active',
+        last_synced_at: null,
+        updated_at: '2026-06-01T00:00:00.000Z',
+      },
+      {
+        id: 'connection-2',
+        status: 'active',
+        last_synced_at: null,
+        updated_at: '2026-06-01T00:00:00.000Z',
+      },
+    ]
+    const connectionsById = new Map(
+      connectionRows.map((connection) => [
+        connection.id,
+        {
+          ...connection,
+          profile_id: 'profile-1',
+          provider: 'google',
+          account_email: 'host@example.com',
+          scopes: [],
+          access_token_encrypted: 'encrypted-access-token',
+          refresh_token_encrypted: null,
+          token_expires_at: '2099-01-01T00:00:00.000Z',
+          metadata: {},
+          connected_at: '2026-06-01T00:00:00.000Z',
+          last_error: null,
+          created_at: '2026-06-01T00:00:00.000Z',
+        },
+      ])
+    )
+    const adminClient = {
+      from: vi.fn((table: string) =>
+        createSyncQuery({
+          table,
+          resultFor: (query) => {
+            if (query.table === 'provider_connections') {
+              if (query.operation === 'update') {
+                connectionUpdates.push(query.payload)
+              }
+
+              const idFilter = query.filters.find(
+                (filter) => filter.column === 'id'
+              )
+              if (idFilter) {
+                loadedConnectionIds.push(String(idFilter.value))
+                return {
+                  data: connectionsById.get(String(idFilter.value)) ?? null,
+                  error: null,
+                }
+              }
+
+              return { data: connectionRows, error: null }
+            }
+
+            return { data: null, error: null }
+          },
+        })
+      ),
+    }
+    const abortError = new Error('The operation was aborted')
+    abortError.name = 'AbortError'
+    const fetchImpl = vi.fn(async () => {
+      throw abortError
+    })
+
+    const result = await refreshCalendarAvailabilityForHost(
+      adminClient as any,
+      'profile-1',
+      '2026-06-15T00:00:00.000Z',
+      '2026-06-16T00:00:00.000Z',
+      fetchImpl as typeof fetch
+    )
+
+    expect(result).toEqual({ checked: 2, refreshed: 0, failed: 0 })
+    expect(loadedConnectionIds).toEqual(['connection-1'])
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
     expect(connectionUpdates).toEqual([])
   })
 

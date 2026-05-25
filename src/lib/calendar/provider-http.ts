@@ -11,9 +11,9 @@ interface ProviderErrorResponse {
 }
 
 export async function parseProviderJson<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => {
+  const data = (await response.json().catch((error: unknown) => {
     if (response.ok) {
-      throw new Error('Provider returned malformed JSON')
+      throw new Error('Provider returned malformed JSON', { cause: error })
     }
 
     return null
