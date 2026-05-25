@@ -1,6 +1,4 @@
 import { cookies } from 'next/headers'
-import { createButterbaseBackend } from './butterbase/adapter'
-import { resolveButterbaseConfig } from './butterbase/config'
 import {
   createBackendCompatClient,
   type BackendCompatClient,
@@ -24,16 +22,6 @@ export async function createServerBackendClient() {
 
 export function createAdminBackendClient(): BackendCompatClient {
   return createBackendCompatClient({ authMode: 'service' })
-}
-
-export async function createRequestBackend() {
-  const cookieStore = await cookies()
-  const accessToken = cookieStore.get(BACKEND_ACCESS_TOKEN_COOKIE)?.value
-
-  return createButterbaseBackend({
-    ...resolveButterbaseConfig(),
-    accessToken,
-  })
 }
 
 export async function currentBackendAccessToken() {
