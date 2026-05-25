@@ -256,6 +256,41 @@ describe('AvailabilityClient', () => {
     expect(routerMocks.refresh).toHaveBeenCalled()
   })
 
+  it('disables custom date-specific hours until the time range is valid', () => {
+    renderAvailability()
+
+    fireEvent.change(screen.getByLabelText('Date'), {
+      target: { value: '2099-05-10' },
+    })
+    fireEvent.click(screen.getByLabelText('Custom hours'))
+
+    const addOverride = screen.getByRole('button', { name: 'Add override' })
+
+    expect(addOverride).toHaveProperty('disabled', true)
+    expect(screen.getByRole('alert').textContent).toBe(
+      'Custom hours need a start and end time.'
+    )
+
+    fireEvent.change(screen.getByLabelText('Start'), {
+      target: { value: '14:00' },
+    })
+    fireEvent.change(screen.getByLabelText('End'), {
+      target: { value: '13:00' },
+    })
+
+    expect(addOverride).toHaveProperty('disabled', true)
+    expect(screen.getByRole('alert').textContent).toBe(
+      'End time must be after start time.'
+    )
+
+    fireEvent.change(screen.getByLabelText('End'), {
+      target: { value: '15:00' },
+    })
+
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(addOverride).toHaveProperty('disabled', false)
+  })
+
   it('preserves weekly interval ids when deleting the first interval', async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, init?: RequestInit) => {
