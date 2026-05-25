@@ -92,9 +92,7 @@ export function BookingForm({
 }: BookingFormProps) {
   const pageTimezone = validTimezoneOrNull(timezone) ?? DEFAULT_TIMEZONE;
   const initialGuestTimezone =
-    validTimezoneOrNull(initialGuest?.timezone) ??
-    validTimezoneOrNull(initialDraft?.guestTimezone) ??
-    pageTimezone;
+    validTimezoneOrNull(initialGuest?.timezone) ?? pageTimezone;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => createClientIdempotencyKey());
@@ -162,15 +160,6 @@ export function BookingForm({
       setValue("guestEmail", initialDraft.guestEmail, { shouldValidate: true });
     }
 
-    const draftTimezone = validTimezoneOrNull(initialDraft.guestTimezone);
-    if (
-      !initialGuest?.timezone &&
-      draftTimezone &&
-      !hasUserEdited("guestTimezone")
-    ) {
-      setValue("guestTimezone", draftTimezone, { shouldValidate: true });
-    }
-
     if (initialDraft.notes !== undefined && !hasUserEdited("notes")) {
       setValue("notes", initialDraft.notes, { shouldValidate: true });
     }
@@ -186,9 +175,13 @@ export function BookingForm({
     initialDraft,
     initialGuest?.email,
     initialGuest?.name,
-    initialGuest?.timezone,
     setValue,
   ]);
+
+  useEffect(() => {
+    if (initialGuest?.timezone) return;
+    setValue("guestTimezone", pageTimezone, { shouldValidate: true });
+  }, [initialGuest?.timezone, pageTimezone, setValue]);
 
   // Countdown timer
   useEffect(() => {

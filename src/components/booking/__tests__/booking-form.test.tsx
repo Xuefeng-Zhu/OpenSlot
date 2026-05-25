@@ -328,4 +328,34 @@ describe('BookingForm', () => {
         ?.value
     ).toBe('America/Los_Angeles')
   })
+
+  it('keeps valid assistant draft timezones from replacing the page timezone', () => {
+    const { container } = render(
+      <BookingForm
+        holdToken="550e8400-e29b-41d4-a716-446655440000"
+        expiresAt={new Date(Date.now() + 5 * 60 * 1000).toISOString()}
+        selectedSlot={{
+          start: '2026-05-15T17:00:00.000Z',
+          end: '2026-05-15T17:30:00.000Z',
+        }}
+        eventTitle="Discovery Call"
+        hostName="Sarah Chen"
+        timezone="America/Los_Angeles"
+        inviteeQuestions={[]}
+        initialDraft={{
+          guestTimezone: 'America/New_York',
+        }}
+        onConfirmed={vi.fn()}
+        onHoldExpired={vi.fn()}
+        onSlotTaken={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('Friday, May 15, 2026')).toBeDefined()
+    expect(screen.queryByRole('combobox')).toBeNull()
+    expect(
+      container.querySelector<HTMLInputElement>('input[name="guestTimezone"]')
+        ?.value
+    ).toBe('America/Los_Angeles')
+  })
 })
