@@ -17,6 +17,10 @@ import type {
 
 const primaryKeys: Partial<Record<TableName, string>> = {}
 
+const primaryKeyFallbacks: Partial<Record<TableName, string>> = {
+  user_settings: 'profile_id',
+}
+
 const jsonColumns: Partial<Record<TableName, ReadonlySet<string>>> = {
   bookings: new Set(['booking_answers']),
   booking_events: new Set(['payload']),
@@ -411,6 +415,16 @@ function primaryKeyValue(table: string, row: unknown) {
   const value = record[key]
 
   if (typeof value !== 'string' && typeof value !== 'number') {
+    const fallbackKey = primaryKeyFallbacks[table as TableName]
+    const fallbackValue = fallbackKey ? record[fallbackKey] : null
+
+    if (
+      typeof fallbackValue === 'string' ||
+      typeof fallbackValue === 'number'
+    ) {
+      return String(fallbackValue)
+    }
+
     throw new ButterbaseRequestError(
       `Cannot resolve primary key ${key} for ${table}`,
       400,
