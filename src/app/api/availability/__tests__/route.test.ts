@@ -160,4 +160,29 @@ describe('POST /api/availability', () => {
     )
     consoleError.mockRestore()
   })
+
+  it('rejects invalid availability time ranges before calling the backend function', async () => {
+    const response = await POST(
+      requestWithJson({
+        ...validBody,
+        rules: [
+          {
+            weekday: 1,
+            start_time: '17:00',
+            end_time: '09:00',
+            is_active: true,
+          },
+        ],
+      }) as never
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toMatchObject({
+      success: false,
+      error: 'Validation failed',
+    })
+    expect(mocks.loadOwnedSchedule).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
+  })
 })

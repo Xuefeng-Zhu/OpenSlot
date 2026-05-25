@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { profileSchema } from '../profile'
 import { eventTypeSchema } from '../event-type'
 import { confirmBookingSchema, createConfirmBookingFormSchema } from '../booking'
-import { availabilityRuleSchema } from '../availability'
+import { availabilityRuleSchema, saveAvailabilitySchema } from '../availability'
 
 describe('profileSchema', () => {
   const validProfile = {
@@ -360,6 +360,11 @@ describe('availabilityRuleSchema', () => {
       expect(result.success).toBe(false)
     })
 
+    it('rejects equal ranges with mixed time precision', () => {
+      const result = availabilityRuleSchema.safeParse({ ...validRule, start_time: '09:00', end_time: '09:00:00' })
+      expect(result.success).toBe(false)
+    })
+
     it('rejects when start_time is after end_time', () => {
       const result = availabilityRuleSchema.safeParse({ ...validRule, start_time: '17:00', end_time: '09:00' })
       expect(result.success).toBe(false)
@@ -396,5 +401,126 @@ describe('availabilityRuleSchema', () => {
       const result = availabilityRuleSchema.safeParse({ ...validRule, weekday: 7 })
       expect(result.success).toBe(false)
     })
+  })
+})
+
+describe('saveAvailabilitySchema', () => {
+  const validSaveBody = {
+    scheduleId: '11111111-1111-4111-8111-111111111111',
+    rules: [
+      {
+        weekday: 1,
+        start_time: '09:00',
+        end_time: '17:00',
+        is_active: true,
+      },
+    ],
+    overrides: [
+      {
+        date: '2026-06-17',
+        start_time: '10:00',
+        end_time: '12:00',
+        is_available: true,
+      },
+    ],
+    deletedRuleIds: [],
+    deletedOverrideIds: [],
+    timezone: 'America/New_York',
+  }
+
+  it('rejects saved weekly rules when start_time equals end_time', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      rules: [
+        {
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '09:00',
+          is_active: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects saved weekly rules with equal mixed-precision times', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      rules: [
+        {
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '09:00:00',
+          is_active: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects saved weekly rules when start_time is after end_time', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      rules: [
+        {
+          weekday: 1,
+          start_time: '17:00',
+          end_time: '09:00',
+          is_active: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects available date overrides without a complete time range', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      overrides: [
+        {
+          date: '2026-06-17',
+          start_time: null,
+          end_time: null,
+          is_available: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects available date overrides when start_time is not before end_time', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      overrides: [
+        {
+          date: '2026-06-17',
+          start_time: '12:00',
+          end_time: '10:00',
+          is_available: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects available date overrides with equal mixed-precision times', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      overrides: [
+        {
+          date: '2026-06-17',
+          start_time: '09:00',
+          end_time: '09:00:00',
+          is_available: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
   })
 })
