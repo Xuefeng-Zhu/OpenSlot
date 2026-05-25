@@ -64,7 +64,7 @@ describe('Property 4: Timezone Filter Correctness', () => {
       fc.property(timezoneSubset, nonEmptyQuery, (timezones, query) => {
         const results = filterTimezones(timezones, query)
 
-        const lowerQuery = query.toLowerCase()
+        const lowerQuery = query.trim().toLowerCase()
         for (const tz of results) {
           expect(tz.toLowerCase()).toContain(lowerQuery)
         }
@@ -86,13 +86,23 @@ describe('Property 4: Timezone Filter Correctness', () => {
     )
   })
 
-  it('an empty query returns the full input list unchanged', () => {
+  it('an empty or whitespace-only query returns the full input list unchanged', () => {
     fc.assert(
-      fc.property(timezoneSubset, (timezones) => {
-        const results = filterTimezones(timezones, '')
-        expect(results).toEqual(timezones)
-      }),
+      fc.property(
+        timezoneSubset,
+        fc.constantFrom('', ' ', '   ', '\t', '\n'),
+        (timezones, query) => {
+          const results = filterTimezones(timezones, query)
+          expect(results).toEqual(timezones)
+        }
+      ),
       { numRuns: 100 }
     )
+  })
+
+  it('trims leading and trailing query whitespace before matching', () => {
+    expect(filterTimezones(IANA_TIMEZONES, '  America/New_York  ')).toEqual([
+      'America/New_York',
+    ])
   })
 })
