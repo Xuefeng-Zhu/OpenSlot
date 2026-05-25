@@ -3,6 +3,7 @@ import { syncActiveCalendarConnections } from '@/lib/calendar/provider-sync'
 import { maintainCalendarWatches } from '@/lib/calendar/watches'
 import { createAdminBackendClient } from '@/lib/backend/server'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
+import { parseOptionalJsonBody } from '@/lib/http/json'
 
 /**
  * Runs calendar connection sync from a worker POST body.
@@ -12,9 +13,11 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}))
+  const json = await parseOptionalJsonBody(request)
+  if (!json.ok) return json.response
+
   return runCalendarSync(request, {
-    limit: normalizeLimit((body as { limit?: unknown }).limit),
+    limit: normalizeLimit((json.body as { limit?: unknown }).limit),
   })
 }
 

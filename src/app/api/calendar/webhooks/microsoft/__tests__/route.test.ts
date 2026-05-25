@@ -88,4 +88,22 @@ describe('/api/calendar/webhooks/microsoft', () => {
       body
     )
   })
+
+  it('rejects malformed notification JSON without delegating to the watch handler', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/calendar/webhooks/microsoft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{',
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(handleMicrosoftCalendarWebhook).not.toHaveBeenCalled()
+  })
 })
