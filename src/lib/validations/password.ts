@@ -1,5 +1,5 @@
 export const PASSWORD_COMPLEXITY_ERROR =
-  'Password must include uppercase, lowercase, number, and special characters.'
+  'Password must be at least 8 characters and include uppercase, lowercase, number, and a special character.'
 
 export interface PasswordRequirement {
   id: 'length' | 'number' | 'lowercase' | 'uppercase' | 'special'
@@ -32,7 +32,7 @@ export function getPasswordRequirements(password: string): PasswordRequirement[]
     {
       id: 'special',
       label: 'Includes a special character',
-      isMet: /[^A-Za-z0-9]/.test(password),
+      isMet: /[^\sA-Za-z0-9]/.test(password),
     },
   ]
 }

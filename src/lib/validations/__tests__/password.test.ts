@@ -17,4 +17,18 @@ describe('password strength validation', () => {
     expect(isStrongPassword('correct-horse')).toBe(false)
     expect(unmetRequirementIds).toEqual(['number', 'uppercase'])
   })
+
+  it('requires minimum length and a non-whitespace special character', () => {
+    const shortPasswordIds = getPasswordRequirements('Ab1!')
+      .filter((requirement) => !requirement.isMet)
+      .map((requirement) => requirement.id)
+    const trailingSpaceIds = getPasswordRequirements('CorrectHorse1 ')
+      .filter((requirement) => !requirement.isMet)
+      .map((requirement) => requirement.id)
+
+    expect(isStrongPassword('Ab1!')).toBe(false)
+    expect(shortPasswordIds).toEqual(['length'])
+    expect(isStrongPassword('CorrectHorse1 ')).toBe(false)
+    expect(trailingSpaceIds).toEqual(['special'])
+  })
 })
