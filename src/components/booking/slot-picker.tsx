@@ -2,93 +2,45 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { addDays, format } from "date-fns";
-import { BookingForm } from "@/components/booking/booking-form";
-import { BookingConfirmation } from "@/components/booking/booking-confirmation";
-import { BookingAgentPanel } from "@/components/booking/booking-agent-panel";
-import { SlotPickerTimezoneControl } from "@/components/booking/slot-picker-timezone-control";
-import { SlotSelectionGrid } from "@/components/booking/slot-selection-grid";
 import { isTurnstileEnabled } from "@/components/booking/turnstile-widget";
-import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
+import { SlotPickerView } from "@/components/booking/slot-picker-view";
 import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
 } from "@/lib/utils/timezone";
-import { formatBookingTime } from "@/lib/booking/date-time-format";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 import type { TimeSlot } from "@/lib/availability/types";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
-import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
+import {
+  hasSlotsForDate,
+  holdIdempotencyKeyForSlot,
+  mergeBookingAgentDrafts,
+  SLOT_PREFETCH_DAYS,
+} from "@/components/booking/slot-picker-helpers";
+import type {
+  BookingFlowState,
+  BookingResult,
+  FetchSlotsOptions,
+  HoldResponseBody,
+  SlotPickerEventType,
+  SlotPickerHostProfile,
+  SlotPickerRescheduleContext,
+  SlotsByDate,
+} from "@/components/booking/slot-picker-types";
 
-export interface SlotPickerEventType {
-  id: string;
-  title: string;
-  slug: string;
-  description: string;
-  duration_minutes: number;
-  location_type: string;
-  location_value?: string | null;
-  video_provider?: string | null;
-  invitee_questions: InviteeQuestion[];
-  user_id: string;
-}
-
-export interface SlotPickerHostProfile {
-  id: string;
-  name: string;
-  username: string;
-  avatar_url: string | null;
-}
+export type {
+  SlotPickerEventType,
+  SlotPickerHostProfile,
+} from "@/components/booking/slot-picker-types";
+export { mergeBookingAgentDrafts } from "@/components/booking/slot-picker-helpers";
 
 interface SlotPickerProps {
   eventType: SlotPickerEventType;
   hostProfile: SlotPickerHostProfile;
   layout?: "public" | "embedded";
   bookingAgentEnabled?: boolean;
-  rescheduleContext?: {
-    token: string;
-    guestName: string;
-    guestEmail: string;
-    guestTimezone: string;
-    currentStartAt: string;
-    currentEndAt: string;
-  };
+  rescheduleContext?: SlotPickerRescheduleContext;
 }
-
-interface HoldInfo {
-  holdToken: string;
-  expiresAt: string;
-}
-
-interface BookingResult {
-  bookingId: string;
-  cancellationToken: string;
-  rescheduleToken?: string;
-  conferenceStatus?: string;
-  conferenceUrl?: string | null;
-  startAt: string;
-  endAt: string;
-  guestName: string;
-  eventTitle: string;
-}
-
-type SlotsByDate = Record<string, TimeSlot[]>;
-
-interface FetchSlotsOptions {
-  force?: boolean;
-}
-
-interface HoldResponseBody {
-  error?: string;
-  holdToken?: string;
-  expiresAt?: string;
-}
-
-type BookingFlowState =
-  | { step: "select-slot" }
-  | { step: "booking-form"; hold: HoldInfo | null; slot: TimeSlot }
-  | { step: "confirmed"; booking: BookingResult };
-
-const SLOT_PREFETCH_DAYS = 60;
 
 /**
  * Public booking flow for choosing a date/time, creating a short-lived hold, and
@@ -124,10 +76,6 @@ export function SlotPicker({
     step: "select-slot",
   });
   const turnstileRequired = isTurnstileEnabled();
-  const selectedDateString = selectedDate
-    ? format(selectedDate, "yyyy-MM-dd")
-    : undefined;
-  const showBookingAgent = bookingAgentEnabled && layout === "public";
 
   useEffect(() => {
     setTimezone(browserTimezoneOrDefault());
@@ -428,137 +376,36 @@ export function SlotPicker({
     }
   }
 
-  // If booking is confirmed, show the confirmation page
-  if (flowState.step === "confirmed") {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <BookingConfirmation
-          bookingId={flowState.booking.bookingId}
-          cancellationToken={flowState.booking.cancellationToken}
-          rescheduleToken={flowState.booking.rescheduleToken}
-          startAt={flowState.booking.startAt}
-          endAt={flowState.booking.endAt}
-          guestName={flowState.booking.guestName}
-          eventTitle={flowState.booking.eventTitle}
-          hostName={hostProfile.name}
-          timezone={timezone}
-          locationType={eventType.location_type}
-          locationValue={eventType.location_value}
-          conferenceProvider={eventType.video_provider}
-          conferenceStatus={flowState.booking.conferenceStatus}
-          conferenceUrl={flowState.booking.conferenceUrl}
-          variant={rescheduleContext ? "reschedule" : "booking"}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-4xl">
-      {/* Event type header */}
-      <BookingPageEventHeader
-        eventType={eventType}
-        hostProfile={hostProfile}
-      />
-
-      <SlotPickerTimezoneControl
-        timezone={timezone}
-        onTimezoneChange={handleTimezoneChange}
-      />
-
-      <SlotSelectionGrid
-        layout={layout}
-        selectedDate={selectedDate}
-        loading={loading}
-        error={error}
-        slots={slots}
-        selectedSlot={selectedSlot}
-        holdLoading={holdLoading}
-        holdTurnstileToken={holdTurnstileToken}
-        holdTurnstileResetKey={holdTurnstileResetKey}
-        turnstileRequired={turnstileRequired}
-        onDateSelect={handleDateSelect}
-        onRetrySlots={handleRetrySlots}
-        onSlotSelect={handleSlotSelect}
-        onHoldTurnstileTokenChange={setHoldTurnstileToken}
-        formatSlotTime={(isoString) => formatBookingTime(isoString, timezone)}
-      />
-
-      {showBookingAgent && (
-        <BookingAgentPanel
-          mode={rescheduleContext ? "reschedule" : "booking"}
-          eventTypeId={eventType.id}
-          hostUserId={hostProfile.id}
-          timezone={timezone}
-          selectedDate={selectedDateString}
-          selectedSlot={selectedSlot}
-          rescheduleToken={rescheduleContext?.token}
-          holdDisabled={
-            holdLoading || (turnstileRequired && !holdTurnstileToken)
-          }
-          holdDisabledReason={
-            turnstileRequired && !holdTurnstileToken
-              ? "Complete the verification challenge before holding a time."
-              : "Please wait while this time is being held."
-          }
-          onSelectSlot={handleSlotSelect}
-          onDraftChange={(draft) =>
-            setAgentDraft((current) => mergeBookingAgentDrafts(current, draft))
-          }
-        />
-      )}
-
-      {/* Booking form (shown after hold is created) */}
-      {flowState.step === "booking-form" && (
-        <BookingForm
-          holdToken={flowState.hold?.holdToken}
-          expiresAt={flowState.hold?.expiresAt}
-          holdPending={!flowState.hold}
-          selectedSlot={flowState.slot}
-          eventTitle={eventType.title}
-          hostName={hostProfile.name}
-          timezone={timezone}
-          inviteeQuestions={eventType.invitee_questions}
-          rescheduleToken={rescheduleContext?.token}
-          initialGuest={
-            rescheduleContext
-              ? {
-                  name: rescheduleContext.guestName,
-                  email: rescheduleContext.guestEmail,
-                  timezone: rescheduleContext.guestTimezone,
-                }
-              : undefined
-          }
-          initialDraft={agentDraft}
-          onConfirmed={handleBookingConfirmed}
-          onHoldExpired={handleHoldExpired}
-          onSlotTaken={handleSlotTaken}
-        />
-      )}
-    </div>
+    <SlotPickerView
+      agentDraft={agentDraft}
+      bookingAgentEnabled={bookingAgentEnabled}
+      eventType={eventType}
+      flowState={flowState}
+      holdLoading={holdLoading}
+      holdTurnstileResetKey={holdTurnstileResetKey}
+      holdTurnstileToken={holdTurnstileToken}
+      hostProfile={hostProfile}
+      layout={layout}
+      loading={loading}
+      rescheduleContext={rescheduleContext}
+      selectedDate={selectedDate}
+      selectedSlot={selectedSlot}
+      slots={slots}
+      timezone={timezone}
+      turnstileRequired={turnstileRequired}
+      error={error}
+      onAgentDraftChange={(draft) =>
+        setAgentDraft((current) => mergeBookingAgentDrafts(current, draft))
+      }
+      onBookingConfirmed={handleBookingConfirmed}
+      onDateSelect={handleDateSelect}
+      onHoldExpired={handleHoldExpired}
+      onHoldTurnstileTokenChange={setHoldTurnstileToken}
+      onRetrySlots={handleRetrySlots}
+      onSlotSelect={handleSlotSelect}
+      onSlotTaken={handleSlotTaken}
+      onTimezoneChange={handleTimezoneChange}
+    />
   );
-}
-
-function hasSlotsForDate(slotsByDate: SlotsByDate, date: string): boolean {
-  return Object.prototype.hasOwnProperty.call(slotsByDate, date);
-}
-
-export function mergeBookingAgentDrafts(
-  current: BookingAgentDraft,
-  incoming: BookingAgentDraft
-): BookingAgentDraft {
-  const merged = { ...current, ...incoming };
-
-  if (current.answers || incoming.answers) {
-    merged.answers = {
-      ...(current.answers ?? {}),
-      ...(incoming.answers ?? {}),
-    };
-  }
-
-  return merged;
-}
-
-function holdIdempotencyKeyForSlot(slot: TimeSlot): string {
-  return `${slot.start}:${slot.end}:${slot.slotToken ?? ""}`;
 }
