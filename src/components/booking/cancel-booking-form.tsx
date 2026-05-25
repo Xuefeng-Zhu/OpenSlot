@@ -41,6 +41,15 @@ type CancelState =
   | "already-cancelled"
   | "error";
 
+type CancelBookingResponse =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
+
 /**
  * Guest-facing cancellation form authorized by a cancellation token.
  * Uses one idempotency key for the mounted form so repeated submits or browser
@@ -89,14 +98,16 @@ export function CancelBookingForm({
         }),
       });
 
-      const result = await response.json();
+      const result = (await response.json().catch(() => null)) as
+        | CancelBookingResponse
+        | null;
 
-      if (result.success) {
+      if (result?.success) {
         setState("cancelled");
-      } else if (result.error?.includes("already been cancelled")) {
+      } else if (result?.error?.includes("already been cancelled")) {
         setState("already-cancelled");
       } else {
-        setErrorMessage(result.error || "Failed to cancel booking");
+        setErrorMessage(result?.error || "Failed to cancel booking");
         setState("error");
       }
     } catch {
