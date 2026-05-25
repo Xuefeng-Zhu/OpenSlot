@@ -38,7 +38,11 @@ export function allowBrowserConsoleErrors(page: Page, patterns: RegExp[]) {
   ]);
 }
 
-export async function expectVisibleText(page: Page, text: string | RegExp) {
+export async function expectVisibleText(
+  page: Page,
+  text: string | RegExp,
+  options?: { timeout?: number }
+) {
   await expect
     .poll(async () => {
       const matches = page.getByText(text);
@@ -51,6 +55,6 @@ export async function expectVisibleText(page: Page, text: string | RegExp) {
       }
 
       return false;
-    })
+    }, options)
     .toBe(true);
 }
