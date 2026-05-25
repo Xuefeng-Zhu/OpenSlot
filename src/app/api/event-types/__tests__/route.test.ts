@@ -139,6 +139,14 @@ function requestWithJson(body: unknown) {
   } as Request
 }
 
+function requestWithMalformedJson() {
+  return new Request('http://localhost/api/event-types', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{',
+  })
+}
+
 function routeContext(id = 'event-type-1') {
   return {
     params: Promise.resolve({ id }),
@@ -255,6 +263,23 @@ describe('POST /api/event-types', () => {
     expect(data.details.slug).toEqual([
       'Use lowercase letters, numbers, and hyphens',
     ])
+  })
+
+  it('returns a shared invalid JSON error for malformed create bodies', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+
+    const response = await POST(requestWithMalformedJson() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.eventTypeInsertPayload).toBeNull()
   })
 
   it('requires at least one reminder recipient when reminders are enabled', async () => {
@@ -448,6 +473,26 @@ describe('PATCH /api/event-types/[id]', () => {
         slug: ['This URL slug is already used by one of your event types.'],
       },
     })
+  })
+
+  it('returns a shared invalid JSON error for malformed update bodies', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+
+    const response = await PATCH(
+      requestWithMalformedJson() as any,
+      routeContext() as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.eventTypeUpdatePayload).toBeNull()
   })
 
   it('returns not found for missing or foreign event types', async () => {

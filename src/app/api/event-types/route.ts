@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import {
   eventTypeFieldErrors,
   eventTypeWritePayload,
@@ -28,17 +29,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let body: unknown
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON body' },
-        { status: 400 }
-      )
-    }
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
 
-    const parsed = parseEventTypeBody(body)
+    const parsed = parseEventTypeBody(body.body)
 
     if (!parsed.success) {
       return NextResponse.json(
