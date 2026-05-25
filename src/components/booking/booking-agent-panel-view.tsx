@@ -11,14 +11,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import type { TimeSlot } from "@/lib/availability/types";
 import type { BookingAgentMessage } from "@/lib/booking-agent/types";
 import { cn } from "@/lib/utils";
 
-export interface TimeSlot {
-  start: string;
-  end: string;
+export interface BookingAgentTimeSlot extends TimeSlot {
   label?: string;
-  slotToken?: string;
 }
 
 interface BookingAgentPanelViewProps {
@@ -29,11 +27,11 @@ interface BookingAgentPanelViewProps {
   loading: boolean;
   messages: BookingAgentMessage[];
   open: boolean;
-  suggestedSlots: TimeSlot[];
+  suggestedSlots: BookingAgentTimeSlot[];
   timezone: string;
   onInputChange: (value: string) => void;
   onOpenChange: (open: boolean) => void;
-  onSelectSlot: (slot: TimeSlot) => void;
+  onSelectSlot: (slot: BookingAgentTimeSlot) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
@@ -188,9 +186,9 @@ function BookingAgentSuggestedSlots({
 }: {
   holdDisabled: boolean;
   holdDisabledReason: string;
-  suggestedSlots: TimeSlot[];
+  suggestedSlots: BookingAgentTimeSlot[];
   timezone: string;
-  onSelectSlot: (slot: TimeSlot) => void;
+  onSelectSlot: (slot: BookingAgentTimeSlot) => void;
 }) {
   return (
     <div className="space-y-2">
