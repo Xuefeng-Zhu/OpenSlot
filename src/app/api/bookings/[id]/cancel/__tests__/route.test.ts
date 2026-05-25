@@ -245,6 +245,8 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
       {
         cancellationToken: validBody.cancellationToken,
         cancelReason: validBody.cancelReason,
+        actorType: 'host',
+        actorId: 'profile-1',
       },
       mocks.adminClient
     )

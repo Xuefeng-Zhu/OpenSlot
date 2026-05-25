@@ -22,7 +22,14 @@ export async function cancelBooking(
   input: CancelBookingInput,
   adminClient: BackendCompatClient<Database>
 ): Promise<CancelBookingResult> {
-  const { cancellationToken, cancelReason } = input
+  const {
+    cancellationToken,
+    cancelReason,
+    actorType = 'guest',
+    actorId = null,
+  } = input
+  const actor =
+    actorId === null ? { actorType } : { actorType, actorId }
 
   // Step 1: Fetch booking by cancellation token
   const { data: booking, error: fetchError } = await adminClient
@@ -53,7 +60,7 @@ export async function cancelBooking(
     await appendBookingEvent(adminClient, {
       bookingId: booking.id,
       eventType: 'booking.cancelled',
-      actorType: 'guest',
+      ...actor,
       payload: {
         eventTypeId: booking.event_type_id,
         hostUserId: booking.host_user_id,
@@ -100,7 +107,7 @@ export async function cancelBooking(
   await appendBookingEvent(adminClient, {
     bookingId: booking.id,
     eventType: 'booking.cancelled',
-    actorType: 'guest',
+    ...actor,
     payload: {
       eventTypeId: booking.event_type_id,
       hostUserId: booking.host_user_id,

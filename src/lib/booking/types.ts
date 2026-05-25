@@ -46,6 +46,8 @@ export interface CancelBookingInput {
   cancellationToken: string
   cancelReason?: string
   idempotencyKey?: string
+  actorType?: 'guest' | 'host'
+  actorId?: string | null
 }
 
 export interface CancelBookingResult {

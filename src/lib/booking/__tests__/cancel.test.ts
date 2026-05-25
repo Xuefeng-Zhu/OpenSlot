@@ -170,6 +170,41 @@ describe('cancelBooking', () => {
     })
   })
 
+  it('records authenticated host cancellations with the host actor', async () => {
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    })
+
+    mockClient.update.mockImplementation(() => ({
+      eq: vi.fn().mockResolvedValue({ error: null }),
+    }))
+
+    const result = await cancelBooking(
+      {
+        ...validInput,
+        actorType: 'host',
+        actorId: 'profile-1',
+      },
+      mockClient
+    )
+
+    expect(result.success).toBe(true)
+    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventType: 'booking.cancelled',
+      actorType: 'host',
+      actorId: 'profile-1',
+      payload: {
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+        cancelReasonProvided: true,
+      },
+    })
+  })
+
   it('returns error when booking is not found', async () => {
     mockClient.single.mockResolvedValueOnce({
       data: null,
