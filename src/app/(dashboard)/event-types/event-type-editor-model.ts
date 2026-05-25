@@ -1,9 +1,7 @@
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import {
-  defaultVideoProvider,
   getVideoProviderReadiness,
   isVideoProvider,
-  videoProviderLabel,
   type VideoProviderReadiness,
 } from "@/lib/calendar/video-providers";
 import type {
@@ -150,32 +148,6 @@ export function isVideoProviderValue(value: string): value is VideoProvider {
 }
 
 export { eventLocationPlaceholder as locationPlaceholder } from "@/lib/event-location-options";
-
-export function locationPreviewType(
-  locationType: EventTypeFormValues["location_type"],
-  videoProvider: EventTypeFormValues["video_provider"]
-) {
-  if (locationType === "video_provider") {
-    return videoProviderLabel(videoProvider ?? defaultVideoProvider);
-  }
-
-  if (locationType === "in_person") return "In person";
-  if (locationType === "custom") return "Custom link";
-  if (locationType === "phone") return "Phone";
-  return "Online (manual)";
-}
-
-export function locationPreviewDetails(
-  locationType: EventTypeFormValues["location_type"],
-  locationValue: string,
-  videoStatusMessage?: string
-) {
-  if (locationType === "video_provider") {
-    return videoStatusMessage ?? "Generated automatically for new bookings";
-  }
-
-  return locationValue.trim() || "Not set";
-}
 
 export function videoProviderHealth(
   provider: VideoProvider,
