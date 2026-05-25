@@ -14,6 +14,8 @@ function invalidJsonBodyResult(): JsonBodyResult {
   }
 }
 
+const JSON_WHITESPACE_ONLY_PATTERN = /^[\u0009\u000A\u000D\u0020]*$/
+
 /**
  * Parses a JSON request body into a stable 400 response for malformed payloads.
  * Route-level validation can then assume parsing succeeded and focus on schema
@@ -37,7 +39,7 @@ export async function parseOptionalJsonBody(
 ): Promise<JsonBodyResult> {
   const rawBody = await request.text()
 
-  if (!rawBody.trim()) {
+  if (JSON_WHITESPACE_ONLY_PATTERN.test(rawBody)) {
     return { ok: true, body: {} }
   }
 

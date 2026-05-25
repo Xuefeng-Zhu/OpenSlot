@@ -106,4 +106,22 @@ describe('/api/calendar/webhooks/microsoft', () => {
     })
     expect(handleMicrosoftCalendarWebhook).not.toHaveBeenCalled()
   })
+
+  it('rejects JSON-invalid whitespace without delegating to the watch handler', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/calendar/webhooks/microsoft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '\u00A0',
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(handleMicrosoftCalendarWebhook).not.toHaveBeenCalled()
+  })
 })
