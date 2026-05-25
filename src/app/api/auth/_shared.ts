@@ -25,6 +25,15 @@ export function authErrorWithSignOut(message: string, status = 400) {
   return response
 }
 
+export function authJsonWithSignOut<TBody>(
+  body: TBody,
+  init?: ResponseInit
+) {
+  const response = authJson(body, init)
+  setResponseCookies(response, cookiesForBackendSignOut())
+  return response
+}
+
 export function sessionResponse(
   session: BackendCompatSession | BackendSession,
   keepSignedIn: boolean,

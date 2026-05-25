@@ -4,6 +4,14 @@ import { POST } from '../signup/route'
 
 const mocks = vi.hoisted(() => ({
   profileUpsertError: null as { message: string } | null,
+  signOutCookies: [
+    {
+      name: 'openslot_backend_access_token',
+      value: '',
+      options: { path: '/', maxAge: 0 },
+    },
+  ],
+  setResponseCookies: vi.fn(),
   signInWithPassword: vi.fn(),
   signUp: vi.fn(),
 }))
@@ -32,13 +40,14 @@ vi.mock('@/lib/backend/server', () => ({
     },
   })),
   cookiesForBackendSession: vi.fn(() => []),
-  cookiesForBackendSignOut: vi.fn(() => []),
-  setResponseCookies: vi.fn(),
+  cookiesForBackendSignOut: vi.fn(() => mocks.signOutCookies),
+  setResponseCookies: mocks.setResponseCookies,
 }))
 
 describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     mocks.profileUpsertError = null
+    mocks.setResponseCookies.mockReset()
     mocks.signInWithPassword.mockReset()
     mocks.signUp.mockReset()
   })
@@ -67,6 +76,10 @@ describe('POST /api/auth/signup', () => {
       user,
     })
     expect(mocks.signInWithPassword).not.toHaveBeenCalled()
+    expect(mocks.setResponseCookies).toHaveBeenCalledWith(
+      response,
+      mocks.signOutCookies
+    )
 
     consoleError.mockRestore()
   })

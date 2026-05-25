@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
 import {
   authError,
-  authJson,
+  authJsonWithSignOut,
   ensureProfileForAuthUser,
   sessionResponse,
 } from '../_shared'
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (!profileSync.ok) {
-    return authJson(
+    return authJsonWithSignOut(
       {
         success: true,
         requiresLogin: true,
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
   const signin = await backend.auth.signInWithPassword({ email, password })
   if (signin.error) {
-    return authJson(
+    return authJsonWithSignOut(
       {
         success: true,
         requiresLogin: true,
