@@ -141,6 +141,45 @@ describe('POST /api/mcp', () => {
     expect(data.result.structuredContent.profile.id).toBe('profile-1')
   })
 
+  it('returns a JSON-RPC internal error when a tool call throws', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {})
+    mocks.callMcpTool.mockRejectedValue(new Error('database unavailable'))
+
+    const response = await POST(
+      rpcRequest({
+        jsonrpc: '2.0',
+        id: 'tool-error',
+        method: 'tools/call',
+        params: {
+          name: 'openslot_get_profile',
+          arguments: {},
+        },
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data).toEqual({
+      jsonrpc: '2.0',
+      id: 'tool-error',
+      error: {
+        code: -32603,
+        message: 'Internal error',
+      },
+    })
+    expect(consoleError).toHaveBeenCalledWith(
+      'Unhandled MCP tool call error',
+      expect.objectContaining({
+        toolName: 'openslot_get_profile',
+        error: expect.any(Error),
+      })
+    )
+
+    consoleError.mockRestore()
+  })
+
   it('returns JSON-RPC invalid params for malformed tool calls', async () => {
     const response = await POST(
       rpcRequest({
