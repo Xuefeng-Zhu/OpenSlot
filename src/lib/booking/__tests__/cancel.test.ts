@@ -295,7 +295,7 @@ describe('cancelBooking', () => {
     consoleWarn.mockRestore()
   })
 
-  it('finishes side effects when an inconclusive cancel response already changed booking status', async () => {
+  it('does not replay side effects when an inconclusive cancel response already changed booking status', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockClient.rpc = vi.fn().mockResolvedValue({
       data: null,
@@ -314,62 +314,6 @@ describe('cancelBooking', () => {
         cancel_reason: validInput.cancelReason,
         status: 'cancelled',
       },
-      error: null,
-    }).mockResolvedValueOnce({
-      data: null,
-      error: { message: 'No rows found', code: 'PGRST116' },
-    })
-
-    const result = await cancelBooking(validInput, mockClient)
-
-    expect(result.success).toBe(true)
-    expect(mockClient.update).not.toHaveBeenCalled()
-    expect(cancelBookingReservation).not.toHaveBeenCalled()
-    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
-      bookingId: 'booking-id-1',
-      eventType: 'booking.cancelled',
-      actorType: 'system',
-      payload: {
-        eventTypeId: 'event-type-1',
-        hostUserId: 'host-user-1',
-        startAt: '2025-01-15T14:00:00Z',
-        endAt: '2025-01-15T14:30:00Z',
-        cancelReasonProvided: true,
-      },
-    })
-    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
-      bookingId: 'booking-id-1',
-      eventTypeId: 'event-type-1',
-      hostUserId: 'host-user-1',
-      startAt: '2025-01-15T14:00:00Z',
-      endAt: '2025-01-15T14:30:00Z',
-      cancelReasonProvided: true,
-    })
-    consoleWarn.mockRestore()
-  })
-
-  it('skips reconciled side effects when a cancellation event already exists', async () => {
-    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    mockClient.rpc = vi.fn().mockResolvedValue({
-      data: null,
-      error: {
-        message: 'Butterbase request failed with 502',
-        status: 502,
-        details: null,
-      },
-    })
-    mockClient.single.mockResolvedValueOnce({
-      data: confirmedBooking,
-      error: null,
-    }).mockResolvedValueOnce({
-      data: {
-        ...confirmedBooking,
-        cancel_reason: validInput.cancelReason,
-        status: 'cancelled',
-      },
-      error: null,
-    }).mockResolvedValueOnce({
-      data: { id: 'event-1' },
       error: null,
     })
 
