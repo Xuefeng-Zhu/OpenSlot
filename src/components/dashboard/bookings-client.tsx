@@ -1,56 +1,26 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import {
-  Calendar,
-  Mail,
-  Clock,
-  Globe,
-  FileText,
-  Video,
-  MessageSquare,
-  Search,
-  X,
-} from "lucide-react";
+import { Calendar, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Drawer,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerDescription,
-  DrawerContent,
-  DrawerFooter,
-} from "@/components/ui/drawer";
 import { EmptyState } from "@/components/shared/empty-state";
 import { useToast } from "@/components/ui/use-toast";
 import {
   errorToastDescription,
   requestJson,
 } from "@/components/dashboard/request-json";
+import { BookingCancelDialog } from "@/components/dashboard/bookings-cancel-dialog";
+import { BookingDetailsDrawer } from "@/components/dashboard/bookings-detail-drawer";
 import {
   type Booking,
   type BookingCategory,
   categorizeBookings,
   filterBookingsByEventType,
 } from "@/lib/booking-utils";
-import { formatBookingLocationLabel } from "@/lib/location-labels";
-import { formatBookingAnswerValue } from "@/lib/validations/invitee-questions";
 import { BookingsTable } from "@/components/dashboard/bookings-table";
-import { formatBookingDateTime } from "@/components/dashboard/bookings-format";
 
 interface BookingsClientProps {
   bookings: Booking[];
@@ -303,204 +273,22 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
         </TabsContent>
       </Tabs>
 
-      {/* Booking detail drawer */}
-      <Drawer
+      <BookingDetailsDrawer
+        booking={selectedBooking}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        title="Booking Details"
-      >
-        <DrawerHeader>
-          <DrawerTitle>Booking Details</DrawerTitle>
-          <DrawerDescription>
-            Full details for this booking.
-          </DrawerDescription>
-        </DrawerHeader>
-        <DrawerContent>
-          {selectedBooking && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                  <span className="text-sm font-medium">
-                    {selectedBooking.guest_name.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium">{selectedBooking.guest_name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedBooking.guest_email}
-                  </p>
-                </div>
-              </div>
+        onCancelBooking={() => setCancelDialogOpen(true)}
+      />
 
-              <div className="space-y-3 rounded-md border border-border p-4">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-sm">{selectedBooking.event_type_title}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-sm">
-                    {formatBookingDateTime(selectedBooking.start_at).date} ·{" "}
-                    {formatBookingDateTime(selectedBooking.start_at).time} –{" "}
-                    {formatBookingDateTime(selectedBooking.end_at).time}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Globe className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-sm">{selectedBooking.guest_timezone}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                  <span className="text-sm">{selectedBooking.guest_email}</span>
-                </div>
-                {bookingLocationLabel(selectedBooking) && (
-                  <div className="flex items-center gap-2">
-                    <Video className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    <span className="text-sm">
-                      {bookingLocationLabel(selectedBooking)}
-                    </span>
-                  </div>
-                )}
-                {selectedBooking.conference_url && (
-                  <div className="flex items-center gap-2">
-                    <Video className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    <a
-                      href={selectedBooking.conference_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                    >
-                      Open meeting link
-                    </a>
-                  </div>
-                )}
-                {!selectedBooking.conference_url &&
-                  conferenceStatusText(selectedBooking) && (
-                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                      {conferenceStatusText(selectedBooking)}
-                    </div>
-                  )}
-                {selectedBooking.notes && (
-                  <div className="flex items-start gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground mt-0.5" aria-hidden="true" />
-                    <span className="text-sm">{selectedBooking.notes}</span>
-                  </div>
-                )}
-                {(selectedBooking.booking_answers?.length ?? 0) > 0 && (
-                  <div className="flex items-start gap-2">
-                    <MessageSquare className="mt-0.5 h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    <div className="space-y-2 text-sm">
-                      {selectedBooking.booking_answers?.map((answer) => (
-                        <div key={answer.questionId}>
-                          <p className="font-medium">{answer.label}</p>
-                          <p className="text-muted-foreground">
-                            {formatBookingAnswerValue(answer)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Status:</span>
-                <Badge
-                  variant={
-                    selectedBooking.status === "confirmed"
-                      ? "success"
-                      : selectedBooking.status === "cancelled"
-                      ? "danger"
-                      : "secondary"
-                  }
-                >
-                  {selectedBooking.status === "confirmed"
-                    ? new Date(selectedBooking.start_at) > new Date()
-                      ? "Confirmed"
-                      : "Completed"
-                    : "Cancelled"}
-                </Badge>
-              </div>
-            </div>
-          )}
-        </DrawerContent>
-        <DrawerFooter>
-          {selectedBooking?.status === "confirmed" &&
-            new Date(selectedBooking.start_at) > new Date() && (
-              <Button
-                variant="destructive"
-                onClick={() => setCancelDialogOpen(true)}
-              >
-                Cancel booking
-              </Button>
-            )}
-          <Button variant="outline" onClick={() => setDrawerOpen(false)}>
-            Close
-          </Button>
-        </DrawerFooter>
-      </Drawer>
-
-      {/* Cancel booking dialog */}
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancel Booking</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to cancel this booking with{" "}
-              {selectedBooking?.guest_name}? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="cancel-reason">Reason (optional)</Label>
-            <Textarea
-              id="cancel-reason"
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Provide a reason for cancellation..."
-              rows={3}
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setCancelDialogOpen(false)}
-            >
-              Keep booking
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleCancelBooking}
-              disabled={cancelling}
-            >
-              {cancelling ? "Cancelling..." : "Confirm cancellation"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <BookingCancelDialog
+        booking={selectedBooking}
+        open={cancelDialogOpen}
+        cancelReason={cancelReason}
+        cancelling={cancelling}
+        onOpenChange={setCancelDialogOpen}
+        onCancelReasonChange={setCancelReason}
+        onConfirm={handleCancelBooking}
+      />
     </div>
   );
-}
-
-function bookingLocationLabel(booking: Booking): string | null {
-  return formatBookingLocationLabel({
-    locationType: booking.location_type,
-    locationValue: booking.location_value,
-    conferenceProvider: booking.conference_provider,
-  });
-}
-
-function conferenceStatusText(booking: Booking): string | null {
-  if (!booking.conference_provider || booking.conference_status === "ready") {
-    return null;
-  }
-
-  if (booking.conference_status === "setup_required") {
-    return booking.conference_error ?? "Video provider setup is required.";
-  }
-
-  if (booking.conference_status === "failed") {
-    return booking.conference_error ?? "Meeting link generation failed.";
-  }
-
-  return "Meeting link generation is pending.";
 }
