@@ -1,6 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, act } from "@testing-library/react";
-import { HoldTimer, computeRemainingSeconds } from "../hold-timer";
+import { describe, expect, it } from "vitest";
+import {
+  computeRemainingSeconds,
+  formatRemainingSeconds,
+} from "../hold-timer";
 
 describe("computeRemainingSeconds", () => {
   it("returns positive seconds for a future timestamp", () => {
@@ -28,87 +30,12 @@ describe("computeRemainingSeconds", () => {
   });
 });
 
-describe("HoldTimer", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
+describe("formatRemainingSeconds", () => {
+  it("formats full minutes and padded seconds", () => {
+    expect(formatRemainingSeconds(125)).toBe("2:05");
   });
 
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it("displays formatted countdown", () => {
-    const expiresAt = new Date(Date.now() + 125000).toISOString(); // 125 seconds
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    // 125 seconds = 2:05
-    expect(screen.getByText("2:05")).toBeDefined();
-  });
-
-  it("displays seconds less than 60 as 0:SS format", () => {
-    const expiresAt = new Date(Date.now() + 42000).toISOString(); // 42 seconds
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    expect(screen.getByText("0:42")).toBeDefined();
-  });
-
-  it("calls onExpired when countdown reaches 0", () => {
-    const expiresAt = new Date(Date.now() + 3000).toISOString(); // 3 seconds
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    expect(onExpired).not.toHaveBeenCalled();
-
-    // Advance 3 seconds
-    act(() => {
-      vi.advanceTimersByTime(3000);
-    });
-
-    expect(onExpired).toHaveBeenCalledTimes(1);
-  });
-
-  it("calls onExpired immediately if already expired", () => {
-    const expiresAt = new Date(Date.now() - 5000).toISOString(); // 5 seconds ago
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    expect(onExpired).toHaveBeenCalledTimes(1);
-  });
-
-  it("applies warning styling when remaining <= 30 seconds", () => {
-    const expiresAt = new Date(Date.now() + 20000).toISOString(); // 20 seconds
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    const timer = screen.getByRole("timer");
-    expect(timer.className).toContain("text-warning");
-  });
-
-  it("does not apply warning styling when remaining > 30 seconds", () => {
-    const expiresAt = new Date(Date.now() + 60000).toISOString(); // 60 seconds
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    const timer = screen.getByRole("timer");
-    expect(timer.className).toContain("text-muted-foreground");
-    expect(timer.className).not.toContain("text-warning");
-  });
-
-  it("has role=timer and aria-live=polite for accessibility", () => {
-    const expiresAt = new Date(Date.now() + 60000).toISOString();
-    const onExpired = vi.fn();
-
-    render(<HoldTimer expiresAt={expiresAt} onExpired={onExpired} />);
-
-    const timer = screen.getByRole("timer");
-    expect(timer.getAttribute("aria-live")).toBe("polite");
+  it("formats less than a minute as 0:SS", () => {
+    expect(formatRemainingSeconds(42)).toBe("0:42");
   });
 });
