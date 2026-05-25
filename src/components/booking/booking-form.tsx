@@ -16,22 +16,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   createConfirmBookingFormSchema,
   type ConfirmBookingFormInputValues,
   type ConfirmBookingFormValues,
 } from "@/lib/validations/booking";
-import {
-  DEFAULT_TIMEZONE,
-  timezoneOptionsWithCurrent,
-  validTimezoneOrNull,
-} from "@/lib/utils/timezone";
+import { DEFAULT_TIMEZONE, validTimezoneOrNull } from "@/lib/utils/timezone";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
 import {
@@ -112,10 +101,7 @@ export function BookingForm({
   onSlotTaken,
 }: BookingFormProps) {
   const pageTimezone = validTimezoneOrNull(timezone) ?? DEFAULT_TIMEZONE;
-  const initialGuestTimezone =
-    validTimezoneOrNull(initialGuest?.timezone) ??
-    validTimezoneOrNull(initialDraft?.guestTimezone) ??
-    pageTimezone;
+  const initialGuestTimezone = pageTimezone;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => createClientIdempotencyKey());
@@ -183,15 +169,6 @@ export function BookingForm({
       setValue("guestEmail", initialDraft.guestEmail, { shouldValidate: true });
     }
 
-    const draftTimezone = validTimezoneOrNull(initialDraft.guestTimezone);
-    if (
-      !initialGuest?.timezone &&
-      draftTimezone &&
-      !hasUserEdited("guestTimezone")
-    ) {
-      setValue("guestTimezone", draftTimezone, { shouldValidate: true });
-    }
-
     if (initialDraft.notes !== undefined && !hasUserEdited("notes")) {
       setValue("notes", initialDraft.notes, { shouldValidate: true });
     }
@@ -207,9 +184,12 @@ export function BookingForm({
     initialDraft,
     initialGuest?.email,
     initialGuest?.name,
-    initialGuest?.timezone,
     setValue,
   ]);
+
+  useEffect(() => {
+    setValue("guestTimezone", pageTimezone, { shouldValidate: true });
+  }, [pageTimezone, setValue]);
 
   // Countdown timer
   useEffect(() => {
@@ -252,22 +232,22 @@ export function BookingForm({
       const response = await fetch(
         rescheduleToken ? "/api/bookings/reschedule" : "/api/bookings",
         {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({
-          ...(rescheduleToken ? { rescheduleToken } : {}),
-          holdToken,
-          guestName: data.guestName,
-          guestEmail: data.guestEmail,
-          guestTimezone: data.guestTimezone,
-          notes: data.notes || undefined,
-          answers: data.answers ?? {},
-          idempotencyKey,
-          turnstileToken: turnstileToken ?? undefined,
-        }),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify({
+            ...(rescheduleToken ? { rescheduleToken } : {}),
+            holdToken,
+            guestName: data.guestName,
+            guestEmail: data.guestEmail,
+            guestTimezone: data.guestTimezone,
+            notes: data.notes || undefined,
+            answers: data.answers ?? {},
+            idempotencyKey,
+            turnstileToken: turnstileToken ?? undefined,
+          }),
         }
       );
 
@@ -317,11 +297,6 @@ export function BookingForm({
     }
   };
 
-  // Ensure the timezone list includes the current timezone
-  const timezoneOptions = timezoneOptionsWithCurrent(
-    initialGuestTimezone,
-    pageTimezone
-  );
   const markUserEdited = useCallback((field: string) => {
     userEditedFieldsRef.current.add(field);
   }, []);
@@ -399,6 +374,8 @@ export function BookingForm({
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <input type="hidden" {...register("guestTimezone")} />
+
           {/* Guest Name */}
           <div className="space-y-2">
             <Label htmlFor="guestName">Name *</Label>
@@ -436,37 +413,6 @@ export function BookingForm({
             {errors.guestEmail && (
               <p id="guestEmail-error" className="text-sm text-destructive">
                 {errors.guestEmail.message}
-              </p>
-            )}
-          </div>
-
-          {/* Timezone */}
-          <div className="space-y-2">
-            <Label htmlFor="guestTimezone">Timezone</Label>
-            <Select
-              value={selectedTimezone}
-              onValueChange={(value) => {
-                markUserEdited("guestTimezone");
-                setValue("guestTimezone", value, {
-                  shouldDirty: true,
-                  shouldValidate: true,
-                });
-              }}
-            >
-              <SelectTrigger id="guestTimezone">
-                <SelectValue placeholder="Select timezone" />
-              </SelectTrigger>
-              <SelectContent>
-                {timezoneOptions.map((tz) => (
-                  <SelectItem key={tz} value={tz}>
-                    {tz.replace(/_/g, " ")}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.guestTimezone && (
-              <p className="text-sm text-destructive">
-                {errors.guestTimezone.message}
               </p>
             )}
           </div>

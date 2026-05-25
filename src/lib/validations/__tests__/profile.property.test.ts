@@ -108,6 +108,20 @@ describe('Property 2: Username and timezone validation correctness', () => {
   })
 
   describe('Timezone validation', () => {
+    const isRuntimeAcceptedTimezone = (timezone: string) => {
+      const candidate = timezone.trim()
+      if (!candidate) {
+        return false
+      }
+
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: candidate })
+        return true
+      } catch {
+        return false
+      }
+    }
+
     it('accepts valid IANA timezone identifiers', () => {
       const validTimezones = Intl.supportedValuesOf('timeZone')
 
@@ -122,16 +136,21 @@ describe('Property 2: Username and timezone validation correctness', () => {
       )
     })
 
-    it('rejects random strings that are not valid IANA timezones', () => {
-      const validTimezones = new Set(Intl.supportedValuesOf('timeZone'))
+    it('accepts the UTC default timezone', () => {
+      expect(isValidTimezone('UTC')).toBe(true)
+    })
 
+    it('rejects random strings that Intl cannot resolve as timezones', () => {
       fc.assert(
         fc.property(
           fc.string({ minLength: 1, maxLength: 50 }).filter(
-            (s) => !validTimezones.has(s)
+            (timezone) => !isRuntimeAcceptedTimezone(timezone)
           ),
           (timezone) => {
             expect(isValidTimezone(timezone)).toBe(false)
+            expect(
+              profileSchema.shape.default_timezone.safeParse(timezone).success
+            ).toBe(false)
           }
         ),
         { numRuns: 100 }
