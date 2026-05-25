@@ -22,6 +22,11 @@ describe('timezone utilities', () => {
       )
     })
 
+    it('accepts timezone aliases and case variants supported by Intl', () => {
+      expect(validTimezoneOrNull('US/Eastern')).toBe('US/Eastern')
+      expect(validTimezoneOrNull('america/new_york')).toBe('america/new_york')
+    })
+
     it('returns null for blank or invalid timezones', () => {
       expect(validTimezoneOrNull('')).toBeNull()
       expect(validTimezoneOrNull('Not/A_Timezone')).toBeNull()

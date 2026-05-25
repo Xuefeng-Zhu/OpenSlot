@@ -98,7 +98,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (!isValidTimezone(timezone)) {
+    const guestTimezone = timezone.trim()
+    if (!isValidTimezone(guestTimezone)) {
       return NextResponse.json(
         { error: 'Invalid timezone. Expected a valid IANA timezone.' },
         { status: 400 }
@@ -127,7 +128,7 @@ export async function GET(request: NextRequest) {
         eventTypeId,
         startDate: startDate!,
         endDate: endDate!,
-        guestTimezone: timezone,
+        guestTimezone,
       })
 
       if (!slotsResult.success) {
@@ -151,7 +152,7 @@ export async function GET(request: NextRequest) {
       hostUserId,
       eventTypeId,
       date: date!,
-      guestTimezone: timezone,
+      guestTimezone,
     })
 
     if (!slotsResult.success) {
