@@ -19,6 +19,12 @@ export function authError(message: string, status = 400) {
   return authJson({ success: false, error: message }, { status })
 }
 
+export function authErrorWithSignOut(message: string, status = 400) {
+  const response = authError(message, status)
+  setResponseCookies(response, cookiesForBackendSignOut())
+  return response
+}
+
 export function sessionResponse(
   session: BackendCompatSession | BackendSession,
   keepSignedIn: boolean,

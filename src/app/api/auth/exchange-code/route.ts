@@ -4,7 +4,12 @@ import {
   cookiesForBackendSession,
   setResponseCookies,
 } from '@/lib/backend/server'
-import { authError, authJson, ensureProfileForAuthUser } from '../_shared'
+import {
+  authError,
+  authErrorWithSignOut,
+  authJson,
+  ensureProfileForAuthUser,
+} from '../_shared'
 import { readAuthJsonObject } from '../_request'
 
 export const runtime = 'edge'
@@ -35,7 +40,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (!profileSync.ok) {
-    return authError(profileSync.error, 500)
+    return authErrorWithSignOut(profileSync.error, 500)
   }
 
   const response = authJson({

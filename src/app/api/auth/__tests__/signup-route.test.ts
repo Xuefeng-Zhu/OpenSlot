@@ -1,24 +1,18 @@
 import type { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { POST } from '../login/route'
+import { POST } from '../signup/route'
 
 const mocks = vi.hoisted(() => ({
   profileUpsertError: null as { message: string } | null,
-  signOutCookies: [
-    {
-      name: 'openslot_backend_access_token',
-      value: '',
-      options: { path: '/', maxAge: 0 },
-    },
-  ],
-  setResponseCookies: vi.fn(),
   signInWithPassword: vi.fn(),
+  signUp: vi.fn(),
 }))
 
 vi.mock('@/lib/backend/runtime', () => ({
   createBackendRuntime: vi.fn(() => ({
     auth: {
       signInWithPassword: mocks.signInWithPassword,
+      signUp: mocks.signUp,
     },
   })),
 }))
@@ -37,65 +31,54 @@ vi.mock('@/lib/backend/server', () => ({
       }
     },
   })),
-  cookiesForBackendSession: vi.fn(() => [
-    {
-      name: 'openslot-access-token',
-      value: 'access-token',
-      options: {},
-    },
-  ]),
-  cookiesForBackendSignOut: vi.fn(() => mocks.signOutCookies),
-  setResponseCookies: mocks.setResponseCookies,
+  cookiesForBackendSession: vi.fn(() => []),
+  cookiesForBackendSignOut: vi.fn(() => []),
+  setResponseCookies: vi.fn(),
 }))
 
-describe('POST /api/auth/login', () => {
+describe('POST /api/auth/signup', () => {
   beforeEach(() => {
     mocks.profileUpsertError = null
-    mocks.setResponseCookies.mockReset()
     mocks.signInWithPassword.mockReset()
+    mocks.signUp.mockReset()
   })
 
-  it('clears stale session cookies when profile synchronization fails', async () => {
+  it('returns requiresLogin when profile synchronization fails after auth signup', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined)
+    const user = {
+      id: 'auth-user-1',
+      email: 'host@example.com',
+      displayName: 'Host',
+    }
     mocks.profileUpsertError = { message: 'database unavailable' }
-    mocks.signInWithPassword.mockResolvedValue({
-      data: {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-        expiresAt: Date.now() + 60_000,
-        user: {
-          id: 'auth-user-1',
-          email: 'host@example.com',
-          displayName: 'Host',
-        },
-      },
+    mocks.signUp.mockResolvedValue({
+      data: user,
       error: null,
     })
 
-    const response = await POST(createLoginRequest())
+    const response = await POST(createSignupRequest())
 
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(202)
     await expect(response.json()).resolves.toEqual({
-      success: false,
-      error: 'Unable to prepare your profile. Please try again.',
+      success: true,
+      requiresLogin: true,
+      user,
     })
-    expect(mocks.setResponseCookies).toHaveBeenCalledWith(
-      response,
-      mocks.signOutCookies
-    )
+    expect(mocks.signInWithPassword).not.toHaveBeenCalled()
 
     consoleError.mockRestore()
   })
 })
 
-function createLoginRequest() {
-  return new Request('http://localhost/api/auth/login', {
+function createSignupRequest() {
+  return new Request('http://localhost/api/auth/signup', {
     method: 'POST',
     body: JSON.stringify({
       email: 'host@example.com',
       password: 'password-123',
+      displayName: 'Host',
     }),
     headers: {
       'content-type': 'application/json',

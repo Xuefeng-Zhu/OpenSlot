@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { POST } from '../login/route'
+import { POST } from '../exchange-code/route'
 
 const mocks = vi.hoisted(() => ({
+  exchangeCodeForSession: vi.fn(),
   profileUpsertError: null as { message: string } | null,
   signOutCookies: [
     {
@@ -12,13 +13,12 @@ const mocks = vi.hoisted(() => ({
     },
   ],
   setResponseCookies: vi.fn(),
-  signInWithPassword: vi.fn(),
 }))
 
-vi.mock('@/lib/backend/runtime', () => ({
-  createBackendRuntime: vi.fn(() => ({
+vi.mock('@/lib/backend/compat/query-client', () => ({
+  createBackendCompatClient: vi.fn(() => ({
     auth: {
-      signInWithPassword: mocks.signInWithPassword,
+      exchangeCodeForSession: mocks.exchangeCodeForSession,
     },
   })),
 }))
@@ -37,22 +37,16 @@ vi.mock('@/lib/backend/server', () => ({
       }
     },
   })),
-  cookiesForBackendSession: vi.fn(() => [
-    {
-      name: 'openslot-access-token',
-      value: 'access-token',
-      options: {},
-    },
-  ]),
+  cookiesForBackendSession: vi.fn(() => []),
   cookiesForBackendSignOut: vi.fn(() => mocks.signOutCookies),
   setResponseCookies: mocks.setResponseCookies,
 }))
 
-describe('POST /api/auth/login', () => {
+describe('POST /api/auth/exchange-code', () => {
   beforeEach(() => {
+    mocks.exchangeCodeForSession.mockReset()
     mocks.profileUpsertError = null
     mocks.setResponseCookies.mockReset()
-    mocks.signInWithPassword.mockReset()
   })
 
   it('clears stale session cookies when profile synchronization fails', async () => {
@@ -60,21 +54,20 @@ describe('POST /api/auth/login', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => undefined)
     mocks.profileUpsertError = { message: 'database unavailable' }
-    mocks.signInWithPassword.mockResolvedValue({
+    mocks.exchangeCodeForSession.mockResolvedValue({
       data: {
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
-        expiresAt: Date.now() + 60_000,
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
         user: {
           id: 'auth-user-1',
           email: 'host@example.com',
-          displayName: 'Host',
+          user_metadata: { full_name: 'Host' },
         },
       },
       error: null,
     })
 
-    const response = await POST(createLoginRequest())
+    const response = await POST(createExchangeRequest())
 
     expect(response.status).toBe(500)
     await expect(response.json()).resolves.toEqual({
@@ -90,12 +83,11 @@ describe('POST /api/auth/login', () => {
   })
 })
 
-function createLoginRequest() {
-  return new Request('http://localhost/api/auth/login', {
+function createExchangeRequest() {
+  return new Request('http://localhost/api/auth/exchange-code', {
     method: 'POST',
     body: JSON.stringify({
-      email: 'host@example.com',
-      password: 'password-123',
+      code: 'auth-code',
     }),
     headers: {
       'content-type': 'application/json',

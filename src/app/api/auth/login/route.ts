@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
 import {
   authError,
+  authErrorWithSignOut,
   ensureProfileForAuthUser,
   sessionResponse,
 } from '../_shared'
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
   })
 
   if (!profileSync.ok) {
-    return authError(profileSync.error, 500)
+    return authErrorWithSignOut(profileSync.error, 500)
   }
 
   return sessionResponse(result.data, keepSignedIn)

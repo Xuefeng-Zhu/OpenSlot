@@ -36,7 +36,14 @@ export async function POST(request: NextRequest) {
   })
 
   if (!profileSync.ok) {
-    return authError(profileSync.error, 500)
+    return authJson(
+      {
+        success: true,
+        requiresLogin: true,
+        user: signup.data,
+      },
+      { status: 202 }
+    )
   }
 
   const signin = await backend.auth.signInWithPassword({ email, password })
