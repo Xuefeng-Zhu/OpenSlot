@@ -369,6 +369,11 @@ describe('availabilityRuleSchema', () => {
       expect(result.success).toBe(false)
     })
 
+    it('rejects equal ranges with mixed time precision', () => {
+      const result = availabilityRuleSchema.safeParse({ ...validRule, start_time: '09:00', end_time: '09:00:00' })
+      expect(result.success).toBe(false)
+    })
+
     it('rejects when start_time is after end_time', () => {
       const result = availabilityRuleSchema.safeParse({ ...validRule, start_time: '17:00', end_time: '09:00' })
       expect(result.success).toBe(false)
@@ -448,6 +453,22 @@ describe('saveAvailabilitySchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it('rejects saved weekly rules with equal mixed-precision times', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      rules: [
+        {
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '09:00:00',
+          is_active: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
   it('rejects saved weekly rules when start_time is after end_time', () => {
     const result = saveAvailabilitySchema.safeParse({
       ...validSaveBody,
@@ -488,6 +509,22 @@ describe('saveAvailabilitySchema', () => {
           date: '2026-06-17',
           start_time: '12:00',
           end_time: '10:00',
+          is_available: true,
+        },
+      ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects available date overrides with equal mixed-precision times', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      overrides: [
+        {
+          date: '2026-06-17',
+          start_time: '09:00',
+          end_time: '09:00:00',
           is_available: true,
         },
       ],
