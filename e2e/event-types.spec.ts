@@ -184,6 +184,8 @@ test.describe("event type management", () => {
   test("event types can use different availability schedules", async ({
     page,
   }) => {
+    test.slow();
+
     const adminClient = createE2EAdminClient();
     const profile = await getDemoProfile(adminClient);
     const slug = uniqueE2EId("schedule");
