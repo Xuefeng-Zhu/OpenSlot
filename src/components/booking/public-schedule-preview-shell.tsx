@@ -11,24 +11,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   BookingPageEventHeader,
   type BookingPageEventHeaderEvent,
   type BookingPageEventHeaderHost,
 } from "@/components/booking/booking-page-event-header";
+import { SlotPickerTimezoneControl } from "@/components/booking/slot-picker-timezone-control";
 import { cn } from "@/lib/utils";
 import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
-  timezoneOptionsWithCurrent,
 } from "@/lib/utils/timezone";
 
 interface PublicSchedulePreviewShellProps {
@@ -51,8 +44,6 @@ export function PublicSchedulePreviewShell({
     setTimezone(browserTimezoneOrDefault());
   }, []);
 
-  const timezoneOptions = timezoneOptionsWithCurrent(timezone);
-
   return (
     <div className="mx-auto max-w-4xl">
       <BookingPageEventHeader
@@ -60,29 +51,10 @@ export function PublicSchedulePreviewShell({
         hostProfile={hostProfile}
       />
 
-      <div className="mb-6 flex flex-col items-stretch gap-2 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-center">
-        <label
-          htmlFor="preview-timezone-select"
-          className="text-sm font-medium text-foreground"
-        >
-          Timezone
-        </label>
-        <Select value={timezone} onValueChange={setTimezone}>
-          <SelectTrigger
-            className="w-full sm:w-[280px]"
-            id="preview-timezone-select"
-          >
-            <SelectValue placeholder="Select timezone" />
-          </SelectTrigger>
-          <SelectContent>
-            {timezoneOptions.map((tz) => (
-              <SelectItem key={tz} value={tz}>
-                {tz.replace(/_/g, " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      <SlotPickerTimezoneControl
+        timezone={timezone}
+        onTimezoneChange={setTimezone}
+      />
 
       <div
         className={cn(
