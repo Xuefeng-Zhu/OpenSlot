@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventTypeEditor } from "../../event-type-editor";
 
@@ -58,6 +58,7 @@ describe("NewEventTypePage editor", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -267,7 +268,10 @@ describe("NewEventTypePage editor", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         "/api/event-types",
-        expect.objectContaining({ method: "POST" })
+        expect.objectContaining({
+          credentials: "same-origin",
+          method: "POST",
+        })
       )
     );
 
@@ -301,6 +305,64 @@ describe("NewEventTypePage editor", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(await screen.findByText("Failed to save event type.")).toBeDefined();
+    expect(push).not.toHaveBeenCalled();
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
+  it("recovers when the save request times out", async () => {
+    const fetchMock = vi.fn(
+      (_input: RequestInfo | URL, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+
+          if (signal instanceof AbortSignal) {
+            signal.addEventListener("abort", () => {
+              const error = new Error("Request aborted");
+              error.name = "AbortError";
+              reject(error);
+            });
+          }
+        })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
+
+    await fillMinimalValidEventType();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(screen.getByRole("button", { name: "Saving..." })).toHaveProperty(
+      "disabled",
+      true
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/event-types",
+      expect.objectContaining({
+        credentials: "same-origin",
+        method: "POST",
+        signal: expect.any(AbortSignal),
+      })
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15_000);
+    });
+    vi.useRealTimers();
+
+    expect(
+      await screen.findByText("Saving event type timed out. Please try again.")
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty(
+      "disabled",
+      false
+    );
     expect(push).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
   });

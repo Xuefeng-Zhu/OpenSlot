@@ -78,6 +78,19 @@ const fieldSectionMap = {
   invitee_questions: "questions",
 } satisfies Partial<Record<keyof FieldErrors, FormSectionId>>;
 
+const EVENT_TYPE_SAVE_TIMEOUT_MS = 15_000;
+const EVENT_TYPE_SAVE_TIMEOUT_ERROR =
+  "Saving event type timed out. Please try again.";
+
+function isAbortError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    error.name === "AbortError"
+  );
+}
+
 function openSectionsForFieldErrors(
   current: Record<FormSectionId, boolean>,
   fieldErrors: FieldErrors
@@ -170,6 +183,12 @@ export function EventTypeEditor({
     setServerError("");
     setIsSubmitting(true);
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(
+      () => controller.abort(),
+      EVENT_TYPE_SAVE_TIMEOUT_MS
+    );
+
     try {
       const response = await fetch(
         mode === "create"
@@ -178,6 +197,8 @@ export function EventTypeEditor({
         {
           method: mode === "create" ? "POST" : "PATCH",
           headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          signal: controller.signal,
           body: JSON.stringify(parsed.data),
         }
       );
@@ -203,9 +224,14 @@ export function EventTypeEditor({
       });
       router.push("/event-types");
       router.refresh();
-    } catch {
-      setServerError("An unexpected error occurred. Please try again.");
+    } catch (error) {
+      setServerError(
+        isAbortError(error)
+          ? EVENT_TYPE_SAVE_TIMEOUT_ERROR
+          : "An unexpected error occurred. Please try again."
+      );
     } finally {
+      clearTimeout(timeoutId);
       setIsSubmitting(false);
     }
   };
