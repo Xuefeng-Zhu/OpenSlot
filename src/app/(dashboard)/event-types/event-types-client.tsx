@@ -5,6 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import {
+  errorToastDescription,
+  requestJson,
+} from "@/components/dashboard/request-json";
 import { Button } from "@/components/ui/button";
 import {
   DeleteEventTypeDialog,
@@ -31,6 +35,15 @@ export interface DashboardEventType {
 interface EventTypesClientProps {
   initialEventTypes: DashboardEventType[];
 }
+
+type DeleteEventTypeResponse =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
 
 /**
  * Dashboard event type list with client-side filtering and delete confirmation.
@@ -96,20 +109,14 @@ export function EventTypesClient({
     setDeletingId(id);
 
     try {
-      const response = await fetch(`/api/event-types/${id}`, {
-        method: "DELETE",
-      });
-      const result = (await response.json().catch(() => null)) as
-        | { error?: string }
-        | null;
+      const result = await requestJson<DeleteEventTypeResponse>(
+        `/api/event-types/${id}`,
+        { method: "DELETE" },
+        "Please try again."
+      );
 
-      if (!response.ok) {
-        toast({
-          title: "Could not delete event type",
-          description: result?.error ?? "Please try again.",
-          variant: "destructive",
-        });
-        return;
+      if (!result.success) {
+        throw new Error(result.error ?? "Please try again.");
       }
 
       setEventTypes((current) =>
@@ -121,10 +128,10 @@ export function EventTypesClient({
         description: `"${title}" has been removed.`,
       });
       router.refresh();
-    } catch {
+    } catch (error) {
       toast({
         title: "Could not delete event type",
-        description: "Please check your connection and try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {
