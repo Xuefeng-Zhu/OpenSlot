@@ -97,6 +97,7 @@ describe('GET /api/slots', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllGlobals()
     vi.useRealTimers()
   })
 
@@ -168,6 +169,19 @@ describe('GET /api/slots', () => {
   })
 
   it('falls back to cached calendar data when calendar refresh stalls', async () => {
+    let refreshSignal: AbortSignal | undefined
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+        refreshSignal = init?.signal ?? undefined
+
+        return new Promise<Response>((_resolve, reject) => {
+          refreshSignal?.addEventListener('abort', () => {
+            reject(new Error('Calendar refresh aborted'))
+          })
+        })
+      })
+    )
     const eventTypeQuery = createQuery({
       data: {
         duration_minutes: 30,
@@ -206,7 +220,10 @@ describe('GET /api/slots', () => {
     const emptyQuery = createQuery({ data: [], error: null })
 
     mocks.refreshCalendarAvailabilityForHost.mockImplementationOnce(
-      () => new Promise(() => {})
+      async (_client, _hostUserId, _rangeStart, _rangeEnd, fetchImpl) => {
+        await fetchImpl('https://calendar.example.test/freebusy')
+        return { checked: 1, refreshed: 1, failed: 0 }
+      }
     )
     mocks.adminClient.from
       .mockReturnValueOnce(eventTypeQuery)
@@ -225,6 +242,7 @@ describe('GET /api/slots', () => {
     expect(response.status).toBe(200)
     expect(data.slots.length).toBeGreaterThan(0)
     expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalled()
+    expect(refreshSignal?.aborted).toBe(true)
   })
 
   it('rate limits slot lookups before computing availability', async () => {

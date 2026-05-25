@@ -522,6 +522,13 @@ async function refreshCalendarAvailabilityForSlotLookup({
   rangeStart: string
   rangeEnd: string
 }): Promise<RefreshCalendarAvailabilityResult> {
+  const abortController = new AbortController()
+  const fetchImpl: typeof fetch = (input, init) =>
+    fetchWithTimeout(input, {
+      ...init,
+      signal: init?.signal ?? abortController.signal,
+    })
+
   try {
     return await withTimeout(
       refreshCalendarAvailabilityForHost(
@@ -529,10 +536,11 @@ async function refreshCalendarAvailabilityForSlotLookup({
         hostUserId,
         rangeStart,
         rangeEnd,
-        fetchWithTimeout
+        fetchImpl
       ),
       SLOT_CALENDAR_REFRESH_TIMEOUT_MS,
-      { checked: 1, refreshed: 0, failed: 1 }
+      { checked: 1, refreshed: 0, failed: 1 },
+      () => abortController.abort()
     )
   } catch (error) {
     console.warn('Skipping calendar availability refresh for slot lookup:', error)
@@ -543,15 +551,24 @@ async function refreshCalendarAvailabilityForSlotLookup({
 async function withTimeout<T>(
   promise: Promise<T>,
   timeoutMs: number,
-  fallback: T
+  fallback: T,
+  onTimeout?: () => void
 ): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined
+  let timedOut = false
 
   try {
     return await Promise.race([
-      promise,
+      promise.catch((error) => {
+        if (timedOut) return fallback
+        throw error
+      }),
       new Promise<T>((resolve) => {
-        timeoutId = setTimeout(() => resolve(fallback), timeoutMs)
+        timeoutId = setTimeout(() => {
+          timedOut = true
+          onTimeout?.()
+          resolve(fallback)
+        }, timeoutMs)
       }),
     ])
   } finally {
