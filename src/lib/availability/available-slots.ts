@@ -47,6 +47,8 @@ type ScheduleAvailabilityConfig = Pick<
   'id' | 'timezone'
 >
 
+const SLOT_CALENDAR_REFRESH_TIMEOUT_MS = 3_000
+
 export type AvailableSlotsResult =
   | AvailableSlotsSuccess
   | AvailableSlotsFailure
@@ -363,12 +365,12 @@ async function computeSlotsForDateRange({
   )
 
   const refreshPromise = refreshExternalCalendars
-    ? refreshCalendarAvailabilityForHost(
+    ? refreshCalendarAvailabilityForSlotLookup({
         backendClient,
         hostUserId,
-        conflictLookupRange.start,
-        conflictLookupRange.end
-      )
+        rangeStart: conflictLookupRange.start,
+        rangeEnd: conflictLookupRange.end,
+      })
     : Promise.resolve<RefreshCalendarAvailabilityResult | null>(null)
 
   const rulesPromise = backendClient
@@ -506,6 +508,76 @@ async function computeSlotsForDateRange({
   return {
     success: true,
     slotsByDate,
+  }
+}
+
+async function refreshCalendarAvailabilityForSlotLookup({
+  backendClient,
+  hostUserId,
+  rangeStart,
+  rangeEnd,
+}: {
+  backendClient: AdminClient
+  hostUserId: string
+  rangeStart: string
+  rangeEnd: string
+}): Promise<RefreshCalendarAvailabilityResult> {
+  try {
+    return await withTimeout(
+      refreshCalendarAvailabilityForHost(
+        backendClient,
+        hostUserId,
+        rangeStart,
+        rangeEnd,
+        fetchWithTimeout
+      ),
+      SLOT_CALENDAR_REFRESH_TIMEOUT_MS,
+      { checked: 1, refreshed: 0, failed: 1 }
+    )
+  } catch (error) {
+    console.warn('Skipping calendar availability refresh for slot lookup:', error)
+    return { checked: 1, refreshed: 0, failed: 1 }
+  }
+}
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  fallback: T
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => {
+        timeoutId = setTimeout(() => resolve(fallback), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  }
+}
+
+async function fetchWithTimeout(
+  input: RequestInfo | URL,
+  init?: RequestInit
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    SLOT_CALENDAR_REFRESH_TIMEOUT_MS
+  )
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
   }
 }
 

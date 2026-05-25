@@ -167,6 +167,66 @@ describe('GET /api/slots', () => {
     })
   })
 
+  it('falls back to cached calendar data when calendar refresh stalls', async () => {
+    const eventTypeQuery = createQuery({
+      data: {
+        duration_minutes: 30,
+        buffer_before_minutes: 0,
+        buffer_after_minutes: 0,
+        min_notice_minutes: 0,
+        max_booking_days_ahead: 365,
+        schedule_id: 'schedule-1',
+        user_id: '22222222-2222-4222-8222-222222222222',
+        is_active: true,
+      },
+      error: null,
+    })
+    const scheduleQuery = createQuery({
+      data: {
+        id: 'schedule-1',
+        timezone: 'America/New_York',
+      },
+      error: null,
+    })
+    const rulesQuery = createQuery({
+      data: [
+        {
+          id: 'rule-1',
+          user_id: '22222222-2222-4222-8222-222222222222',
+          schedule_id: 'schedule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '10:00',
+          timezone: 'America/New_York',
+          is_active: true,
+        },
+      ],
+      error: null,
+    })
+    const emptyQuery = createQuery({ data: [], error: null })
+
+    mocks.refreshCalendarAvailabilityForHost.mockImplementationOnce(
+      () => new Promise(() => {})
+    )
+    mocks.adminClient.from
+      .mockReturnValueOnce(eventTypeQuery)
+      .mockReturnValueOnce(scheduleQuery)
+      .mockReturnValueOnce(rulesQuery)
+      .mockReturnValueOnce(emptyQuery)
+      .mockReturnValueOnce(emptyQuery)
+      .mockReturnValueOnce(emptyQuery)
+      .mockReturnValueOnce(emptyQuery)
+
+    const responsePromise = GET(slotsRequest() as any)
+    await vi.advanceTimersByTimeAsync(3_000)
+    const response = await responsePromise
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data.slots.length).toBeGreaterThan(0)
+    expect(mocks.refreshCalendarAvailabilityForHost).toHaveBeenCalled()
+  })
+
   it('rate limits slot lookups before computing availability', async () => {
     mocks.consumePublicRateLimit.mockResolvedValue({
       allowed: false,
