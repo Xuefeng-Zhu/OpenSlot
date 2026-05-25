@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PASSWORD_COMPLEXITY_ERROR } from "@/lib/validations/password";
 import ResetPasswordPage from "../page";
 
 const fetchMock = vi.fn();
@@ -190,11 +191,7 @@ describe("ResetPasswordPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
-    expect(
-      screen.getByText(
-        "Password must include uppercase, lowercase, number, and special characters."
-      )
-    ).toBeDefined();
+    expect(screen.getByText(PASSWORD_COMPLEXITY_ERROR)).toBeDefined();
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("New password"), {
