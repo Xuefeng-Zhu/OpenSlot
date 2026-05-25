@@ -576,7 +576,6 @@ async function withTimeout<T>(
     ])
 
     if (result.status === 'timed-out') {
-      await promise.catch(() => undefined)
       return fallback
     }
 
