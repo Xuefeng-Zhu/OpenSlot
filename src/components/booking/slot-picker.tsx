@@ -15,14 +15,9 @@ import {
 } from "@/lib/utils/timezone";
 import { formatBookingTime } from "@/lib/booking/date-time-format";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
+import type { TimeSlot } from "@/lib/availability/types";
 import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import type { InviteeQuestion } from "@/lib/validations/invitee-questions";
-
-interface TimeSlot {
-  start: string;
-  end: string;
-  slotToken?: string;
-}
 
 export interface SlotPickerEventType {
   id: string;

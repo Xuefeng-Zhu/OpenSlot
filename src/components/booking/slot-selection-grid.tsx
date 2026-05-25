@@ -14,13 +14,8 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
 import { TurnstileWidget } from "@/components/booking/turnstile-widget";
+import type { TimeSlot } from "@/lib/availability/types";
 import { cn } from "@/lib/utils";
-
-interface TimeSlot {
-  start: string;
-  end: string;
-  slotToken?: string;
-}
 
 interface SlotSelectionGridProps {
   layout: "public" | "embedded";

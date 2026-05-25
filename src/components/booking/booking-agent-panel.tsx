@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   BookingAgentPanelView,
-  type TimeSlot,
+  type BookingAgentTimeSlot,
 } from "@/components/booking/booking-agent-panel-view";
 import type {
   BookingAgentDraft,
@@ -28,7 +28,7 @@ interface AgentResponse {
   success: boolean;
   reply?: string;
   error?: string;
-  suggestedSlots?: TimeSlot[];
+  suggestedSlots?: BookingAgentTimeSlot[];
   draft?: BookingAgentDraft;
   nextAction?: string;
 }
@@ -60,7 +60,9 @@ export function BookingAgentPanel({
     initialAssistantMessage(mode),
   ]);
   const [input, setInput] = useState("");
-  const [suggestedSlots, setSuggestedSlots] = useState<TimeSlot[]>([]);
+  const [suggestedSlots, setSuggestedSlots] = useState<BookingAgentTimeSlot[]>(
+    []
+  );
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
