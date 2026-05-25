@@ -90,7 +90,7 @@ async function loadCachedDemoAuthSession(
   if (tokens.accessToken) {
     const currentUser = await backend.auth.getCurrentUser(tokens.accessToken);
     if (!currentUser.error) {
-      return {
+      const setup = {
         userId: currentUser.data.id,
         session: {
           accessToken: tokens.accessToken,
@@ -98,6 +98,7 @@ async function loadCachedDemoAuthSession(
           user: currentUser.data,
         },
       };
+      return cachedSessionMatchesDemoHost(setup.session) ? setup : null;
     }
   }
 
@@ -105,6 +106,7 @@ async function loadCachedDemoAuthSession(
 
   const refreshed = await backend.auth.refreshSession(tokens.refreshToken);
   if (refreshed.error) return null;
+  if (!cachedSessionMatchesDemoHost(refreshed.data)) return null;
 
   saveDemoHostSessionState(refreshed.data);
   return authSessionSetup(refreshed.data);
@@ -310,4 +312,11 @@ function authSessionSetup(session: BackendSession): DemoAuthSessionSetup {
     userId: session.user.id,
     session,
   };
+}
+
+function cachedSessionMatchesDemoHost(session: BackendSession) {
+  return (
+    session.user.email === demoHost.email &&
+    session.user.id === demoHost.authUserId
+  );
 }

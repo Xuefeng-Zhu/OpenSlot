@@ -44,13 +44,13 @@ describe('E2E demo auth setup', () => {
     saveDemoHostSessionState({
       accessToken: 'cached-access-token',
       refreshToken: 'cached-refresh-token',
-      user: { id: 'auth-user-cached', email: demoHost.email },
+      user: { id: demoHost.authUserId, email: demoHost.email },
     })
 
     const backend = {
       auth: {
         getCurrentUser: vi.fn(async () => ({
-          data: { id: 'auth-user-cached', email: demoHost.email },
+          data: { id: demoHost.authUserId, email: demoHost.email },
           error: null,
         })),
         refreshSession: vi.fn(),
@@ -66,7 +66,7 @@ describe('E2E demo auth setup', () => {
     } as unknown as E2EAdminClient
 
     await expect(ensureDemoAuthUser(backend, adminClient)).resolves.toBe(
-      'auth-user-cached'
+      demoHost.authUserId
     )
     expect(backend.auth.getCurrentUser).toHaveBeenCalledWith(
       'cached-access-token'
@@ -76,11 +76,57 @@ describe('E2E demo auth setup', () => {
     expect(adminClient.from).not.toHaveBeenCalled()
   })
 
+  it('ignores a cached access session for a different demo host', async () => {
+    saveDemoHostSessionState({
+      accessToken: 'cached-access-token',
+      refreshToken: 'cached-refresh-token',
+      user: { id: 'other-auth-user', email: 'other@example.com' },
+    })
+
+    const backend = {
+      auth: {
+        getCurrentUser: vi.fn(async () => ({
+          data: { id: 'other-auth-user', email: 'other@example.com' },
+          error: null,
+        })),
+        refreshSession: vi.fn(),
+        signInWithPassword: vi.fn(async () => ({
+          data: {
+            accessToken: 'fresh-access-token',
+            refreshToken: 'fresh-refresh-token',
+            user: { id: demoHost.authUserId, email: demoHost.email },
+          },
+          error: null,
+        })),
+        signUp: vi.fn(),
+      },
+    } as unknown as BackendPorts
+    const adminClient = {
+      auth: {
+        updateUser: vi.fn(),
+      },
+      from: vi.fn(),
+    } as unknown as E2EAdminClient
+
+    await expect(ensureDemoAuthUser(backend, adminClient)).resolves.toBe(
+      demoHost.authUserId
+    )
+    expect(backend.auth.getCurrentUser).toHaveBeenCalledWith(
+      'cached-access-token'
+    )
+    expect(backend.auth.refreshSession).not.toHaveBeenCalled()
+    expect(backend.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: demoHost.email,
+      password: demoHost.password,
+    })
+    expect(adminClient.from).not.toHaveBeenCalled()
+  })
+
   it('refreshes a saved backend auth state when the access token is stale', async () => {
     saveDemoHostSessionState({
       accessToken: 'stale-access-token',
       refreshToken: 'cached-refresh-token',
-      user: { id: 'auth-user-cached', email: demoHost.email },
+      user: { id: demoHost.authUserId, email: demoHost.email },
     })
 
     const backend = {
@@ -93,7 +139,7 @@ describe('E2E demo auth setup', () => {
           data: {
             accessToken: 'refreshed-access-token',
             refreshToken: 'refreshed-refresh-token',
-            user: { id: 'auth-user-cached', email: demoHost.email },
+            user: { id: demoHost.authUserId, email: demoHost.email },
           },
           error: null,
         })),
@@ -109,7 +155,7 @@ describe('E2E demo auth setup', () => {
     } as unknown as E2EAdminClient
 
     await expect(ensureDemoAuthUser(backend, adminClient)).resolves.toBe(
-      'auth-user-cached'
+      demoHost.authUserId
     )
     expect(backend.auth.refreshSession).toHaveBeenCalledWith(
       'cached-refresh-token'
@@ -123,6 +169,66 @@ describe('E2E demo auth setup', () => {
         }),
       ])
     )
+  })
+
+  it('ignores a refreshed cached session for a different demo host', async () => {
+    saveDemoHostSessionState({
+      accessToken: 'stale-access-token',
+      refreshToken: 'cached-refresh-token',
+      user: { id: 'other-auth-user', email: 'other@example.com' },
+    })
+
+    const backend = {
+      auth: {
+        getCurrentUser: vi.fn(async () => ({
+          data: null,
+          error: { message: 'Access token expired' },
+        })),
+        refreshSession: vi.fn(async () => ({
+          data: {
+            accessToken: 'wrong-access-token',
+            refreshToken: 'wrong-refresh-token',
+            user: { id: 'other-auth-user', email: 'other@example.com' },
+          },
+          error: null,
+        })),
+        signInWithPassword: vi.fn(async () => ({
+          data: {
+            accessToken: 'fresh-access-token',
+            refreshToken: 'fresh-refresh-token',
+            user: { id: demoHost.authUserId, email: demoHost.email },
+          },
+          error: null,
+        })),
+        signUp: vi.fn(),
+      },
+    } as unknown as BackendPorts
+    const adminClient = {
+      auth: {
+        updateUser: vi.fn(),
+      },
+      from: vi.fn(),
+    } as unknown as E2EAdminClient
+
+    await expect(ensureDemoAuthUser(backend, adminClient)).resolves.toBe(
+      demoHost.authUserId
+    )
+    expect(backend.auth.refreshSession).toHaveBeenCalledWith(
+      'cached-refresh-token'
+    )
+    expect(backend.auth.signInWithPassword).toHaveBeenCalledWith({
+      email: demoHost.email,
+      password: demoHost.password,
+    })
+    expect(readDemoHostAuthState()?.cookies).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({
+          name: 'openslot_backend_access_token',
+          value: 'wrong-access-token',
+        }),
+      ])
+    )
+    expect(adminClient.from).not.toHaveBeenCalled()
   })
 
   it('refreshes a saved backend auth state when only the refresh token remains', async () => {
@@ -149,7 +255,7 @@ describe('E2E demo auth setup', () => {
           data: {
             accessToken: 'refreshed-access-token',
             refreshToken: 'refreshed-refresh-token',
-            user: { id: 'auth-user-cached', email: demoHost.email },
+            user: { id: demoHost.authUserId, email: demoHost.email },
           },
           error: null,
         })),
@@ -165,7 +271,7 @@ describe('E2E demo auth setup', () => {
     } as unknown as E2EAdminClient
 
     await expect(ensureDemoAuthUser(backend, adminClient)).resolves.toBe(
-      'auth-user-cached'
+      demoHost.authUserId
     )
     expect(backend.auth.getCurrentUser).not.toHaveBeenCalled()
     expect(backend.auth.refreshSession).toHaveBeenCalledWith(

@@ -90,7 +90,7 @@ function createSignupRequest() {
     method: 'POST',
     body: JSON.stringify({
       email: 'host@example.com',
-      password: 'password-123',
+      password: 'CorrectHorse1!',
       displayName: 'Host',
     }),
     headers: {

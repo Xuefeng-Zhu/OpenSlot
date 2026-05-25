@@ -124,6 +124,82 @@ describe("E2E demo auth state", () => {
     );
   });
 
+  it("backfills only missing seeded backend cookies when browser storage is partial", () => {
+    writeDemoHostAuthState({
+      cookies: [
+        {
+          domain: "127.0.0.1",
+          expires: 1770000000,
+          httpOnly: true,
+          name: "openslot_backend_access_token",
+          path: "/",
+          sameSite: "Lax",
+          secure: false,
+          value: "seeded-access-token",
+        },
+        {
+          domain: "127.0.0.1",
+          expires: 1770000000,
+          httpOnly: true,
+          name: "openslot_backend_refresh_token",
+          path: "/",
+          sameSite: "Lax",
+          secure: false,
+          value: "seeded-refresh-token",
+        },
+      ],
+      origins: [],
+    });
+
+    const merged = mergeStoredBackendCookies({
+      cookies: [
+        {
+          domain: "127.0.0.1",
+          expires: 1770000000,
+          httpOnly: true,
+          name: "openslot_backend_access_token",
+          path: "/",
+          sameSite: "Lax",
+          secure: false,
+          value: "browser-access-token",
+        },
+        {
+          domain: "127.0.0.1",
+          expires: 1770000000,
+          httpOnly: false,
+          name: "openslot_auth_session_persistence",
+          path: "/",
+          sameSite: "Lax",
+          secure: false,
+          value: "persistent",
+        },
+      ],
+      origins: [],
+    });
+
+    expect(merged.cookies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "openslot_backend_access_token",
+          value: "browser-access-token",
+        }),
+        expect.objectContaining({
+          name: "openslot_backend_refresh_token",
+          value: "seeded-refresh-token",
+        }),
+        expect.objectContaining({
+          name: "openslot_auth_session_persistence",
+          value: "persistent",
+        }),
+      ])
+    );
+    expect(
+      merged.cookies.filter(
+        (cookie) => cookie.name === "openslot_backend_access_token"
+      )
+    ).toHaveLength(1);
+  });
+
   it("reads saved backend session tokens for global setup reuse", () => {
     saveDemoHostSessionState({
       accessToken: "cached-access-token",

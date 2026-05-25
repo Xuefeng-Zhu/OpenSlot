@@ -78,19 +78,27 @@ export function writeDemoHostAuthState(state: DemoHostAuthState) {
 export function mergeStoredBackendCookies(
   nextState: DemoHostAuthState
 ): DemoHostAuthState {
-  if (hasBackendAuthCookie(nextState)) return nextState;
-
   const existingState = readDemoHostAuthState();
   if (!existingState || !hasBackendAuthCookie(existingState)) {
     return nextState;
   }
 
+  const nextBackendCookieNames = new Set(
+    nextState.cookies
+      .filter((cookie) => isBackendSessionCookie(cookie) && cookie.value)
+      .map((cookie) => cookie.name)
+  );
+  const missingBackendCookies = existingState.cookies.filter(
+    (cookie) =>
+      isBackendSessionCookie(cookie) &&
+      cookie.value &&
+      !nextBackendCookieNames.has(cookie.name)
+  );
+  if (missingBackendCookies.length === 0) return nextState;
+
   return {
     ...nextState,
-    cookies: [
-      ...nextState.cookies.filter((cookie) => !isBackendSessionCookie(cookie)),
-      ...existingState.cookies.filter(isBackendSessionCookie),
-    ],
+    cookies: [...nextState.cookies, ...missingBackendCookies],
   };
 }
 
