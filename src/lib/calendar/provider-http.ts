@@ -5,21 +5,29 @@ export function providerHeaders(accessToken: string): HeadersInit {
   }
 }
 
+interface ProviderErrorResponse {
+  error?: { message?: string }
+  error_description?: string
+}
+
 export async function parseProviderJson<T>(response: Response): Promise<T> {
-  const data = (await response.json().catch(() => ({}))) as T & {
-    error?: { message?: string }
-    error_description?: string
-  }
+  const data = (await response.json().catch(() => {
+    if (response.ok) {
+      throw new Error('Provider returned malformed JSON')
+    }
+
+    return null
+  })) as (T & ProviderErrorResponse) | null
 
   if (!response.ok) {
     throw new Error(
-      data.error?.message ??
-        data.error_description ??
+      data?.error?.message ??
+        data?.error_description ??
         `Provider request failed with HTTP ${response.status}`
     )
   }
 
-  return data
+  return data as T
 }
 
 export function calendarErrorMessage(error: unknown): string {
