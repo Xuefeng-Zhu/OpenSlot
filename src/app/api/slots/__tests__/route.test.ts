@@ -1,16 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { GET } from '../route'
 
+type RefreshCalendarAvailabilityForHostMock = (
+  client: unknown,
+  hostUserId: string,
+  rangeStart: string,
+  rangeEnd: string,
+  fetchImpl: typeof fetch,
+  options?: { abortSignal?: AbortSignal }
+) => Promise<{ checked: number; refreshed: number; failed: number }>
+
 const mocks = vi.hoisted(() => ({
   adminClient: {
     from: vi.fn(),
   },
   consumePublicRateLimit: vi.fn(),
-  refreshCalendarAvailabilityForHost: vi.fn(async () => ({
-    checked: 0,
-    refreshed: 0,
-    failed: 0,
-  })),
+  refreshCalendarAvailabilityForHost:
+    vi.fn<RefreshCalendarAvailabilityForHostMock>(async () => ({
+      checked: 0,
+      refreshed: 0,
+      failed: 0,
+    })),
 }))
 
 vi.mock('@/lib/backend/server', () => ({
