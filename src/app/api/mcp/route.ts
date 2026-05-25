@@ -152,11 +152,28 @@ async function handleToolCall(
     })
   }
 
-  const result = await callMcpTool({
-    name: params.name,
-    argumentsValue: params.argumentsValue,
-    context,
-  })
+  let result: McpToolResult
+
+  try {
+    result = await callMcpTool({
+      name: params.name,
+      argumentsValue: params.argumentsValue,
+      context,
+    })
+  } catch (error) {
+    console.error('Unhandled MCP tool call error', {
+      toolName: params.name,
+      error,
+    })
+    return jsonRpcError(
+      rpcRequest.id ?? null,
+      {
+        code: -32603,
+        message: 'Internal error',
+      },
+      500
+    )
+  }
 
   return jsonRpcResult(rpcRequest.id ?? null, result)
 }
