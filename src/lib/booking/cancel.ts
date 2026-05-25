@@ -86,6 +86,10 @@ export async function cancelBooking(
         return { success: false, error: 'Booking has already been cancelled' }
       }
 
+      if (await hasRecordedCancellationEvent(adminClient, refreshedBooking.id)) {
+        return { success: true }
+      }
+
       await recordCancellationSideEffects(
         adminClient,
         refreshedBooking,
@@ -147,6 +151,30 @@ async function loadBookingByCancellationToken(
   if (error || !data) return null
 
   return data as Tables<'bookings'>
+}
+
+async function hasRecordedCancellationEvent(
+  adminClient: BackendCompatClient<Database>,
+  bookingId: string
+): Promise<boolean> {
+  const { data, error } = await adminClient
+    .from('booking_events')
+    .select('id')
+    .eq('booking_id', bookingId)
+    .eq('event_type', 'booking.cancelled')
+    .single()
+
+  if (data) return true
+
+  if (error && error.code !== 'PGRST116') {
+    console.warn('Skipping cancellation side-effect replay after event lookup failed:', {
+      bookingId,
+      error,
+    })
+    return true
+  }
+
+  return false
 }
 
 type CancelFunctionResult =

@@ -315,6 +315,9 @@ describe('cancelBooking', () => {
         status: 'cancelled',
       },
       error: null,
+    }).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'No rows found', code: 'PGRST116' },
     })
 
     const result = await cancelBooking(validInput, mockClient)
@@ -342,6 +345,42 @@ describe('cancelBooking', () => {
       endAt: '2025-01-15T14:30:00Z',
       cancelReasonProvided: true,
     })
+    consoleWarn.mockRestore()
+  })
+
+  it('skips reconciled side effects when a cancellation event already exists', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        cancel_reason: validInput.cancelReason,
+        status: 'cancelled',
+      },
+      error: null,
+    }).mockResolvedValueOnce({
+      data: { id: 'event-1' },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).not.toHaveBeenCalled()
+    expect(touchContactForBookingEvent).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
     consoleWarn.mockRestore()
   })
 
