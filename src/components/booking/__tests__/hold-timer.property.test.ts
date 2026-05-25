@@ -6,9 +6,8 @@ import { computeRemainingSeconds } from '../hold-timer'
  * Property 11: Hold Timer Countdown Computation
  * Validates: Requirements 13.6
  *
- * For any future expiration timestamp, the HoldTimer component SHALL compute
- * the remaining seconds as max(0, floor((expiresAt - now) / 1000)) and display it.
- * When the remaining seconds reach 0, the onExpired callback SHALL be invoked.
+ * For any expiration timestamp, the shared hold timer helper SHALL compute
+ * the remaining seconds as max(0, floor((expiresAt - now) / 1000)).
  */
 
 describe('Property 11: Hold Timer Countdown Computation', () => {
