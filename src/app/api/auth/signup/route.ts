@@ -1,6 +1,10 @@
 import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
 import {
+  PASSWORD_COMPLEXITY_ERROR,
+  isStrongPassword,
+} from '@/lib/validations/password'
+import {
   authError,
   authJsonWithSignOut,
   ensureProfileForAuthUser,
@@ -20,6 +24,10 @@ export async function POST(request: NextRequest) {
 
   if (!email || !password) {
     return authError('Email and password are required.')
+  }
+
+  if (!isStrongPassword(password)) {
+    return authError(PASSWORD_COMPLEXITY_ERROR)
   }
 
   const backend = createBackendRuntime()

@@ -10,6 +10,11 @@ import { AppIcon } from "@/components/shared/app-icon";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  PASSWORD_COMPLEXITY_ERROR,
+  getPasswordRequirements,
+  isStrongPassword,
+} from "@/lib/validations/password";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -26,12 +31,7 @@ export default function SignupPage() {
   }>({});
   const [loading, setLoading] = useState(false);
 
-  // Password strength checks
-  const hasMinLength = password.length >= 8;
-  const hasNumber = /\d/.test(password);
-  const hasLowercase = /[a-z]/.test(password);
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasSpecial = /[^A-Za-z0-9]/.test(password);
+  const passwordRequirements = getPasswordRequirements(password);
 
   function validate(): boolean {
     const newErrors: typeof errors = {};
@@ -49,15 +49,8 @@ export default function SignupPage() {
 
     if (!password) {
       newErrors.password = "Password is required.";
-    } else if (
-      !hasMinLength ||
-      !hasNumber ||
-      !hasLowercase ||
-      !hasUppercase ||
-      !hasSpecial
-    ) {
-      newErrors.password =
-        "Password must include uppercase, lowercase, number, and special characters.";
+    } else if (!isStrongPassword(password)) {
+      newErrors.password = PASSWORD_COMPLEXITY_ERROR;
     }
 
     setErrors(newErrors);
@@ -240,28 +233,20 @@ export default function SignupPage() {
                   {errors.password}
                 </p>
               )}
-              {/* Password strength indicators */}
               <div id="password-requirements" className="flex flex-wrap gap-3 mt-2">
-                <span className={`flex items-center gap-1 text-xs ${hasMinLength ? "text-success" : "text-muted-foreground"}`}>
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                  At least 8 characters
-                </span>
-                <span className={`flex items-center gap-1 text-xs ${hasNumber ? "text-success" : "text-muted-foreground"}`}>
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                  Includes a number
-                </span>
-                <span className={`flex items-center gap-1 text-xs ${hasLowercase ? "text-success" : "text-muted-foreground"}`}>
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                  Includes a lowercase letter
-                </span>
-                <span className={`flex items-center gap-1 text-xs ${hasUppercase ? "text-success" : "text-muted-foreground"}`}>
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                  Includes an uppercase letter
-                </span>
-                <span className={`flex items-center gap-1 text-xs ${hasSpecial ? "text-success" : "text-muted-foreground"}`}>
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                  Includes a special character
-                </span>
+                {passwordRequirements.map((requirement) => (
+                  <span
+                    key={requirement.id}
+                    className={`flex items-center gap-1 text-xs ${
+                      requirement.isMet
+                        ? "text-success"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    <Check className="h-3 w-3" aria-hidden="true" />
+                    {requirement.label}
+                  </span>
+                ))}
               </div>
             </div>
 
