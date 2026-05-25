@@ -67,7 +67,7 @@ This guide is for autonomous coding agents working in OpenSlot.
 
 Use a follow-up when a useful improvement is outside your safe scope:
 
-- `TODO: add CI workflow once deployment target is chosen.`
+- Document deploy target ownership once the production platform is chosen.
 
 ## Related Docs
 
