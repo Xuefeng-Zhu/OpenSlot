@@ -34,6 +34,9 @@ export type {
 } from "@/components/booking/slot-picker-types";
 export { mergeBookingAgentDrafts } from "@/components/booking/slot-picker-helpers";
 
+// The real guest email is collected after the provisional hold is created.
+const PROVISIONAL_HOLD_GUEST_EMAIL = "pending@openslot.invalid";
+
 interface SlotPickerProps {
   eventType: SlotPickerEventType;
   hostProfile: SlotPickerHostProfile;
@@ -275,7 +278,8 @@ export function SlotPicker({
           hostUserId: hostProfile.id,
           startAt: slot.start,
           endAt: slot.end,
-          guestEmail: rescheduleContext?.guestEmail ?? "pending@placeholder.com",
+          guestEmail:
+            rescheduleContext?.guestEmail ?? PROVISIONAL_HOLD_GUEST_EMAIL,
           idempotencyKey,
           turnstileToken: holdTurnstileToken ?? undefined,
           slotToken: slot.slotToken,
