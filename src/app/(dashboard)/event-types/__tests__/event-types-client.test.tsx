@@ -46,6 +46,7 @@ describe("EventTypesClient", () => {
       configurable: true,
       value: originalExecCommand,
     });
+    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
