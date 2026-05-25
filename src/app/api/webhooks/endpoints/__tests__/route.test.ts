@@ -81,6 +81,14 @@ function requestWithJson(body: unknown) {
   })
 }
 
+function requestWithBody(body: string) {
+  return new Request('http://localhost/api/webhooks/endpoints', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  })
+}
+
 describe('/api/webhooks/endpoints', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
@@ -118,6 +126,15 @@ describe('/api/webhooks/endpoints', () => {
       description: 'Production',
       subscribed_events: ['booking.confirmed'],
     })
+  })
+
+  it('rejects malformed create bodies before inserting an endpoint', async () => {
+    const response = await POST(requestWithBody('{') as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
+    expect(mocks.insertPayload).toBeNull()
   })
 
   it('lists endpoints without exposing secrets', async () => {
