@@ -53,18 +53,6 @@ export function applyAuthSessionPersistence<TCookie extends CookieToSet>(
   })
 }
 
-export function getBrowserCookies() {
-  if (typeof document === 'undefined' || !document.cookie) return []
-
-  return document.cookie.split(';').flatMap((cookie) => {
-    const trimmedCookie = cookie.trim()
-    if (!trimmedCookie) return []
-
-    const [name, ...valueParts] = trimmedCookie.split('=')
-    return [{ name, value: valueParts.join('=') }]
-  })
-}
-
 export function setBrowserAuthSessionPersistence(keepSignedIn: boolean) {
   if (typeof document === 'undefined') return
 
@@ -75,17 +63,6 @@ export function setBrowserAuthSessionPersistence(keepSignedIn: boolean) {
       path: '/',
       sameSite: 'lax',
       ...(keepSignedIn ? { maxAge: PERSISTENT_COOKIE_MAX_AGE } : {}),
-    }
-  )
-}
-
-export function setBrowserCookies(
-  cookiesToSet: CookieToSet[],
-  keepSignedIn: boolean
-) {
-  applyAuthSessionPersistence(cookiesToSet, keepSignedIn).forEach(
-    ({ name, value, options }) => {
-      document.cookie = serializeBrowserCookie(name, value, options)
     }
   )
 }
