@@ -257,6 +257,93 @@ describe('cancelBooking', () => {
     consoleWarn.mockRestore()
   })
 
+  it('falls back to direct updates when the backend cancel function returns an inconclusive gateway failure', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    })
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'cancelled',
+        cancel_reason: validInput.cancelReason,
+      })
+    )
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Falling back to non-transactional booking cancellation because the backend function returned no definitive result:',
+      expect.objectContaining({ status: 502 })
+    )
+    consoleWarn.mockRestore()
+  })
+
+  it('finishes side effects when an inconclusive cancel response already changed booking status', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        status: 'cancelled',
+      },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventType: 'booking.cancelled',
+      actorType: 'guest',
+      payload: {
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+        cancelReasonProvided: true,
+      },
+    })
+    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+      cancelReasonProvided: true,
+    })
+    consoleWarn.mockRestore()
+  })
+
   it('rechecks booking status before fallback cancellation side effects', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockClient.rpc = vi.fn().mockResolvedValue({
