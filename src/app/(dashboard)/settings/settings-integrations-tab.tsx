@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
+import type { McpTokenSummary } from "@/lib/mcp/tokens";
 import {
   getVideoProviderReadiness,
   type VideoProviderReadiness,
@@ -22,6 +23,7 @@ import {
 } from "@/lib/calendar/video-providers";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { IntegrationLoadWarning } from "./settings-integration-load-warning";
+import { SettingsMcpTokensSection } from "./settings-mcp-tokens-section";
 import { SettingsWebhookEndpointsSection } from "./settings-webhook-endpoints-section";
 
 interface SettingsIntegrationsTabProps {
@@ -29,6 +31,8 @@ interface SettingsIntegrationsTabProps {
   calendarConnectionsLoadFailed?: boolean;
   webhookEndpoints: WebhookEndpointSummary[];
   webhookEndpointsLoadFailed?: boolean;
+  mcpTokens: McpTokenSummary[];
+  mcpTokensLoadFailed?: boolean;
 }
 
 export function SettingsIntegrationsTab({
@@ -36,6 +40,8 @@ export function SettingsIntegrationsTab({
   calendarConnectionsLoadFailed = false,
   webhookEndpoints: initialWebhookEndpoints,
   webhookEndpointsLoadFailed = false,
+  mcpTokens: initialMcpTokens,
+  mcpTokensLoadFailed = false,
 }: SettingsIntegrationsTabProps) {
   const googleConnection = calendarConnections.find(
     (connection) => connection.provider === "google"
@@ -101,6 +107,11 @@ export function SettingsIntegrationsTab({
             </div>
           </CardContent>
         </Card>
+
+        <SettingsMcpTokensSection
+          mcpTokens={initialMcpTokens}
+          mcpTokensLoadFailed={mcpTokensLoadFailed}
+        />
 
         <SettingsWebhookEndpointsSection
           webhookEndpoints={initialWebhookEndpoints}

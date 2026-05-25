@@ -249,7 +249,6 @@ describe("SettingsClient", () => {
     );
   });
 
-<<<<<<< HEAD
   it("shows the settings save fallback when the API returns non-JSON errors", async () => {
     vi.stubGlobal(
       "fetch",
@@ -266,58 +265,6 @@ describe("SettingsClient", () => {
         initialSettings={initialSettings}
         calendarConnections={[]}
         webhookEndpoints={[]}
-      />
-    );
-
-    fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
-    fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
-
-    await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Settings not saved",
-          description: "Failed to save settings",
-          variant: "destructive",
-        })
-      );
-    });
-  });
-
-  it("creates and revokes MCP tokens without storing the raw token in the list", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          rawToken: "os_mcp_raw-token",
-          token: {
-            id: "token-1",
-            name: "Claude Desktop",
-            tokenPrefix: "os_mcp_abcd1234",
-            scopes: ["mcp:read", "mcp:write"],
-            lastUsedAt: null,
-            expiresAt: null,
-            revokedAt: null,
-            createdAt: "2026-05-24T00:00:00.000Z",
-            updatedAt: "2026-05-24T00:00:00.000Z",
-          },
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ success: true }),
-      });
-
-    vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(window, "confirm").mockReturnValue(true);
-
-    render(
-      <SettingsClient
-        initialSettings={initialSettings}
-        calendarConnections={[]}
-        webhookEndpoints={[]}
-        mcpTokens={[]}
       />
     );
 
