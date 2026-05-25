@@ -11,6 +11,10 @@ import { useToast } from "@/components/ui/use-toast";
 import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import type { SettingsFormValues } from "@/lib/validations/settings";
+import {
+  PASSWORD_COMPLEXITY_ERROR,
+  isStrongPassword,
+} from "@/lib/validations/password";
 import type { McpTokenSummary } from "@/lib/mcp/tokens";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { SettingsAccountTab } from "./settings-account-tab";
@@ -147,10 +151,10 @@ export function SettingsClient({
       return;
     }
 
-    if (newPassword.length < 8) {
+    if (!isStrongPassword(newPassword)) {
       toast({
         title: "Password not updated",
-        description: "New password must be at least 8 characters.",
+        description: PASSWORD_COMPLEXITY_ERROR,
         variant: "destructive",
       });
       return;
