@@ -64,6 +64,27 @@ describe('browser backend client', () => {
     })
   })
 
+  it('returns an auth error when a successful auth response cannot be parsed', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('Unexpected token')
+      },
+    } as unknown as Response)
+
+    const result = await createBrowserBackendClient().auth.signInWithPassword({
+      email: 'host@example.com',
+      password: 'password',
+    })
+
+    expect(result.data).toBeNull()
+    expect(result.error).toMatchObject({
+      message: 'Request failed with status 200',
+      status: 200,
+    })
+  })
+
   it('preserves nested backend query error metadata', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
@@ -133,6 +154,28 @@ describe('browser backend client', () => {
     expect(result.error).toMatchObject({
       message: 'Request failed with status 503',
       status: 503,
+    })
+  })
+
+  it('returns a query error when a successful query response cannot be parsed', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('Unexpected token')
+      },
+    } as unknown as Response)
+
+    const result = await createBrowserBackendClient()
+      .from('profiles')
+      .select()
+      .eq('auth_user_id', 'auth-user-1')
+
+    expect(result.data).toBeNull()
+    expect(result.count).toBeNull()
+    expect(result.error).toMatchObject({
+      message: 'Request failed with status 200',
+      status: 200,
     })
   })
 })
