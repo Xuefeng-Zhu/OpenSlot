@@ -3,24 +3,19 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Calendar, Plus, Search } from "lucide-react";
-import { EventTypeCard } from "@/components/dashboard/event-type-card";
+import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+  DeleteEventTypeDialog,
+  EventTypesFilters,
+  EventTypesListPanel,
+  EventTypesResultCount,
+} from "./event-types-client-panels";
 import { useToast } from "@/components/ui/use-toast";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 
-type FilterTab = "all" | "active" | "paused";
+export type FilterTab = "all" | "active" | "paused";
 
 export interface DashboardEventType {
   id: string;
@@ -152,155 +147,41 @@ export function EventTypesClient({
         }
       />
 
-      <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-wrap items-center gap-2" aria-label="Filter event types">
-          <Button
-            variant={activeFilter === "all" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveFilter("all")}
-            className="rounded-full"
-            aria-pressed={activeFilter === "all"}
-          >
-            All ({eventTypes.length})
-          </Button>
-          <Button
-            variant={activeFilter === "active" ? "outline" : "ghost"}
-            size="sm"
-            onClick={() => setActiveFilter("active")}
-            className={`rounded-full ${activeFilter === "active" ? "border-success/50 text-success" : ""}`}
-            aria-pressed={activeFilter === "active"}
-          >
-            <span
-              className="mr-1.5 h-2 w-2 rounded-full bg-success"
-              aria-hidden="true"
-            />
-            Active ({activeCount})
-          </Button>
-          <Button
-            variant={activeFilter === "paused" ? "outline" : "ghost"}
-            size="sm"
-            onClick={() => setActiveFilter("paused")}
-            className={`rounded-full ${activeFilter === "paused" ? "border-warning/50 text-warning" : ""}`}
-            aria-pressed={activeFilter === "paused"}
-          >
-            <span
-              className="mr-1.5 h-2 w-2 rounded-full bg-warning"
-              aria-hidden="true"
-            />
-            Paused ({pausedCount})
-          </Button>
-        </div>
-        <div className="relative w-full sm:w-64">
-          <Search
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <Input
-            placeholder="Search event types..."
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            className="pl-9"
-            aria-label="Search event types"
-          />
-        </div>
-      </div>
+      <EventTypesFilters
+        activeCount={activeCount}
+        activeFilter={activeFilter}
+        eventTypeCount={eventTypes.length}
+        pausedCount={pausedCount}
+        searchQuery={searchQuery}
+        onFilterChange={setActiveFilter}
+        onSearchQueryChange={setSearchQuery}
+      />
 
-      {filteredEventTypes.length === 0 && eventTypes.length === 0 ? (
-        <EmptyState
-          icon={<Calendar className="h-6 w-6" />}
-          heading="No event types yet"
-          description="Create your first event type to start accepting bookings from guests."
-          action={{
-            label: "Create your first event type",
-            onClick: () => router.push("/event-types/new"),
-          }}
-        />
-      ) : filteredEventTypes.length === 0 ? (
-        <EmptyState
-          icon={<Search className="h-6 w-6" aria-hidden="true" />}
-          heading="No matching event types"
-          description="Try a different search term or clear the status filter to see more booking options."
-          action={{
-            label: "Clear filters",
-            onClick: () => {
-              setSearchQuery("");
-              setActiveFilter("all");
-            },
-            variant: "outline",
-          }}
-        />
-      ) : (
-        <div className="space-y-4">
-          {filteredEventTypes.map((eventType) => (
-            <EventTypeCard
-              key={eventType.id}
-              id={eventType.id}
-              title={eventType.title}
-              description={eventType.description}
-              durationMinutes={eventType.durationMinutes}
-              locationType={eventType.locationType}
-              slug={eventType.slug}
-              isActive={eventType.isActive}
-              bookingUrl={eventType.bookingUrl}
-              onCopyLink={() => handleCopyLink(eventType.bookingUrl)}
-              onPreview={() => handlePreview(eventType.bookingUrl)}
-              onEdit={() => router.push(`/event-types/${eventType.id}/edit`)}
-              onDelete={() => setPendingDelete(eventType)}
-            />
-          ))}
-        </div>
-      )}
-
-      <Dialog
-        open={!!pendingDelete}
-        onOpenChange={(open) => {
-          if (!open && !deletingId) {
-            setPendingDelete(null);
-          }
+      <EventTypesListPanel
+        eventTypes={eventTypes}
+        filteredEventTypes={filteredEventTypes}
+        onClearFilters={() => {
+          setSearchQuery("");
+          setActiveFilter("all");
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete event type</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &quot;{pendingDelete?.title}&quot;?
-              Event types with existing bookings cannot be deleted; pause them
-              instead to keep booking history intact.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPendingDelete(null)}
-              disabled={!!deletingId}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() =>
-                pendingDelete &&
-                handleDelete(pendingDelete.id, pendingDelete.title)
-              }
-              disabled={!!deletingId}
-            >
-              {deletingId ? "Deleting..." : "Delete"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        onCopyLink={handleCopyLink}
+        onCreateFirst={() => router.push("/event-types/new")}
+        onDelete={setPendingDelete}
+        onEdit={(eventType) => router.push(`/event-types/${eventType.id}/edit`)}
+        onPreview={handlePreview}
+      />
 
-      {filteredEventTypes.length > 0 && (
-        <div
-          className="flex items-center justify-between text-sm text-muted-foreground"
-          aria-live="polite"
-        >
-          <p>
-            Showing 1 to {filteredEventTypes.length} of {eventTypes.length} event
-            types
-          </p>
-        </div>
-      )}
+      <DeleteEventTypeDialog
+        deletingId={deletingId}
+        eventType={pendingDelete}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={(eventType) => handleDelete(eventType.id, eventType.title)}
+      />
+
+      <EventTypesResultCount
+        eventTypeCount={eventTypes.length}
+        filteredEventTypeCount={filteredEventTypes.length}
+      />
     </div>
   );
 }
