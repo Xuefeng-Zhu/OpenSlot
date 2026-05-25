@@ -47,6 +47,16 @@ function createMockClient() {
   return mock
 }
 
+function mockConditionalBookingUpdate(
+  mockClient: ReturnType<typeof createMockClient>,
+  response: { data?: unknown; error: unknown }
+) {
+  const secondEq = vi.fn().mockResolvedValue(response)
+  const firstEq = vi.fn(() => ({ eq: secondEq }))
+  mockClient.update.mockImplementation(() => ({ eq: firstEq }))
+  return { firstEq, secondEq }
+}
+
 describe('cancelBooking', () => {
   let mockClient: ReturnType<typeof createMockClient>
 
@@ -105,13 +115,9 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    // For the update chain (from.update.eq), it doesn't call single
-    // The eq() at the end of update chain should resolve as a promise with { error: null }
-    // Since the code does: await adminClient.from('bookings').update({...}).eq('id', booking.id)
-    mockClient.update.mockImplementation(() => {
-      return {
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
     })
 
     const result = await cancelBooking(validInput, mockClient)
@@ -175,9 +181,10 @@ describe('cancelBooking', () => {
       data: confirmedBooking,
       error: null,
     })
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
 
     const result = await cancelBooking(
       {
@@ -217,10 +224,14 @@ describe('cancelBooking', () => {
     mockClient.single.mockResolvedValueOnce({
       data: confirmedBooking,
       error: null,
+    }).mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
     })
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
 
     const result = await cancelBooking(validInput, mockClient)
 
@@ -243,6 +254,35 @@ describe('cancelBooking', () => {
       'Falling back to non-transactional booking cancellation because the backend function is unavailable:',
       expect.objectContaining({ status: 404 })
     )
+    consoleWarn.mockRestore()
+  })
+
+  it('rechecks booking status before fallback cancellation side effects', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'No rows found', code: 'PGRST116' },
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('already been cancelled')
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
     consoleWarn.mockRestore()
   })
 
@@ -291,7 +331,11 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    const updateEqMock = vi.fn().mockResolvedValue({ error: null })
+    const secondEqMock = vi.fn().mockResolvedValue({
+      data: [confirmedBooking],
+      error: null,
+    })
+    const updateEqMock = vi.fn(() => ({ eq: secondEqMock }))
     mockClient.update.mockImplementation((data: any) => {
       // Verify cancel_reason is included in the update payload
       expect(data.cancel_reason).toBe('Schedule conflict')
@@ -331,9 +375,10 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
 
     const result = await cancelBooking(validInput, mockClient)
 
@@ -347,10 +392,9 @@ describe('cancelBooking', () => {
     })
 
     // Update fails with a database error
-    mockClient.update.mockImplementation(() => {
-      return {
-        eq: vi.fn().mockResolvedValue({ error: { message: 'Connection lost', code: '57P01' } }),
-      }
+    mockConditionalBookingUpdate(mockClient, {
+      data: null,
+      error: { message: 'Connection lost', code: '57P01' },
     })
 
     const result = await cancelBooking(validInput, mockClient)

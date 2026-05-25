@@ -248,5 +248,4 @@ describe('POST /api/availability', () => {
     )
     consoleWarn.mockRestore()
   })
-  })
 })
