@@ -113,6 +113,11 @@ that auth user. Mutating specs create unique event types, bookings,
 availability schedules, and webhook endpoints, then clean them with the service
 key.
 
+Settings E2E snapshots require the remote Butterbase test app to include
+`backend/database/migrations/20260524000000_add_user_settings_row_id.sql`. If the
+schema is behind, the suite fails before mutating the demo profile with an error
+that names that migration.
+
 If Chromium has not been installed on the machine yet, run:
 
 ```bash

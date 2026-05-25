@@ -337,6 +337,72 @@ describe('E2E demo auth setup', () => {
     })
   })
 
+  it('caches replacement credentials when verification is rate limited', async () => {
+    const signUp = vi.fn(
+      async (_input: {
+        email: string
+        password: string
+        displayName?: string
+      }) => ({
+        data: { id: 'auth-user-2', email: 'demo+e2e-1@openslot.dev' },
+        error: null,
+      })
+    )
+    const backend = {
+      auth: {
+        signUp,
+        signInWithPassword: vi
+          .fn()
+          .mockResolvedValueOnce({
+            data: null,
+            error: { message: 'Butterbase request failed with 401' },
+          })
+          .mockResolvedValueOnce({
+            data: null,
+            error: { message: 'Rate limit exceeded, retry in 11 minutes' },
+          }),
+      },
+    } as unknown as BackendPorts
+    const profileQuery = createMaybeSingleQuery({
+      auth_user_id: 'auth-user-1',
+    })
+    const adminClient = {
+      auth: {
+        updateUser: vi.fn(async () => ({
+          data: null,
+          error: {
+            message: 'Auth user updates are not supported by this function yet',
+          },
+        })),
+        admin: {
+          deleteUser: vi.fn(async () => ({
+            data: null,
+            error: {
+              message: 'Auth user deletion is not supported by this function yet',
+            },
+          })),
+        },
+      },
+      from: vi.fn(() => profileQuery),
+    } as unknown as E2EAdminClient
+
+    await expect(ensureDemoAuthUser(backend, adminClient)).rejects.toThrow(
+      'replacement verification failed after caching replacement credentials for retry: Rate limit exceeded, retry in 11 minutes'
+    )
+
+    const replacementInput = signUp.mock.calls[0][0]
+    expect(demoHost.email).toBe(replacementInput.email)
+    expect(demoHost.authUserId).toBe('auth-user-2')
+
+    const runtimeFile = process.env.E2E_DEMO_HOST_FILE
+    expect(runtimeFile && existsSync(runtimeFile)).toBe(true)
+    expect(JSON.parse(readFileSync(runtimeFile!, 'utf8'))).toMatchObject({
+      authUserId: 'auth-user-2',
+      email: replacementInput.email,
+      password: replacementInput.password,
+    })
+  })
+
   it('does not attempt auth repair when the auth service is rate limited', async () => {
     const backend = {
       auth: {

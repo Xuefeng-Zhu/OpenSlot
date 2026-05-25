@@ -243,19 +243,27 @@ async function createReplacementDemoAuthUser(
     };
   }
 
-  const verified = await signInWithCredentials(backend, credentials);
-  if (verified.error) {
-    return {
-      setup: null,
-      error: `replacement verification failed: ${verified.error.message}`,
-    };
-  }
-
   const runtimeCredentials = {
     authUserId: signup.data.id,
     email: credentials.email,
     password: credentials.password,
   };
+
+  const verified = await signInWithCredentials(backend, credentials);
+  if (verified.error) {
+    if (isAuthRateLimitError(verified.error.message)) {
+      setRuntimeDemoHost(runtimeCredentials);
+      return {
+        setup: null,
+        error: `replacement verification failed after caching replacement credentials for retry: ${verified.error.message}`,
+      };
+    }
+
+    return {
+      setup: null,
+      error: `replacement verification failed: ${verified.error.message}`,
+    };
+  }
 
   setRuntimeDemoHost(runtimeCredentials);
 

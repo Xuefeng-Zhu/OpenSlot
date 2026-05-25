@@ -30,7 +30,7 @@ export async function loadDashboardIntegrationSummaries<T>(
   try {
     return { data: await load(), loadFailed: false }
   } catch (error) {
-    console.error(`Error loading ${label}:`, error)
+    console.warn(`Error loading ${label}:`, error)
     return { data: [], loadFailed: true }
   }
 }
