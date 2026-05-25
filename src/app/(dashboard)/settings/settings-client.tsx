@@ -14,6 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { TimezoneSelector } from "@/components/booking/timezone-selector";
+import {
+  errorToastDescription,
+  requestJson,
+} from "@/components/dashboard/request-json";
 import { useToast } from "@/components/ui/use-toast";
 import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
@@ -30,6 +34,15 @@ interface SettingsClientProps {
 }
 
 type SaveAction = "account" | "preferences" | "notifications";
+
+type SettingsMutationResponse =
+  | {
+      success: true;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
 
 /**
  * Dashboard settings surface for account details, preferences, calendar status,
@@ -98,15 +111,17 @@ export function SettingsClient({
         }
       }
 
-      const response = await fetch("/api/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(nextSettings),
-      });
+      const data = await requestJson<SettingsMutationResponse>(
+        "/api/settings",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(nextSettings),
+        },
+        "Failed to save settings"
+      );
 
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error ?? "Failed to save settings");
       }
 
@@ -118,8 +133,7 @@ export function SettingsClient({
     } catch (error) {
       toast({
         title: "Settings not saved",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {
@@ -197,10 +211,13 @@ export function SettingsClient({
     setDeleteSaving(true);
 
     try {
-      const response = await fetch("/api/settings", { method: "DELETE" });
-      const data = await response.json();
+      const data = await requestJson<SettingsMutationResponse>(
+        "/api/settings",
+        { method: "DELETE" },
+        "Failed to delete account"
+      );
 
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error ?? "Failed to delete account");
       }
 
@@ -211,8 +228,7 @@ export function SettingsClient({
       setDeleteSaving(false);
       toast({
         title: "Account not deleted",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     }
