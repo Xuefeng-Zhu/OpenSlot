@@ -7,6 +7,7 @@ import { SlotPickerView } from "@/components/booking/slot-picker-view";
 import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
+  validTimezoneOrNull,
 } from "@/lib/utils/timezone";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
 import type { TimeSlot } from "@/lib/availability/types";
@@ -81,9 +82,12 @@ export function SlotPicker({
   const turnstileRequired = isTurnstileEnabled();
 
   useEffect(() => {
-    setTimezone(browserTimezoneOrDefault());
+    setTimezone(
+      validTimezoneOrNull(rescheduleContext?.guestTimezone) ??
+        browserTimezoneOrDefault()
+    );
     setTimezoneReady(true);
-  }, []);
+  }, [rescheduleContext?.guestTimezone]);
 
   const fetchSlotWindow = useCallback(
     async (anchorDate: Date, tz: string, applyDate?: Date) => {
