@@ -12,12 +12,16 @@ export async function requestJson<T>(
   fallbackError: string
 ): Promise<T> {
   const response = await fetch(input, init)
-  const result = (await response.json().catch(() => ({}))) as {
+  const result = (await response.json().catch(() => null)) as {
     error?: string
-  }
+  } | null
 
   if (!response.ok) {
-    throw new Error(result.error || fallbackError)
+    throw new Error(result?.error || fallbackError)
+  }
+
+  if (!result) {
+    throw new Error(fallbackError)
   }
 
   return result as T
