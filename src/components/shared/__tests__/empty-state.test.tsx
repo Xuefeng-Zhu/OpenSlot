@@ -17,6 +17,20 @@ describe("EmptyState", () => {
     expect(screen.getByText("Create your first item to get started.")).toBeDefined();
   });
 
+  it("hides decorative icons from assistive technology", () => {
+    render(
+      <EmptyState
+        icon={<svg data-testid="test-icon" />}
+        heading="No items yet"
+        description="Create your first item to get started."
+      />
+    );
+
+    expect(screen.getByTestId("test-icon").parentElement?.getAttribute("aria-hidden")).toBe(
+      "true"
+    );
+  });
+
   it("renders action button when action prop is provided", () => {
     const onClick = vi.fn();
 
