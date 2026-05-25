@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
+import {
+  PASSWORD_COMPLEXITY_ERROR,
+  isStrongPassword,
+} from '@/lib/validations/password'
 import { authError, authJson } from '../_shared'
 import { readAuthJsonObject } from '../_request'
 
@@ -14,6 +18,10 @@ export async function POST(request: NextRequest) {
 
   if (!email || !code || typeof newPassword !== 'string') {
     return authError('Email, reset code, and new password are required.')
+  }
+
+  if (!isStrongPassword(newPassword)) {
+    return authError(PASSWORD_COMPLEXITY_ERROR)
   }
 
   const backend = createBackendRuntime()
