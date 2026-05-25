@@ -76,6 +76,11 @@ export interface ProviderBusyEvent {
   metadata: Json
 }
 
+type BusyCachePruneRow = Pick<
+  Tables<'external_busy_cache'>,
+  'id' | 'source_event_id'
+>
+
 interface GoogleCalendarListResponse {
   items?: Array<{
     id?: string
@@ -797,40 +802,63 @@ async function syncBusyCache({
       fetchImpl,
     })
 
-    const deleteQuery = adminClient
-      .from('external_busy_cache')
-      .delete()
-      .eq('provider_calendar_id', calendar.id)
-      .lt('start_at', windowEnd)
-      .gt('end_at', windowStart)
+    const currentSourceIds = new Set(
+      busyEvents.map((event) => event.sourceEventId)
+    )
 
-    const { error: deleteError } = await deleteQuery
+    if (busyEvents.length > 0) {
+      const lastSyncedAt = new Date().toISOString()
+      const { error: upsertError } = await adminClient
+        .from('external_busy_cache')
+        .upsert(
+          busyEvents.map((event) => ({
+            provider_calendar_id: calendar.id,
+            source_event_id: event.sourceEventId,
+            start_at: event.startAt,
+            end_at: event.endAt,
+            transparency: event.transparency,
+            etag: event.etag,
+            last_synced_at: lastSyncedAt,
+            updated_at: lastSyncedAt,
+            metadata: event.metadata,
+          })),
+          { onConflict: 'provider_calendar_id,source_event_id' }
+        )
 
-    if (deleteError) {
-      throw new Error(`Failed to prune busy cache: ${deleteError.message}`)
+      if (upsertError) {
+        throw new Error(`Failed to write busy cache: ${upsertError.message}`)
+      }
     }
 
-    if (busyEvents.length === 0) {
-      continue
-    }
+    // Add/update current rows before pruning stale rows so concurrent slot reads
+    // never observe an empty cache window during a refresh.
+    const { data: staleCandidateData, error: staleCandidateError } =
+      await adminClient
+        .from('external_busy_cache')
+        .select('id, source_event_id')
+        .eq('provider_calendar_id', calendar.id)
+        .lt('start_at', windowEnd)
+        .gt('end_at', windowStart)
 
-    const { error: insertError } = await adminClient
-      .from('external_busy_cache')
-      .insert(
-        busyEvents.map((event) => ({
-          provider_calendar_id: calendar.id,
-          source_event_id: event.sourceEventId,
-          start_at: event.startAt,
-          end_at: event.endAt,
-          transparency: event.transparency,
-          etag: event.etag,
-          last_synced_at: new Date().toISOString(),
-          metadata: event.metadata,
-        }))
+    if (staleCandidateError) {
+      throw new Error(
+        `Failed to inspect busy cache: ${staleCandidateError.message}`
       )
+    }
 
-    if (insertError) {
-      throw new Error(`Failed to write busy cache: ${insertError.message}`)
+    const staleRows = ((staleCandidateData ?? []) as BusyCachePruneRow[]).filter(
+      (row) => !currentSourceIds.has(row.source_event_id)
+    )
+
+    for (const row of staleRows) {
+      const { error: deleteError } = await adminClient
+        .from('external_busy_cache')
+        .delete()
+        .eq('id', row.id)
+
+      if (deleteError) {
+        throw new Error(`Failed to prune busy cache: ${deleteError.message}`)
+      }
     }
   }
 }

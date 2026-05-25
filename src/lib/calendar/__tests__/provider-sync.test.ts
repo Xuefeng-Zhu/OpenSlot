@@ -49,6 +49,11 @@ function createSyncQuery({
       state.payload = payload
       return query
     }),
+    upsert: vi.fn((payload: unknown) => {
+      state.operation = 'upsert'
+      state.payload = payload
+      return query
+    }),
     delete: vi.fn(() => {
       state.operation = 'delete'
       return query
@@ -290,7 +295,7 @@ describe('calendar provider event sync', () => {
 
             if (
               query.table === 'external_busy_cache' &&
-              query.operation === 'insert'
+              query.operation === 'upsert'
             ) {
               insertedBusyRows.push(...((query.payload as unknown[]) ?? []))
             }
@@ -350,6 +355,143 @@ describe('calendar provider event sync', () => {
         start_at: '2026-06-15T07:00:00.000Z',
         end_at: '2026-06-16T07:00:00.000Z',
       }),
+    ])
+  })
+
+  it('upserts current busy events before pruning stale busy cache rows', async () => {
+    const busyCacheOperations: string[] = []
+    const upsertedBusyRows: unknown[] = []
+    const deletedBusyRowIds: unknown[] = []
+    const connection = {
+      id: 'connection-1',
+      profile_id: 'profile-1',
+      provider: 'google',
+      account_email: 'host@example.com',
+      scopes: [],
+      access_token_encrypted: 'encrypted-access-token',
+      refresh_token_encrypted: null,
+      token_expires_at: '2099-01-01T00:00:00.000Z',
+      status: 'active',
+      metadata: {},
+      connected_at: '2026-06-01T00:00:00.000Z',
+      last_synced_at: null,
+      last_error: null,
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const calendar = {
+      id: 'calendar-1',
+      connection_id: 'connection-1',
+      external_calendar_id: 'primary',
+      summary: 'Primary',
+      timezone: 'America/Los_Angeles',
+      is_primary: true,
+      use_for_availability: true,
+      use_for_writes: true,
+      metadata: {},
+      created_at: '2026-06-01T00:00:00.000Z',
+      updated_at: '2026-06-01T00:00:00.000Z',
+    }
+    const adminClient = {
+      from: vi.fn((table: string) =>
+        createSyncQuery({
+          table,
+          resultFor: (query) => {
+            if (query.table === 'provider_connections') {
+              return { data: query.operation === 'select' ? connection : null, error: null }
+            }
+
+            if (query.table === 'provider_calendars') {
+              return { data: [calendar], error: null }
+            }
+
+            if (query.table === 'external_busy_cache') {
+              if (query.operation === 'upsert') {
+                busyCacheOperations.push('upsert')
+                upsertedBusyRows.push(...((query.payload as unknown[]) ?? []))
+                return { data: null, error: null }
+              }
+
+              if (query.operation === 'select') {
+                busyCacheOperations.push('select-stale')
+                return {
+                  data: [
+                    { id: 'current-row', source_event_id: 'current-busy' },
+                    { id: 'stale-row', source_event_id: 'stale-busy' },
+                  ],
+                  error: null,
+                }
+              }
+
+              if (query.operation === 'delete') {
+                const deletedId = query.filters.find(
+                  (filter) => filter.column === 'id'
+                )?.value
+                busyCacheOperations.push(`delete:${String(deletedId)}`)
+                deletedBusyRowIds.push(deletedId)
+                return { data: null, error: null }
+              }
+            }
+
+            return { data: null, error: null }
+          },
+        })
+      ),
+    }
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'primary',
+                summary: 'Primary',
+                timeZone: 'America/Los_Angeles',
+                primary: true,
+                accessRole: 'owner',
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                id: 'current-busy',
+                start: { dateTime: '2026-06-15T09:00:00-07:00' },
+                end: { dateTime: '2026-06-15T10:00:00-07:00' },
+              },
+            ],
+          }),
+          { status: 200 }
+        )
+      )
+
+    await syncCalendarsForConnection(
+      adminClient as any,
+      'connection-1',
+      fetchImpl as typeof fetch,
+      {
+        windowStart: '2026-06-15T00:00:00.000Z',
+        windowEnd: '2026-06-16T00:00:00.000Z',
+      }
+    )
+
+    expect(upsertedBusyRows).toEqual([
+      expect.objectContaining({
+        provider_calendar_id: 'calendar-1',
+        source_event_id: 'current-busy',
+      }),
+    ])
+    expect(deletedBusyRowIds).toEqual(['stale-row'])
+    expect(busyCacheOperations).toEqual([
+      'upsert',
+      'select-stale',
+      'delete:stale-row',
     ])
   })
 
