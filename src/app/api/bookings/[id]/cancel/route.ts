@@ -74,7 +74,7 @@ export async function POST(
     adminClient = createAdminBackendClient()
     const { idempotencyKey, turnstileToken, ...cancelInput } = parsed.data
     const authenticatedHostCancellation =
-      await isAuthenticatedHostCancellation({
+      await getAuthenticatedHostCancellation({
         adminClient,
         bookingId: id,
         cancellationToken: cancelInput.cancellationToken,
@@ -113,7 +113,7 @@ export async function POST(
       idempotencyEntry = idempotency.entry
     }
 
-    if (!authenticatedHostCancellation) {
+    if (!authenticatedHostCancellation.ok) {
       const rateLimit = await consumePublicRateLimit({
         request,
         adminClient,
@@ -144,7 +144,16 @@ export async function POST(
     }
 
     // Delegate to the cancellation engine
-    const result = await cancelBooking(cancelInput, adminClient)
+    const result = await cancelBooking(
+      authenticatedHostCancellation.ok
+        ? {
+            ...cancelInput,
+            actorType: 'host',
+            actorId: authenticatedHostCancellation.profileId,
+          }
+        : cancelInput,
+      adminClient
+    )
 
     if (!result.success) {
       const status = getBookingCancellationErrorStatus(result.error)
@@ -165,7 +174,11 @@ export async function POST(
   }
 }
 
-async function isAuthenticatedHostCancellation({
+type AuthenticatedHostCancellation =
+  | { ok: true; profileId: string }
+  | { ok: false }
+
+async function getAuthenticatedHostCancellation({
   adminClient,
   bookingId,
   cancellationToken,
@@ -173,8 +186,8 @@ async function isAuthenticatedHostCancellation({
   adminClient: BackendCompatClient<Database>
   bookingId: string
   cancellationToken: string
-}): Promise<boolean> {
-  if (!bookingId) return false
+}): Promise<AuthenticatedHostCancellation> {
+  if (!bookingId) return { ok: false }
 
   try {
     const backendClient = await createServerBackendClient()
@@ -183,7 +196,7 @@ async function isAuthenticatedHostCancellation({
       error: authError,
     } = await backendClient.auth.getUser()
 
-    if (authError || !user) return false
+    if (authError || !user) return { ok: false }
 
     const { data: profileData, error: profileError } = await backendClient
       .from('profiles')
@@ -193,7 +206,7 @@ async function isAuthenticatedHostCancellation({
 
     const profile = profileData as Pick<Tables<'profiles'>, 'id'> | null
 
-    if (profileError || !profile) return false
+    if (profileError || !profile) return { ok: false }
 
     const { data: bookingData, error: bookingError } = await adminClient
       .from('bookings')
@@ -207,13 +220,17 @@ async function isAuthenticatedHostCancellation({
       'id' | 'host_user_id' | 'cancellation_token'
     > | null
 
-    return Boolean(
+    if (
       !bookingError &&
         booking &&
         constantTimeEqual(booking.cancellation_token, cancellationToken)
-    )
+    ) {
+      return { ok: true, profileId: profile.id }
+    }
+
+    return { ok: false }
   } catch {
-    return false
+    return { ok: false }
   }
 }
 
