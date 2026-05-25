@@ -156,6 +156,17 @@ export async function DELETE(
       .maybeSingle()
 
     if (error) {
+      if (isEventTypeDeleteBlockedByBookings(error)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Event types with existing bookings cannot be deleted. Pause the event type instead.',
+          },
+          { status: 409 }
+        )
+      }
+
       console.error('Error deleting event type:', error)
       return NextResponse.json(
         { success: false, error: 'Failed to delete event type' },
@@ -178,4 +189,25 @@ export async function DELETE(
       { status: 500 }
     )
   }
+}
+
+function isEventTypeDeleteBlockedByBookings(error: {
+  code?: string
+  message?: string
+  details?: unknown
+}) {
+  if (error.code !== '23503') return false
+
+  const details =
+    typeof error.details === 'string'
+      ? error.details
+      : error.details
+        ? JSON.stringify(error.details)
+        : ''
+  const text = `${error.message ?? ''} ${details}`.toLowerCase()
+
+  return (
+    text.includes('bookings_event_type_id_fkey') ||
+    (text.includes('bookings') && text.includes('event_type_id'))
+  )
 }

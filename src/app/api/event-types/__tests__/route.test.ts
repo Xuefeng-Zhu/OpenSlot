@@ -20,7 +20,9 @@ const mocks = vi.hoisted(() => ({
   eventTypeUpdateError: null as { code?: string; message: string } | null,
   eventTypeDeleteFilters: [] as Array<{ column: string; value: unknown }>,
   eventTypeDeleteResult: { id: 'event-type-1' } as Record<string, unknown> | null,
-  eventTypeDeleteError: null as { code?: string; message: string } | null,
+  eventTypeDeleteError: null as
+    | { code?: string; message: string; details?: unknown }
+    | null,
 }))
 
 function createTableMock(table: string) {
@@ -507,6 +509,56 @@ describe('DELETE /api/event-types/[id]', () => {
 
     expect(response.status).toBe(200)
     expect(data).toEqual({ success: true })
+    expect(mocks.eventTypeDeleteFilters).toEqual([
+      { column: 'id', value: 'event-type-1' },
+      { column: 'user_id', value: 'profile-1' },
+    ])
+  })
+
+  it('blocks deleting event types that already have bookings', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+    mocks.eventTypeDeleteResult = null
+    mocks.eventTypeDeleteError = {
+      code: '23503',
+      message:
+        'update or delete on table "event_types" violates foreign key constraint "bookings_event_type_id_fkey" on table "bookings"',
+      details: 'Key (id)=(event-type-1) is still referenced from table "bookings".',
+    }
+
+    const response = await DELETE({} as any, routeContext() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data).toEqual({
+      success: false,
+      error:
+        'Event types with existing bookings cannot be deleted. Pause the event type instead.',
+    })
+    expect(mocks.eventTypeDeleteFilters).toEqual([
+      { column: 'id', value: 'event-type-1' },
+      { column: 'user_id', value: 'profile-1' },
+    ])
+  })
+
+  it('returns an error when event type delete fails for another reason', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1' } },
+      error: null,
+    })
+    mocks.eventTypeDeleteResult = null
+    mocks.eventTypeDeleteError = { message: 'permission denied' }
+
+    const response = await DELETE({} as any, routeContext() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data).toEqual({
+      success: false,
+      error: 'Failed to delete event type',
+    })
     expect(mocks.eventTypeDeleteFilters).toEqual([
       { column: 'id', value: 'event-type-1' },
       { column: 'user_id', value: 'profile-1' },

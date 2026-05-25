@@ -264,7 +264,8 @@ export function EventTypesClient({
             <DialogTitle>Delete event type</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete &quot;{pendingDelete?.title}&quot;?
-              Existing bookings for this event type will be removed too.
+              Event types with existing bookings cannot be deleted; pause them
+              instead to keep booking history intact.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
