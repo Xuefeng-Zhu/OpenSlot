@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
 import { createAdminBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import { updateWebhookEndpointSchema } from '@/lib/validations/webhooks'
 
 interface WebhookEndpointRouteProps {
@@ -29,18 +30,10 @@ export async function PATCH(
     }
 
     const { id } = await params
-    let body: unknown
+    const body = await parseJsonBody(request)
+    if (!body.ok) return body.response
 
-    try {
-      body = await request.json()
-    } catch {
-      return NextResponse.json(
-        { success: false, error: 'Invalid JSON body' },
-        { status: 400 }
-      )
-    }
-
-    const parsed = updateWebhookEndpointSchema.safeParse(body)
+    const parsed = updateWebhookEndpointSchema.safeParse(body.body)
 
     if (!parsed.success) {
       return NextResponse.json(
