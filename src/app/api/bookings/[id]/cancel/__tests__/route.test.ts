@@ -3,6 +3,10 @@ import { POST } from '../route'
 
 const mocks = vi.hoisted(() => ({
   adminClient: { from: vi.fn() },
+  serverClient: {
+    auth: { getUser: vi.fn() },
+    from: vi.fn(),
+  },
   cancelBooking: vi.fn(),
   beginIdempotentRequest: vi.fn(),
   completeIdempotentRequest: vi.fn(),
@@ -14,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@/lib/backend/server', () => ({
   createAdminBackendClient: vi.fn(() => mocks.adminClient),
+  createServerBackendClient: vi.fn(async () => mocks.serverClient),
 }))
 
 vi.mock('@/lib/booking/cancel', () => ({
@@ -79,6 +84,45 @@ function malformedJsonRequest() {
   })
 }
 
+function routeContext(id = 'booking-1') {
+  return {
+    params: Promise.resolve({ id }),
+  }
+}
+
+function queryResult(result: { data: unknown; error: unknown | null }) {
+  const query: any = {
+    select: vi.fn(() => query),
+    eq: vi.fn(() => query),
+    single: vi.fn(async () => result),
+  }
+
+  return query
+}
+
+function mockAuthenticatedHostCancellation() {
+  mocks.serverClient.auth.getUser.mockResolvedValue({
+    data: { user: { id: 'auth-user-1' } },
+    error: null,
+  })
+  mocks.serverClient.from.mockReturnValue(
+    queryResult({
+      data: { id: 'profile-1' },
+      error: null,
+    })
+  )
+  mocks.adminClient.from.mockReturnValue(
+    queryResult({
+      data: {
+        id: 'booking-1',
+        host_user_id: 'profile-1',
+        cancellation_token: validBody.cancellationToken,
+      },
+      error: null,
+    })
+  )
+}
+
 describe('POST /api/bookings/[id]/cancel idempotency', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -92,6 +136,12 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
     })
     mocks.completeIdempotentRequest.mockResolvedValue(undefined)
     mocks.abandonIdempotentRequest.mockResolvedValue(undefined)
+    mocks.serverClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    })
+    mocks.serverClient.from.mockReset()
+    mocks.adminClient.from.mockReset()
     mocks.consumePublicRateLimit.mockResolvedValue({
       allowed: true,
       limit: 20,
@@ -103,7 +153,10 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
   })
 
   it('records a fresh idempotent cancellation request and caches the response', async () => {
-    const response = await POST(requestWithJson(validBody) as any)
+    const response = await POST(
+      requestWithJson(validBody) as any,
+      routeContext() as any
+    )
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -145,7 +198,10 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
   })
 
   it('rejects malformed JSON before idempotency, rate limiting, or cancellation', async () => {
-    const response = await POST(malformedJsonRequest() as any)
+    const response = await POST(
+      malformedJsonRequest() as any,
+      routeContext() as any
+    )
     const data = await response.json()
 
     expect(response.status).toBe(400)
@@ -158,6 +214,73 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
     expect(mocks.cancelBooking).not.toHaveBeenCalled()
   })
 
+  it('lets authenticated booking hosts cancel without public Turnstile or rate limiting', async () => {
+    mockAuthenticatedHostCancellation()
+    mocks.consumePublicRateLimit.mockResolvedValue({
+      allowed: false,
+      status: 429,
+      error: 'Too many requests. Please retry after the rate limit resets.',
+      limit: 20,
+      remaining: 0,
+      resetAt: '2025-01-15T14:05:00.000Z',
+      retryAfterSeconds: 40,
+    })
+    mocks.verifyTurnstileToken.mockResolvedValue({
+      ok: false,
+      status: 400,
+      error: 'Verification challenge is required',
+    })
+
+    const response = await POST(
+      requestWithJson(validBody) as any,
+      routeContext('booking-1') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(200)
+    expect(data).toEqual({ success: true })
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.verifyTurnstileToken).not.toHaveBeenCalled()
+    expect(mocks.cancelBooking).toHaveBeenCalledWith(
+      {
+        cancellationToken: validBody.cancellationToken,
+        cancelReason: validBody.cancelReason,
+      },
+      mocks.adminClient
+    )
+  })
+
+  it('does not trust authenticated hosts when the path id and token do not match', async () => {
+    mockAuthenticatedHostCancellation()
+    mocks.adminClient.from.mockReturnValue(
+      queryResult({
+        data: {
+          id: 'booking-1',
+          host_user_id: 'profile-1',
+          cancellation_token: 'different-token',
+        },
+        error: null,
+      })
+    )
+    mocks.verifyTurnstileToken.mockResolvedValue({
+      ok: false,
+      status: 400,
+      error: 'Verification challenge is required',
+    })
+
+    const response = await POST(
+      requestWithJson(validBody) as any,
+      routeContext('booking-1') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.error).toBe('Verification challenge is required')
+    expect(mocks.consumePublicRateLimit).toHaveBeenCalled()
+    expect(mocks.verifyTurnstileToken).toHaveBeenCalled()
+    expect(mocks.cancelBooking).not.toHaveBeenCalled()
+  })
+
   it('replays a cached cancellation response without calling the cancellation engine', async () => {
     mocks.beginIdempotentRequest.mockResolvedValue({
       type: 'replay',
@@ -167,7 +290,10 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
       },
     })
 
-    const response = await POST(requestWithJson(validBody) as any)
+    const response = await POST(
+      requestWithJson(validBody) as any,
+      routeContext() as any
+    )
     const data = await response.json()
 
     expect(response.status).toBe(200)
@@ -188,7 +314,10 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
       retryAfterSeconds: 40,
     })
 
-    const response = await POST(requestWithJson(validBody) as any)
+    const response = await POST(
+      requestWithJson(validBody) as any,
+      routeContext() as any
+    )
     const data = await response.json()
 
     expect(response.status).toBe(429)
@@ -214,7 +343,8 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
     })
 
     const response = await POST(
-      requestWithJson({ ...validBody, turnstileToken: 'bad-token' }) as any
+      requestWithJson({ ...validBody, turnstileToken: 'bad-token' }) as any,
+      routeContext() as any
     )
     const data = await response.json()
 

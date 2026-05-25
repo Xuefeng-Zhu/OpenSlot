@@ -91,6 +91,7 @@ describe('eventTypeSchema', () => {
     min_notice_minutes: 60,
     max_booking_days_ahead: 60,
     location_type: 'online' as const,
+    location_value: 'https://meet.example.com/demo',
     is_active: true,
   }
 
@@ -165,8 +166,8 @@ describe('eventTypeSchema', () => {
       expect(result.success).toBe(false)
     })
 
-    it('requires details for custom, phone, and in-person locations', () => {
-      for (const locationType of ['custom', 'phone', 'in_person'] as const) {
+    it('requires details for manual locations', () => {
+      for (const locationType of ['online', 'custom', 'phone', 'in_person'] as const) {
         const result = eventTypeSchema.safeParse({
           ...validEventType,
           location_type: locationType,
@@ -175,16 +176,6 @@ describe('eventTypeSchema', () => {
 
         expect(result.success).toBe(false)
       }
-    })
-
-    it('keeps legacy online locations valid without details', () => {
-      const result = eventTypeSchema.safeParse({
-        ...validEventType,
-        location_type: 'online',
-        location_value: '',
-      })
-
-      expect(result.success).toBe(true)
     })
   })
 

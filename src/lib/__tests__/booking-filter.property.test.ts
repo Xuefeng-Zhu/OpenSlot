@@ -76,6 +76,30 @@ describe('Property 5: Event type filter returns only matching bookings', () => {
     )
   })
 
+  it('trims leading and trailing filter whitespace before matching', () => {
+    const targetBooking: Booking = {
+      id: 'target-id',
+      guest_name: 'Test Guest',
+      guest_email: 'test@example.com',
+      guest_timezone: 'UTC',
+      notes: '',
+      start_at: '2025-06-15T10:00:00Z',
+      end_at: '2025-06-15T11:00:00Z',
+      status: 'confirmed',
+      cancellation_token: 'token-123',
+      event_type_title: 'Discovery Call',
+    }
+    const otherBooking: Booking = {
+      ...targetBooking,
+      id: 'other-id',
+      event_type_title: 'Strategy Session',
+    }
+
+    expect(
+      filterBookingsByEventType([targetBooking, otherBooking], '  discovery  ')
+    ).toEqual([targetBooking])
+  })
+
   it('filter is case-insensitive', () => {
     // Generate bookings with known titles and filters that are substrings with varied casing
     const titleArb = fc.string({ minLength: 2, maxLength: 50 }).filter((s) => s.trim().length > 0)

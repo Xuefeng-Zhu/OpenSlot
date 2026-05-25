@@ -44,6 +44,26 @@ describe('browser backend client', () => {
     })
   })
 
+  it('falls back to the auth response status when JSON parsing fails', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new Error('Unexpected token')
+      },
+    } as unknown as Response)
+
+    const result = await createBrowserBackendClient().auth.exchangeCodeForSession(
+      'recovery-code'
+    )
+
+    expect(result.data).toBeNull()
+    expect(result.error).toMatchObject({
+      message: 'Request failed with status 502',
+      status: 502,
+    })
+  })
+
   it('preserves nested backend query error metadata', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
@@ -91,6 +111,28 @@ describe('browser backend client', () => {
         details: { constraint: 'profiles_username_key' },
       },
       count: null,
+    })
+  })
+
+  it('falls back to the query response status when JSON parsing fails', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => {
+        throw new Error('Unexpected token')
+      },
+    } as unknown as Response)
+
+    const result = await createBrowserBackendClient()
+      .from('profiles')
+      .select()
+      .eq('auth_user_id', 'auth-user-1')
+
+    expect(result.data).toBeNull()
+    expect(result.count).toBeNull()
+    expect(result.error).toMatchObject({
+      message: 'Request failed with status 503',
+      status: 503,
     })
   })
 })

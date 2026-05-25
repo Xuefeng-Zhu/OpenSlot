@@ -15,8 +15,10 @@ export interface TimezoneSelectorProps {
  * Exported for property-based testing.
  */
 export function filterTimezones(timezones: string[], query: string): string[] {
-  if (!query) return timezones;
-  const lowerQuery = query.toLowerCase();
+  const lowerQuery = query.trim().toLowerCase();
+
+  if (!lowerQuery) return timezones;
+
   return timezones.filter((tz) => tz.toLowerCase().includes(lowerQuery));
 }
 

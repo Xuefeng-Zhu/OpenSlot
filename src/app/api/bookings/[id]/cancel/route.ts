@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminBackendClient } from '@/lib/backend/server'
+import {
+  createAdminBackendClient,
+  createServerBackendClient,
+} from '@/lib/backend/server'
 import { cancelBookingSchema } from '@/lib/validations/booking'
 import { cancelBooking } from '@/lib/booking/cancel'
 import {
@@ -15,9 +18,15 @@ import {
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
-import type { Json } from '@/lib/types/database'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
+import type { Database, Json, Tables } from '@/lib/types/database'
+import { constantTimeEqual } from '@/lib/security/edge-crypto'
 import { parseJsonBody } from '@/lib/http/json'
 import { getBookingCancellationErrorStatus } from '../../error-status'
+
+interface CancelBookingRouteContext {
+  params: Promise<{ id: string }>
+}
 
 /**
  * POST /api/bookings/[id]/cancel
@@ -28,18 +37,24 @@ import { getBookingCancellationErrorStatus } from '../../error-status'
  * Response: { success: true } or { success: false, error: string }
  *
  * Uses the service key client to bypass RLS for bookings table.
- * The cancellation token serves as the authorization mechanism (guest operation).
+ * Public guest requests authorize with the cancellation token and must pass
+ * public abuse protections. Authenticated hosts can cancel only their own
+ * booking id when the stored token matches the request body token.
  *
- * Note: The [id] in the route path is for RESTful convention. The actual
- * lookup uses the cancellationToken from the request body.
+ * Note: The cancellation engine still performs its lookup with the
+ * cancellationToken from the request body.
  */
 export const runtime = 'edge'
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: CancelBookingRouteContext
+) {
   let adminClient: ReturnType<typeof createAdminBackendClient> | null = null
   let idempotencyEntry: IdempotencyEntry | null = null
 
   try {
+    const { id } = await params
     const json = await parseJsonBody(request)
     if (!json.ok) return json.response
 
@@ -58,6 +73,12 @@ export async function POST(request: NextRequest) {
 
     adminClient = createAdminBackendClient()
     const { idempotencyKey, turnstileToken, ...cancelInput } = parsed.data
+    const authenticatedHostCancellation =
+      await isAuthenticatedHostCancellation({
+        adminClient,
+        bookingId: id,
+        cancellationToken: cancelInput.cancellationToken,
+      })
 
     const keyResult = resolveIdempotencyKey(
       idempotencyKey,
@@ -92,32 +113,34 @@ export async function POST(request: NextRequest) {
       idempotencyEntry = idempotency.entry
     }
 
-    const rateLimit = await consumePublicRateLimit({
-      request,
-      adminClient,
-      config: {
-        scope: 'cancel-booking',
-        limit: 20,
-        windowSeconds: 5 * 60,
-      },
-    })
+    if (!authenticatedHostCancellation) {
+      const rateLimit = await consumePublicRateLimit({
+        request,
+        adminClient,
+        config: {
+          scope: 'cancel-booking',
+          limit: 20,
+          windowSeconds: 5 * 60,
+        },
+      })
 
-    if (!rateLimit.allowed) {
-      await abandonIdempotentMarker(adminClient, idempotencyEntry)
-      return publicRateLimitResponse(rateLimit)
-    }
+      if (!rateLimit.allowed) {
+        await abandonIdempotentMarker(adminClient, idempotencyEntry)
+        return publicRateLimitResponse(rateLimit)
+      }
 
-    const turnstile = await verifyTurnstileToken({
-      request,
-      token: turnstileToken,
-    })
+      const turnstile = await verifyTurnstileToken({
+        request,
+        token: turnstileToken,
+      })
 
-    if (!turnstile.ok) {
-      await abandonIdempotentMarker(adminClient, idempotencyEntry)
-      return NextResponse.json(
-        { success: false, error: turnstile.error },
-        { status: turnstile.status }
-      )
+      if (!turnstile.ok) {
+        await abandonIdempotentMarker(adminClient, idempotencyEntry)
+        return NextResponse.json(
+          { success: false, error: turnstile.error },
+          { status: turnstile.status }
+        )
+      }
     }
 
     // Delegate to the cancellation engine
@@ -139,6 +162,58 @@ export async function POST(request: NextRequest) {
       response,
       { status: 500 }
     )
+  }
+}
+
+async function isAuthenticatedHostCancellation({
+  adminClient,
+  bookingId,
+  cancellationToken,
+}: {
+  adminClient: BackendCompatClient<Database>
+  bookingId: string
+  cancellationToken: string
+}): Promise<boolean> {
+  if (!bookingId) return false
+
+  try {
+    const backendClient = await createServerBackendClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await backendClient.auth.getUser()
+
+    if (authError || !user) return false
+
+    const { data: profileData, error: profileError } = await backendClient
+      .from('profiles')
+      .select('id')
+      .eq('auth_user_id', user.id)
+      .single()
+
+    const profile = profileData as Pick<Tables<'profiles'>, 'id'> | null
+
+    if (profileError || !profile) return false
+
+    const { data: bookingData, error: bookingError } = await adminClient
+      .from('bookings')
+      .select('id, host_user_id, cancellation_token')
+      .eq('id', bookingId)
+      .eq('host_user_id', profile.id)
+      .single()
+
+    const booking = bookingData as Pick<
+      Tables<'bookings'>,
+      'id' | 'host_user_id' | 'cancellation_token'
+    > | null
+
+    return Boolean(
+      !bookingError &&
+        booking &&
+        constantTimeEqual(booking.cancellation_token, cancellationToken)
+    )
+  } catch {
+    return false
   }
 }
 

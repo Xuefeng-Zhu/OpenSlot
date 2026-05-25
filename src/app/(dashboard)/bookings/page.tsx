@@ -36,7 +36,8 @@ export default async function BookingsPage() {
     .select(
       "id, event_type_id, guest_name, guest_email, guest_timezone, notes, booking_answers, start_at, end_at, status, cancellation_token, location_type, location_value, conference_provider, conference_url, conference_status, conference_error, event_types(title)"
     )
-    .eq("host_user_id", profile.id);
+    .eq("host_user_id", profile.id)
+    .order("start_at", { ascending: true });
 
   const bookings: Booking[] = (
     (bookingsData as Array<{
