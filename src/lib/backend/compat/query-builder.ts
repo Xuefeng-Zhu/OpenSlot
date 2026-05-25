@@ -17,7 +17,7 @@ import type {
 
 const primaryKeys: Partial<Record<TableName, string>> = {}
 
-const primaryKeyFallbacks: Partial<Record<TableName, string>> = {
+const mutationFilterFallbacks: Partial<Record<TableName, string>> = {
   user_settings: 'profile_id',
 }
 
@@ -255,11 +255,10 @@ export class BackendQueryBuilder<TData = any>
     const updatedRows: unknown[] = []
 
     for (const row of rows) {
-      const id = primaryKeyValue(this.table, row)
       updatedRows.push(
         await this.httpClient.request({
           method: 'PATCH',
-          path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
+          path: this.rowMutationPath(row),
           auth: this.authMode,
           body: serializeJsonColumns(this.table, this.payload),
         })
@@ -273,10 +272,9 @@ export class BackendQueryBuilder<TData = any>
     const rows = await this.fetchRows()
 
     for (const row of rows) {
-      const id = primaryKeyValue(this.table, row)
       await this.httpClient.request({
         method: 'DELETE',
-        path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
+        path: this.rowMutationPath(row),
         auth: this.authMode,
       })
     }
@@ -302,11 +300,10 @@ export class BackendQueryBuilder<TData = any>
       const matches = await this.fetchRows(filters)
 
       if (matches.length > 0) {
-        const id = primaryKeyValue(this.table, matches[0])
         rows.push(
           await this.httpClient.request({
             method: 'PATCH',
-            path: `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`,
+            path: this.rowMutationPath(matches[0]),
             auth: this.authMode,
             body: serializeJsonColumns(this.table, payload),
           })
@@ -339,6 +336,39 @@ export class BackendQueryBuilder<TData = any>
     }
 
     return String(filter.value)
+  }
+
+  private rowMutationPath(row: unknown) {
+    try {
+      const id = primaryKeyValue(this.table, row)
+      return `/v1/${this.httpClient.appId}/${this.table}/${encodeURIComponent(id)}`
+    } catch (error) {
+      if (
+        !(error instanceof ButterbaseRequestError) ||
+        error.code !== 'MISSING_PRIMARY_KEY'
+      ) {
+        throw error
+      }
+
+      const fallbackFilter = rowMutationFallbackFilter(this.table, row)
+      if (!fallbackFilter) throw error
+
+      return this.filteredMutationPath([fallbackFilter])
+    }
+  }
+
+  private filteredMutationPath(filters: QueryFilter[]) {
+    const params = new URLSearchParams()
+
+    for (const filter of filters) {
+      params.append(
+        filter.column,
+        `${filter.operator}.${serializeFilterValue(filter.value)}`
+      )
+    }
+
+    const query = params.toString()
+    return `/v1/${this.httpClient.appId}/${this.table}${query ? `?${query}` : ''}`
   }
 
   private async shapeResponse(rows: unknown[]) {
@@ -415,16 +445,6 @@ function primaryKeyValue(table: string, row: unknown) {
   const value = record[key]
 
   if (typeof value !== 'string' && typeof value !== 'number') {
-    const fallbackKey = primaryKeyFallbacks[table as TableName]
-    const fallbackValue = fallbackKey ? record[fallbackKey] : null
-
-    if (
-      typeof fallbackValue === 'string' ||
-      typeof fallbackValue === 'number'
-    ) {
-      return String(fallbackValue)
-    }
-
     throw new ButterbaseRequestError(
       `Cannot resolve primary key ${key} for ${table}`,
       400,
@@ -433,6 +453,23 @@ function primaryKeyValue(table: string, row: unknown) {
   }
 
   return String(value)
+}
+
+function rowMutationFallbackFilter(
+  table: string,
+  row: unknown
+): QueryFilter | null {
+  const column = mutationFilterFallbacks[table as TableName]
+  if (!column) return null
+
+  const value = (row as Record<string, unknown>)[column]
+  if (typeof value !== 'string' && typeof value !== 'number') return null
+
+  return {
+    column,
+    operator: 'eq',
+    value,
+  }
 }
 
 function serializeJsonColumns(table: string, payload: unknown) {

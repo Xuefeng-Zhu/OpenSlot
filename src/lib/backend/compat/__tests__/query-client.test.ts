@@ -280,8 +280,11 @@ describe('createBackendCompatClient', () => {
       profile_id: 'profile-1',
       time_format: '24h',
     })
-    expect(fetchImpl.mock.calls[1][0]).toBe(
-      'https://api.example.test/v1/app_openslot/user_settings/profile-1'
+    const updateUrl = new URL(String(fetchImpl.mock.calls[1][0]))
+    expect(updateUrl.pathname).toBe('/v1/app_openslot/user_settings')
+    expect(updateUrl.searchParams.get('profile_id')).toBe('eq.profile-1')
+    expect(fetchImpl.mock.calls[1][1]).toEqual(
+      expect.objectContaining({ method: 'PATCH' })
     )
   })
 
@@ -310,9 +313,9 @@ describe('createBackendCompatClient', () => {
       .eq('profile_id', 'profile-1')
 
     expect(result.error).toBeNull()
-    expect(fetchImpl.mock.calls[1][0]).toBe(
-      'https://api.example.test/v1/app_openslot/user_settings/profile-1'
-    )
+    const deleteUrl = new URL(String(fetchImpl.mock.calls[1][0]))
+    expect(deleteUrl.pathname).toBe('/v1/app_openslot/user_settings')
+    expect(deleteUrl.searchParams.get('profile_id')).toBe('eq.profile-1')
     expect(fetchImpl.mock.calls[1][1]).toEqual(
       expect.objectContaining({ method: 'DELETE' })
     )
