@@ -97,13 +97,30 @@ export function AvailabilityScheduleControls({
     }
   }
 
+  async function runScheduleMutation(
+    errorTitle: string,
+    action: () => Promise<void>
+  ) {
+    setIsSavingSchedule(true)
+
+    try {
+      await action()
+    } catch (error) {
+      toast({
+        title: errorTitle,
+        description: errorToastDescription(error),
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingSchedule(false)
+    }
+  }
+
   async function handleCreateSchedule() {
     const name = newScheduleName.trim()
     if (!name) return
 
-    setIsSavingSchedule(true)
-
-    try {
+    await runScheduleMutation("Could not create schedule", async () => {
       const { schedule } = await requestJson<ScheduleMutationResponse>(
         "/api/availability/schedules",
         {
@@ -121,24 +138,14 @@ export function AvailabilityScheduleControls({
       })
       router.push(`/availability?scheduleId=${schedule.id}`)
       router.refresh()
-    } catch (error) {
-      toast({
-        title: "Could not create schedule",
-        description: errorToastDescription(error),
-        variant: "destructive",
-      })
-    } finally {
-      setIsSavingSchedule(false)
-    }
+    })
   }
 
   async function handleRenameSchedule() {
     const name = renameScheduleName.trim()
     if (!selectedSchedule || !name || name === selectedSchedule.name) return
 
-    setIsSavingSchedule(true)
-
-    try {
+    await runScheduleMutation("Could not rename schedule", async () => {
       const { schedule: updatedSchedule } =
         await requestJson<ScheduleMutationResponse>(
           `/api/availability/schedules/${selectedSchedule.id}`,
@@ -163,24 +170,14 @@ export function AvailabilityScheduleControls({
       })
       setRenameDialogOpen(false)
       router.refresh()
-    } catch (error) {
-      toast({
-        title: "Could not rename schedule",
-        description: errorToastDescription(error),
-        variant: "destructive",
-      })
-    } finally {
-      setIsSavingSchedule(false)
-    }
+    })
   }
 
   async function handleDuplicateSchedule() {
     const name = duplicateScheduleName.trim()
     if (!selectedSchedule || !name) return
 
-    setIsSavingSchedule(true)
-
-    try {
+    await runScheduleMutation("Could not duplicate schedule", async () => {
       const { schedule } = await requestJson<ScheduleMutationResponse>(
         `/api/availability/schedules/${selectedSchedule.id}/duplicate`,
         {
@@ -197,23 +194,13 @@ export function AvailabilityScheduleControls({
       })
       router.push(`/availability?scheduleId=${schedule.id}`)
       router.refresh()
-    } catch (error) {
-      toast({
-        title: "Could not duplicate schedule",
-        description: errorToastDescription(error),
-        variant: "destructive",
-      })
-    } finally {
-      setIsSavingSchedule(false)
-    }
+    })
   }
 
   async function handleSetDefaultSchedule() {
     if (!selectedSchedule || selectedSchedule.is_default) return
 
-    setIsSavingSchedule(true)
-
-    try {
+    await runScheduleMutation("Could not update default schedule", async () => {
       const { schedule } = await requestJson<ScheduleMutationResponse>(
         `/api/availability/schedules/${selectedSchedule.id}`,
         {
@@ -235,23 +222,13 @@ export function AvailabilityScheduleControls({
         description: `"${schedule.name}" is now the default for new event types.`,
       })
       router.refresh()
-    } catch (error) {
-      toast({
-        title: "Could not update default schedule",
-        description: errorToastDescription(error),
-        variant: "destructive",
-      })
-    } finally {
-      setIsSavingSchedule(false)
-    }
+    })
   }
 
   async function handleDeleteSchedule() {
     if (!selectedSchedule) return
 
-    setIsSavingSchedule(true)
-
-    try {
+    await runScheduleMutation("Could not delete schedule", async () => {
       await requestJson<Record<string, never>>(
         `/api/availability/schedules/${selectedSchedule.id}`,
         { method: "DELETE" },
@@ -276,15 +253,7 @@ export function AvailabilityScheduleControls({
         router.push("/availability")
       }
       router.refresh()
-    } catch (error) {
-      toast({
-        title: "Could not delete schedule",
-        description: errorToastDescription(error),
-        variant: "destructive",
-      })
-    } finally {
-      setIsSavingSchedule(false)
-    }
+    })
   }
 
   const assignedEventTypes = selectedSchedule?.assignedEventTypes ?? []
