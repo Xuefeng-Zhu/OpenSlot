@@ -291,6 +291,31 @@ describe('AvailabilityClient', () => {
     expect(addOverride).toHaveProperty('disabled', false)
   })
 
+  it('blocks saving while weekly hours contain an invalid interval', () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAvailability()
+
+    fireEvent.change(screen.getByLabelText('End time for Monday interval 1'), {
+      target: { value: '08:00' },
+    })
+
+    const saveButton = screen.getByRole('button', {
+      name: 'Save availability',
+    })
+
+    expect(screen.getByRole('alert').textContent).toBe(
+      'End time must be after start time'
+    )
+    expect(screen.getByText('Fix invalid weekly hours before saving.')).toBeDefined()
+    expect(saveButton).toHaveProperty('disabled', true)
+
+    fireEvent.click(saveButton)
+
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
   it('preserves weekly interval ids when deleting the first interval', async () => {
     const fetchMock = vi.fn(
       async (_input: RequestInfo | URL, init?: RequestInit) => {
