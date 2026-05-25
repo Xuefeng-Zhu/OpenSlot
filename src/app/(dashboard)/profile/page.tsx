@@ -24,7 +24,7 @@ export default async function ProfilePage() {
   const typedProfile = profile as Tables<'profiles'> | null
 
   if (!typedProfile) {
-    redirect('/login')
+    redirect('/onboarding')
   }
 
   return (
