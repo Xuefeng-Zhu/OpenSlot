@@ -232,6 +232,10 @@ export async function syncCalendarsForConnection(
 
     return { calendars: calendars.length }
   } catch (error) {
+    if (isAbortError(error)) {
+      throw error
+    }
+
     await adminClient
       .from('provider_connections')
       .update({
@@ -242,6 +246,10 @@ export async function syncCalendarsForConnection(
       .eq('id', connection.id)
     throw error
   }
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError'
 }
 
 /**
