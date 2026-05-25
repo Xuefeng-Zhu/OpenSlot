@@ -83,7 +83,18 @@ describe('TopBar', () => {
   })
 
   it('marks all notifications as read without removing recent activity', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true })
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          notificationsSeenAt: '2026-05-17T00:00:00.000Z',
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }
+      )
+    )
     vi.stubGlobal('fetch', fetchMock)
 
     render(
@@ -121,7 +132,14 @@ describe('TopBar', () => {
   })
 
   it('restores the unread badge when marking notifications read fails', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('server unavailable', {
+          status: 500,
+        })
+      )
+    )
 
     render(
       <TopBar

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Bell, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
+import { requestJson } from '@/components/dashboard/request-json'
 import { useToast } from '@/components/ui/use-toast'
 import {
   DropdownMenu,
@@ -30,6 +31,16 @@ interface TopBarProps {
     avatarUrl?: string | null
   }
 }
+
+type MarkNotificationsSeenResponse =
+  | {
+      success: true
+      notificationsSeenAt: string
+    }
+  | {
+      success: false
+      error?: string
+    }
 
 export function TopBar({
   title,
@@ -58,12 +69,14 @@ export function TopBar({
     setMarkingRead(true)
 
     try {
-      const response = await fetch('/api/notifications/seen', {
-        method: 'POST',
-      })
+      const result = await requestJson<MarkNotificationsSeenResponse>(
+        '/api/notifications/seen',
+        { method: 'POST' },
+        'Failed to mark notifications as read'
+      )
 
-      if (!response.ok) {
-        throw new Error('Failed to mark notifications as read')
+      if (!result.success) {
+        throw new Error(result.error ?? 'Failed to mark notifications as read')
       }
     } catch {
       setUnseenCount(previousUnseenCount)
