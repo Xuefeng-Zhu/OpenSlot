@@ -64,12 +64,15 @@ interface EmailProviderErrorResponse {
 
 async function readEmailProviderJson<T extends EmailProviderErrorResponse>(
   response: Response
-): Promise<T> {
-  return (await response.json().catch(() => ({}))) as T
+): Promise<T | null> {
+  return (await response.json().catch(() => null)) as T | null
 }
 
-function emailProviderError(data: EmailProviderErrorResponse, fallback: string): string {
-  return data.message ?? data.error ?? data.name ?? fallback
+function emailProviderError(
+  data: EmailProviderErrorResponse | null,
+  fallback: string
+): string {
+  return data?.message ?? data?.error ?? data?.name ?? fallback
 }
 
 function parseEmailObject(value: string): MailerooEmailObject {
@@ -88,6 +91,19 @@ function parseEmailObject(value: string): MailerooEmailObject {
 
 function buildMailerooReferenceId(idempotencyKey: string): string {
   return sha256Hex(`openslot:${idempotencyKey}`).slice(0, 24)
+}
+
+function mailerooFallbackError(
+  response: Response,
+  data: MailerooEmailResponse | null
+): string {
+  if (!response.ok) {
+    return `Maileroo API returned HTTP ${response.status}`
+  }
+
+  return data
+    ? 'Maileroo API returned an unsuccessful response'
+    : 'Maileroo API returned an unreadable response'
 }
 
 export class ResendEmailProvider implements EmailProvider {
@@ -168,15 +184,10 @@ export class MailerooEmailProvider implements EmailProvider {
     })
     const data = await readEmailProviderJson<MailerooEmailResponse>(response)
 
-    if (!response.ok || data.success === false) {
+    if (!response.ok || data?.success !== true) {
       return {
         success: false,
-        error: emailProviderError(
-          data,
-          response.ok
-            ? 'Maileroo API returned an unsuccessful response'
-            : `Maileroo API returned HTTP ${response.status}`
-        ),
+        error: emailProviderError(data, mailerooFallbackError(response, data)),
       }
     }
 
