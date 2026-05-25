@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
-import { confirmBookingSchema } from '@/lib/validations/booking'
+import {
+  confirmBookingSchema,
+  createHoldSchema,
+  rescheduleBookingSchema,
+} from '@/lib/validations/booking'
 
 /**
  * Property 8: Booking form validation correctness
@@ -116,6 +120,30 @@ describe('Property 8: Booking form validation correctness', () => {
         { numRuns: 100 }
       )
     })
+
+    it('rejects guestName values that are blank after trimming', () => {
+      fc.assert(
+        fc.property(
+          validUuidArb,
+          validEmailArb,
+          validTimezoneArb,
+          fc.stringOf(fc.constantFrom(' ', '\t', '\n'), {
+            minLength: 1,
+            maxLength: 20,
+          }),
+          (holdToken, guestEmail, guestTimezone, guestName) => {
+            const result = confirmBookingSchema.safeParse({
+              holdToken,
+              guestName,
+              guestEmail,
+              guestTimezone,
+            })
+            expect(result.success).toBe(false)
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
   })
 
   describe('rejects invalid guestEmail', () => {
@@ -174,6 +202,65 @@ describe('Property 8: Booking form validation correctness', () => {
         ),
         { numRuns: 100 }
       )
+    })
+  })
+
+  describe('normalizes guest identity fields', () => {
+    it('trims guest name and email before confirming a booking', () => {
+      fc.assert(
+        fc.property(
+          validUuidArb,
+          validGuestNameArb,
+          validEmailArb,
+          validTimezoneArb,
+          (holdToken, guestName, guestEmail, guestTimezone) => {
+            const result = confirmBookingSchema.safeParse({
+              holdToken,
+              guestName: ` ${guestName} `,
+              guestEmail: `\n${guestEmail}\t`,
+              guestTimezone,
+            })
+
+            expect(result.success).toBe(true)
+            if (result.success) {
+              expect(result.data.guestName).toBe(guestName.trim())
+              expect(result.data.guestEmail).toBe(guestEmail)
+            }
+          }
+        ),
+        { numRuns: 100 }
+      )
+    })
+
+    it('trims guest email before creating a hold', () => {
+      const result = createHoldSchema.safeParse({
+        eventTypeId: '550e8400-e29b-41d4-a716-446655440001',
+        hostUserId: '550e8400-e29b-41d4-a716-446655440002',
+        startAt: '2026-06-01T15:00:00.000Z',
+        endAt: '2026-06-01T15:30:00.000Z',
+        guestEmail: '  jane@example.com  ',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.guestEmail).toBe('jane@example.com')
+      }
+    })
+
+    it('trims guest name and email before rescheduling a booking', () => {
+      const result = rescheduleBookingSchema.safeParse({
+        rescheduleToken: '550e8400-e29b-41d4-a716-446655440003',
+        holdToken: '550e8400-e29b-41d4-a716-446655440004',
+        guestName: '  Jane Doe  ',
+        guestEmail: ' jane@example.com\n',
+        guestTimezone: 'America/New_York',
+      })
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.data.guestName).toBe('Jane Doe')
+        expect(result.data.guestEmail).toBe('jane@example.com')
+      }
     })
   })
 })
