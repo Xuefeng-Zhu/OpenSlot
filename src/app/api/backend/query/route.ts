@@ -6,9 +6,7 @@ import { currentBackendAccessToken } from '@/lib/backend/server'
 const MAX_QUERY_LIMIT = 500
 const MAX_QUERY_OFFSET = 10_000
 
-type BrowserQueryOperation =
-  | 'update'
-  | 'delete'
+type BrowserQueryOperation = 'update'
 
 interface QueryPolicy {
   operations: ReadonlySet<BrowserQueryOperation>
@@ -33,13 +31,6 @@ const queryPolicies: Readonly<Record<string, QueryPolicy>> = {
       'response_time_label',
       'updated_at',
     ]),
-  },
-  event_types: {
-    operations: new Set(['delete']),
-    filters: {
-      id: new Set(['eq']),
-    },
-    requiredFilters: ['id'],
   },
 }
 
@@ -110,9 +101,6 @@ export async function POST(request: NextRequest) {
     switch (policyResult.operation) {
       case 'update':
         query = query.update(body.payload)
-        break
-      case 'delete':
-        query = query.delete()
         break
     }
 
@@ -242,5 +230,5 @@ function queryErrorResponse(message: string, status: number) {
 function isBrowserQueryOperation(
   operation: string
 ): operation is BrowserQueryOperation {
-  return operation === 'update' || operation === 'delete'
+  return operation === 'update'
 }
