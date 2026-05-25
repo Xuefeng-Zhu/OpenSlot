@@ -160,7 +160,7 @@ describe('SlotPicker', () => {
       label: 'Tue, Jun 16, 9:00 AM',
       slotToken: 'signed-slot-token',
     }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
 
       if (url.startsWith('/api/slots')) {
@@ -351,7 +351,7 @@ describe('SlotPicker', () => {
       slotToken: 'signed-slot-token',
     }
     let holdRequests = 0
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
 
       if (url.startsWith('/api/slots')) {
