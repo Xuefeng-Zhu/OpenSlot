@@ -19,6 +19,21 @@ export function authError(message: string, status = 400) {
   return authJson({ success: false, error: message }, { status })
 }
 
+export function authErrorWithSignOut(message: string, status = 400) {
+  const response = authError(message, status)
+  setResponseCookies(response, cookiesForBackendSignOut())
+  return response
+}
+
+export function authJsonWithSignOut<TBody>(
+  body: TBody,
+  init?: ResponseInit
+) {
+  const response = authJson(body, init)
+  setResponseCookies(response, cookiesForBackendSignOut())
+  return response
+}
+
 export function sessionResponse(
   session: BackendCompatSession | BackendSession,
   keepSignedIn: boolean,
@@ -35,11 +50,15 @@ export function signOutResponse() {
   return response
 }
 
+type AuthProfileSyncResult =
+  | { ok: true }
+  | { ok: false; error: string }
+
 export async function ensureProfileForAuthUser(input: {
   authUserId: string
   email: string | null
   displayName?: string | null
-}) {
+}): Promise<AuthProfileSyncResult> {
   const adminClient = createAdminBackendClient()
   const email = input.email ?? ''
   const now = new Date().toISOString()
@@ -59,7 +78,17 @@ export async function ensureProfileForAuthUser(input: {
     profilePayload.name = displayName
   }
 
-  await adminClient
+  const { error } = await adminClient
     .from('profiles')
     .upsert(profilePayload, { onConflict: 'auth_user_id' })
+
+  if (error) {
+    console.error('Error ensuring auth profile:', error)
+    return {
+      ok: false,
+      error: 'Unable to prepare your profile. Please try again.',
+    }
+  }
+
+  return { ok: true }
 }

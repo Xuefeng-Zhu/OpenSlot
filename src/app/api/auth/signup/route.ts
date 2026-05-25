@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
 import {
   authError,
-  authJson,
+  authJsonWithSignOut,
   ensureProfileForAuthUser,
   sessionResponse,
 } from '../_shared'
@@ -29,15 +29,26 @@ export async function POST(request: NextRequest) {
     return authError('Unable to create account.', signup.error.status ?? 400)
   }
 
-  await ensureProfileForAuthUser({
+  const profileSync = await ensureProfileForAuthUser({
     authUserId: signup.data.id,
     email: signup.data.email,
     displayName,
   })
 
+  if (!profileSync.ok) {
+    return authJsonWithSignOut(
+      {
+        success: true,
+        requiresLogin: true,
+        user: signup.data,
+      },
+      { status: 202 }
+    )
+  }
+
   const signin = await backend.auth.signInWithPassword({ email, password })
   if (signin.error) {
-    return authJson(
+    return authJsonWithSignOut(
       {
         success: true,
         requiresLogin: true,

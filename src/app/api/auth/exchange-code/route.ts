@@ -4,7 +4,12 @@ import {
   cookiesForBackendSession,
   setResponseCookies,
 } from '@/lib/backend/server'
-import { authError, authJson, ensureProfileForAuthUser } from '../_shared'
+import {
+  authError,
+  authErrorWithSignOut,
+  authJson,
+  ensureProfileForAuthUser,
+} from '../_shared'
 import { readAuthJsonObject } from '../_request'
 
 export const runtime = 'edge'
@@ -25,7 +30,7 @@ export async function POST(request: NextRequest) {
     return authError('Unable to exchange auth code.', result.error?.status ?? 400)
   }
 
-  await ensureProfileForAuthUser({
+  const profileSync = await ensureProfileForAuthUser({
     authUserId: result.data.user.id,
     email: result.data.user.email,
     displayName:
@@ -33,6 +38,10 @@ export async function POST(request: NextRequest) {
         ? result.data.user.user_metadata.full_name
         : null,
   })
+
+  if (!profileSync.ok) {
+    return authErrorWithSignOut(profileSync.error, 500)
+  }
 
   const response = authJson({
     success: true,

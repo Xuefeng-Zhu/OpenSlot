@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
 import {
   authError,
+  authErrorWithSignOut,
   ensureProfileForAuthUser,
   sessionResponse,
 } from '../_shared'
@@ -26,11 +27,15 @@ export async function POST(request: NextRequest) {
     return authError('We could not sign you in.', result.error.status ?? 401)
   }
 
-  await ensureProfileForAuthUser({
+  const profileSync = await ensureProfileForAuthUser({
     authUserId: result.data.user.id,
     email: result.data.user.email,
     displayName: result.data.user.displayName,
   })
+
+  if (!profileSync.ok) {
+    return authErrorWithSignOut(profileSync.error, 500)
+  }
 
   return sessionResponse(result.data, keepSignedIn)
 }
