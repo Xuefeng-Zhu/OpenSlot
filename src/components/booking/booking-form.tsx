@@ -91,8 +91,7 @@ export function BookingForm({
   onSlotTaken,
 }: BookingFormProps) {
   const pageTimezone = validTimezoneOrNull(timezone) ?? DEFAULT_TIMEZONE;
-  const initialGuestTimezone =
-    validTimezoneOrNull(initialGuest?.timezone) ?? pageTimezone;
+  const initialGuestTimezone = pageTimezone;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => createClientIdempotencyKey());
@@ -179,9 +178,8 @@ export function BookingForm({
   ]);
 
   useEffect(() => {
-    if (initialGuest?.timezone) return;
     setValue("guestTimezone", pageTimezone, { shouldValidate: true });
-  }, [initialGuest?.timezone, pageTimezone, setValue]);
+  }, [pageTimezone, setValue]);
 
   // Countdown timer
   useEffect(() => {
