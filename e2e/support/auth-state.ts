@@ -25,7 +25,7 @@ export type DemoHostAuthState = {
 };
 
 export type DemoHostBackendSessionTokens = {
-  accessToken: string;
+  accessToken?: string;
   refreshToken?: string;
 };
 
@@ -96,7 +96,10 @@ export function mergeStoredBackendCookies(
 
 export function hasBackendAuthCookie(state: DemoHostAuthState) {
   return state.cookies.some(
-    (cookie) => cookie.name === BACKEND_ACCESS_TOKEN_COOKIE && cookie.value
+    (cookie) =>
+      (cookie.name === BACKEND_ACCESS_TOKEN_COOKIE ||
+        cookie.name === BACKEND_REFRESH_TOKEN_COOKIE) &&
+      cookie.value
   );
 }
 
@@ -107,14 +110,13 @@ export function readDemoHostBackendSessionTokens(): DemoHostBackendSessionTokens
   const accessToken = state.cookies.find(
     (cookie) => cookie.name === BACKEND_ACCESS_TOKEN_COOKIE && cookie.value
   )?.value;
-  if (!accessToken) return null;
-
   const refreshToken = state.cookies.find(
     (cookie) => cookie.name === BACKEND_REFRESH_TOKEN_COOKIE && cookie.value
   )?.value;
+  if (!accessToken && !refreshToken) return null;
 
   return {
-    accessToken,
+    ...(accessToken ? { accessToken } : {}),
     ...(refreshToken ? { refreshToken } : {}),
   };
 }

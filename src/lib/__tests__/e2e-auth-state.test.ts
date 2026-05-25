@@ -137,4 +137,30 @@ describe("E2E demo auth state", () => {
       refreshToken: "cached-refresh-token",
     });
   });
+
+  it("treats refresh-token-only state as restorable", () => {
+    writeDemoHostAuthState({
+      cookies: [
+        {
+          domain: "127.0.0.1",
+          expires: 1770000000,
+          httpOnly: true,
+          name: "openslot_backend_refresh_token",
+          path: "/",
+          sameSite: "Lax",
+          secure: false,
+          value: "cached-refresh-token",
+        },
+      ],
+      origins: [],
+    });
+
+    const state = readDemoHostAuthState();
+
+    expect(state).not.toBeNull();
+    expect(hasBackendAuthCookie(state!)).toBe(true);
+    expect(readDemoHostBackendSessionTokens()).toEqual({
+      refreshToken: "cached-refresh-token",
+    });
+  });
 });

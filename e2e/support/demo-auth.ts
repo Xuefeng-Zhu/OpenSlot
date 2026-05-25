@@ -87,16 +87,18 @@ async function loadCachedDemoAuthSession(
   const tokens = readDemoHostBackendSessionTokens();
   if (!tokens) return null;
 
-  const currentUser = await backend.auth.getCurrentUser(tokens.accessToken);
-  if (!currentUser.error) {
-    return {
-      userId: currentUser.data.id,
-      session: {
-        accessToken: tokens.accessToken,
-        refreshToken: tokens.refreshToken,
-        user: currentUser.data,
-      },
-    };
+  if (tokens.accessToken) {
+    const currentUser = await backend.auth.getCurrentUser(tokens.accessToken);
+    if (!currentUser.error) {
+      return {
+        userId: currentUser.data.id,
+        session: {
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
+          user: currentUser.data,
+        },
+      };
+    }
   }
 
   if (!tokens.refreshToken) return null;

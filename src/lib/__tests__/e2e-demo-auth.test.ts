@@ -13,6 +13,7 @@ import { demoHost, resetRuntimeDemoHostForTests } from '../../../e2e/demo-data'
 import {
   readDemoHostAuthState,
   saveDemoHostSessionState,
+  writeDemoHostAuthState,
 } from '../../../e2e/support/auth-state'
 import type { E2EAdminClient } from '../../../e2e/support/db/types'
 import type { BackendPorts } from '@/lib/backend/ports'
@@ -122,6 +123,55 @@ describe('E2E demo auth setup', () => {
         }),
       ])
     )
+  })
+
+  it('refreshes a saved backend auth state when only the refresh token remains', async () => {
+    writeDemoHostAuthState({
+      cookies: [
+        {
+          domain: '127.0.0.1',
+          expires: 1770000000,
+          httpOnly: true,
+          name: 'openslot_backend_refresh_token',
+          path: '/',
+          sameSite: 'Lax',
+          secure: false,
+          value: 'cached-refresh-token',
+        },
+      ],
+      origins: [],
+    })
+
+    const backend = {
+      auth: {
+        getCurrentUser: vi.fn(),
+        refreshSession: vi.fn(async () => ({
+          data: {
+            accessToken: 'refreshed-access-token',
+            refreshToken: 'refreshed-refresh-token',
+            user: { id: 'auth-user-cached', email: demoHost.email },
+          },
+          error: null,
+        })),
+        signInWithPassword: vi.fn(),
+        signUp: vi.fn(),
+      },
+    } as unknown as BackendPorts
+    const adminClient = {
+      auth: {
+        updateUser: vi.fn(),
+      },
+      from: vi.fn(),
+    } as unknown as E2EAdminClient
+
+    await expect(ensureDemoAuthUser(backend, adminClient)).resolves.toBe(
+      'auth-user-cached'
+    )
+    expect(backend.auth.getCurrentUser).not.toHaveBeenCalled()
+    expect(backend.auth.refreshSession).toHaveBeenCalledWith(
+      'cached-refresh-token'
+    )
+    expect(backend.auth.signInWithPassword).not.toHaveBeenCalled()
   })
 
   it('refreshes seeded credentials when the demo auth user already exists but sign-in fails', async () => {
