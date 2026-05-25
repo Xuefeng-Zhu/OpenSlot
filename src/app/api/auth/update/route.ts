@@ -5,6 +5,7 @@ import {
 } from '@/lib/backend/server'
 import { createBackendCompatClient } from '@/lib/backend/compat/query-client'
 import { authError, authJson } from '../_shared'
+import { readAuthJsonObject } from '../_request'
 
 export const runtime = 'edge'
 
@@ -14,7 +15,7 @@ export async function PATCH(request: NextRequest) {
     return authError('Authentication required.', 401)
   }
 
-  const body = await request.json().catch(() => null)
+  const body = await readAuthJsonObject(request)
   const email = typeof body?.email === 'string' ? body.email.trim() : undefined
   const password = typeof body?.password === 'string' ? body.password : undefined
 
