@@ -100,15 +100,18 @@ test.describe("event type management", () => {
   test("event type search and status filters show meaningful empty states", async ({
     page,
   }) => {
+    const noMatchSearch = `not-a-real-event-type-${uniqueE2EId("filter")}`;
+
     await loginAsDemoHost(page, "/event-types");
 
-    await page.getByLabel("Search event types").fill("not a real event type");
+    await page.getByLabel("Search event types").fill(noMatchSearch);
     await expect(page.getByText("No matching event types")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
 
     await page.getByRole("button", { name: "Paused" }).click();
+    await page.getByLabel("Search event types").fill(noMatchSearch);
     await expect(page.getByText("No matching event types")).toBeVisible();
-    await page.getByRole("button", { name: "All" }).click();
+    await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("30 Minute Meeting")).toBeVisible();
     await expect(page.getByText("60 Minute Consultation")).toBeVisible();
   });
