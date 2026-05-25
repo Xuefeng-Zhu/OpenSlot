@@ -109,7 +109,7 @@ test.describe("event type management", () => {
     await page.getByRole("button", { name: "Clear filters" }).click();
 
     await page.getByRole("button", { name: "Paused" }).click();
-    await page.getByLabel("Search event types").fill(noMatchSearch);
+    await expect(page.getByLabel("Search event types")).toHaveValue("");
     await expect(page.getByText("No matching event types")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("30 Minute Meeting")).toBeVisible();
