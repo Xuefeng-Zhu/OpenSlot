@@ -12,14 +12,24 @@ describe('shouldUseFunctionFallback', () => {
     ).toBe(true)
   })
 
-  it('detects unstructured gateway failures from function routing', () => {
+  it('detects structured gateway responses that explicitly identify missing functions', () => {
+    expect(
+      shouldUseFunctionFallback({
+        message: 'Butterbase request failed with 503',
+        status: 503,
+        details: { error: 'Function route not found' },
+      })
+    ).toBe(true)
+  })
+
+  it('does not replay writes after ambiguous gateway failures', () => {
     expect(
       shouldUseFunctionFallback({
         message: 'Butterbase request failed with 502',
         status: 502,
         details: null,
       })
-    ).toBe(true)
+    ).toBe(false)
   })
 
   it('does not hide domain or validation failures from deployed functions', () => {

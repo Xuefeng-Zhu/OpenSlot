@@ -40,14 +40,9 @@ export async function confirmBooking(
   const { holdToken, guestName, guestEmail, guestTimezone, notes, answers } = input
 
   // Step 1: Fetch and validate the hold
-  const { data: hold, error: holdError } = await adminClient
-    .from('slot_holds')
-    .select('*')
-    .eq('hold_token', holdToken)
-    .eq('status', 'active')
-    .single()
+  let hold = await loadActiveHold(adminClient, holdToken)
 
-  if (holdError || !hold) {
+  if (!hold) {
     return { success: false, error: 'Hold not found or already used' }
   }
 
@@ -181,6 +176,27 @@ export async function confirmBooking(
     }
   }
 
+  if (functionResult.attempted && 'fallback' in functionResult) {
+    hold = await loadActiveHold(adminClient, holdToken)
+
+    if (!hold) {
+      return { success: false, error: 'Hold not found or already used' }
+    }
+
+    if (new Date(hold.expires_at) < new Date()) {
+      await adminClient
+        .from('slot_holds')
+        .update({ status: 'expired' })
+        .eq('id', hold.id)
+      await expireHoldReservation(adminClient, hold.id)
+
+      return {
+        success: false,
+        error: 'Hold has expired. Please select a new slot.',
+      }
+    }
+  }
+
   // Step 3: Insert booking (exclusion constraint provides final guard against double-booking)
   const { data: booking, error: bookingError } = await adminClient
     .from('bookings')
@@ -270,6 +286,22 @@ export async function confirmBooking(
     conferenceStatus: booking.conference_status,
     conferenceUrl: booking.conference_url,
   }
+}
+
+async function loadActiveHold(
+  adminClient: BackendCompatClient<Database>,
+  holdToken: string
+): Promise<Tables<'slot_holds'> | null> {
+  const { data, error } = await adminClient
+    .from('slot_holds')
+    .select('*')
+    .eq('hold_token', holdToken)
+    .eq('status', 'active')
+    .single()
+
+  if (error || !data) return null
+
+  return data as Tables<'slot_holds'>
 }
 
 type ConfirmFunctionBooking = {

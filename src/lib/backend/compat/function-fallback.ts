@@ -11,21 +11,23 @@ export function shouldUseFunctionFallback(
 
   const detailText = stringifyDetails(error.details).toLowerCase()
   const message = error.message.toLowerCase()
+  const hasMissingFunctionSignal =
+    message.includes('function not found') ||
+    detailText.includes('function not found') ||
+    message.includes('missing function') ||
+    detailText.includes('missing function') ||
+    message.includes('function route not found') ||
+    detailText.includes('function route not found') ||
+    message.includes('function is not deployed') ||
+    detailText.includes('function is not deployed')
 
-  if (
-    error.status === 404 &&
-    (message.includes('function not found') ||
-      detailText.includes('function not found') ||
-      message.includes('butterbase request failed with 404'))
-  ) {
+  if (hasMissingFunctionSignal) {
     return true
   }
 
-  // Some Butterbase deployments report unavailable function routing as a
-  // gateway response without a structured body.
   return (
-    (error.status === 501 || error.status === 502 || error.status === 503) &&
-    !error.code
+    error.status === 404 &&
+    message.includes('butterbase request failed with 404')
   )
 }
 
