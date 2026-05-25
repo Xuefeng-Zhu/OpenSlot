@@ -129,4 +129,26 @@ describe('BookingsClient', () => {
       )
     })
   })
+
+  it('opens generated meeting links in a new tab from the detail drawer', () => {
+    render(
+      <BookingsClient
+        bookings={[
+          booking({
+            conference_url: 'https://meet.google.com/abc-defg-hij',
+          }),
+        ]}
+      />
+    )
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'View booking with Ada Lovelace' })[0]
+    )
+
+    const link = screen.getByRole('link', { name: 'Open meeting link' })
+
+    expect(link.getAttribute('href')).toBe('https://meet.google.com/abc-defg-hij')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
+  })
 })

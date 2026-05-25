@@ -91,6 +91,17 @@ export function AvailabilityClient({
 
   // Saving state
   const [isSaving, setIsSaving] = useState(false)
+  const newOverrideTimeError = useMemo(() => {
+    if (!newOverrideAvailable) return ""
+    if (!newOverrideStart || !newOverrideEnd) {
+      return "Custom hours need a start and end time."
+    }
+    if (newOverrideStart >= newOverrideEnd) {
+      return "End time must be after start time."
+    }
+    return ""
+  }, [newOverrideAvailable, newOverrideEnd, newOverrideStart])
+  const canAddOverride = Boolean(newOverrideDate) && !newOverrideTimeError
 
   const hasChanges = useMemo(() => {
     return hasAvailabilityChanges({
@@ -132,11 +143,7 @@ export function AvailabilityClient({
   // --- Override handlers ---
 
   const handleAddOverride = useCallback(() => {
-    if (!newOverrideDate) return
-
-    // Validate times if marking as available
-    if (newOverrideAvailable && (!newOverrideStart || !newOverrideEnd)) return
-    if (newOverrideAvailable && newOverrideStart >= newOverrideEnd) return
+    if (!canAddOverride) return
 
     const newOverride: AvailabilityOverride = {
       id: tempId(),
@@ -153,7 +160,14 @@ export function AvailabilityClient({
     setNewOverrideStart("")
     setNewOverrideEnd("")
     setNewOverrideReason("")
-  }, [newOverrideDate, newOverrideAvailable, newOverrideStart, newOverrideEnd, newOverrideReason])
+  }, [
+    canAddOverride,
+    newOverrideDate,
+    newOverrideAvailable,
+    newOverrideStart,
+    newOverrideEnd,
+    newOverrideReason,
+  ])
 
   const handleRemoveOverride = useCallback((id: string) => {
     setOverrides((prev) => prev.filter((o) => o.id !== id))
@@ -288,7 +302,7 @@ export function AvailabilityClient({
               variant="outline"
               size="sm"
               onClick={handleAddOverride}
-              disabled={!newOverrideDate}
+              disabled={!canAddOverride}
               aria-label="Add override"
               className="w-fit rounded-full px-4"
             >
@@ -337,6 +351,9 @@ export function AvailabilityClient({
                         id="override-start"
                         type="time"
                         value={newOverrideStart}
+                        aria-describedby={
+                          newOverrideTimeError ? "override-time-error" : undefined
+                        }
                         onChange={(event) =>
                           setNewOverrideStart(event.target.value)
                         }
@@ -350,6 +367,9 @@ export function AvailabilityClient({
                         id="override-end"
                         type="time"
                         value={newOverrideEnd}
+                        aria-describedby={
+                          newOverrideTimeError ? "override-time-error" : undefined
+                        }
                         onChange={(event) =>
                           setNewOverrideEnd(event.target.value)
                         }
@@ -358,6 +378,15 @@ export function AvailabilityClient({
                   </>
                 )}
               </div>
+              {newOverrideTimeError ? (
+                <p
+                  id="override-time-error"
+                  className="text-xs text-destructive"
+                  role="alert"
+                >
+                  {newOverrideTimeError}
+                </p>
+              ) : null}
               <div className="space-y-1">
                 <Label htmlFor="override-reason" className="text-xs">
                   Reason (optional)

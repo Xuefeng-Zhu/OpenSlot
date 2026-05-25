@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminBackendClient } from '@/lib/backend/server'
 import { processWebhookDeliveriesBatch } from '@/lib/webhooks/deliveries'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
+import {
+  numberFromSearchParam,
+  readWorkerJsonObject,
+} from '@/lib/workers/request-options'
 
 /**
  * Processes webhook deliveries from a worker POST body.
@@ -10,7 +14,7 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => ({}))
+  const body = await readWorkerJsonObject(request)
   return runWebhookProcessor(request, body)
 }
 
@@ -22,8 +26,8 @@ export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams
 
   return runWebhookProcessor(request, {
-    limit: numberFromParam(searchParams.get('limit')),
-    maxAttempts: numberFromParam(searchParams.get('maxAttempts')),
+    limit: numberFromSearchParam(searchParams.get('limit')),
+    maxAttempts: numberFromSearchParam(searchParams.get('maxAttempts')),
   })
 }
 
@@ -53,10 +57,6 @@ async function runWebhookProcessor(
     success: true,
     ...result,
   })
-}
-
-function numberFromParam(value: string | null): number | undefined {
-  return value ? Number(value) : undefined
 }
 
 function normalizeInteger(

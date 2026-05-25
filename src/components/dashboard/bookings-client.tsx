@@ -366,6 +366,8 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
                     <Video className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     <a
                       href={selectedBooking.conference_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                     >
                       Open meeting link

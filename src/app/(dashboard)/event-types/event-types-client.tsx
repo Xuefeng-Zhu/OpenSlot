@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import { copyTextToClipboard } from "@/lib/utils/clipboard";
 
 type FilterTab = "all" | "active" | "paused";
 
@@ -76,7 +77,7 @@ export function EventTypesClient({
 
   const handleCopyLink = async (bookingUrl: string) => {
     try {
-      await navigator.clipboard.writeText(bookingUrl);
+      await copyTextToClipboard(bookingUrl);
       toast({
         title: "Link copied!",
         description: "Booking URL has been copied to your clipboard.",

@@ -30,6 +30,11 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   const selection = document.getSelection();
   const selectedRange =
     selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+  const activeElement =
+    typeof HTMLElement !== "undefined" &&
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
 
   document.body.appendChild(textArea);
   textArea.focus();
@@ -41,6 +46,10 @@ export async function copyTextToClipboard(text: string): Promise<void> {
   if (selection && selectedRange) {
     selection.removeAllRanges();
     selection.addRange(selectedRange);
+  }
+
+  if (activeElement?.isConnected) {
+    activeElement.focus();
   }
 
   if (!didCopy) {

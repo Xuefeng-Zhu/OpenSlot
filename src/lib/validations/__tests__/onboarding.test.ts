@@ -77,12 +77,12 @@ describe('onboardingSchema', () => {
     expect(result.data.eventType.videoProvider).toBe('google_meet')
   })
 
-  it('rejects custom, phone, and in-person locations without details', () => {
+  it('rejects manual locations without details', () => {
     const result = onboardingSchema.safeParse({
       ...validOnboardingInput,
       eventType: {
         ...validOnboardingInput.eventType,
-        locationType: 'custom',
+        locationType: 'online',
         locationValue: '',
         videoProvider: null,
       },

@@ -35,14 +35,15 @@ export default function SignupPage() {
 
   function validate(): boolean {
     const newErrors: typeof errors = {};
+    const trimmedEmail = email.trim();
 
     if (!fullName.trim()) {
       newErrors.fullName = "Full name is required.";
     }
 
-    if (!email.trim()) {
+    if (!trimmedEmail) {
       newErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
       newErrors.email = "Please enter a valid email address.";
     }
 
@@ -73,10 +74,11 @@ export default function SignupPage() {
 
     try {
       const backendClient = createBrowserBackendClient();
+      const trimmedEmail = email.trim();
 
       const { data: signUpData, error: signUpError } =
         await backendClient.auth.signUp({
-          email,
+          email: trimmedEmail,
           password,
           options: {
             data: {

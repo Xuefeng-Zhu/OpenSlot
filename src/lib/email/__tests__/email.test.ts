@@ -331,6 +331,27 @@ describe('ResendEmailProvider', () => {
     })
   })
 
+  it('falls back to the HTTP status when Resend returns malformed JSON', async () => {
+    const fetchImpl = vi.fn(async () => new Response('service unavailable', { status: 503 }))
+    const provider = new ResendEmailProvider(
+      'resend-key',
+      'OpenSlot <bookings@example.com>',
+      fetchImpl as typeof fetch
+    )
+
+    await expect(
+      provider.send({
+        to: 'test@example.com',
+        subject: 'Test Subject',
+        html: '<p>Hello</p>',
+        text: 'Hello',
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: 'Resend API returned HTTP 503',
+    })
+  })
+
   it('is selected when EMAIL_PROVIDER is resend', () => {
     process.env.EMAIL_PROVIDER = 'resend'
     process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
@@ -416,6 +437,27 @@ describe('MailerooEmailProvider', () => {
     ).resolves.toEqual({
       success: false,
       error: 'The sender domain is not verified.',
+    })
+  })
+
+  it('falls back to the HTTP status when Maileroo returns malformed JSON', async () => {
+    const fetchImpl = vi.fn(async () => new Response('gateway timeout', { status: 504 }))
+    const provider = new MailerooEmailProvider(
+      'maileroo-key',
+      'bookings@example.com',
+      fetchImpl as typeof fetch
+    )
+
+    await expect(
+      provider.send({
+        to: 'test@example.com',
+        subject: 'Test Subject',
+        html: '<p>Hello</p>',
+        text: 'Hello',
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: 'Maileroo API returned HTTP 504',
     })
   })
 

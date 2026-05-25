@@ -114,10 +114,7 @@ export const onboardingSchema = z
       })
     }
 
-    if (
-      ['phone', 'in_person', 'custom'].includes(eventType.locationType) &&
-      !eventType.locationValue.trim()
-    ) {
+    if (!eventType.locationValue.trim()) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'Location details are required',

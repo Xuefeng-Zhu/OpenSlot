@@ -87,11 +87,12 @@ export function categorizeBookings(bookings: Booking[], now: Date = new Date()):
  * Validates: Requirements 4.4
  */
 export function filterBookingsByEventType(bookings: Booking[], filter: string): Booking[] {
-  if (!filter.trim()) {
+  const normalizedFilter = filter.trim().toLowerCase();
+
+  if (!normalizedFilter) {
     return bookings;
   }
 
-  const normalizedFilter = filter.toLowerCase();
   return bookings.filter((booking) =>
     booking.event_type_title.toLowerCase().includes(normalizedFilter)
   );

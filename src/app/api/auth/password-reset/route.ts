@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server'
 import { createBackendRuntime } from '@/lib/backend/runtime'
 import { authError, authJson } from '../_shared'
+import { readAuthJsonObject } from '../_request'
 
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null)
+  const body = await readAuthJsonObject(request)
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
 
   if (!email) {

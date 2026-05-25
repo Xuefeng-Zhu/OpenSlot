@@ -75,10 +75,7 @@ export const eventTypeSchema = eventTypeFieldsSchema
         })
       }
 
-      if (
-        ['phone', 'in_person', 'custom'].includes(data.location_type) &&
-        !data.location_value?.trim()
-      ) {
+      if (!data.location_value?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: 'Location details are required',

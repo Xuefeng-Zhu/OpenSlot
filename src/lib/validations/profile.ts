@@ -7,9 +7,10 @@ export { getTimezones, isValidTimezone } from '@/lib/utils/timezone'
  * Dashboard profile form schema for public identity and default timezone.
  */
 export const profileSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),
+  name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),
   username: z
     .string()
+    .trim()
     .min(3, 'Username must be at least 3 characters')
     .max(30, 'Username must be 30 characters or less')
     .regex(

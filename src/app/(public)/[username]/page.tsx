@@ -22,7 +22,8 @@ export default async function PublicProfilePage({ params }: ProfilePageProps) {
     .from("event_types")
     .select("id, title, slug, description, duration_minutes, location_type, video_provider")
     .eq("user_id", profile.id)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
 
   const activeEventTypes = (eventTypesData ?? []) as Pick<
     Tables<"event_types">,
