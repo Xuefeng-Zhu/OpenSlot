@@ -7,9 +7,10 @@
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Booking history must block event type deletion instead of being cascade
+-- Booking history must block direct event type deletion instead of being cascade
 -- deleted. The event type delete route depends on this foreign-key behavior for
--- race-free enforcement when new bookings are inserted concurrently.
+-- race-free enforcement when new bookings are inserted concurrently, while
+-- deferral preserves ordered account/profile cleanup.
 ALTER TABLE bookings
   DROP CONSTRAINT IF EXISTS bookings_event_type_id_fkey;
 
@@ -17,7 +18,8 @@ ALTER TABLE bookings
   ADD CONSTRAINT bookings_event_type_id_fkey
   FOREIGN KEY (event_type_id)
   REFERENCES event_types(id)
-  ON DELETE RESTRICT;
+  ON DELETE NO ACTION
+  DEFERRABLE INITIALLY DEFERRED;
 
 -- Confirmed bookings cannot overlap for the same host.
 ALTER TABLE bookings
