@@ -89,6 +89,50 @@ describe('/api/calendar/sync', () => {
     expect(maintainCalendarWatches).toHaveBeenCalledWith(mocks.adminClient, 7)
   })
 
+  it('rejects malformed POST JSON before syncing calendars', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/calendar/sync', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer calendar-secret',
+          'Content-Type': 'application/json',
+        },
+        body: '{',
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(syncActiveCalendarConnections).not.toHaveBeenCalled()
+    expect(maintainCalendarWatches).not.toHaveBeenCalled()
+  })
+
+  it('rejects JSON-invalid whitespace before syncing calendars', async () => {
+    const response = await POST(
+      new Request('http://localhost/api/calendar/sync', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer calendar-secret',
+          'Content-Type': 'application/json',
+        },
+        body: '\u00A0',
+      }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(syncActiveCalendarConnections).not.toHaveBeenCalled()
+    expect(maintainCalendarWatches).not.toHaveBeenCalled()
+  })
+
   it('accepts Vercel cron GET requests authenticated by CRON_SECRET', async () => {
     process.env.CALENDAR_SYNC_SECRET = undefined
     process.env.CRON_SECRET = 'cron-secret'

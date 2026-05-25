@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { handleMicrosoftCalendarWebhook } from '@/lib/calendar/watches'
 import { createAdminBackendClient } from '@/lib/backend/server'
+import { parseOptionalJsonBody } from '@/lib/http/json'
 
 /**
  * Microsoft Graph validates webhook endpoints by requiring the validationToken
@@ -39,10 +40,12 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  const body = await request.json().catch(() => ({}))
+  const json = await parseOptionalJsonBody(request)
+  if (!json.ok) return json.response
+
   const result = await handleMicrosoftCalendarWebhook(
     createAdminBackendClient(),
-    body
+    json.body
   )
 
   if (!result.ok) {
