@@ -41,6 +41,23 @@ interface OAuthTokenResponse {
   error_description?: string
 }
 
+type TokenAction = 'exchange' | 'refresh'
+
+async function readOAuthTokenResponse(
+  response: Response,
+  action: TokenAction
+): Promise<OAuthTokenResponse | null> {
+  try {
+    return (await response.json()) as OAuthTokenResponse
+  } catch {
+    if (response.ok) {
+      throw new Error(`Calendar token ${action} returned malformed JSON`)
+    }
+
+    return null
+  }
+}
+
 interface GoogleIdentityResponse {
   sub?: string
   email?: string
@@ -176,12 +193,12 @@ export async function exchangeCalendarAuthorizationCode({
       grant_type: 'authorization_code',
     }),
   })
-  const data = (await response.json().catch(() => ({}))) as OAuthTokenResponse
+  const data = await readOAuthTokenResponse(response, 'exchange')
 
-  if (!response.ok || !data.access_token) {
+  if (!response.ok || !data?.access_token) {
     throw new Error(
-      data.error_description ??
-        data.error ??
+      data?.error_description ??
+        data?.error ??
         `Calendar token exchange failed with HTTP ${response.status}`
     )
   }
@@ -215,12 +232,12 @@ export async function refreshCalendarAccessToken({
       scope: config.scopes.join(' '),
     }),
   })
-  const data = (await response.json().catch(() => ({}))) as OAuthTokenResponse
+  const data = await readOAuthTokenResponse(response, 'refresh')
 
-  if (!response.ok || !data.access_token) {
+  if (!response.ok || !data?.access_token) {
     throw new Error(
-      data.error_description ??
-        data.error ??
+      data?.error_description ??
+        data?.error ??
         `Calendar token refresh failed with HTTP ${response.status}`
     )
   }

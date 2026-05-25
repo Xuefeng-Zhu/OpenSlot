@@ -89,7 +89,7 @@ export function createBrowserBackendClient(options: CreateClientOptions = {}) {
           session?: BackendCompatSession | null
         }>(response)
 
-        if (!response.ok || body.success === false) {
+        if (!body || !response.ok || body.success === false) {
           return {
             data: null,
             error: responseError(body, response.status),
@@ -110,9 +110,16 @@ export function createBrowserBackendClient(options: CreateClientOptions = {}) {
           response
         )
 
+        if (!data || !response.ok) {
+          return {
+            data: { user: null },
+            error: responseError(data, response.status),
+          }
+        }
+
         return {
           data: { user: data.user ?? null },
-          error: response.ok ? null : responseError(data, response.status),
+          error: null,
         }
       },
       async getSession() {
@@ -124,9 +131,16 @@ export function createBrowserBackendClient(options: CreateClientOptions = {}) {
           session?: BackendCompatSession | null
         }>(response)
 
+        if (!data || !response.ok) {
+          return {
+            data: { session: null },
+            error: responseError(data, response.status),
+          }
+        }
+
         return {
           data: { session: data.session ?? null },
-          error: response.ok ? null : responseError(data, response.status),
+          error: null,
         }
       },
       async signOut() {
@@ -273,7 +287,7 @@ class BrowserQueryBuilder<TData = unknown>
     })
     const body = await readJsonBody<BackendCompatResponse<TData>>(response)
 
-    if (!response.ok) {
+    if (!body || !response.ok) {
       return {
         data: null,
         error: responseError(body, response.status),
@@ -308,7 +322,7 @@ async function authFetch<TResponse>(
   })
   const data = await readJsonBody<TResponse & { success?: boolean }>(response)
 
-  if (!response.ok || data.success === false) {
+  if (!data || !response.ok || data.success === false) {
     return {
       data: null,
       error: responseError(data, response.status),
@@ -320,8 +334,8 @@ async function authFetch<TResponse>(
 
 async function readJsonBody<TResponse = Record<string, unknown>>(
   response: Response
-): Promise<TResponse> {
-  return (await response.json().catch(() => ({}))) as TResponse
+): Promise<TResponse | null> {
+  return (await response.json().catch(() => null)) as TResponse | null
 }
 
 function responseError(body: unknown, status: number): BackendCompatError {
