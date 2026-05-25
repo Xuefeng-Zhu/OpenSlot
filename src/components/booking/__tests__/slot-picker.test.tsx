@@ -59,6 +59,38 @@ describe('SlotPicker', () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain('endDate=')
   })
 
+  it('initializes reschedule flows with the stored guest timezone', async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => {
+      return new Response(JSON.stringify({ slotsByDate: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/Los_Angeles')
+
+    render(
+      <SlotPicker
+        eventType={eventType}
+        hostProfile={hostProfile}
+        rescheduleContext={{
+          token: 'reschedule-token',
+          guestName: 'Alex Guest',
+          guestEmail: 'alex@example.com',
+          guestTimezone: 'Europe/London',
+          currentStartAt: '2026-06-15T17:00:00.000Z',
+          currentEndAt: '2026-06-15T17:30:00.000Z',
+        }}
+      />
+    )
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      'timezone=Europe%2FLondon'
+    )
+    expect(screen.getByText('Europe/London')).toBeDefined()
+  })
+
   it('sends an idempotency key when holding an assistant-suggested slot', async () => {
     const suggestedSlot = {
       start: '2026-06-16T16:00:00.000Z',
