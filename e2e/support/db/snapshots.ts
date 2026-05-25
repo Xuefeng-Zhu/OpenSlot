@@ -30,11 +30,23 @@ export async function snapshotDemoState(
   if (settingsError) {
     throw new Error(`Could not snapshot settings: ${settingsError.message}`);
   }
+  assertUserSettingsRowId(settingsRow);
 
   return {
     profile: profileRow,
     settings: settingsRow ?? null,
   };
+}
+
+function assertUserSettingsRowId(settingsRow: unknown) {
+  if (!settingsRow) return;
+
+  const id = (settingsRow as { id?: unknown }).id;
+  if (typeof id === "string" && id.length > 0) return;
+
+  throw new Error(
+    "Butterbase test app is missing user_settings.id. Apply backend/database/migrations/20260524000000_add_user_settings_row_id.sql before running settings E2E."
+  );
 }
 
 export async function restoreDemoState(
