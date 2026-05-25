@@ -160,7 +160,7 @@ describe('SlotPicker', () => {
       label: 'Tue, Jun 16, 9:00 AM',
       slotToken: 'signed-slot-token',
     }
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
       const url = String(input)
 
       if (url.startsWith('/api/slots')) {
@@ -285,6 +285,138 @@ describe('SlotPicker', () => {
       )
     ).toBeDefined()
     expect(screen.queryByRole('button', { name: /10:00 AM/i })).toBeNull()
+  })
+
+  it('keeps slot-conflict recovery when hold responses are malformed', async () => {
+    const selectedDate = addDays(new Date(), 3)
+    const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
+    const slot = {
+      start: `${selectedDateKey}T14:00:00.000Z`,
+      end: `${selectedDateKey}T14:30:00.000Z`,
+      slotToken: 'signed-slot-token',
+    }
+    let slotRequests = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/slots')) {
+        slotRequests += 1
+        return new Response(
+          JSON.stringify({
+            slotsByDate: {
+              [selectedDateKey]: slotRequests === 1 ? [slot] : [],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      if (url === '/api/holds') {
+        return new Response('not json', {
+          status: 409,
+          headers: { 'Content-Type': 'text/html' },
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/New_York')
+
+    render(<SlotPicker eventType={eventType} hostProfile={hostProfile} />)
+
+    fireEvent.click(
+      await screen.findByLabelText(new RegExp(format(selectedDate, 'MMMM d'), 'i'))
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /10:00 AM/i }))
+
+    await waitFor(() => expect(slotRequests).toBe(2))
+    expect(
+      screen.getByText(
+        'This slot has been taken by another guest. Please select a different time.'
+      )
+    ).toBeDefined()
+    expect(screen.queryByRole('button', { name: /10:00 AM/i })).toBeNull()
+  })
+
+  it('reuses the hold idempotency key after a malformed hold success', async () => {
+    const selectedDate = addDays(new Date(), 3)
+    const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
+    const slot = {
+      start: `${selectedDateKey}T14:00:00.000Z`,
+      end: `${selectedDateKey}T14:30:00.000Z`,
+      slotToken: 'signed-slot-token',
+    }
+    let holdRequests = 0
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, _init?: RequestInit) => {
+      const url = String(input)
+
+      if (url.startsWith('/api/slots')) {
+        return new Response(
+          JSON.stringify({
+            slotsByDate: {
+              [selectedDateKey]: [slot],
+            },
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      if (url === '/api/holds') {
+        holdRequests += 1
+        if (holdRequests === 1) {
+          return new Response('not json', {
+            status: 201,
+            headers: { 'Content-Type': 'text/html' },
+          })
+        }
+
+        return new Response(
+          JSON.stringify({
+            error: 'This slot has already been held.',
+          }),
+          {
+            status: 409,
+            headers: { 'Content-Type': 'application/json' },
+          }
+        )
+      }
+
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    mockBrowserTimezone('America/New_York')
+
+    render(<SlotPicker eventType={eventType} hostProfile={hostProfile} />)
+
+    fireEvent.click(
+      await screen.findByLabelText(new RegExp(format(selectedDate, 'MMMM d'), 'i'))
+    )
+    fireEvent.click(await screen.findByRole('button', { name: /10:00 AM/i }))
+
+    expect(
+      await screen.findByText('Failed to hold slot. Please try again.')
+    ).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    fireEvent.click(await screen.findByRole('button', { name: /10:00 AM/i }))
+
+    await waitFor(() => expect(holdRequests).toBe(2))
+    const holdCalls = fetchMock.mock.calls.filter(
+      ([input]) => String(input) === '/api/holds'
+    )
+    const firstHeaders = holdCalls[0][1]?.headers as Record<string, string>
+    const secondHeaders = holdCalls[1][1]?.headers as Record<string, string>
+
+    expect(secondHeaders['Idempotency-Key']).toBe(
+      firstHeaders['Idempotency-Key']
+    )
   })
 
   it('ignores stale slot fetch failures after a newer date request starts', async () => {
