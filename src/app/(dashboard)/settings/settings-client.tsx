@@ -1,11 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  User,
-  Settings2,
-  Bell,
-} from "lucide-react";
+import { User, Settings2, Bell } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +18,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import type { SettingsFormValues } from "@/lib/validations/settings";
+import type { McpTokenSummary } from "@/lib/mcp/tokens";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { SettingsIntegrationsTab } from "./settings-integrations-tab";
 
@@ -31,6 +28,8 @@ interface SettingsClientProps {
   calendarConnectionsLoadFailed?: boolean;
   webhookEndpoints: WebhookEndpointSummary[];
   webhookEndpointsLoadFailed?: boolean;
+  mcpTokens?: McpTokenSummary[];
+  mcpTokensLoadFailed?: boolean;
 }
 
 type SaveAction = "account" | "preferences" | "notifications";
@@ -55,6 +54,8 @@ export function SettingsClient({
   calendarConnectionsLoadFailed = false,
   webhookEndpoints: initialWebhookEndpoints,
   webhookEndpointsLoadFailed = false,
+  mcpTokens: initialMcpTokens = [],
+  mcpTokensLoadFailed = false,
 }: SettingsClientProps) {
   const { toast } = useToast();
   const [savedSettings, setSavedSettings] = useState(initialSettings);
@@ -83,7 +84,6 @@ export function SettingsClient({
   const [savingAction, setSavingAction] = useState<SaveAction | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
-
   const currentSettings = (): SettingsFormValues => ({
     name: name.trim(),
     email: email.trim(),
@@ -466,6 +466,8 @@ export function SettingsClient({
           calendarConnectionsLoadFailed={calendarConnectionsLoadFailed}
           webhookEndpoints={initialWebhookEndpoints}
           webhookEndpointsLoadFailed={webhookEndpointsLoadFailed}
+          mcpTokens={initialMcpTokens}
+          mcpTokensLoadFailed={mcpTokensLoadFailed}
         />
       </Tabs>
     </div>

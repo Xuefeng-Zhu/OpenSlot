@@ -12,6 +12,7 @@ export const backendTables = [
   'calendar_event_refs',
   'webhook_endpoints',
   'webhook_deliveries',
+  'mcp_api_tokens',
   'event_types',
   'schedules',
   'availability_rules',

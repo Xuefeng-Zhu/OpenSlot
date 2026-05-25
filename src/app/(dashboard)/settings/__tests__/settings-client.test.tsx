@@ -229,6 +229,7 @@ describe("SettingsClient", () => {
         calendarConnectionsLoadFailed
         webhookEndpoints={[]}
         webhookEndpointsLoadFailed
+        mcpTokensLoadFailed
       />
     );
 
@@ -240,7 +241,9 @@ describe("SettingsClient", () => {
     expect(
       screen.getByText(/Webhook endpoints could not be loaded/)
     ).toBeDefined();
+    expect(screen.getByText(/MCP tokens could not be loaded/)).toBeDefined();
     expect(screen.queryByText("No webhook endpoints configured.")).toBeNull();
+    expect(screen.queryByText("No MCP tokens configured.")).toBeNull();
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThanOrEqual(
       2
     );
@@ -277,5 +280,66 @@ describe("SettingsClient", () => {
         })
       );
     });
+  });
+
+  it("creates and revokes MCP tokens without storing the raw token in the list", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          rawToken: "os_mcp_raw-token",
+          token: {
+            id: "token-1",
+            name: "Claude Desktop",
+            tokenPrefix: "os_mcp_abcd1234",
+            scopes: ["mcp:read", "mcp:write"],
+            lastUsedAt: null,
+            expiresAt: null,
+            revokedAt: null,
+            createdAt: "2026-05-24T00:00:00.000Z",
+            updatedAt: "2026-05-24T00:00:00.000Z",
+          },
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true }),
+      });
+
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+        mcpTokens={[]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
+    fireEvent.change(screen.getByLabelText("Token name"), {
+      target: { value: "Claude Desktop" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create token" }));
+
+    expect(
+      (await screen.findByLabelText("MCP token") as HTMLInputElement).value
+    ).toBe("os_mcp_raw-token");
+    expect(screen.getByText("Claude Desktop")).toBeDefined();
+    expect(screen.getByText("os_mcp_abcd1234...")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Revoke" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenLastCalledWith("/api/mcp/tokens/token-1", {
+        method: "DELETE",
+      });
+    });
+
+    expect(screen.getByText("Revoked")).toBeDefined();
   });
 });

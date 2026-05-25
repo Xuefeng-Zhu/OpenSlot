@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import {
   loadDashboardCalendarConnections,
+  loadDashboardMcpTokens,
   loadDashboardWebhookEndpoints,
 } from "@/lib/dashboard/integration-load-state";
 import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
@@ -64,9 +65,10 @@ export default async function SettingsPage() {
   };
 
   const adminClient = createAdminBackendClient();
-  const [calendarConnections, webhookEndpoints] = await Promise.all([
+  const [calendarConnections, webhookEndpoints, mcpTokens] = await Promise.all([
     loadDashboardCalendarConnections(adminClient, typedProfile.id),
     loadDashboardWebhookEndpoints(adminClient, typedProfile.id),
+    loadDashboardMcpTokens(adminClient, typedProfile.id),
   ]);
 
   return (
@@ -76,6 +78,8 @@ export default async function SettingsPage() {
       calendarConnectionsLoadFailed={calendarConnections.loadFailed}
       webhookEndpoints={webhookEndpoints.data}
       webhookEndpointsLoadFailed={webhookEndpoints.loadFailed}
+      mcpTokens={mcpTokens.data}
+      mcpTokensLoadFailed={mcpTokens.loadFailed}
     />
   );
 }

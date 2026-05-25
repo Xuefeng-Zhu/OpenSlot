@@ -431,6 +431,56 @@ export interface Database {
           }
         ]
       }
+      mcp_api_tokens: {
+        Row: {
+          id: string
+          profile_id: string
+          name: string
+          token_hash: string
+          token_prefix: string
+          scopes: string[]
+          last_used_at: string | null
+          expires_at: string | null
+          revoked_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          profile_id: string
+          name: string
+          token_hash: string
+          token_prefix: string
+          scopes?: string[]
+          last_used_at?: string | null
+          expires_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          profile_id?: string
+          name?: string
+          token_hash?: string
+          token_prefix?: string
+          scopes?: string[]
+          last_used_at?: string | null
+          expires_at?: string | null
+          revoked_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_api_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       webhook_deliveries: {
         Row: {
           id: string

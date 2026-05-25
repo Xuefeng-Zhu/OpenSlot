@@ -36,14 +36,14 @@ Browser UI
 | `src/app/(dashboard)/bookings/page.tsx` | Server-fetched bookings list. |
 | `src/app/(dashboard)/contacts/*` | Host contact list and contact booking history derived from booking attendees. |
 | `src/app/(dashboard)/profile/page.tsx` | Profile settings. |
-| `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, calendar, and webhook integration settings. |
+| `src/app/(dashboard)/settings/page.tsx` | Server-loaded account, display, notification, calendar, MCP token, and webhook integration settings. |
 | `src/app/(dashboard)/onboarding/page.tsx` | Client onboarding flow that saves profile, availability, and first event type through `/api/onboarding`. |
 | `src/app/(dashboard)/event-types/*` | Event type list/new/edit dashboard UI backed by Butterbase and `/api/event-types`. |
 | `src/app/(public)/[username]/page.tsx` | Public host profile and active event types. |
 | `src/app/(public)/[username]/[eventSlug]/page.tsx` | Public booking flow shell. |
 | `src/app/booking/cancel/[token]/page.tsx` | Public token-backed booking cancellation page. |
 | `src/app/booking/reschedule/[token]/page.tsx` | Public token-backed booking rescheduling page. |
-| `src/app/api/*` | Auth, compatibility query, slot, hold, booking, cancellation, rescheduling, settings, notification, calendar, webhook, event type, and availability APIs. |
+| `src/app/api/*` | Auth, compatibility query, MCP, slot, hold, booking, cancellation, rescheduling, settings, notification, calendar, webhook, event type, and availability APIs. |
 
 ## Data Access Patterns
 
@@ -130,6 +130,24 @@ booking before sending, skips rows whose booking is no longer `confirmed`, and
 also skips rows whose stored start/end time no longer matches the current
 booking. That suppresses stale reminders after cancellation or rescheduling.
 
+## MCP Flow
+
+```text
+MCP client
+  -> POST /api/mcp with Authorization: Bearer os_mcp_...
+  -> mcp_api_tokens hash lookup scoped to active, unexpired host token
+  -> initialize, ping, tools/list, or tools/call JSON-RPC method
+  -> src/lib/mcp/tools.ts
+  -> read tools scope all queries to the token profile_id
+  -> booking mutation tools reuse availability, hold, confirm, cancel, and reschedule engines
+  -> request_idempotency, consume_public_rate_limit(), reservations, booking_events, contacts, and outbox paths remain authoritative
+```
+
+MCP v1 is stateless Streamable HTTP with JSON responses only. It does not use
+OAuth dynamic client registration or SSE session resumability. Hosts create and
+revoke API tokens from Settings; raw tokens are shown once, and only hashes plus
+safe summaries are stored.
+
 ## Availability Flow
 
 ```text
@@ -194,6 +212,7 @@ artifacts belong under `backend/butterbase/`:
 - `20260514000000_add_event_type_reminders.sql`: per-event-type pre-meeting reminder policy fields.
 - `20260517044810_add_availability_schedules.sql`: host-owned named schedules, event type schedule assignment, schedule-scoped availability rules/overrides, and schedule RLS/grants.
 - `20260518141155_public_booking_hardening.sql`: public rate-limit ledger/RPC and scheduled stale hold expiry RPC.
+- `20260524000000_add_mcp_api_tokens.sql`: host-scoped MCP API token hashes, scopes, one-time token summary metadata, RLS, and service-role grants.
 
 ## API Routes
 
@@ -201,6 +220,9 @@ artifacts belong under `backend/butterbase/`:
 | --- | --- | --- |
 | `/api/auth/*` | Public and authenticated Butterbase auth helpers for login, signup, session, logout, reset, update, and code exchange | `src/app/api/auth/*` |
 | `POST /api/backend/query` | Authenticated compatibility query proxy limited to allowlisted browser mutations | `src/lib/backend/compat/query-client.ts` |
+| `POST /api/mcp` | Host-scoped Bearer token MCP JSON-RPC endpoint for profile, event type, availability, and safe booking tools | `src/lib/mcp/tools.ts` |
+| `GET/POST /api/mcp/tokens` | Authenticated host MCP token listing and one-time token creation | `src/lib/mcp/tokens.ts` |
+| `DELETE /api/mcp/tokens/[id]` | Authenticated host MCP token revocation scoped to own profile | `src/lib/mcp/tokens.ts` |
 | `POST /api/booking-agent/message` | Public ephemeral assistant turn, service-key read, public rate limit, Butterbase AI gateway call | `src/lib/booking-agent/agent.ts` |
 | `GET /api/slots` | Public route, service-key read after active host/event validation | `src/lib/availability/compute-slots.ts` |
 | `POST /api/holds` | Public token/slot operation, optional idempotency key, public rate limit, optional Turnstile, service-key function with reservation guard | `src/app/api/holds/route.ts` |
@@ -243,5 +265,6 @@ Detailed target/current gaps are tracked in [System Design Gap Analysis](system-
 
 - [Product Overview](product-overview.md)
 - [Security](security.md)
+- [MCP](mcp.md)
 - [Testing](testing.md)
 - [System Design Gap Analysis](system-design-gaps.md)
