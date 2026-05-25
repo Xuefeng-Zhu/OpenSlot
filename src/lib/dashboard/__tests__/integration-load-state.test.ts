@@ -18,8 +18,8 @@ describe('loadDashboardIntegrationSummaries', () => {
   })
 
   it('preserves load failure state instead of returning a plain empty list', async () => {
-    const consoleError = vi
-      .spyOn(console, 'error')
+    const consoleWarn = vi
+      .spyOn(console, 'warn')
       .mockImplementation(() => undefined)
 
     await expect(
@@ -31,7 +31,7 @@ describe('loadDashboardIntegrationSummaries', () => {
       loadFailed: true,
     })
 
-    expect(consoleError).toHaveBeenCalledWith(
+    expect(consoleWarn).toHaveBeenCalledWith(
       'Error loading webhook endpoints:',
       expect.any(Error)
     )
