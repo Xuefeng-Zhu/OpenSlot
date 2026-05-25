@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import {
   buildOnboardingAvailabilityRules,
   buildOnboardingEventSlug,
@@ -34,8 +35,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
-    const parsed = onboardingSchema.safeParse(body)
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
+
+    const parsed = onboardingSchema.safeParse(json.body)
 
     if (!parsed.success) {
       return NextResponse.json(

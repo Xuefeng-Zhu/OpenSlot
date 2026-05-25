@@ -93,12 +93,12 @@ function requestWithJson(body: unknown) {
   } as Request
 }
 
-function requestWithInvalidJson() {
-  return {
-    json: async () => {
-      throw new SyntaxError('Unexpected token')
-    },
-  } as unknown as Request
+function malformedJsonRequest(path = '/api/availability/schedules') {
+  return new Request(`http://localhost${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"name"',
+  })
 }
 
 function routeContext(id = 'schedule-1') {
@@ -153,13 +153,17 @@ describe('availability schedule routes', () => {
     })
   })
 
-  it('rejects malformed JSON when creating a schedule', async () => {
-    const response = await POST(requestWithInvalidJson() as any)
+  it('rejects malformed create-schedule JSON before writing', async () => {
+    const response = await POST(malformedJsonRequest() as any)
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
-    expect(mocks.adminTables).toHaveLength(0)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.adminTables).toEqual([])
+    expect(mocks.inserts).toEqual([])
   })
 
   it('promotes one owned schedule to default', async () => {
@@ -203,16 +207,20 @@ describe('availability schedule routes', () => {
     ])
   })
 
-  it('rejects malformed JSON when updating a schedule', async () => {
+  it('rejects malformed update-schedule JSON before loading the schedule', async () => {
     const response = await PATCH(
-      requestWithInvalidJson() as any,
+      malformedJsonRequest('/api/availability/schedules/schedule-2') as any,
       routeContext('schedule-2') as any
     )
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
-    expect(mocks.adminTables).toHaveLength(0)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.adminTables).toEqual([])
+    expect(mocks.rpcCalls).toEqual([])
   })
 
   it('blocks deleting schedules assigned to event types', async () => {
@@ -329,6 +337,24 @@ describe('availability schedule routes', () => {
     })
   })
 
+  it('rejects malformed duplicate-schedule JSON before copying rows', async () => {
+    const response = await DUPLICATE_POST(
+      malformedJsonRequest(
+        '/api/availability/schedules/schedule-1/duplicate'
+      ) as any,
+      routeContext('schedule-1') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.adminTables).toEqual([])
+    expect(mocks.inserts).toEqual([])
+  })
+
   it('rejects invalid duplicate schedule names', async () => {
     const response = await DUPLICATE_POST(
       requestWithJson({ name: '' }) as any,
@@ -339,18 +365,6 @@ describe('availability schedule routes', () => {
     expect(response.status).toBe(400)
     expect(data.error).toBe('Validation failed')
     expect(mocks.inserts).toHaveLength(0)
-  })
-
-  it('rejects malformed JSON when duplicating a schedule', async () => {
-    const response = await DUPLICATE_POST(
-      requestWithInvalidJson() as any,
-      routeContext('schedule-1') as any
-    )
-    const data = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
-    expect(mocks.adminTables).toHaveLength(0)
   })
 
   it('rejects duplicate requests for foreign schedules', async () => {

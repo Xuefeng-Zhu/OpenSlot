@@ -76,6 +76,14 @@ function requestWithJson(
   })
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/bookings/booking-1/cancel', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"cancellationToken"',
+  })
+}
+
 function routeContext(id = 'booking-1') {
   return {
     params: Promise.resolve({ id }),
@@ -187,6 +195,23 @@ describe('POST /api/bookings/[id]/cancel idempotency', () => {
         windowSeconds: 300,
       },
     })
+  })
+
+  it('rejects malformed JSON before idempotency, rate limiting, or cancellation', async () => {
+    const response = await POST(
+      malformedJsonRequest() as any,
+      routeContext() as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.beginIdempotentRequest).not.toHaveBeenCalled()
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.cancelBooking).not.toHaveBeenCalled()
   })
 
   it('lets authenticated booking hosts cancel without public Turnstile or rate limiting', async () => {

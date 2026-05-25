@@ -20,6 +20,7 @@ import {
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
 import { createAdminBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import type { Tables } from '@/lib/types/database'
 import { normalizeInviteeQuestions } from '@/lib/validations/invitee-questions'
 
@@ -53,8 +54,10 @@ type BookingAgentContextResult =
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const parsed = bookingAgentRequestSchema.safeParse(body)
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
+
+    const parsed = bookingAgentRequestSchema.safeParse(json.body)
 
     if (!parsed.success) {
       return NextResponse.json(

@@ -21,6 +21,7 @@ import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database, Json, Tables } from '@/lib/types/database'
 import { constantTimeEqual } from '@/lib/security/edge-crypto'
+import { parseJsonBody } from '@/lib/http/json'
 import { getBookingCancellationErrorStatus } from '../../error-status'
 
 interface CancelBookingRouteContext {
@@ -54,10 +55,11 @@ export async function POST(
 
   try {
     const { id } = await params
-    const body = await request.json()
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
 
     // Validate input with Zod
-    const parsed = cancelBookingSchema.safeParse(body)
+    const parsed = cancelBookingSchema.safeParse(json.body)
     if (!parsed.success) {
       return NextResponse.json(
         {
