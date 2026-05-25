@@ -209,9 +209,9 @@ describe('cancelBooking', () => {
     mockClient.rpc = vi.fn().mockResolvedValue({
       data: null,
       error: {
-        message: 'Butterbase request failed with 502',
-        status: 502,
-        details: null,
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
       },
     })
     mockClient.single.mockResolvedValueOnce({
@@ -241,7 +241,7 @@ describe('cancelBooking', () => {
     )
     expect(consoleWarn).toHaveBeenCalledWith(
       'Falling back to non-transactional booking cancellation because the backend function is unavailable:',
-      expect.objectContaining({ status: 502 })
+      expect.objectContaining({ status: 404 })
     )
     consoleWarn.mockRestore()
   })
