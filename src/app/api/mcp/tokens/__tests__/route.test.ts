@@ -51,6 +51,14 @@ function requestWithJson(body: unknown) {
   })
 }
 
+function requestWithMalformedJson() {
+  return new Request('http://localhost/api/mcp/tokens', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{',
+  })
+}
+
 function routeContext(id = 'token-1') {
   return {
     params: Promise.resolve({ id }),
@@ -116,6 +124,18 @@ describe('/api/mcp/tokens', () => {
     expect(response.status).toBe(400)
     expect(data.success).toBe(false)
     expect(data.details.name).toBeDefined()
+    expect(mocks.createMcpApiToken).not.toHaveBeenCalled()
+  })
+
+  it('returns the shared invalid JSON error for malformed create payloads', async () => {
+    const response = await POST(requestWithMalformedJson() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
     expect(mocks.createMcpApiToken).not.toHaveBeenCalled()
   })
 
