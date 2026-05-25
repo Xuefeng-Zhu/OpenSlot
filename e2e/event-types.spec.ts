@@ -46,7 +46,7 @@ test.describe("event type management", () => {
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
       const eventTypeId = await eventTypeIdBySlug(adminClient, slug);
 
-      await page.goto(`/demo/${slug}`);
+      await page.goto(`/demo/${slug}`, { waitUntil: "domcontentloaded" });
       await expect(
         page.getByRole("heading", { name: title })
       ).toBeVisible();
@@ -73,7 +73,7 @@ test.describe("event type management", () => {
       allowBrowserConsoleErrors(page, [
         /Failed to load resource: the server responded with a status of 404/,
       ]);
-      await page.goto(`/demo/${slug}`);
+      await page.goto(`/demo/${slug}`, { waitUntil: "domcontentloaded" });
       await expect(page.locator("body")).toContainText(
         "This page could not be found"
       );
