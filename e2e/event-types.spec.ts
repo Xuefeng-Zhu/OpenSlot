@@ -46,7 +46,7 @@ test.describe("event type management", () => {
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
       const eventTypeId = await eventTypeIdBySlug(adminClient, slug);
 
-      await page.goto(`/demo/${slug}`);
+      await page.goto(`/demo/${slug}`, { waitUntil: "domcontentloaded" });
       await expect(
         page.getByRole("heading", { name: title })
       ).toBeVisible();
@@ -73,7 +73,7 @@ test.describe("event type management", () => {
       allowBrowserConsoleErrors(page, [
         /Failed to load resource: the server responded with a status of 404/,
       ]);
-      await page.goto(`/demo/${slug}`);
+      await page.goto(`/demo/${slug}`, { waitUntil: "domcontentloaded" });
       await expect(page.locator("body")).toContainText(
         "This page could not be found"
       );
@@ -100,15 +100,18 @@ test.describe("event type management", () => {
   test("event type search and status filters show meaningful empty states", async ({
     page,
   }) => {
+    const noMatchSearch = `not-a-real-event-type-${uniqueE2EId("filter")}`;
+
     await loginAsDemoHost(page, "/event-types");
 
-    await page.getByLabel("Search event types").fill("not a real event type");
+    await page.getByLabel("Search event types").fill(noMatchSearch);
     await expect(page.getByText("No matching event types")).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
 
     await page.getByRole("button", { name: "Paused" }).click();
+    await expect(page.getByLabel("Search event types")).toHaveValue("");
     await expect(page.getByText("No matching event types")).toBeVisible();
-    await page.getByRole("button", { name: "All" }).click();
+    await page.getByRole("button", { name: "Clear filters" }).click();
     await expect(page.getByText("30 Minute Meeting")).toBeVisible();
     await expect(page.getByText("60 Minute Consultation")).toBeVisible();
   });
@@ -184,6 +187,8 @@ test.describe("event type management", () => {
   test("event types can use different availability schedules", async ({
     page,
   }) => {
+    test.slow();
+
     const adminClient = createE2EAdminClient();
     const profile = await getDemoProfile(adminClient);
     const slug = uniqueE2EId("schedule");

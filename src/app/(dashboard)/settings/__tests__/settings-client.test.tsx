@@ -1,9 +1,15 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PASSWORD_COMPLEXITY_ERROR } from "@/lib/validations/password";
 import { SettingsClient } from "../settings-client";
 
 const toastMock = vi.hoisted(() => vi.fn());
+const backendAuthMock = vi.hoisted(() => ({
+  signInWithPassword: vi.fn(),
+  updateUser: vi.fn(),
+  signOut: vi.fn(),
+}));
 
 vi.mock("@/components/ui/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
@@ -11,10 +17,7 @@ vi.mock("@/components/ui/use-toast", () => ({
 
 vi.mock("@/lib/backend/compat/browser-client", () => ({
   createBrowserBackendClient: () => ({
-    auth: {
-      signInWithPassword: vi.fn(),
-      updateUser: vi.fn(),
-    },
+    auth: backendAuthMock,
   }),
 }));
 
@@ -34,6 +37,68 @@ describe("SettingsClient", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     toastMock.mockClear();
+    backendAuthMock.signInWithPassword.mockReset();
+    backendAuthMock.updateUser.mockReset();
+    backendAuthMock.signOut.mockReset();
+  });
+
+  it("blocks weak settings password changes before reauthenticating", () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "Oldpass1!" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "lowercase1!" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Password not updated",
+        description: PASSWORD_COMPLEXITY_ERROR,
+        variant: "destructive",
+      })
+    );
+    expect(backendAuthMock.signInWithPassword).not.toHaveBeenCalled();
+    expect(backendAuthMock.updateUser).not.toHaveBeenCalled();
+  });
+
+  it("submits strong settings password changes after reauthentication", async () => {
+    backendAuthMock.signInWithPassword.mockResolvedValue({ error: null });
+    backendAuthMock.updateUser.mockResolvedValue({ error: null });
+
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Current password"), {
+      target: { value: "Oldpass1!" },
+    });
+    fireEvent.change(screen.getByLabelText("New password"), {
+      target: { value: "Newpass1!" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+
+    await waitFor(() => {
+      expect(backendAuthMock.signInWithPassword).toHaveBeenCalledWith({
+        email: initialSettings.email,
+        password: "Oldpass1!",
+      });
+      expect(backendAuthMock.updateUser).toHaveBeenCalledWith({
+        password: "Newpass1!",
+      });
+    });
   });
 
   it("clears a one-time webhook secret after deleting that endpoint", async () => {

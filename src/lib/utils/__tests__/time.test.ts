@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toTimeInputValue } from '../time'
+import { toDateInputValue, toTimeInputValue } from '../time'
 
 describe('time utilities', () => {
   describe('toTimeInputValue', () => {
@@ -11,6 +11,18 @@ describe('time utilities', () => {
     it('preserves nullish empty time values', () => {
       expect(toTimeInputValue(null)).toBeNull()
       expect(toTimeInputValue(undefined)).toBeNull()
+    })
+  })
+
+  describe('toDateInputValue', () => {
+    it('normalizes database date values to YYYY-MM-DD', () => {
+      expect(toDateInputValue('2026-06-18')).toBe('2026-06-18')
+      expect(toDateInputValue('2026-06-18T00:00:00.000Z')).toBe('2026-06-18')
+    })
+
+    it('preserves nullish empty date values', () => {
+      expect(toDateInputValue(null)).toBeNull()
+      expect(toDateInputValue(undefined)).toBeNull()
     })
   })
 })

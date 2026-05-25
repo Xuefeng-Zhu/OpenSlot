@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { PASSWORD_COMPLEXITY_ERROR } from "@/lib/validations/password";
 import ResetPasswordPage from "../page";
 
 const fetchMock = vi.fn();
@@ -53,10 +54,10 @@ describe("ResetPasswordPage", () => {
       target: { value: " 123456 " },
     });
     fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
@@ -67,7 +68,7 @@ describe("ResetPasswordPage", () => {
         body: JSON.stringify({
           email: "sarah@example.com",
           code: "123456",
-          password: "correct-horse",
+          password: "CorrectHorse1!",
         }),
       });
     });
@@ -93,10 +94,10 @@ describe("ResetPasswordPage", () => {
       target: { value: "123456" },
     });
     fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
@@ -125,10 +126,10 @@ describe("ResetPasswordPage", () => {
       target: { value: "123456" },
     });
     fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
@@ -154,10 +155,10 @@ describe("ResetPasswordPage", () => {
       target: { value: "123456" },
     });
     fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
@@ -173,7 +174,7 @@ describe("ResetPasswordPage", () => {
     ).toBeNull();
   });
 
-  it("validates password length and confirmation before updating", () => {
+  it("validates password strength and confirmation before updating", () => {
     render(<ResetPasswordPage />);
 
     fireEvent.change(screen.getByLabelText("Email"), {
@@ -190,11 +191,11 @@ describe("ResetPasswordPage", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
-    expect(screen.getByText("Password must be at least 8 characters.")).toBeDefined();
+    expect(screen.getByText(PASSWORD_COMPLEXITY_ERROR)).toBeDefined();
     expect(fetchMock).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "correct-horse" },
+      target: { value: "CorrectHorse1!" },
     });
     fireEvent.change(screen.getByLabelText("Confirm new password"), {
       target: { value: "different-password" },

@@ -13,6 +13,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  PASSWORD_COMPLEXITY_ERROR,
+  isStrongPassword,
+} from "@/lib/validations/password";
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState("");
@@ -37,8 +41,8 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (!isStrongPassword(password)) {
+      setError(PASSWORD_COMPLEXITY_ERROR);
       return;
     }
 

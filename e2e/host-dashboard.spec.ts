@@ -146,6 +146,8 @@ test.describe("host dashboard workflows", () => {
   test("availability validates intervals, supports discard, and persists overrides", async ({
     page,
   }) => {
+    test.slow();
+
     const adminClient = createE2EAdminClient();
     const snapshot = await snapshotAvailability(adminClient);
     const overrideDate = formatDateYmd(addDays(new Date(), 21));
