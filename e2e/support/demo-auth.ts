@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { BackendPorts, BackendSession } from "@/lib/backend/ports";
 import { demoHost, setRuntimeDemoHost } from "../demo-data";
+import {
+  readDemoHostBackendSessionTokens,
+  saveDemoHostSessionState,
+} from "./auth-state";
 import type { E2EAdminClient } from "./db/types";
 
 interface DemoAuthCredentials {
@@ -25,6 +29,11 @@ export async function ensureDemoAuthSession(
   backend: BackendPorts,
   adminClient: E2EAdminClient
 ): Promise<DemoAuthSessionSetup> {
+  const cachedSession = await loadCachedDemoAuthSession(backend);
+  if (cachedSession) {
+    return cachedSession;
+  }
+
   const signin = await signInDemoHost(backend);
   if (!signin.error) {
     return authSessionSetup(signin.data);
@@ -70,6 +79,33 @@ function signInWithCredentials(
     email: credentials.email,
     password: credentials.password,
   });
+}
+
+async function loadCachedDemoAuthSession(
+  backend: BackendPorts
+): Promise<DemoAuthSessionSetup | null> {
+  const tokens = readDemoHostBackendSessionTokens();
+  if (!tokens) return null;
+
+  const currentUser = await backend.auth.getCurrentUser(tokens.accessToken);
+  if (!currentUser.error) {
+    return {
+      userId: currentUser.data.id,
+      session: {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        user: currentUser.data,
+      },
+    };
+  }
+
+  if (!tokens.refreshToken) return null;
+
+  const refreshed = await backend.auth.refreshSession(tokens.refreshToken);
+  if (refreshed.error) return null;
+
+  saveDemoHostSessionState(refreshed.data);
+  return authSessionSetup(refreshed.data);
 }
 
 async function repairExistingDemoAuthUser(
