@@ -35,6 +35,7 @@ test.describe("event type management", () => {
       await page
         .getByLabel("Description")
         .fill("A deterministic event type created by Playwright.");
+      await fillManualLocation(page, slug);
       await page.getByRole("button", { name: "Save" }).click();
 
       await expect(page).toHaveURL(/\/event-types$/);
@@ -43,6 +44,7 @@ test.describe("event type management", () => {
 
       await page.reload();
       await expect(page.getByRole("heading", { name: title })).toBeVisible();
+      const eventTypeId = await eventTypeIdBySlug(adminClient, slug);
 
       await page.goto(`/demo/${slug}`);
       await expect(
@@ -52,8 +54,7 @@ test.describe("event type management", () => {
         page.getByRole("heading", { name: "Select a date" })
       ).toBeVisible();
 
-      await page.goto("/event-types");
-      await page.getByRole("button", { name: `Edit ${title}` }).click();
+      await page.goto(`/event-types/${eventTypeId}/edit`);
       await expect(
         page.getByRole("heading", { name: "Edit event type" })
       ).toBeVisible();
@@ -126,6 +127,7 @@ test.describe("event type management", () => {
 
       await page.getByLabel("Title").fill(title);
       await page.getByLabel("URL Slug").fill(slug);
+      await fillManualLocation(page, slug);
       await page.getByRole("button", { name: "Reminders" }).click();
       await page
         .getByRole("switch", { name: "Enable pre-meeting reminders" })
@@ -158,7 +160,8 @@ test.describe("event type management", () => {
           reminder_host_enabled: false,
         });
 
-      await page.getByRole("button", { name: `Edit ${title}` }).click();
+      const eventTypeId = await eventTypeIdBySlug(adminClient, slug);
+      await page.goto(`/event-types/${eventTypeId}/edit`);
       await page.getByRole("button", { name: "Reminders" }).click();
 
       await expect(
@@ -257,6 +260,7 @@ test.describe("event type management", () => {
       await page.goto("/event-types/new");
       await page.getByLabel("Title").fill(title);
       await page.getByLabel("URL Slug").fill(slug);
+      await fillManualLocation(page, slug);
       await page.getByRole("button", { name: "Scheduling Limits" }).click();
       await page.getByRole("combobox", { name: "Availability schedule" }).click();
       await page.getByRole("option", { name: scheduleName }).click();
@@ -300,6 +304,30 @@ function nextWeekdayDate(weekday: number, minDaysAhead: number) {
   }
 
   return formatDateYmd(date);
+}
+
+async function fillManualLocation(page: Page, slug: string) {
+  const locationDetails = page.getByLabel("Location details");
+  if (!(await locationDetails.isVisible().catch(() => false))) {
+    await page.getByRole("button", { name: "Location" }).click();
+  }
+  await locationDetails.fill(`https://meet.example.com/${slug}`);
+}
+
+async function eventTypeIdBySlug(
+  adminClient: ReturnType<typeof createE2EAdminClient>,
+  slug: string
+) {
+  const { data, error } = await adminClient
+    .from("event_types")
+    .select("id")
+    .eq("slug", slug)
+    .single();
+
+  expect(error).toBeNull();
+  expect(data?.id).toBeTruthy();
+
+  return data!.id as string;
 }
 
 async function fetchSlotStarts(
