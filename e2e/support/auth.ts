@@ -8,19 +8,27 @@ type BrowserCookie = Parameters<
   ReturnType<Page["context"]>["addCookies"]
 >[0][number];
 
+const AUTH_RESTORE_TIMEOUT_MS = 10_000;
+
 export async function loginAsDemoHost(page: Page, returnUrl = "/dashboard") {
   if (await restoreDemoHostAuthState(page, returnUrl)) {
     return;
   }
 
   const params = new URLSearchParams({ returnUrl });
+  const returnUrlPattern = new RegExp(`${escapeRegExp(returnUrl)}$`);
 
   await page.goto(`/login?${params.toString()}`);
+  if (returnUrlPattern.test(page.url())) {
+    await saveDemoHostAuthState(page);
+    return;
+  }
+
   await page.getByLabel("Email").fill(demoHost.email);
   await page.getByLabel("Password").fill(demoHost.password);
   await page.getByRole("button", { name: "Log in" }).click();
 
-  await expect(page).toHaveURL(new RegExp(`${escapeRegExp(returnUrl)}$`));
+  await expect(page).toHaveURL(returnUrlPattern);
   await saveDemoHostAuthState(page);
 }
 
@@ -44,7 +52,7 @@ async function restoreDemoHostAuthState(page: Page, returnUrl: string) {
     await page.context().addCookies(cookies);
     await page.goto(returnUrl);
     await expect(page).toHaveURL(new RegExp(`${escapeRegExp(returnUrl)}$`), {
-      timeout: 3000,
+      timeout: AUTH_RESTORE_TIMEOUT_MS,
     });
     return true;
   } catch {
