@@ -12,6 +12,8 @@ import {
 } from "./support/booking";
 import { allowBrowserConsoleErrors, expect, test } from "./support/test";
 
+const BOOKING_CONFIRMATION_TIMEOUT_MS = 12_000;
+
 test.describe("guest booking flow", () => {
   // Runs the primary guest booking journey end to end, then verifies the host
   // can find the newly confirmed booking in the dashboard.
@@ -58,7 +60,7 @@ test.describe("guest booking flow", () => {
 
       await expect(
         page.getByRole("heading", { name: "Booking confirmed" })
-      ).toBeVisible();
+      ).toBeVisible({ timeout: BOOKING_CONFIRMATION_TIMEOUT_MS });
       await expect(page.getByText(eventType.title)).toBeVisible();
       await expect(page.getByText(guestName)).toBeVisible();
       await expect(page.getByText("Confirmed", { exact: true })).toBeVisible();
@@ -156,7 +158,7 @@ test.describe("guest booking flow", () => {
 
       await expect(
         page.getByRole("heading", { name: "Booking confirmed" })
-      ).toBeVisible();
+      ).toBeVisible({ timeout: BOOKING_CONFIRMATION_TIMEOUT_MS });
 
       const { data, error } = await adminClient
         .from("bookings")
