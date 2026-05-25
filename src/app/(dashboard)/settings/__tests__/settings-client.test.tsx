@@ -245,4 +245,37 @@ describe("SettingsClient", () => {
       2
     );
   });
+
+  it("shows the settings save fallback when the API returns non-JSON errors", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error("Unexpected token");
+        },
+      })
+    );
+
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Settings not saved",
+          description: "Failed to save settings",
+          variant: "destructive",
+        })
+      );
+    });
+  });
 });

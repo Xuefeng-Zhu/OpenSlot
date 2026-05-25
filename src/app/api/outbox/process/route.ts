@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminBackendClient } from '@/lib/backend/server'
 import { processOutboxBatch } from '@/lib/outbox/process'
 import { authorizeWorkerRequest } from '@/lib/workers/auth'
+import {
+  numberFromSearchParam,
+  readWorkerJsonObject,
+} from '@/lib/workers/request-options'
 
 /**
  * Processes queued outbox events from a worker POST body.
@@ -11,7 +15,7 @@ import { authorizeWorkerRequest } from '@/lib/workers/auth'
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await safeJson(request)
+  const body = await readWorkerJsonObject(request)
   return runOutboxProcessor(request, body)
 }
 
@@ -21,18 +25,16 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   const searchParams = new URL(request.url).searchParams
-  const limitParam = searchParams.get('limit')
-  const maxAttemptsParam = searchParams.get('maxAttempts')
 
   return runOutboxProcessor(request, {
-    limit: limitParam ? Number(limitParam) : undefined,
-    maxAttempts: maxAttemptsParam ? Number(maxAttemptsParam) : undefined,
+    limit: numberFromSearchParam(searchParams.get('limit')),
+    maxAttempts: numberFromSearchParam(searchParams.get('maxAttempts')),
   })
 }
 
 async function runOutboxProcessor(
   request: NextRequest,
-  body: Record<string, unknown> | null
+  body: Record<string, unknown>
 ) {
   const auth = authorizeWorkerRequest(request, 'OUTBOX_PROCESS_SECRET')
 
@@ -52,17 +54,6 @@ async function runOutboxProcessor(
   })
 
   return NextResponse.json({ success: true, ...result })
-}
-
-async function safeJson(request: NextRequest): Promise<Record<string, unknown> | null> {
-  try {
-    const parsed = await request.json()
-    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-      ? parsed as Record<string, unknown>
-      : null
-  } catch {
-    return null
-  }
 }
 
 function normalizeLimit(value: unknown): number {

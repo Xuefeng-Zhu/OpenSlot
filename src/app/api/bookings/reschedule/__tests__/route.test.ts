@@ -64,6 +64,14 @@ function requestWithJson(body: unknown, headers: Record<string, string> = {}) {
   })
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/bookings/reschedule', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"rescheduleToken"',
+  })
+}
+
 describe('POST /api/bookings/reschedule', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -111,6 +119,20 @@ describe('POST /api/bookings/reschedule', () => {
         windowSeconds: 300,
       },
     })
+  })
+
+  it('rejects malformed JSON before idempotency, rate limiting, or rescheduling', async () => {
+    const response = await POST(malformedJsonRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.resolveIdempotencyKey).not.toHaveBeenCalled()
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(rescheduleBooking).not.toHaveBeenCalled()
   })
 
   it('returns validation errors for invalid payloads', async () => {

@@ -6,11 +6,12 @@ import {
   ensureProfileForAuthUser,
   sessionResponse,
 } from '../_shared'
+import { readAuthJsonObject } from '../_request'
 
 export const runtime = 'edge'
 
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null)
+  const body = await readAuthJsonObject(request)
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
   const password = typeof body?.password === 'string' ? body.password : ''
   const displayName =

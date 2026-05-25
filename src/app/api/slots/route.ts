@@ -10,6 +10,7 @@ import {
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
 import { createAdminBackendClient } from '@/lib/backend/server'
+import { isValidTimezone } from '@/lib/utils/timezone'
 
 /**
  * GET /api/slots
@@ -97,6 +98,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const guestTimezone = timezone.trim()
+    if (!isValidTimezone(guestTimezone)) {
+      return NextResponse.json(
+        { error: 'Invalid timezone. Expected a valid IANA timezone.' },
+        { status: 400 }
+      )
+    }
+
     const adminClient = createAdminBackendClient()
     const rateLimit = await consumePublicRateLimit({
       request,
@@ -119,7 +128,7 @@ export async function GET(request: NextRequest) {
         eventTypeId,
         startDate: startDate!,
         endDate: endDate!,
-        guestTimezone: timezone,
+        guestTimezone,
       })
 
       if (!slotsResult.success) {
@@ -143,7 +152,7 @@ export async function GET(request: NextRequest) {
       hostUserId,
       eventTypeId,
       date: date!,
-      guestTimezone: timezone,
+      guestTimezone,
     })
 
     if (!slotsResult.success) {

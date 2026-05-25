@@ -1,19 +1,11 @@
 import type { z } from 'zod'
+import { getAuthenticatedProfile as getSharedAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Tables } from '@/lib/types/database'
 import {
   parseEventTypeValues,
   type EventTypeFormValues,
 } from '@/lib/validations/event-type'
-
-type ProfileLookupClient = {
-  auth: {
-    getUser: () => Promise<{
-      data: { user: { id: string } | null }
-      error: unknown
-    }>
-  }
-  from: (table: 'profiles') => any
-}
 
 type AuthenticatedProfileResult =
   | {
@@ -32,34 +24,22 @@ type AuthenticatedProfileResult =
  * responses while sharing the session/profile lookup.
  */
 export async function getAuthenticatedProfile(
-  backendClient: ProfileLookupClient
+  backendClient: BackendCompatClient
 ): Promise<AuthenticatedProfileResult> {
-  const {
-    data: { user },
-    error: authError,
-  } = await backendClient.auth.getUser()
+  const auth = await getSharedAuthenticatedProfile(backendClient)
 
-  if (authError || !user) {
-    return { ok: false, error: 'Unauthorized', status: 401 }
-  }
-
-  const { data: profileData } = await backendClient
-    .from('profiles')
-    .select('id')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  const profile = profileData as Pick<Tables<'profiles'>, 'id'> | null
-
-  if (!profile) {
+  if (!auth.ok) {
     return {
       ok: false,
-      error: 'Profile not found. Please complete onboarding first.',
-      status: 404,
+      error:
+        auth.status === 404
+          ? 'Profile not found. Please complete onboarding first.'
+          : auth.error,
+      status: auth.status,
     }
   }
 
-  return { ok: true, profile }
+  return { ok: true, profile: { id: auth.profileId } }
 }
 
 /**

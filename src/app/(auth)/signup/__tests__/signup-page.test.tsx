@@ -76,14 +76,35 @@ describe("SignupPage", () => {
       expect(mocks.refresh).toHaveBeenCalled();
     });
   });
+
+  it("accepts pasted emails with leading or trailing whitespace", async () => {
+    mocks.signUp.mockResolvedValue({
+      data: { user: { id: "auth-user-1", email: "sarah@example.com" } },
+      error: null,
+    });
+
+    render(<SignupPage />);
+    submitValidSignupForm({ email: "  sarah@example.com  " });
+
+    await waitFor(() => {
+      expect(mocks.signUp).toHaveBeenCalledWith({
+        email: "sarah@example.com",
+        password: "Passw0rd!",
+        options: { data: { full_name: "Sarah Chen" } },
+      });
+    });
+    expect(
+      screen.queryByText("Please enter a valid email address.")
+    ).toBeNull();
+  });
 });
 
-function submitValidSignupForm() {
+function submitValidSignupForm({ email = "sarah@example.com" } = {}) {
   fireEvent.change(screen.getByLabelText("Full name"), {
     target: { value: "Sarah Chen" },
   });
   fireEvent.change(screen.getByLabelText("Email address"), {
-    target: { value: "sarah@example.com" },
+    target: { value: email },
   });
   fireEvent.change(screen.getByLabelText("Password"), {
     target: { value: "Passw0rd!" },

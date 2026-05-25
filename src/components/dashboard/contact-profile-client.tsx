@@ -21,6 +21,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  errorToastDescription,
+  requestJson,
+} from "@/components/dashboard/request-json";
 import type {
   ContactSummary,
   ContactTimelineItem,
@@ -30,6 +34,16 @@ interface ContactProfileClientProps {
   contact: ContactSummary;
   timeline: ContactTimelineItem[];
 }
+
+type ContactAnonymizeResponse =
+  | {
+      success: true;
+      anonymizedBookings: number;
+    }
+  | {
+      success: false;
+      error?: string;
+    };
 
 function formatDateTime(isoString: string): { date: string; time: string } {
   const date = new Date(isoString);
@@ -68,13 +82,16 @@ export function ContactProfileClient({
     setAnonymizing(true);
 
     try {
-      const response = await fetch(`/api/contacts/${contact.id}`, {
-        method: "DELETE",
-      });
-      const data = await response.json();
+      const data = await requestJson<ContactAnonymizeResponse>(
+        `/api/contacts/${contact.id}`,
+        {
+          method: "DELETE",
+        },
+        "Failed to anonymize contact"
+      );
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to anonymize contact");
+      if (!data.success) {
+        throw new Error(data.error ?? "Failed to anonymize contact");
       }
 
       toast({
@@ -87,8 +104,7 @@ export function ContactProfileClient({
     } catch (error) {
       toast({
         title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to anonymize contact",
+        description: errorToastDescription(error),
         variant: "destructive",
       });
     } finally {

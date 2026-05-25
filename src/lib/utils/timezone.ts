@@ -45,20 +45,20 @@ export const COMMON_TIMEZONES = [
  * Checks if a timezone string is a valid IANA timezone identifier.
  */
 export function isValidTimezone(timezone: string): boolean {
-  if (timezone === DEFAULT_TIMEZONE) {
+  const candidate = timezone.trim()
+  if (!candidate) {
+    return false
+  }
+
+  if (candidate === DEFAULT_TIMEZONE) {
     return true
   }
 
   try {
-    const validTimezones = Intl.supportedValuesOf('timeZone')
-    return validTimezones.includes(timezone)
+    Intl.DateTimeFormat(undefined, { timeZone: candidate })
+    return true
   } catch {
-    try {
-      Intl.DateTimeFormat(undefined, { timeZone: timezone })
-      return true
-    } catch {
-      return false
-    }
+    return false
   }
 }
 

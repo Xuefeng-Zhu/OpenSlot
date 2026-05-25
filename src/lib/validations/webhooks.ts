@@ -3,6 +3,10 @@ import { webhookEventTypes } from '@/lib/webhooks/event-types'
 
 export { webhookEventTypes } from '@/lib/webhooks/event-types'
 
+const webhookDescriptionSchema = z
+  .string()
+  .max(200, 'Description must be 200 characters or less')
+
 /**
  * Create schema for webhook endpoints managed from settings.
  * The endpoint secret is generated server-side and is intentionally not accepted
@@ -15,7 +19,7 @@ export const webhookEndpointSchema = z.object({
     .refine((value) => value.startsWith('https://') || value.startsWith('http://'), {
       message: 'Webhook URL must use HTTP or HTTPS',
     }),
-  description: z.string().max(200, 'Description must be 200 characters or less').optional(),
+  description: webhookDescriptionSchema.optional(),
   subscribedEvents: z
     .array(z.enum(webhookEventTypes))
     .min(1, 'Select at least one webhook event')
@@ -30,6 +34,7 @@ export const webhookEndpointSchema = z.object({
 export const updateWebhookEndpointSchema = webhookEndpointSchema
   .partial()
   .extend({
+    description: webhookDescriptionSchema.nullable().optional(),
     isActive: z.boolean().optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {

@@ -74,6 +74,14 @@ function requestWithJson(
   })
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/bookings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"holdToken"',
+  })
+}
+
 describe('POST /api/bookings idempotency', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -154,6 +162,20 @@ describe('POST /api/bookings idempotency', () => {
         windowSeconds: 300,
       },
     })
+  })
+
+  it('rejects malformed JSON before idempotency, rate limiting, or confirmation', async () => {
+    const response = await POST(malformedJsonRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.beginIdempotentRequest).not.toHaveBeenCalled()
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.confirmBooking).not.toHaveBeenCalled()
   })
 
   it('replays a cached confirmation response without calling the booking engine', async () => {

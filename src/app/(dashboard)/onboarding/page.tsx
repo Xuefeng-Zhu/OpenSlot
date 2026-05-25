@@ -7,6 +7,18 @@ import { useCopyFeedback } from "@/components/shared/use-copy-feedback";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { browserTimezoneOrDefault } from "@/lib/utils/timezone";
 import {
+  absoluteBookingLink,
+  bookingLinkPrefix,
+  getDefaultAvailability,
+  getEmptyValidationErrors,
+  hasValidationErrors,
+  validateAvailability,
+  validateEventType,
+  validateProfile,
+  type OnboardingSaveResponse,
+  type OnboardingValidationErrors,
+} from "./onboarding-client-model";
+import {
   ONBOARDING_STEPS,
   ProgressIndicator,
   StepAvailability,
@@ -14,165 +26,10 @@ import {
   StepEventType,
   StepProfile,
   type AvailabilityData,
-  type AvailabilityValidationErrors,
   type DayAvailability,
   type EventTypeData,
-  type EventTypeValidationErrors,
   type ProfileData,
-  type ProfileValidationErrors,
 } from "./onboarding-steps";
-
-function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
-}
-
-function bookingLinkPrefix() {
-  const appUrl = getAppUrl();
-  return appUrl ? `${appUrl}/` : "/";
-}
-
-function absoluteBookingLink(path: string) {
-  const appUrl = getAppUrl();
-  return appUrl ? `${appUrl}${path}` : path;
-}
-
-interface OnboardingValidationErrors {
-  profile: ProfileValidationErrors;
-  availability: AvailabilityValidationErrors;
-  eventType: EventTypeValidationErrors;
-}
-
-interface OnboardingSaveResponse {
-  success: boolean;
-  bookingLink?: string;
-  error?: string;
-}
-
-const DEFAULT_WEEKDAY: DayAvailability = {
-  enabled: true,
-  intervals: [{ start: "09:00", end: "17:00" }],
-};
-
-const DEFAULT_WEEKEND: DayAvailability = {
-  enabled: false,
-  intervals: [],
-};
-
-function getDefaultAvailability(): AvailabilityData {
-  return {
-    monday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    tuesday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    wednesday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    thursday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    friday: { ...DEFAULT_WEEKDAY, intervals: [...DEFAULT_WEEKDAY.intervals] },
-    saturday: { ...DEFAULT_WEEKEND, intervals: [...DEFAULT_WEEKEND.intervals] },
-    sunday: { ...DEFAULT_WEEKEND, intervals: [...DEFAULT_WEEKEND.intervals] },
-  };
-}
-
-function getEmptyValidationErrors(): OnboardingValidationErrors {
-  return {
-    profile: {},
-    availability: { days: {} },
-    eventType: {},
-  };
-}
-
-function validateProfile(data: ProfileData): ProfileValidationErrors {
-  const errors: ProfileValidationErrors = {};
-
-  if (!data.displayName.trim()) {
-    errors.displayName = "Enter the display name people will see.";
-  }
-
-  if (!data.username.trim()) {
-    errors.username = "Choose a username for your booking link.";
-  } else if (data.username.trim().length < 3) {
-    errors.username = "Use at least 3 characters.";
-  } else if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(data.username.trim())) {
-    errors.username = "Use lowercase letters, numbers, and hyphens.";
-  }
-
-  return errors;
-}
-
-function validateAvailability(data: AvailabilityData): AvailabilityValidationErrors {
-  const errors: AvailabilityValidationErrors = { days: {} };
-  let hasBookableInterval = false;
-
-  for (const [day, availability] of Object.entries(data) as [
-    keyof AvailabilityData,
-    DayAvailability,
-  ][]) {
-    if (!availability.enabled) {
-      continue;
-    }
-
-    if (availability.intervals.length === 0) {
-      errors.days[day] =
-        "Add at least one time interval or turn this day off.";
-      continue;
-    }
-
-    const invalidInterval = availability.intervals.find((interval) => {
-      if (!interval.start || !interval.end) {
-        return true;
-      }
-      return interval.end <= interval.start;
-    });
-
-    if (invalidInterval) {
-      errors.days[day] =
-        "Complete each interval with an end time after the start time.";
-      continue;
-    }
-
-    hasBookableInterval = true;
-  }
-
-  if (!hasBookableInterval) {
-    errors.general = "Set at least one available time before continuing.";
-  }
-
-  return errors;
-}
-
-function validateEventType(data: EventTypeData): EventTypeValidationErrors {
-  const errors: EventTypeValidationErrors = {};
-
-  if (!data.title.trim()) {
-    errors.title = "Enter a title for this event type.";
-  }
-
-  if (data.locationType === "video_provider") {
-    if (!data.videoProvider) {
-      errors.videoProvider = "Choose a video provider.";
-    }
-  } else if (
-    ["phone", "in_person", "custom"].includes(data.locationType) &&
-    !data.locationValue.trim()
-  ) {
-    errors.locationValue = "Enter location details.";
-  }
-
-  return errors;
-}
-
-function hasValidationErrors(errors: unknown): boolean {
-  if (!errors || typeof errors !== "object") {
-    return false;
-  }
-
-  return Object.values(errors).some((value) => {
-    if (!value) {
-      return false;
-    }
-    if (typeof value === "string") {
-      return true;
-    }
-    return hasValidationErrors(value);
-  });
-}
 
 /**
  * Multi-step onboarding flow that collects the first profile, availability, and

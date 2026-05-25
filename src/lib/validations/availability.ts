@@ -11,6 +11,15 @@ const endTimeStringSchema = z.string().regex(
   'End time must be in HH:MM format'
 )
 
+function timeStringToSeconds(value: string): number {
+  const [hours, minutes, seconds = '0'] = value.split(':')
+  return Number(hours) * 60 * 60 + Number(minutes) * 60 + Number(seconds)
+}
+
+function hasPositiveTimeRange(startTime: string, endTime: string): boolean {
+  return timeStringToSeconds(startTime) < timeStringToSeconds(endTime)
+}
+
 /**
  * Schema for a single availability rule (standalone validation with timezone and time range check).
  * Exported for use in tests and direct rule validation.
@@ -23,7 +32,7 @@ export const availabilityRuleSchema = z.object({
   timezone: z.string().refine(isValidTimezone, { message: 'Must be a valid IANA timezone' }).optional(),
   is_active: z.boolean(),
 }).refine(
-  (data) => data.start_time < data.end_time,
+  (data) => hasPositiveTimeRange(data.start_time, data.end_time),
   { message: 'Start time must be before end time', path: ['start_time'] }
 )
 
@@ -36,7 +45,10 @@ const saveAvailabilityRuleSchema = z.object({
   start_time: timeStringSchema,
   end_time: endTimeStringSchema,
   is_active: z.boolean(),
-})
+}).refine(
+  (data) => hasPositiveTimeRange(data.start_time, data.end_time),
+  { message: 'Start time must be before end time', path: ['start_time'] }
+)
 
 /**
  * Schema for a single availability override in the save request.
@@ -48,6 +60,25 @@ const availabilityOverrideSchema = z.object({
   end_time: endTimeStringSchema.nullable(),
   is_available: z.boolean(),
   reason: z.string().max(500).nullable().optional(),
+}).superRefine((data, ctx) => {
+  if (!data.is_available) return
+
+  if (!data.start_time || !data.end_time) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Custom hours require a start and end time',
+      path: ['start_time'],
+    })
+    return
+  }
+
+  if (!hasPositiveTimeRange(data.start_time, data.end_time)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Start time must be before end time',
+      path: ['start_time'],
+    })
+  }
 })
 
 /**

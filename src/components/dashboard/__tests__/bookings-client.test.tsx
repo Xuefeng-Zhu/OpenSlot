@@ -1,7 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import BookingsClient from '../bookings-client'
 import type { Booking } from '@/lib/booking-utils'
+
+const toastMock = vi.hoisted(() => vi.fn())
+
+vi.mock('@/components/ui/use-toast', () => ({
+  useToast: () => ({ toast: toastMock }),
+}))
 
 function booking(overrides: Partial<Booking> = {}): Booking {
   return {
@@ -20,6 +26,12 @@ function booking(overrides: Partial<Booking> = {}): Booking {
 }
 
 describe('BookingsClient', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    toastMock.mockClear()
+  })
+
   it('renders a compact searchable event type filter backed by available booking event types', () => {
     const { container } = render(
       <BookingsClient
@@ -86,5 +98,57 @@ describe('BookingsClient', () => {
 
     expect(screen.getByText('What should we discuss?')).toBeDefined()
     expect(screen.getByText('Roadmap tradeoffs')).toBeDefined()
+  })
+
+  it('shows the cancel fallback when the API returns a non-JSON error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: false,
+        json: async () => {
+          throw new Error('Unexpected token')
+        },
+      })
+    )
+
+    render(<BookingsClient bookings={[booking()]} />)
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'View booking with Ada Lovelace' })[0]
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel booking' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm cancellation' }))
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Error',
+          description: 'Failed to cancel booking',
+          variant: 'destructive',
+        })
+      )
+    })
+  })
+
+  it('opens generated meeting links in a new tab from the detail drawer', () => {
+    render(
+      <BookingsClient
+        bookings={[
+          booking({
+            conference_url: 'https://meet.google.com/abc-defg-hij',
+          }),
+        ]}
+      />
+    )
+
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'View booking with Ada Lovelace' })[0]
+    )
+
+    const link = screen.getByRole('link', { name: 'Open meeting link' })
+
+    expect(link.getAttribute('href')).toBe('https://meet.google.com/abc-defg-hij')
+    expect(link.getAttribute('target')).toBe('_blank')
+    expect(link.getAttribute('rel')).toBe('noopener noreferrer')
   })
 })

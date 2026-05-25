@@ -176,6 +176,14 @@ function requestWithJson(body: unknown) {
   } as Request
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/onboarding', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"profile"',
+  })
+}
+
 describe('POST /api/onboarding', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
@@ -247,6 +255,26 @@ describe('POST /api/onboarding', () => {
         timezone: 'America/Los_Angeles',
       },
     ])
+  })
+
+  it('rejects malformed JSON before onboarding writes', async () => {
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'auth-user-1', email: 'sarah@example.com' } },
+      error: null,
+    })
+
+    const response = await POST(malformedJsonRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.profileUpsertPayload).toBeNull()
+    expect(mocks.scheduleInsertPayload).toBeNull()
+    expect(mocks.eventTypePayload).toBeNull()
+    expect(mocks.insertedAvailability).toEqual([])
   })
 
   it('updates an existing default schedule timezone during onboarding reuse', async () => {

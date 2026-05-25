@@ -1,6 +1,8 @@
 /**
  * Calendar providers supported by OpenSlot OAuth and sync flows.
  */
+import { parseProviderJson } from './provider-http'
+
 export const calendarProviders = ['google', 'microsoft'] as const
 
 export type CalendarProvider = (typeof calendarProviders)[number]
@@ -299,15 +301,7 @@ async function providerJson<T>(
   const response = await fetchImpl(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   })
-  const data = (await response.json().catch(() => ({}))) as T & {
-    error?: { message?: string }
-  }
-
-  if (!response.ok) {
-    throw new Error(data.error?.message ?? `Provider request failed with HTTP ${response.status}`)
-  }
-
-  return data
+  return parseProviderJson<T>(response)
 }
 
 function requiredEnv(name: string): string {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { profileSchema, type ProfileFormValues, getTimezones } from '@/lib/validations/profile'
@@ -22,6 +23,7 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ initialData }: ProfileFormProps) {
+  const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [serverError, setServerError] = useState('')
@@ -80,6 +82,7 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       }
 
       setSuccessMessage('Profile updated successfully.')
+      router.refresh()
     } catch {
       setServerError('An unexpected error occurred. Please try again.')
     } finally {

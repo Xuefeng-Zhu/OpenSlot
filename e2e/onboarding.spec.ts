@@ -42,7 +42,7 @@ test.describe("onboarding wizard", () => {
       page.getByText("Enter a title for this event type.")
     ).toBeVisible();
     await expect(
-      page.getByText("Enter where this meeting will happen.")
+      page.getByText("Enter location details.")
     ).toBeVisible();
 
     await page.getByRole("button", { name: "Back" }).click();

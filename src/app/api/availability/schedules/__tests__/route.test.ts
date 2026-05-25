@@ -93,6 +93,14 @@ function requestWithJson(body: unknown) {
   } as Request
 }
 
+function malformedJsonRequest(path = '/api/availability/schedules') {
+  return new Request(`http://localhost${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"name"',
+  })
+}
+
 function routeContext(id = 'schedule-1') {
   return {
     params: Promise.resolve({ id }),
@@ -145,6 +153,19 @@ describe('availability schedule routes', () => {
     })
   })
 
+  it('rejects malformed create-schedule JSON before writing', async () => {
+    const response = await POST(malformedJsonRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.adminTables).toEqual([])
+    expect(mocks.inserts).toEqual([])
+  })
+
   it('promotes one owned schedule to default', async () => {
     mocks.adminQueries = [
       createQuery({
@@ -184,6 +205,22 @@ describe('availability schedule routes', () => {
         },
       },
     ])
+  })
+
+  it('rejects malformed update-schedule JSON before loading the schedule', async () => {
+    const response = await PATCH(
+      malformedJsonRequest('/api/availability/schedules/schedule-2') as any,
+      routeContext('schedule-2') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.adminTables).toEqual([])
+    expect(mocks.rpcCalls).toEqual([])
   })
 
   it('blocks deleting schedules assigned to event types', async () => {
@@ -298,6 +335,24 @@ describe('availability schedule routes', () => {
         },
       ],
     })
+  })
+
+  it('rejects malformed duplicate-schedule JSON before copying rows', async () => {
+    const response = await DUPLICATE_POST(
+      malformedJsonRequest(
+        '/api/availability/schedules/schedule-1/duplicate'
+      ) as any,
+      routeContext('schedule-1') as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.adminTables).toEqual([])
+    expect(mocks.inserts).toEqual([])
   })
 
   it('rejects invalid duplicate schedule names', async () => {

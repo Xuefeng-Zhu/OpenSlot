@@ -12,6 +12,17 @@ interface ReschedulePageProps {
   params: Promise<{ token: string }>;
 }
 
+type RescheduleBooking = Pick<
+  Tables<"bookings">,
+  | "event_type_id"
+  | "host_user_id"
+  | "guest_name"
+  | "guest_email"
+  | "guest_timezone"
+  | "start_at"
+  | "end_at"
+>;
+
 export default async function RescheduleBookingPage({
   params,
 }: ReschedulePageProps) {
@@ -20,12 +31,14 @@ export default async function RescheduleBookingPage({
 
   const { data: bookingData } = await backendClient
     .from("bookings")
-    .select("*")
+    .select(
+      "event_type_id, host_user_id, guest_name, guest_email, guest_timezone, start_at, end_at"
+    )
     .eq("reschedule_token", token)
     .eq("status", "confirmed")
     .single();
 
-  const booking = bookingData as Tables<"bookings"> | null;
+  const booking = bookingData as RescheduleBooking | null;
 
   if (!booking) {
     notFound();

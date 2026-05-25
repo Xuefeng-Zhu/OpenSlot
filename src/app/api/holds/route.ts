@@ -15,6 +15,7 @@ import {
 } from '@/lib/security/rate-limit'
 import { verifyTurnstileToken } from '@/lib/security/turnstile'
 import { createAdminBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import type { Json } from '@/lib/types/database'
 import { createHoldSchema } from '@/lib/validations/booking'
 
@@ -36,10 +37,11 @@ export async function POST(request: NextRequest) {
   let idempotencyEntry: IdempotencyEntry | null = null
 
   try {
-    const body = await request.json()
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
 
     // Validate input with Zod
-    const parsed = createHoldSchema.safeParse(body)
+    const parsed = createHoldSchema.safeParse(json.body)
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Validation failed', details: parsed.error.flatten().fieldErrors },

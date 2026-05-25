@@ -85,6 +85,14 @@ function requestWithJson(body: unknown) {
   })
 }
 
+function malformedJsonRequest() {
+  return new Request('http://localhost/api/booking-agent/message', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{"messages"',
+  })
+}
+
 function createQuery(result: { data: unknown; error: unknown | null }) {
   const query: any = {
     select: vi.fn(() => query),
@@ -163,6 +171,20 @@ describe('POST /api/booking-agent/message', () => {
         }),
       })
     )
+  })
+
+  it('rejects malformed JSON before configuration checks or rate limiting', async () => {
+    const response = await POST(malformedJsonRequest() as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'Invalid JSON body',
+    })
+    expect(mocks.isBookingAgentConfigured).not.toHaveBeenCalled()
+    expect(mocks.consumePublicRateLimit).not.toHaveBeenCalled()
+    expect(mocks.adminClient.from).not.toHaveBeenCalled()
   })
 
   it('rate limits before loading event context or calling the gateway', async () => {

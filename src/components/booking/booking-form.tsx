@@ -69,6 +69,16 @@ interface BookingFormProps {
   onSlotTaken: () => void;
 }
 
+interface BookingMutationResponseBody {
+  success?: boolean;
+  error?: string;
+  bookingId?: string;
+  cancellationToken?: string;
+  rescheduleToken?: string;
+  conferenceStatus?: string;
+  conferenceUrl?: string | null;
+}
+
 /**
  * Collects guest details and confirms either a new booking or a reschedule.
  * A stable idempotency key is generated per mounted form so retries caused by
@@ -222,26 +232,28 @@ export function BookingForm({
       const response = await fetch(
         rescheduleToken ? "/api/bookings/reschedule" : "/api/bookings",
         {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Idempotency-Key": idempotencyKey,
-        },
-        body: JSON.stringify({
-          ...(rescheduleToken ? { rescheduleToken } : {}),
-          holdToken,
-          guestName: data.guestName,
-          guestEmail: data.guestEmail,
-          guestTimezone: data.guestTimezone,
-          notes: data.notes || undefined,
-          answers: data.answers ?? {},
-          idempotencyKey,
-          turnstileToken: turnstileToken ?? undefined,
-        }),
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": idempotencyKey,
+          },
+          body: JSON.stringify({
+            ...(rescheduleToken ? { rescheduleToken } : {}),
+            holdToken,
+            guestName: data.guestName,
+            guestEmail: data.guestEmail,
+            guestTimezone: data.guestTimezone,
+            notes: data.notes || undefined,
+            answers: data.answers ?? {},
+            idempotencyKey,
+            turnstileToken: turnstileToken ?? undefined,
+          }),
         }
       );
 
-      const result = await response.json();
+      const result = (await response
+        .json()
+        .catch(() => ({}))) as BookingMutationResponseBody;
 
       if (!response.ok) {
         // Handle specific error cases
@@ -259,7 +271,7 @@ export function BookingForm({
         return;
       }
 
-      if (result.success) {
+      if (result.success && result.bookingId && result.cancellationToken) {
         onConfirmed({
           bookingId: result.bookingId,
           cancellationToken: result.cancellationToken,

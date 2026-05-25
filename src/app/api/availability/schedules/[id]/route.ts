@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
+import { parseJsonBody } from '@/lib/http/json'
 import { updateScheduleSchema } from '@/lib/validations/availability'
 import {
   getAuthenticatedAvailabilityProfile,
@@ -31,8 +32,10 @@ export async function PATCH(
       )
     }
 
-    const body = await request.json()
-    const parsed = updateScheduleSchema.safeParse(body)
+    const json = await parseJsonBody(request)
+    if (!json.ok) return json.response
+
+    const parsed = updateScheduleSchema.safeParse(json.body)
 
     if (!parsed.success) {
       return NextResponse.json(
