@@ -311,6 +311,7 @@ describe('cancelBooking', () => {
     }).mockResolvedValueOnce({
       data: {
         ...confirmedBooking,
+        cancel_reason: validInput.cancelReason,
         status: 'cancelled',
       },
       error: null,
@@ -324,7 +325,7 @@ describe('cancelBooking', () => {
     expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
       bookingId: 'booking-id-1',
       eventType: 'booking.cancelled',
-      actorType: 'guest',
+      actorType: 'system',
       payload: {
         eventTypeId: 'event-type-1',
         hostUserId: 'host-user-1',
@@ -341,6 +342,38 @@ describe('cancelBooking', () => {
       endAt: '2025-01-15T14:30:00Z',
       cancelReasonProvided: true,
     })
+    consoleWarn.mockRestore()
+  })
+
+  it('does not replay side effects when unavailable-function fallback finds an already cancelled booking', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        status: 'cancelled',
+      },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('already been cancelled')
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
     consoleWarn.mockRestore()
   })
 

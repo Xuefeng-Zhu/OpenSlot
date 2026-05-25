@@ -82,11 +82,15 @@ export async function cancelBooking(
     }
 
     if (refreshedBooking.status === 'cancelled') {
+      if (functionResult.fallback !== 'inconclusive-gateway') {
+        return { success: false, error: 'Booking has already been cancelled' }
+      }
+
       await recordCancellationSideEffects(
         adminClient,
         refreshedBooking,
-        actor,
-        cancelReason
+        { actorType: 'system' },
+        refreshedBooking.cancel_reason ?? undefined
       )
       return { success: true }
     }
@@ -149,7 +153,10 @@ type CancelFunctionResult =
   | { attempted: false }
   | { attempted: true; success: true }
   | { attempted: true; success: false; error: string }
-  | { attempted: true; fallback: true }
+  | {
+      attempted: true
+      fallback: 'function-unavailable' | 'inconclusive-gateway'
+    }
 
 async function cancelBookingWithBackendFunction(
   adminClient: BackendCompatClient<Database>,
@@ -171,7 +178,7 @@ async function cancelBookingWithBackendFunction(
         'Falling back to non-transactional booking cancellation because the backend function is unavailable:',
         error
       )
-      return { attempted: true, fallback: true }
+      return { attempted: true, fallback: 'function-unavailable' }
     }
 
     if (shouldUseCancellationFunctionGatewayFallback(error)) {
@@ -179,7 +186,7 @@ async function cancelBookingWithBackendFunction(
         'Falling back to non-transactional booking cancellation because the backend function returned no definitive result:',
         error
       )
-      return { attempted: true, fallback: true }
+      return { attempted: true, fallback: 'inconclusive-gateway' }
     }
 
     console.error('Error cancelling booking through backend function:', error)
@@ -200,7 +207,7 @@ async function recordCancellationSideEffects(
   adminClient: BackendCompatClient<Database>,
   booking: Tables<'bookings'>,
   actor: {
-    actorType: 'guest' | 'host'
+    actorType: 'guest' | 'host' | 'system'
     actorId?: string | null
   },
   cancelReason?: string
