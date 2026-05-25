@@ -461,6 +461,27 @@ describe('MailerooEmailProvider', () => {
     })
   })
 
+  it('rejects successful Maileroo responses with malformed JSON', async () => {
+    const fetchImpl = vi.fn(async () => new Response('not json', { status: 200 }))
+    const provider = new MailerooEmailProvider(
+      'maileroo-key',
+      'bookings@example.com',
+      fetchImpl as typeof fetch
+    )
+
+    await expect(
+      provider.send({
+        to: 'test@example.com',
+        subject: 'Test Subject',
+        html: '<p>Hello</p>',
+        text: 'Hello',
+      })
+    ).resolves.toEqual({
+      success: false,
+      error: 'Maileroo API returned an unreadable response',
+    })
+  })
+
   it('is selected when EMAIL_PROVIDER is maileroo', () => {
     process.env.EMAIL_PROVIDER = 'maileroo'
     process.env.EMAIL_FROM = 'OpenSlot <bookings@example.com>'
