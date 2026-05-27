@@ -5,6 +5,8 @@ type StringOfConstraints = {
   maxLength?: number
 }
 
+type DateConstraints = NonNullable<Parameters<typeof fc.date>[0]>
+
 export function stringOf(
   charArb: fc.Arbitrary<string>,
   constraints: StringOfConstraints = {}
@@ -14,4 +16,8 @@ export function stringOf(
 
 export function char(): fc.Arbitrary<string> {
   return fc.string({ minLength: 1, maxLength: 1 })
+}
+
+export function validDate(constraints: DateConstraints = {}): fc.Arbitrary<Date> {
+  return fc.date({ ...constraints, noInvalidDate: true })
 }

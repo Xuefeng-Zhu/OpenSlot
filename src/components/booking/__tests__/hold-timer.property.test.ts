@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 import { computeRemainingSeconds } from '../hold-timer'
+import { validDate } from '@/test/fast-check'
 
 /**
  * Property 11: Hold Timer Countdown Computation
@@ -14,7 +15,7 @@ describe('Property 11: Hold Timer Countdown Computation', () => {
   it('for any future timestamp, result equals floor((expiresAt - now) / 1000)', () => {
     fc.assert(
       fc.property(
-        fc.date({ min: new Date('2000-01-01'), max: new Date('2100-01-01') }),
+        validDate({ min: new Date('2000-01-01'), max: new Date('2100-01-01') }),
         fc.integer({ min: 1, max: 86400000 }), // 1ms to 24 hours offset
         (now, offsetMs) => {
           const expiresAt = new Date(now.getTime() + offsetMs)
@@ -30,7 +31,7 @@ describe('Property 11: Hold Timer Countdown Computation', () => {
   it('for any past timestamp (expiresAt <= now), result is always 0', () => {
     fc.assert(
       fc.property(
-        fc.date({ min: new Date('2000-01-01'), max: new Date('2100-01-01') }),
+        validDate({ min: new Date('2000-01-01'), max: new Date('2100-01-01') }),
         fc.integer({ min: 0, max: 86400000 }), // 0ms to 24 hours in the past
         (now, offsetMs) => {
           const expiresAt = new Date(now.getTime() - offsetMs)
@@ -45,7 +46,7 @@ describe('Property 11: Hold Timer Countdown Computation', () => {
   it('result is always >= 0 (never negative)', () => {
     fc.assert(
       fc.property(
-        fc.date({ min: new Date('2000-01-01'), max: new Date('2100-01-01') }),
+        validDate({ min: new Date('2000-01-01'), max: new Date('2100-01-01') }),
         fc.integer({ min: -86400000, max: 86400000 }), // any offset
         (now, offsetMs) => {
           const expiresAt = new Date(now.getTime() + offsetMs)

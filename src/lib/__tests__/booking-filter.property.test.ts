@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 import { filterBookingsByEventType, type Booking } from '../booking-utils'
+import { validDate } from '@/test/fast-check'
 
 /**
  * Property 5: Event type filter returns only matching bookings
@@ -15,8 +16,8 @@ const baseBookingArb = fc.record({
   guest_email: fc.emailAddress(),
   guest_timezone: fc.constantFrom('America/New_York', 'Europe/London', 'Asia/Tokyo', 'UTC'),
   notes: fc.string({ minLength: 0, maxLength: 200 }),
-  start_at: fc.date({ min: new Date('2024-01-01'), max: new Date('2026-12-31') }).map((d) => d.toISOString()),
-  end_at: fc.date({ min: new Date('2024-01-01'), max: new Date('2026-12-31') }).map((d) => d.toISOString()),
+  start_at: validDate({ min: new Date('2024-01-01'), max: new Date('2026-12-31') }).map((d) => d.toISOString()),
+  end_at: validDate({ min: new Date('2024-01-01'), max: new Date('2026-12-31') }).map((d) => d.toISOString()),
   status: fc.constantFrom('confirmed', 'cancelled', 'pending'),
   cancellation_token: fc.uuid(),
   event_type_title: fc.string({ minLength: 1, maxLength: 100 }),

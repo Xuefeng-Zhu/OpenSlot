@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as fc from "fast-check";
 import { getDisplayedBookings } from "@/lib/dashboard-utils";
+import { validDate } from "@/test/fast-check";
 
 /**
  * Feature: ui-backend-integration, Property 3: Dashboard bookings are ordered by start time ascending
@@ -26,7 +27,7 @@ describe("Feature: ui-backend-integration, Property 3: Dashboard bookings are or
   // Generator for an array of distinct timestamps, sorted ascending
   const sortedDistinctDatesArb = fc
     .uniqueArray(
-      fc.date({
+      validDate({
         min: new Date("2024-01-01T00:00:00Z"),
         max: new Date("2026-12-31T23:59:59Z"),
       }),
@@ -55,7 +56,7 @@ describe("Feature: ui-backend-integration, Property 3: Dashboard bookings are or
     // This test verifies that getDisplayedBookings does NOT re-sort;
     // it preserves whatever order is given. The server is responsible for sorting.
     const unsortedDatesArb = fc.uniqueArray(
-      fc.date({
+      validDate({
         min: new Date("2024-01-01T00:00:00Z"),
         max: new Date("2026-12-31T23:59:59Z"),
       }),
@@ -79,7 +80,7 @@ describe("Feature: ui-backend-integration, Property 3: Dashboard bookings are or
   it("when input is sorted ascending, output is also sorted ascending regardless of array size", () => {
     const largeSortedDatesArb = fc
       .uniqueArray(
-        fc.date({
+        validDate({
           min: new Date("2024-01-01T00:00:00Z"),
           max: new Date("2026-12-31T23:59:59Z"),
         }),
