@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
+import { stringOf } from '@/test/fast-check'
 
 /**
  * Property 9: Public listing shows only active event types
@@ -27,7 +28,7 @@ function filterActiveEventTypes(eventTypes: EventType[]): EventType[] {
 const eventTypeFields = {
   id: fc.uuid(),
   title: fc.string({ minLength: 1, maxLength: 100 }),
-  slug: fc.stringOf(
+  slug: stringOf(
     fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789-'.split('')),
     { minLength: 1, maxLength: 50 }
   ),
