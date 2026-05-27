@@ -1,7 +1,9 @@
+import { fixupConfigRules } from "@eslint/compat";
+import * as espree from "espree";
 import nextVitals from "eslint-config-next/core-web-vitals";
 
 const eslintConfig = [
-  ...nextVitals,
+  ...fixupConfigRules(nextVitals),
   {
     ignores: [
       ".next/**",
@@ -16,6 +18,20 @@ const eslintConfig = [
     rules: {
       "react-hooks/incompatible-library": "off",
       "react-hooks/set-state-in-effect": "off",
+    },
+  },
+  {
+    files: ["**/*.mjs"],
+    languageOptions: {
+      parser: espree,
+      sourceType: "module",
+    },
+  },
+  {
+    files: ["**/*.js"],
+    languageOptions: {
+      parser: espree,
+      sourceType: "commonjs",
     },
   },
 ];
