@@ -17,6 +17,7 @@ import {
 } from '@/lib/validations/invitee-questions'
 import type { Json } from '@/lib/types/database'
 import { verifyFinalProviderAvailability } from '@/lib/calendar/final-availability'
+import { shouldUseFunctionFallback } from '@/lib/backend/compat/function-fallback'
 
 /**
  * Confirms a booking from an active hold.
@@ -39,14 +40,9 @@ export async function confirmBooking(
   const { holdToken, guestName, guestEmail, guestTimezone, notes, answers } = input
 
   // Step 1: Fetch and validate the hold
-  const { data: hold, error: holdError } = await adminClient
-    .from('slot_holds')
-    .select('*')
-    .eq('hold_token', holdToken)
-    .eq('status', 'active')
-    .single()
+  let hold = await loadActiveHold(adminClient, holdToken)
 
-  if (holdError || !hold) {
+  if (!hold) {
     return { success: false, error: 'Hold not found or already used' }
   }
 
@@ -125,7 +121,7 @@ export async function confirmBooking(
     conferenceProvider,
   })
 
-  if (functionResult.attempted) {
+  if (functionResult.attempted && !('fallback' in functionResult)) {
     if (!functionResult.success) {
       return {
         success: false,
@@ -177,6 +173,27 @@ export async function confirmBooking(
       rescheduleToken: booking.reschedule_token,
       conferenceStatus: booking.conference_status,
       conferenceUrl: booking.conference_url,
+    }
+  }
+
+  if (functionResult.attempted && 'fallback' in functionResult) {
+    hold = await loadActiveHold(adminClient, holdToken)
+
+    if (!hold) {
+      return { success: false, error: 'Hold not found or already used' }
+    }
+
+    if (new Date(hold.expires_at) < new Date()) {
+      await adminClient
+        .from('slot_holds')
+        .update({ status: 'expired' })
+        .eq('id', hold.id)
+      await expireHoldReservation(adminClient, hold.id)
+
+      return {
+        success: false,
+        error: 'Hold has expired. Please select a new slot.',
+      }
     }
   }
 
@@ -271,6 +288,22 @@ export async function confirmBooking(
   }
 }
 
+async function loadActiveHold(
+  adminClient: BackendCompatClient<Database>,
+  holdToken: string
+): Promise<Tables<'slot_holds'> | null> {
+  const { data, error } = await adminClient
+    .from('slot_holds')
+    .select('*')
+    .eq('hold_token', holdToken)
+    .eq('status', 'active')
+    .single()
+
+  if (error || !data) return null
+
+  return data as Tables<'slot_holds'>
+}
+
 type ConfirmFunctionBooking = {
   id: string
   cancellation_token: string
@@ -283,6 +316,7 @@ type ConfirmFunctionResult =
   | { attempted: false }
   | { attempted: true; success: true; booking: ConfirmFunctionBooking }
   | { attempted: true; success: false; error: string }
+  | { attempted: true; fallback: true }
 
 async function confirmBookingWithBackendFunction(
   adminClient: BackendCompatClient<Database>,
@@ -322,6 +356,14 @@ async function confirmBookingWithBackendFunction(
     }>()
 
   if (error || !data) {
+    if (shouldUseFunctionFallback(error)) {
+      console.warn(
+        'Falling back to non-transactional booking confirmation because the backend function is unavailable:',
+        error
+      )
+      return { attempted: true, fallback: true }
+    }
+
     if (error?.code === '23P01') {
       return {
         attempted: true,

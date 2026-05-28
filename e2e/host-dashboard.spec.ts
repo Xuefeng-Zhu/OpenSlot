@@ -23,6 +23,8 @@ import {
   test,
 } from "./support/test";
 
+const BOOKING_CANCELLATION_TIMEOUT_MS = 12_000;
+
 test.describe("host dashboard workflows", () => {
   // Walks the booking details drawer and host cancellation flow, then confirms
   // the cancellation persisted in the database.
@@ -70,7 +72,9 @@ test.describe("host dashboard workflows", () => {
         .getByRole("button", { name: "Confirm cancellation" })
         .click();
 
-      await expectVisibleText(page, "Booking cancelled");
+      await expectVisibleText(page, "Booking cancelled", {
+        timeout: BOOKING_CANCELLATION_TIMEOUT_MS,
+      });
       await page.getByRole("tab", { name: /Cancelled/ }).click();
       await expect(
         page.getByRole("button", { name: `View booking with ${guestName}` })

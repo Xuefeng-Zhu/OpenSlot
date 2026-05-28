@@ -264,6 +264,48 @@ describe('confirmBooking', () => {
     })
   })
 
+  it('falls back to direct writes when the backend confirm function is unavailable', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const rpcSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
+      },
+    })
+    mockClient.rpc = vi.fn(() => ({ single: rpcSingle }))
+    mockClient.single
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({ data: eventTypeLocation, error: null })
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({ data: createdBooking, error: null })
+
+    const result = await confirmBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(result.bookingId).toBe('booking-id-1')
+    expect(mockClient.rpc).toHaveBeenCalledWith(
+      'confirm_booking',
+      expect.any(Object)
+    )
+    expect(mockClient.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guest_email: validInput.guestEmail,
+        status: 'confirmed',
+      })
+    )
+    expect(convertHoldReservationToBooking).toHaveBeenCalledWith(mockClient, {
+      holdId: 'hold-id-1',
+      bookingId: 'booking-id-1',
+    })
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Falling back to non-transactional booking confirmation because the backend function is unavailable:',
+      expect.objectContaining({ status: 404 })
+    )
+    consoleWarn.mockRestore()
+  })
+
   it('validates and snapshots structured invitee answers', async () => {
     mockClient.single
       .mockResolvedValueOnce({ data: activeHold, error: null })
@@ -416,6 +458,35 @@ describe('confirmBooking', () => {
     expect(result.success).toBe(false)
     expect(result.error).toContain('Could not verify connected calendar')
     expect(mockClient.insert).not.toHaveBeenCalled()
+  })
+
+  it('revalidates hold expiry before fallback booking writes', async () => {
+    const expiredHold = {
+      ...activeHold,
+      expires_at: new Date(Date.now() - 60 * 1000).toISOString(),
+    }
+    mockClient.rpc = vi.fn(() => ({
+      single: vi.fn().mockResolvedValue({
+        data: null,
+        error: {
+          message: 'Butterbase request failed with 404',
+          status: 404,
+          details: { error: 'Function not found' },
+        },
+      }),
+    }))
+    mockClient.single
+      .mockResolvedValueOnce({ data: activeHold, error: null })
+      .mockResolvedValueOnce({ data: eventTypeLocation, error: null })
+      .mockResolvedValueOnce({ data: expiredHold, error: null })
+
+    const result = await confirmBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('expired')
+    expect(mockClient.insert).not.toHaveBeenCalled()
+    expect(mockClient.update).toHaveBeenCalledWith({ status: 'expired' })
+    expect(expireHoldReservation).toHaveBeenCalledWith(mockClient, 'hold-id-1')
   })
 
   it('updates hold status to confirmed after successful booking', async () => {

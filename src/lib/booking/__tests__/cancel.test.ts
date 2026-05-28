@@ -47,6 +47,16 @@ function createMockClient() {
   return mock
 }
 
+function mockConditionalBookingUpdate(
+  mockClient: ReturnType<typeof createMockClient>,
+  response: { data?: unknown; error: unknown }
+) {
+  const secondEq = vi.fn().mockResolvedValue(response)
+  const firstEq = vi.fn(() => ({ eq: secondEq }))
+  mockClient.update.mockImplementation(() => ({ eq: firstEq }))
+  return { firstEq, secondEq }
+}
+
 describe('cancelBooking', () => {
   let mockClient: ReturnType<typeof createMockClient>
 
@@ -105,13 +115,9 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    // For the update chain (from.update.eq), it doesn't call single
-    // The eq() at the end of update chain should resolve as a promise with { error: null }
-    // Since the code does: await adminClient.from('bookings').update({...}).eq('id', booking.id)
-    mockClient.update.mockImplementation(() => {
-      return {
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
     })
 
     const result = await cancelBooking(validInput, mockClient)
@@ -175,10 +181,10 @@ describe('cancelBooking', () => {
       data: confirmedBooking,
       error: null,
     })
-
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
 
     const result = await cancelBooking(
       {
@@ -203,6 +209,238 @@ describe('cancelBooking', () => {
         cancelReasonProvided: true,
       },
     })
+  })
+
+  it('falls back to direct updates when the backend cancel function is unavailable', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    })
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.rpc).toHaveBeenCalledWith('cancel_booking', {
+      p_cancellation_token: validInput.cancellationToken,
+      p_cancel_reason: validInput.cancelReason,
+    })
+    expect(mockClient.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'cancelled',
+        cancel_reason: validInput.cancelReason,
+      })
+    )
+    expect(cancelBookingReservation).toHaveBeenCalledWith(
+      mockClient,
+      'booking-id-1'
+    )
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Falling back to non-transactional booking cancellation because the backend function is unavailable:',
+      expect.objectContaining({ status: 404 })
+    )
+    consoleWarn.mockRestore()
+  })
+
+  it('falls back to direct updates when the backend cancel function returns an inconclusive gateway failure', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    })
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'cancelled',
+        cancel_reason: validInput.cancelReason,
+      })
+    )
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Falling back to non-transactional booking cancellation because the backend function returned no definitive result:',
+      expect.objectContaining({ status: 502 })
+    )
+    consoleWarn.mockRestore()
+  })
+
+  it('records side effects when an inconclusive cancel response already changed booking status with the requested reason', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        cancel_reason: validInput.cancelReason,
+        status: 'cancelled',
+      },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventType: 'booking.cancelled',
+      actorType: 'guest',
+      payload: {
+        eventTypeId: 'event-type-1',
+        hostUserId: 'host-user-1',
+        startAt: '2025-01-15T14:00:00Z',
+        endAt: '2025-01-15T14:30:00Z',
+        cancelReasonProvided: true,
+      },
+    })
+    expect(touchContactForBookingEvent).toHaveBeenCalledWith(mockClient, {
+      hostUserId: 'host-user-1',
+      guestEmail: 'jane@example.com',
+    })
+    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
+      bookingId: 'booking-id-1',
+      eventTypeId: 'event-type-1',
+      hostUserId: 'host-user-1',
+      startAt: '2025-01-15T14:00:00Z',
+      endAt: '2025-01-15T14:30:00Z',
+      cancelReasonProvided: true,
+    })
+    consoleWarn.mockRestore()
+  })
+
+  it('does not replay side effects when inconclusive cancellation reconciliation finds a different cancellation', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 502',
+        status: 502,
+        details: null,
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        cancel_reason: 'Cancelled by another request',
+        status: 'cancelled',
+      },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).not.toHaveBeenCalled()
+    expect(touchContactForBookingEvent).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
+    consoleWarn.mockRestore()
+  })
+
+  it('does not replay side effects when unavailable-function fallback finds an already cancelled booking', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: {
+        ...confirmedBooking,
+        status: 'cancelled',
+      },
+      error: null,
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('already been cancelled')
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
+    consoleWarn.mockRestore()
+  })
+
+  it('rechecks booking status before fallback cancellation side effects', async () => {
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'Butterbase request failed with 404',
+        status: 404,
+        details: { error: 'Function not found' },
+      },
+    })
+    mockClient.single.mockResolvedValueOnce({
+      data: confirmedBooking,
+      error: null,
+    }).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'No rows found', code: 'PGRST116' },
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toContain('already been cancelled')
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(cancelBookingReservation).not.toHaveBeenCalled()
+    expect(appendBookingEvent).not.toHaveBeenCalled()
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
+    consoleWarn.mockRestore()
   })
 
   it('returns error when booking is not found', async () => {
@@ -250,7 +488,11 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    const updateEqMock = vi.fn().mockResolvedValue({ error: null })
+    const secondEqMock = vi.fn().mockResolvedValue({
+      data: [confirmedBooking],
+      error: null,
+    })
+    const updateEqMock = vi.fn(() => ({ eq: secondEqMock }))
     mockClient.update.mockImplementation((data: any) => {
       // Verify cancel_reason is included in the update payload
       expect(data.cancel_reason).toBe('Schedule conflict')
@@ -290,9 +532,10 @@ describe('cancelBooking', () => {
       return Promise.resolve({ data: null, error: null })
     })
 
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
+    mockConditionalBookingUpdate(mockClient, {
+      data: [confirmedBooking],
+      error: null,
+    })
 
     const result = await cancelBooking(validInput, mockClient)
 
@@ -306,10 +549,9 @@ describe('cancelBooking', () => {
     })
 
     // Update fails with a database error
-    mockClient.update.mockImplementation(() => {
-      return {
-        eq: vi.fn().mockResolvedValue({ error: { message: 'Connection lost', code: '57P01' } }),
-      }
+    mockConditionalBookingUpdate(mockClient, {
+      data: null,
+      error: { message: 'Connection lost', code: '57P01' },
     })
 
     const result = await cancelBooking(validInput, mockClient)
