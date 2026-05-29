@@ -5,6 +5,7 @@ import {
   createHoldSchema,
   rescheduleBookingSchema,
 } from '@/lib/validations/booking'
+import { stringOf } from '@/test/fast-check'
 
 /**
  * Property 8: Booking form validation correctness
@@ -31,11 +32,11 @@ describe('Property 8: Booking form validation correctness', () => {
   // Arbitrary for valid email addresses
   const validEmailArb = fc
     .tuple(
-      fc.stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
+      stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
         minLength: 1,
         maxLength: 10,
       }),
-      fc.stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
+      stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
         minLength: 1,
         maxLength: 10,
       }),
@@ -127,7 +128,7 @@ describe('Property 8: Booking form validation correctness', () => {
           validUuidArb,
           validEmailArb,
           validTimezoneArb,
-          fc.stringOf(fc.constantFrom(' ', '\t', '\n'), {
+          stringOf(fc.constantFrom(' ', '\t', '\n'), {
             minLength: 1,
             maxLength: 20,
           }),
@@ -151,32 +152,30 @@ describe('Property 8: Booking form validation correctness', () => {
       // Generate strings that lack @ or proper domain structure
       const invalidEmailArb = fc.oneof(
         // No @ sign at all
-        fc.stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
+        stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
           minLength: 1,
           maxLength: 20,
         }),
         // Missing domain part after @
-        fc
-          .stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
-            minLength: 1,
-            maxLength: 10,
-          })
+        stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
+          minLength: 1,
+          maxLength: 10,
+        })
           .map((s) => `${s}@`),
         // Missing local part before @
-        fc
-          .stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
-            minLength: 1,
-            maxLength: 10,
-          })
+        stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
+          minLength: 1,
+          maxLength: 10,
+        })
           .map((s) => `@${s}.com`),
         // Double @ sign
         fc
           .tuple(
-            fc.stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
+            stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
               minLength: 1,
               maxLength: 5,
             }),
-            fc.stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
+            stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
               minLength: 1,
               maxLength: 5,
             })

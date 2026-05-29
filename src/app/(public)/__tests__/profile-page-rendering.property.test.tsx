@@ -3,6 +3,7 @@ import * as fc from 'fast-check'
 import { render, cleanup } from '@testing-library/react'
 import { PublicProfileContent } from '../[username]/profile-content'
 import type { ProfileData, EventTypeData } from '../[username]/profile-content'
+import { stringOf } from '@/test/fast-check'
 
 /**
  * Feature: ui-backend-integration, Property 1: Profile page renders all required data fields
@@ -13,28 +14,26 @@ import type { ProfileData, EventTypeData } from '../[username]/profile-content'
  * public profile field, every visible event field, and every booking link.
  */
 describe('Feature: ui-backend-integration, Property 1: Profile page renders all required data fields', () => {
-  const nonEmptyAlphanumeric = fc
-    .stringOf(
-      fc.constantFrom(
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' '
-      ),
-      { minLength: 1, maxLength: 20 }
-    )
+  const nonEmptyAlphanumeric = stringOf(
+    fc.constantFrom(
+      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+      'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+      'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+      'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' '
+    ),
+    { minLength: 1, maxLength: 20 }
+  )
     .filter((s) => s.trim().length > 0)
 
-  const slugArb = fc
-    .stringOf(
-      fc.constantFrom(
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-'
-      ),
-      { minLength: 1, maxLength: 20 }
-    )
+  const slugArb = stringOf(
+    fc.constantFrom(
+      'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+      'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+      '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-'
+    ),
+    { minLength: 1, maxLength: 20 }
+  )
     .filter((s) => s.trim().length > 0)
 
   const locationTypeArb = fc.constantFrom('online', 'phone', 'in_person', 'custom', 'video_provider')

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 import { toHostTimezone, fromHostTimezone } from '../timezone'
+import { validDate } from '@/test/fast-check'
 
 /**
  * Property 7: Timezone conversion round-trip
@@ -23,7 +24,7 @@ describe('Property 7: Timezone conversion round-trip', () => {
   ] as const
 
   // Generate random UTC timestamps between 2020-01-01 and 2030-01-01
-  const utcTimestampArb = fc.date({
+  const utcTimestampArb = validDate({
     min: new Date('2020-01-01T00:00:00Z'),
     max: new Date('2029-12-31T23:59:59Z'),
   })

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import * as fc from 'fast-check'
 import { render, cleanup } from '@testing-library/react'
 import { EventTypeCard } from '../event-type-card'
+import { stringOf } from '@/test/fast-check'
 
 /**
  * Property 6: EventTypeCard Completeness
@@ -14,17 +15,16 @@ import { EventTypeCard } from '../event-type-card'
  */
 describe('Property 6: EventTypeCard Completeness', () => {
   it('title, duration, location, and status indicator are present in output', () => {
-    const nonEmptyAlphanumeric = fc
-      .stringOf(
-        fc.constantFrom(
-          'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-          'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-          'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-          'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-          '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' '
-        ),
-        { minLength: 1, maxLength: 20 }
-      )
+    const nonEmptyAlphanumeric = stringOf(
+      fc.constantFrom(
+        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+        'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' '
+      ),
+      { minLength: 1, maxLength: 20 }
+    )
       .filter((s) => s.trim().length > 0)
 
     const positiveDuration = fc.integer({ min: 1, max: 480 })
