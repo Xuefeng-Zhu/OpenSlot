@@ -391,6 +391,10 @@ export async function refreshProviderCalendarBusyCache({
  * Returns a usable access token for a provider connection.
  * Tokens are decrypted only server-side; expiring tokens are refreshed and the
  * replacement credentials are encrypted back into storage.
+ *
+ * Uses optimistic concurrency on `updated_at` to prevent concurrent refreshes
+ * from overwriting each other's tokens — if another worker already refreshed,
+ * the UPDATE matches 0 rows and we re-read the already-refreshed connection.
  */
 export async function getFreshAccessToken(
   adminClient: BackendCompatClient<Database>,
@@ -417,7 +421,9 @@ export async function getFreshAccessToken(
   })
   const nextRefreshToken = tokens.refreshToken ?? refreshToken
 
-  await adminClient
+  const previousUpdatedAt = connection.updated_at
+
+  const { data: updateResult } = await adminClient
     .from('provider_connections')
     .update({
       access_token_encrypted: await encryptToken(tokens.accessToken),
@@ -428,6 +434,21 @@ export async function getFreshAccessToken(
       updated_at: new Date().toISOString(),
     })
     .eq('id', connection.id)
+    .eq('updated_at', previousUpdatedAt)
+    .select('id')
+
+  if (!updateResult || updateResult.length === 0) {
+    // Another worker already refreshed this token — re-read the connection
+    const { data: freshConnection } = await adminClient
+      .from('provider_connections')
+      .select('access_token_encrypted')
+      .eq('id', connection.id)
+      .single()
+
+    if (freshConnection?.access_token_encrypted) {
+      return decryptToken(freshConnection.access_token_encrypted)
+    }
+  }
 
   return tokens.accessToken
 }

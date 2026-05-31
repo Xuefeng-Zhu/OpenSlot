@@ -35,11 +35,11 @@ function parseLocalTimeToUTC(
   timeStr: string,
   timezone: string
 ): Date {
-  // Build a local datetime string and convert from the given timezone to UTC
-  const [hours, minutes] = timeStr.split(':').map(Number)
-  // Create a date object representing the local time
-  const localDate = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-  return fromZonedTime(localDate, timezone)
+  // Pass the datetime string directly to fromZonedTime. When given a string
+  // without a timezone suffix, fromZonedTime interprets it as wall-clock time
+  // in the specified timezone — bypassing server-local Date parsing entirely,
+  // which avoids DST gap shifts on non-UTC servers.
+  return fromZonedTime(`${dateStr}T${timeStr}:00`, timezone)
 }
 
 /**

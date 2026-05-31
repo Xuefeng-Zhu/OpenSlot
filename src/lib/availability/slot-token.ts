@@ -194,11 +194,16 @@ async function signingKey(
   )
 }
 
+/**
+ * Returns the HMAC signing secret for slot hold tokens.
+ * Never falls back to BUTTERBASE_API_KEY — that credential is the service-role
+ * key used for RLS-bypassing admin operations and must not be reused as a
+ * token-signing secret.
+ */
 function slotTokenSecret(): string | null {
   return (
     process.env.SLOT_HOLD_TOKEN_SECRET ??
     process.env.BUTTERBASE_FUNCTION_SECRET ??
-    process.env.BUTTERBASE_API_KEY ??
     (process.env.NODE_ENV === 'test' ? 'test-slot-hold-token-secret' : null)
   )
 }

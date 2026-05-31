@@ -102,58 +102,67 @@ export async function rescheduleBooking(
     return { success: false, error: 'Failed to reschedule booking' }
   }
 
-  await appendBookingEvent(adminClient, {
-    bookingId: row.old_booking_id,
-    eventType: 'booking.rescheduled',
-    actorType: 'guest',
-    payload: {
-      rescheduledToBookingId: row.new_booking_id,
-      previousStartAt: row.previous_start_at,
-      previousEndAt: row.previous_end_at,
-      startAt: row.start_at,
-      endAt: row.end_at,
-    },
-  })
+  // Post-mutation side effects: wrapped in try/catch so a transient failure
+  // does not hide the already-committed reschedule from the client.
+  try {
+    await appendBookingEvent(adminClient, {
+      bookingId: row.old_booking_id,
+      eventType: 'booking.rescheduled',
+      actorType: 'guest',
+      payload: {
+        rescheduledToBookingId: row.new_booking_id,
+        previousStartAt: row.previous_start_at,
+        previousEndAt: row.previous_end_at,
+        startAt: row.start_at,
+        endAt: row.end_at,
+      },
+    })
 
-  await appendBookingEvent(adminClient, {
-    bookingId: row.new_booking_id,
-    eventType: 'booking.confirmed',
-    actorType: 'guest',
-    payload: {
-      rescheduledFromBookingId: row.old_booking_id,
+    await appendBookingEvent(adminClient, {
+      bookingId: row.new_booking_id,
+      eventType: 'booking.confirmed',
+      actorType: 'guest',
+      payload: {
+        rescheduledFromBookingId: row.old_booking_id,
+        eventTypeId: row.event_type_id,
+        hostUserId: row.host_user_id,
+        startAt: row.start_at,
+        endAt: row.end_at,
+      },
+    })
+
+    await upsertContactFromBooking(adminClient, {
+      bookingId: row.new_booking_id,
+      hostUserId: row.host_user_id,
+      guestName: input.guestName,
+      guestEmail: input.guestEmail,
+      guestTimezone: input.guestTimezone,
+    })
+
+    await enqueueBookingRescheduledOutbox(adminClient, {
+      bookingId: row.new_booking_id,
+      previousBookingId: row.old_booking_id,
       eventTypeId: row.event_type_id,
       hostUserId: row.host_user_id,
       startAt: row.start_at,
       endAt: row.end_at,
-    },
-  })
+      previousStartAt: row.previous_start_at,
+      previousEndAt: row.previous_end_at,
+    })
 
-  await upsertContactFromBooking(adminClient, {
-    bookingId: row.new_booking_id,
-    hostUserId: row.host_user_id,
-    guestName: input.guestName,
-    guestEmail: input.guestEmail,
-    guestTimezone: input.guestTimezone,
-  })
-
-  await enqueueBookingRescheduledOutbox(adminClient, {
-    bookingId: row.new_booking_id,
-    previousBookingId: row.old_booking_id,
-    eventTypeId: row.event_type_id,
-    hostUserId: row.host_user_id,
-    startAt: row.start_at,
-    endAt: row.end_at,
-    previousStartAt: row.previous_start_at,
-    previousEndAt: row.previous_end_at,
-  })
-
-  await enqueueConfiguredBookingReminderOutbox(adminClient, {
-    bookingId: row.new_booking_id,
-    eventTypeId: row.event_type_id,
-    hostUserId: row.host_user_id,
-    startAt: row.start_at,
-    endAt: row.end_at,
-  })
+    await enqueueConfiguredBookingReminderOutbox(adminClient, {
+      bookingId: row.new_booking_id,
+      eventTypeId: row.event_type_id,
+      hostUserId: row.host_user_id,
+      startAt: row.start_at,
+      endAt: row.end_at,
+    })
+  } catch (sideEffectError) {
+    console.error(
+      'Error enqueuing post-reschedule side effects (reschedule committed):',
+      sideEffectError
+    )
+  }
 
   return {
     success: true,
