@@ -29,6 +29,11 @@ export function mapRpcToFunction(
 ) {
   switch (name) {
     case 'confirm_booking':
+      // The SQL function public.confirm_booking (migration
+      // 20260526120000_add_confirm_cancel_booking_functions.sql) reads
+      // event_type.location_type, location_value, video_provider, and
+      // reminder policy directly from event_types; the lib no longer
+      // forwards them through the RPC. Forward only the slim arg set.
       return {
         slug: backendFunctionSlugs.confirmBooking,
         serviceRole: true,
@@ -39,19 +44,25 @@ export function mapRpcToFunction(
           guestTimezone: params.p_guest_timezone,
           notes: params.p_notes,
           answers: params.p_booking_answers,
-          locationType: params.p_location_type,
-          locationValue: params.p_location_value,
-          conferenceProvider: params.p_conference_provider,
-          conferenceStatus: params.p_conference_status,
         },
       }
     case 'cancel_booking':
+      // The SQL function public.cancel_booking requires p_actor_type and
+      // p_actor_id so the booking_events audit row records the correct
+      // actor. The route handler passes actorType='host' and actorId=profileId
+      // for authenticated host cancellations; the lib defaults to
+      // actorType='guest', actorId=null for guest cancellations. These two
+      // fields MUST be forwarded here, otherwise the function sees NULL for
+      // the actor and the audit row is misattributed (or the function
+      // raises invalid_actor_type).
       return {
         slug: backendFunctionSlugs.cancelBooking,
         serviceRole: true,
         body: {
           cancellationToken: params.p_cancellation_token,
           cancelReason: params.p_cancel_reason,
+          actorType: params.p_actor_type,
+          actorId: params.p_actor_id,
         },
       }
     case 'create_slot_hold_with_reservation':
@@ -173,8 +184,19 @@ export function normalizeRpcResult(name: string, result: unknown) {
   }
 
   if (name === 'cancel_booking') {
-    if (Array.isArray(result)) return result
-    return [result ?? { success: true }]
+    // The SQL function public.cancel_booking returns TABLE(booking_id UUID).
+    // Butterbase wraps the row in a camelCase object, so the runtime result
+    // looks like { bookingId: '...' }. Normalize back to snake_case for
+    // lib callers that read the returned booking id.
+    if (Array.isArray(result)) {
+      return result.map((row) => {
+        const r = row as Record<string, unknown>
+        return { booking_id: r.bookingId ?? r.booking_id }
+      })
+    }
+    const r = result as Record<string, unknown> | null
+    if (r === null) return [{ success: true }]
+    return [{ booking_id: r.bookingId ?? r.booking_id }]
   }
 
   if (name === 'create_slot_hold_with_reservation') {

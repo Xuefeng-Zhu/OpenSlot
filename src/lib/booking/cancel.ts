@@ -1,22 +1,16 @@
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import type { Database } from '@/lib/types/database'
 import type { CancelBookingInput, CancelBookingResult } from './types'
-import { enqueueBookingCancelledOutbox } from '@/lib/outbox/outbox'
-import { cancelBookingReservation } from '@/lib/reservations/host-reservations'
 import { touchContactForBookingEvent } from '@/lib/contacts/contacts'
-import { appendBookingEvent } from './events'
 
 /**
  * Cancels a confirmed booking using its cancellation token.
  *
- * Flow:
- * 1. Fetch booking by cancellation_token where status='confirmed'
- * 2. If not found → return error
- * 3. If already cancelled → return "already cancelled" error
- * 4. Update status to 'cancelled' and store cancel_reason
- * 5. Enqueue outbox side-effect events
- * 6. Emails and external side effects are processed from the outbox
- * 8. Return success
+ * The atomic `cancel_booking` RPC performs the booking status update, host
+ * reservation release, `booking_events` append, and `outbox_events` enqueue
+ * in a single database transaction. This function performs only the
+ * best-effort post-RPC contact touch, sourced from a minimal pre-fetch that
+ * selects just the host identity the contact touch needs.
  */
 export async function cancelBooking(
   input: CancelBookingInput,
@@ -27,143 +21,58 @@ export async function cancelBooking(
     cancelReason,
     actorType = 'guest',
     actorId = null,
-  } = input
-  const actor =
-    actorId === null ? { actorType } : { actorType, actorId }
+  } = input;
 
-  // Step 1: Fetch booking by cancellation token
-  const { data: booking, error: fetchError } = await adminClient
+  // 1. Atomic cancel RPC: booking status flip + reservation release +
+  // booking_events + outbox_events all in one transaction.
+  const { error: rpcError } = await adminClient.rpc('cancel_booking', {
+    p_cancellation_token: cancellationToken,
+    p_cancel_reason: cancelReason ?? null,
+    p_actor_type: actorType,
+    p_actor_id: actorId,
+  });
+
+  if (rpcError) {
+    return { success: false, error: cancelRpcErrorMessage(rpcError) };
+  }
+
+  // 2. Best-effort post-RPC contact touch. A minimal pre-fetch supplies the
+  // host identity; failures here must not undo the already-committed cancel.
+  const { data: contactRow } = await adminClient
     .from('bookings')
-    .select('*')
+    .select('host_user_id, guest_email')
     .eq('cancellation_token', cancellationToken)
-    .single()
+    .maybeSingle();
 
-  if (fetchError || !booking) {
-    return { success: false, error: 'Booking not found' }
-  }
-
-  // Step 2: Check if already cancelled
-  if (booking.status === 'cancelled') {
-    return { success: false, error: 'Booking has already been cancelled' }
-  }
-
-  const functionResult = await cancelBookingWithBackendFunction(adminClient, {
-    cancellationToken,
-    cancelReason,
-  })
-
-  if (functionResult.attempted) {
-    if (!functionResult.success) {
-      return { success: false, error: functionResult.error }
-    }
-
-    await appendBookingEvent(adminClient, {
-      bookingId: booking.id,
-      eventType: 'booking.cancelled',
-      ...actor,
-      payload: {
-        eventTypeId: booking.event_type_id,
-        hostUserId: booking.host_user_id,
-        startAt: booking.start_at,
-        endAt: booking.end_at,
-        cancelReasonProvided: Boolean(cancelReason),
-      },
-    })
-
+  if (contactRow) {
     await touchContactForBookingEvent(adminClient, {
-      hostUserId: booking.host_user_id,
-      guestEmail: booking.guest_email,
-    })
-
-    await enqueueBookingCancelledOutbox(adminClient, {
-      bookingId: booking.id,
-      eventTypeId: booking.event_type_id,
-      hostUserId: booking.host_user_id,
-      startAt: booking.start_at,
-      endAt: booking.end_at,
-      cancelReasonProvided: Boolean(cancelReason),
-    })
-
-    return { success: true }
+      hostUserId: contactRow.host_user_id,
+      guestEmail: contactRow.guest_email,
+    });
   }
 
-  // Step 3: Update booking status to cancelled
-  const { error: updateError } = await adminClient
-    .from('bookings')
-    .update({
-      status: 'cancelled',
-      cancel_reason: cancelReason ?? null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', booking.id)
-
-  if (updateError) {
-    console.error('Error cancelling booking:', updateError)
-    return { success: false, error: 'Failed to cancel booking' }
-  }
-
-  await cancelBookingReservation(adminClient, booking.id)
-
-  await appendBookingEvent(adminClient, {
-    bookingId: booking.id,
-    eventType: 'booking.cancelled',
-    ...actor,
-    payload: {
-      eventTypeId: booking.event_type_id,
-      hostUserId: booking.host_user_id,
-      startAt: booking.start_at,
-      endAt: booking.end_at,
-      cancelReasonProvided: Boolean(cancelReason),
-    },
-  })
-
-  await touchContactForBookingEvent(adminClient, {
-    hostUserId: booking.host_user_id,
-    guestEmail: booking.guest_email,
-  })
-
-  await enqueueBookingCancelledOutbox(adminClient, {
-    bookingId: booking.id,
-    eventTypeId: booking.event_type_id,
-    hostUserId: booking.host_user_id,
-    startAt: booking.start_at,
-    endAt: booking.end_at,
-    cancelReasonProvided: Boolean(cancelReason),
-  })
-
-  return { success: true }
+  return { success: true };
 }
 
-type CancelFunctionResult =
-  | { attempted: false }
-  | { attempted: true; success: true }
-  | { attempted: true; success: false; error: string }
+function cancelRpcErrorMessage(error: { code?: string; message?: string } | null | undefined): string {
+  const message = error?.message ?? '';
 
-async function cancelBookingWithBackendFunction(
-  adminClient: BackendCompatClient<Database>,
-  input: {
-    cancellationToken: string
-    cancelReason?: string
-  }
-): Promise<CancelFunctionResult> {
-  if (typeof adminClient.rpc !== 'function') return { attempted: false }
-
-  const { error } = await adminClient.rpc('cancel_booking', {
-    p_cancellation_token: input.cancellationToken,
-    p_cancel_reason: input.cancelReason ?? null,
-  })
-
-  if (error) {
-    console.error('Error cancelling booking through backend function:', error)
-    return {
-      attempted: true,
-      success: false,
-      error: 'Failed to cancel booking',
-    }
+  if (message.includes('booking_not_found')) {
+    return 'Booking not found';
   }
 
-  return {
-    attempted: true,
-    success: true,
+  if (message.includes('booking_already_cancelled')) {
+    return 'Booking has already been cancelled';
   }
+
+  if (message.includes('booking_already_rescheduled')) {
+    return 'Booking has been rescheduled';
+  }
+
+  console.error('Error cancelling booking through backend function:', {
+    code: error?.code,
+    message: error?.message,
+  });
+
+  return 'Failed to cancel booking';
 }

@@ -77,10 +77,10 @@ Public event page
   -> optional Turnstile verification when configured
   -> confirmBooking()
   -> validate structured answers against event_types.invitee_questions
-  -> bookings insert with event-type location/answer snapshot + hold status update + host_reservations hold-to-booking conversion
-  -> booking_events append
-  -> contacts upsert from guest identity hash
-  -> outbox_events enqueue for provider writes, notifications, reminders, and future webhooks
+  -> final provider availability check (CALENDAR_FINAL_AVAILABILITY_CHECK)
+  -> public.confirm_booking() RPC
+  -> bookings insert with event-type location/answer snapshot + hold status update + host_reservations hold-to-booking conversion + booking_events append + four outbox_events enqueues (confirmed, calendar.write.requested, notifications.requested, tenant.webhooks.requested) all in one database transaction
+  -> contacts upsert from guest identity hash (best-effort post-RPC; failures must not undo the confirmed booking)
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> claim_outbox_events()
   -> provider calendar event create/delete through Google Calendar or Microsoft Graph
@@ -94,10 +94,10 @@ Public event page
   -> consume_public_rate_limit()
   -> optional Turnstile verification when configured
   -> cancelBooking()
-  -> host_reservations cancellation
-  -> booking_events append
-  -> contacts lifecycle touch
-  -> outbox_events enqueue for provider updates, notifications, and future webhooks
+  -> public.cancel_booking() RPC
+  -> bookings status = cancelled + host_reservations release + booking_events append + four outbox_events enqueues (cancelled, calendar.cancel.requested, notifications.cancel.requested, tenant.webhooks.cancel.requested) all in one database transaction
+  -> minimal bookings.host_user_id / guest_email pre-fetch
+  -> contacts lifecycle touch (best-effort post-RPC; failures must not undo the already-committed cancel)
   -> GET/POST /api/outbox/process through Vercel Cron or an equivalent worker trigger
   -> /booking/reschedule/[token]
   -> POST /api/holds for the replacement slot
@@ -108,6 +108,19 @@ Public event page
   -> booking_events append + contacts upsert + outbox_events enqueue
   -> replacement booking reminder outbox event scheduled from the event type policy
 ```
+
+> **Atomicity contract.** `public.confirm_booking()` and
+> `public.cancel_booking()` (migration
+> `20260526120000_add_confirm_cancel_booking_functions.sql`) are the
+> single source of truth for confirm and cancel writes. A mid-transaction
+> failure (including a `no_overlapping_bookings` 23P01 violation) rolls
+> back every side-effect row. The JS lib in `src/lib/booking/confirm.ts`
+> and `src/lib/booking/cancel.ts` only does pre-RPC validation
+> (hold fetch, answer validation, optional final provider availability
+> check) and best-effort post-RPC contact work. Tests in
+> `src/lib/booking/__tests__/confirm.atomic.test.ts`,
+> `src/lib/booking/__tests__/cancel.atomic.test.ts`, and
+> `e2e/integration/confirm-cancel.atomic.test.ts` pin this contract.
 
 The final anti-double-booking guard for confirmed bookings is the Postgres
 exclusion constraint documented in `backend/sql/provider-portability.sql`.
@@ -212,6 +225,9 @@ artifacts belong under `backend/butterbase/`:
 - `20260514000000_add_event_type_reminders.sql`: per-event-type pre-meeting reminder policy fields.
 - `20260517044810_add_availability_schedules.sql`: host-owned named schedules, event type schedule assignment, schedule-scoped availability rules/overrides, and schedule RLS/grants.
 - `20260518141155_public_booking_hardening.sql`: public rate-limit ledger/RPC and scheduled stale hold expiry RPC.
+- `20260524000000_add_mcp_api_tokens.sql`: host-scoped MCP API token hashes, scopes, one-time token summary metadata, RLS, and service-role grants.
+- `20260525000000_prevent_event_type_booking_delete.sql`: deferrable NO ACTION foreign key so confirmed bookings block event type deletes; the cancel RPC + atomicity tests now rely on this for the deferred-constraint behaviour.
+- `20260526120000_add_confirm_cancel_booking_functions.sql`: atomic `public.confirm_booking()` and `public.cancel_booking()` Postgres functions that perform the `bookings` row write, the `host_reservations` mirror write, the `booking_events` audit append, and the four `outbox_events` side-effect enqueues inside a single database transaction. Pinned by `src/lib/booking/__tests__/confirm.atomic.test.ts`, `src/lib/booking/__tests__/cancel.atomic.test.ts`, and `e2e/integration/confirm-cancel.atomic.test.ts`.
 - `20260524000000_add_mcp_api_tokens.sql`: host-scoped MCP API token hashes, scopes, one-time token summary metadata, RLS, and service-role grants.
 
 ## API Routes
