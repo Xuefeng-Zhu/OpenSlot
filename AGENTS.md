@@ -1,289 +1,188 @@
 # AGENTS.md
 
-Operational guide for coding agents and human contributors working in this repository. Keep this file practical and update it whenever commands, architecture, or implementation status changes.
+Operational guide for coding agents and human contributors working in this repository. Update it whenever commands, architecture, or implementation status changes.
 
 ## Project Overview
 
-OpenSlot is an MVP scheduling app. Hosts can authenticate with Butterbase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests can view public event types, select an available slot, create a short-lived hold, and confirm a booking.
+OpenSlot is a private MVP scheduling app. Hosts authenticate with Butterbase, maintain a profile, define availability, receive bookings, and expose public booking pages. Guests view public event types, select an available slot, create a short-lived hold, and confirm a booking.
 
-Important current-state note: some dashboard surfaces are still prototype or mock-backed. The Butterbase-backed core is strongest around onboarding setup, profile, settings persistence, availability, dashboard event type list/new/edit, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling flows, contact profiles/history, outbox processing, calendar provider sync, webhook endpoint dashboard management, and webhook delivery processing.
+Current state: some dashboard surfaces are still prototype or mock-backed. The Butterbase-backed core is strongest around onboarding, profile, settings persistence, availability, event type CRUD, public profile/event pages, slot computation, holds, confirmed bookings, token cancellation/rescheduling, contact profiles/history, outbox processing, calendar provider sync, webhook endpoint management, and webhook delivery.
 
 ## Tech Stack
 
-- Next.js 16 App Router with React 19 and TypeScript strict mode.
-- Butterbase Auth, REST data APIs, Postgres/RLS, and server-only service-key writes.
-- Tailwind CSS and shadcn-style local UI primitives in `src/components/ui/`.
-- React Hook Form and Zod for forms that are wired to validation schemas.
-- `date-fns` and `date-fns-tz` for time and timezone handling.
-- Vitest, jsdom, Testing Library, `fast-check`, and `jest-axe` for tests.
+- Next.js 16 App Router, React 19, TypeScript strict mode, `@/*` → `./src/*`.
+- Butterbase Auth, REST data APIs, Postgres/RLS, server-only service-key writes.
+- Tailwind CSS v4 (`@tailwindcss/postcss`) and shadcn-style local UI primitives in `src/components/ui/`. Use `cn()` from `src/lib/utils.ts` for class merging.
+- React Hook Form + Zod for forms.
+- `date-fns` + `date-fns-tz` for time/timezone handling.
+- Vitest (jsdom, globals) + Testing Library + `fast-check` + `jest-axe` for unit/component/property/a11y.
+- Playwright (sequential, chromium-only) for E2E in `e2e/`.
+- ESLint flat config (`eslint.config.mjs`). No Prettier: formatting is ESLint-only.
+- Build: `next build --webpack` (Turbopack intentionally off).
 
 ## Repository Structure
 
 ```text
-src/app/                         Next App Router routes
-src/app/(auth)/                  Login, signup, and password reset pages
+src/app/                         Next App Router routes and route handlers
+src/app/(auth)/                  Login, signup, password reset pages
 src/app/(dashboard)/             Authenticated dashboard route group
 src/app/(public)/[username]/     Public profile and event booking pages
-src/app/api/                     Route handlers for slots, holds, bookings, availability
+src/app/api/                     Route handlers (39 files, all `runtime = 'edge'`)
+src/app/booking/                 Real routes (not in a group) for guest cancel/reschedule
+src/proxy.ts                     Cookie refresh + dashboard guard helper (NOT wired as Next middleware)
 src/components/booking/          Guest booking flow components
 src/components/dashboard/        Dashboard views and reusable dashboard UI
 src/components/shared/           Cross-feature UI helpers
-src/components/ui/               Local shadcn-style primitives
-src/lib/availability/            Slot computation engine and types
-src/lib/booking/                 Booking confirmation/cancellation engines
-src/lib/contacts/                Contact identity, summaries, and anonymization helpers
-src/lib/email/                   Email templates and console provider
-src/lib/idempotency/             Request idempotency helpers for retry-safe mutations
-src/lib/outbox/                  Internal side-effect event enqueue helpers
-src/lib/reservations/            Host reservation mirror helpers
-src/lib/backend/                 Backend ports, Butterbase adapter, compatibility clients
-src/lib/validations/             Zod schemas
-src/lib/utils/                   Slug and timezone helpers
-src/proxy.ts                     Butterbase session refresh and dashboard redirect proxy
-backend/sql/                     Provider-portable SQL invariants
-backend/database/                Shared database migrations and seed reference
-backend/butterbase/              Butterbase function/runtime artifacts
+src/components/ui/               Local shadcn-style primitives (Radix-backed)
+src/lib/                         Core business logic (see src/lib/AGENTS.md)
+e2e/                             Playwright E2E test specs and support
+scripts/                         Calendar OAuth configuration helpers
+backend/                         DB migrations, SQL invariants, Butterbase runtime (see backend/AGENTS.md)
 docs/                            Contributor and architecture documentation
 ```
 
-## Important Commands
+## Legacy / Stale (ignore)
 
-Use `npm ci` for deterministic installs from `package-lock.json`.
+- `supabase/`: only `.temp/` CLI cache remains. Project migrated to Butterbase; do not add Supabase SDK code.
+- `outputs/`: manual run artifacts (demo videos, exports). Not gitignored; safe to ignore.
+- `tsconfig.tsbuildinfo`: TypeScript incremental cache; not in source control.
+- `src/test/`: single helper file (`fast-check.ts`) sitting outside `src/lib/`. Don't move it; the project uses this path.
+
+## Commands
+
+```bash
+npm ci                            # Deterministic install from package-lock.json
+npm run dev                       # next dev (port 3000)
+npm run build                     # next build --webpack
+npm run start                     # Production server (after build)
+npm run lint                      # eslint .
+npm run typecheck                 # tsc --noEmit --incremental false
+npm run test                      # vitest --run
+npm run test:watch                # vitest (watch mode)
+npm run test:e2e                  # playwright test (auto-starts next dev)
+npm run test:e2e:headed           # playwright test --headed
+npm run test:e2e:ui               # playwright test --ui
+npm run test:e2e:debug            # PWDEBUG=1 playwright test --debug
+npm run verify                    # lint + typecheck + test + build
+npm run oauth:calendar            # Both Google + Microsoft calendar OAuth
+npm run oauth:google              # Google only
+npm run oauth:microsoft           # Microsoft only
+```
+
+CI (`.github/workflows/ci.yml`) runs `npm ci` → `npm audit --audit-level=moderate` → `npm run lint` → `npm run typecheck` → `npm run test` → `npm run build` on push/PR to `main`. A separate `e2e` job runs `npm run test:e2e` against a configured Butterbase test app when secrets are present. Vercel cron schedules in `vercel.json` (daily, Hobby-tier compatible).
+
+## Setup
 
 ```bash
 npm ci
+cp .env.example .env.local
+# Fill in the values in .env.local (see Required env vars below)
 npm run dev
-npm run lint
-npm run typecheck
-npm run test
-npm run test:e2e
-npm run test:watch
-npm run build
-npm run start
-npm run verify
-npm run oauth:calendar
 ```
 
-GitHub Actions in `.github/workflows/ci.yml` runs the release gate on pushes to
-`main` and pull requests targeting `main`. It runs `npm ci`,
-`npm audit --audit-level=moderate`, `npm run lint`, `npm run typecheck`,
-`npm run test`, and `npm run build`. The Dashboard E2E job runs against a
-configured Butterbase test app when repository secrets are present. Vercel
-worker cron config exists in `vercel.json`.
+Required env vars (full list in `.env.example`): `NEXT_PUBLIC_BUTTERBASE_APP_ID`, `NEXT_PUBLIC_BUTTERBASE_API_URL`, `BUTTERBASE_API_KEY`, `BUTTERBASE_FUNCTION_SECRET`, `SLOT_HOLD_TOKEN_SECRET`, `NEXT_PUBLIC_APP_URL`. Worker secret (`OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, `HOLD_EXPIRY_PROCESS_SECRET`, or shared `CRON_SECRET`). Calendar OAuth IDs + secrets. `CALENDAR_TOKEN_ENCRYPTION_SECRET`. Optional Turnstile keys. `EMAIL_PROVIDER` (`console` | `resend` | `maileroo`) + provider key.
 
-## Setup Instructions
+Landing page renders without Butterbase credentials. Authenticated dashboard routes, public booking data, API routes, and booking writes require valid Butterbase configuration. Apply the schema, RLS policies, and functions from `backend/database/migrations/`, `backend/sql/provider-portability.sql`, and `backend/butterbase/` to the configured Butterbase app.
 
-1. Install dependencies:
+## Architecture
 
-   ```bash
-   npm ci
-   ```
+Server-first around booking integrity:
 
-2. Create `.env.local` from `.env.example`:
+- Server Components fetch profile, event type, availability, and bookings data through backend clients backed by Butterbase.
+- Client Components manage form and interaction state, then call route handlers for mutations.
+- Public slot lookup: `GET /api/slots`. Guest hold creation: `POST /api/holds` + `create-slot-hold` backend function. Booking confirmation: `POST /api/bookings`.
+- Booking confirmation/cancellation/rescheduling support optional idempotency via request body or `Idempotency-Key` header. Responses cached in `request_idempotency` for safe retries.
+- Booking confirmation/cancellation/rescheduling enqueue outbox events for provider writes, emails, and tenant webhooks; update host-scoped contact aggregates as best-effort derived data.
+- Contact anonymization: `DELETE /api/contacts/[id]` + `anonymize_contact_bookings()` RPC.
+- Outbox processing: `GET/POST /api/outbox/process` (secret-protected). Calendar sync: `GET/POST /api/calendar/sync`. Webhook delivery: `GET/POST /api/webhooks/process`. Hold expiry: `GET/POST /api/holds/expire`. All gated by route secrets or `CRON_SECRET`.
+- Host availability batch save: `POST /api/availability`.
+- Booking cancellation logic: `src/lib/booking/cancel.ts` + `src/app/api/bookings/[id]/cancel/route.ts`.
+- Booking rescheduling logic: `src/lib/booking/reschedule.ts` + `src/app/api/bookings/reschedule/route.ts`.
 
-   ```bash
-   cp .env.example .env.local
-   ```
+Database integrity is part of the architecture:
 
-3. Fill in:
+- `bookings.no_overlapping_bookings`: Postgres exclusion constraint preventing overlapping confirmed bookings per host. MUST NOT be removed.
+- `host_reservations_no_overlap`: Postgres exclusion constraint preventing overlapping active holds/bookings per host. MUST NOT be removed.
+- RLS enabled on all app tables. Data API grants are explicit; public pages use server-side service-key reads, not direct anon table access.
+- Guest writes use the server backend client with token-based auth (`hold_token`, `cancellation_token`).
 
-   ```env
-   NEXT_PUBLIC_BUTTERBASE_APP_ID=...
-   NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
-   BUTTERBASE_API_KEY=...
-   BUTTERBASE_FUNCTION_SECRET=...
-   SLOT_HOLD_TOKEN_SECRET=...
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
-   OUTBOX_PROCESS_SECRET=...
-   WEBHOOK_PROCESS_SECRET=...
-   CRON_SECRET=...
-   HOLD_EXPIRY_PROCESS_SECRET=...
-   NEXT_PUBLIC_TURNSTILE_SITE_KEY=...
-   TURNSTILE_SECRET_KEY=...
-   GOOGLE_CALENDAR_CLIENT_ID=...
-   GOOGLE_CALENDAR_CLIENT_SECRET=...
-   MICROSOFT_CALENDAR_CLIENT_ID=...
-   MICROSOFT_CALENDAR_CLIENT_SECRET=...
-   MICROSOFT_CALENDAR_TENANT=common
-   CALENDAR_TOKEN_ENCRYPTION_SECRET=...
-   CALENDAR_SYNC_SECRET=...
-   CALENDAR_FINAL_AVAILABILITY_CHECK=stale
-   CALENDAR_STALE_AFTER_MINUTES=10
-   BOOKING_AGENT_MODEL=deepseek/deepseek-v4-flash
-   EMAIL_PROVIDER=console
-   EMAIL_FROM="OpenSlot <bookings@example.com>"
-   RESEND_API_KEY=...
-   MAILEROO_API_KEY=...
-   ```
+## State and Data Flow
 
-4. Ensure the configured Butterbase app has the OpenSlot schema, RLS policies,
-   and functions described by `backend/database/migrations/`,
-   `backend/sql/provider-portability.sql`, and `backend/butterbase/`.
+- No global state library. Server Components fetch initial data; Client Components use local `useState`/`useMemo`/`useCallback`.
+- Mutations go through API routes. Some dashboard prototype pages still use local state or mock data.
+- Dashboard event type CRUD: `/api/event-types`.
+- Availability editing: baseline in component state, diff computed, batch payload posted to `/api/availability`.
+- Slot holds + host reservations + bookings in Butterbase. Holds expire after 5 min; lazily marked expired during hold creation or confirmation.
+- Confirming a booking converts the hold reservation into a booking reservation; cancelling reverses it.
+- Rescheduling: new hold + original `reschedule_token`; DB RPC updates old booking, inserts new booking, updates host reservations in one transaction.
+- Confirmed/cancelled bookings append ID-based rows to `outbox_events` (notification emails sent by the processor) and `booking_events` (audit/replay).
+- Confirmed/cancelled/rescheduled bookings maintain host-scoped `contacts` rows keyed by normalized email hash. Contact list and profile pages derive visible email/history from booking rows.
+- Contact anonymization marks the contact deleted and scrubs matching booking guest fields, notes, cancellation reason through a server-side backend function.
+- Tenant webhook outbox events create `webhook_deliveries`; delivery workers sign requests with endpoint secrets and retry non-2xx / network failures.
 
-5. Start the app:
+## Storage and Sync
 
-   ```bash
-   npm run dev
-   ```
+- Persistent storage: Butterbase / Postgres.
+- Auth sessions in HTTP-only OpenSlot cookies.
+- No realtime sync, no client-side offline persistence.
+- Calendar provider tokens and webhook secrets in server-only tables: no direct anon/authenticated grants.
+- Calendar OAuth tokens encrypted at rest with `CALENDAR_TOKEN_ENCRYPTION_SECRET`.
+- Email provider defaults to `console`; `EMAIL_PROVIDER=resend` or `maileroo` enables production sends.
 
-The landing page can render without Butterbase credentials. Authenticated dashboard routes, public booking data, API routes, and booking writes require valid Butterbase configuration.
+## Coding Conventions
 
-## Development Workflow
+- TypeScript strict mode + `@/*` path alias.
+- Server data fetching in Server Components or route handlers. `"use client"` only for interactive components.
+- Use local UI primitives from `src/components/ui/` and `cn()` from `src/lib/utils.ts`.
+- Zod schemas in `src/lib/validations/` for request and form validation.
+- Pure/service-like modules for critical booking logic in `src/lib/booking/` and `src/lib/availability/`.
+- `date-fns-tz` helpers for timezone-sensitive scheduling.
+- JSDoc/TSDoc above exported functions in `src/lib/`, `src/app/api/`, and `src/proxy.ts`, especially when they cross module boundaries or perform side effects. Comment non-obvious business logic, retry/idempotency behavior, security boundaries, provider integrations, and stateful client workflows. Skip comments on obvious code or simple presentational components.
+- Codebase mixes semicolon and no-semicolon styles by area: preserve the touched file's style.
 
-1. Inspect the target flow and adjacent tests before editing.
-2. Prefer small, reviewable changes with narrow file ownership.
-3. Update tests when behavior changes.
-4. Update docs when commands, setup, architecture, environment variables, or user-visible behavior changes.
-5. Run the smallest relevant validation first, then the broader gate before handing off.
+## Security and Privacy
 
-Recommended validation for normal changes:
+- Never expose `BUTTERBASE_API_KEY` to client code. Public env vars must be browser-safe.
+- Guest booking and cancellation APIs rely on random tokens (`hold_token`, `cancellation_token`) as authorization.
+- Public profile/event pages render via server-side service-key reads and return selected fields only.
+- Public slot computation uses a service-key route after validating the requested event type is active and belongs to the host.
+- Booking data includes guest names, emails, notes, timezones, cancellation tokens. Do not log or expose these casually.
+- Outbox payloads stay narrow and ID-based unless a worker truly needs denormalized data.
+- Email templates interpolate user-provided values into HTML: review escaping/sanitization before adding a real email provider.
 
-```bash
-npm run lint
-npm run typecheck
-npm run test
-```
+## Testing
 
-Run `npm run build` for route, env, Next.js, or production-sensitive changes.
+- Vitest config: `vitest.config.ts`. jsdom + globals, 15 s timeout, excludes `e2e/**`.
+- Property tests use `fast-check` (100 runs default). Documented with `Property N: <description>` / `Validates: Requirements X.Y` JSDoc headers.
+- A11y tests use `jest-axe`.
+- Tests live in `__tests__` directories next to the code under test.
+- Only shared test helper: `src/test/fast-check.ts` (`stringOf`, `char`, `validDate` arbitraries).
+- Mocking patterns: `vi.hoisted` factories, `vi.importActual` for partial mocks, `vi.stubEnv` / `vi.unstubAllEnvs`, fake timers for slot/hold tests.
+- Playwright config: chromium only, viewport 1280x900, `timezoneId: 'America/New_York'`, `workers: 1`, `retries: 2` in CI. `globalSetup` at `e2e/global-setup.ts`.
+- E2E helpers in `e2e/support/` (auth, booking, db, env, test).
 
-## Testing and Validation
-
-- Vitest config is in `vitest.config.ts`.
-- Tests run in `jsdom` with globals enabled and `@/*` mapped to `src/*`.
-- Property-based coverage uses `fast-check`.
-- Accessibility-focused tests use `jest-axe`.
-- Tests live near code in `__tests__` directories.
-
-Useful targeted examples:
+Targeted examples:
 
 ```bash
 npm run test -- src/lib/availability/__tests__/compute-slots.test.ts
 npm run test -- 'src/app/(dashboard)/__tests__/dashboard-booking-link.property.test.ts'
 ```
 
-The full test suite may print `Not implemented: navigation to another Document` from jsdom while still passing.
-
-## Coding Conventions
-
-- Use TypeScript strict mode and the `@/*` path alias.
-- Keep server data fetching in Server Components or route handlers when possible.
-- Use `"use client"` only for interactive components.
-- Use local UI primitives from `src/components/ui/` and `cn()` from `src/lib/utils.ts`.
-- Prefer Zod schemas in `src/lib/validations/` for request and form validation.
-- Keep critical booking logic in pure or service-like modules under `src/lib/booking/` and `src/lib/availability/`.
-- Use `date-fns-tz` helpers for timezone-sensitive scheduling logic.
-- Document important behavior with concise comments:
-  - Use JSDoc/TSDoc above exported TypeScript functions in `src/lib/`, `src/app/api/`, and `src/proxy.ts`, especially when they cross module boundaries or perform side effects.
-  - Add comments for complex business logic, non-obvious data transforms, retry/idempotency behavior, security boundaries, provider integrations, and stateful client workflows.
-  - Avoid comments that restate obvious code or annotate simple presentational components.
-- Preserve existing style in touched files. The codebase currently mixes semicolon and no-semicolon styles by area.
-
-## Architecture Overview
-
-OpenSlot is server-first for data access and booking integrity:
-
-- Server Components fetch profile, event type, availability, and bookings data through backend clients backed by Butterbase.
-- Client Components manage form and interaction state, then call route handlers for mutations.
-- Public slot lookup uses `/api/slots`.
-- Guest hold creation uses `/api/holds` and the `create-slot-hold` backend function.
-- Booking confirmation uses `/api/bookings`.
-- Booking confirmation, cancellation, and rescheduling support optional idempotency keys through request bodies or the `Idempotency-Key` header.
-- Booking confirmation, cancellation, and rescheduling enqueue outbox events for provider writes, notifications, and tenant webhooks.
-- Booking confirmation, cancellation, and rescheduling update host-scoped contact aggregates as best-effort derived data.
-- Contact anonymization uses `DELETE /api/contacts/[id]` and the `anonymize_contact_bookings()` RPC to scrub matching booking display PII while preserving meeting records.
-- Outbox events are processed through `GET/POST /api/outbox/process` using `OUTBOX_PROCESS_SECRET` or `CRON_SECRET`.
-- Calendar provider metadata and busy cache are refreshed through `GET/POST /api/calendar/sync` using `CALENDAR_SYNC_SECRET` or `CRON_SECRET`.
-- Tenant webhook deliveries are processed through `GET/POST /api/webhooks/process` using `WEBHOOK_PROCESS_SECRET` or `CRON_SECRET`.
-- Host availability batch save uses `/api/availability`.
-- Booking cancellation logic is in `src/lib/booking/cancel.ts` and the API route `src/app/api/bookings/[id]/cancel/route.ts`.
-- Booking rescheduling logic is in `src/lib/booking/reschedule.ts` and the API route `src/app/api/bookings/reschedule/route.ts`.
-
-Database integrity is part of the architecture:
-
-- `bookings.no_overlapping_bookings` is a PostgreSQL exclusion constraint that prevents overlapping confirmed bookings per host.
-- `host_reservations_no_overlap` is a PostgreSQL exclusion constraint that prevents overlapping active holds/bookings per host.
-- RLS is enabled on all app tables.
-- Data API grants are explicit; public pages and slot reads use server-side service-key code instead of direct anon table access.
-- API routes that need guest writes use the server backend client and token-based authorization.
-
-See [docs/architecture.md](docs/architecture.md) for more detail.
-
-## Key Modules and Responsibilities
-
-- `src/lib/availability/compute-slots.ts`: core slot generation and filtering, including rules, overrides, bookings, holds, buffers, min notice, and max booking window.
-- `src/app/api/slots/route.ts`: public slot computation endpoint.
-- `src/app/api/holds/route.ts`: creates 5-minute slot holds and checks active holds/bookings.
-- `src/lib/booking/confirm.ts`: validates holds, inserts confirmed bookings, marks holds confirmed, and queues side effects.
-- `src/lib/booking/cancel.ts`: marks confirmed bookings cancelled and queues side effects.
-- `src/lib/booking/reschedule.ts`: swaps a confirmed booking to a new hold through `reschedule_booking_with_hold()`, then queues side effects.
-- `src/lib/booking/events.ts`: appends ID-based booking lifecycle audit events.
-- `src/lib/contacts/contacts.ts`: normalizes/hashes guest email identity, updates host-scoped contacts from booking lifecycle events, and calls contact anonymization RPCs.
-- `src/lib/contacts/summaries.ts`: builds contact list summaries and meeting timelines from contacts, bookings, and booking events.
-- `src/lib/idempotency/request-idempotency.ts`: hashes validated request payloads, detects key reuse conflicts, and replays cached API responses.
-- `src/lib/outbox/outbox.ts`: enqueues deterministic, deduped booking side-effect events.
-- `src/lib/outbox/process.ts`: claims outbox rows, runs event handlers, and marks completion/failure.
-- `src/lib/calendar/connections.ts`: returns safe calendar connection summaries without exposing stored token columns.
-- `src/lib/calendar/oauth.ts`: builds Google/Microsoft OAuth URLs, exchanges codes, refreshes tokens, and loads provider identities.
-- `src/lib/calendar/provider-sync.ts`: refreshes provider access tokens, syncs calendar metadata, rebuilds busy-cache rows, and adapts provider event APIs.
-- `src/lib/calendar/events.ts`: handles calendar outbox rows by creating/cancelling provider events and storing external references.
-- `src/lib/webhooks/endpoints.ts`: returns safe webhook endpoint summaries without exposing signing secrets.
-- `src/lib/webhooks/deliveries.ts`: queues tenant webhook deliveries, signs payloads, posts to endpoints, and tracks retries.
-- `src/lib/reservations/host-reservations.ts`: mirrors hold/booking lifecycle changes into `host_reservations`.
-- `src/lib/email/send.ts`: email composition and provider selection; console provider by default, Resend or Maileroo when configured.
-- `src/lib/backend/`: provider-neutral backend ports plus the active Butterbase adapter and compatibility clients. Never import the admin backend client into a Client Component.
-- `src/proxy.ts`: refreshes sessions and redirects unauthenticated `/dashboard` requests. The `(dashboard)` layout also enforces auth for the dashboard route group.
-
-## State Management and Data Flow
-
-- There is no global state library.
-- Server Components fetch initial data.
-- Client Components use local `useState`, `useMemo`, and `useCallback`.
-- Mutations typically go through API routes, except some dashboard prototype pages that use local state or mock data.
-- Dashboard event type creation, updates, and deletion go through `/api/event-types`.
-- Availability editing keeps a saved baseline in component state, computes diffs, and posts a batch payload to `/api/availability`.
-- Slot holds, host reservations, and bookings are stored in Butterbase; holds expire after 5 minutes and are lazily marked expired during hold creation or confirmation.
-- Confirming a booking converts the hold reservation into a booking reservation; cancelling a booking cancels the booking reservation.
-- Rescheduling uses a new hold plus the original `reschedule_token`; the database RPC updates the old booking, inserts the new booking, and updates host reservations in one transaction.
-- Booking confirmation, cancellation, and rescheduling forms send idempotency keys; the API caches responses in `request_idempotency` for safe retries.
-- Confirmed and cancelled bookings append ID-based rows to `outbox_events`; notification emails are sent by the outbox processor.
-- Confirmed, cancelled, and rescheduled bookings append ID-based rows to `booking_events` for audit/replay.
-- Confirmed, cancelled, and rescheduled bookings maintain host-scoped `contacts` rows keyed by normalized email hash. Contact list and profile pages derive visible email/history from booking rows.
-- Contact anonymization marks the contact deleted and scrubs matching booking guest fields, notes, and cancellation reason through a server-side backend function.
-- Tenant webhook outbox events create `webhook_deliveries`; delivery workers sign requests with endpoint secrets and retry non-2xx or network failures.
-
-## Storage and Sync Behavior
-
-- Persistent storage is Butterbase/Postgres.
-- Butterbase Auth sessions are stored in HTTP-only OpenSlot cookies.
-- There is no realtime sync in the current UI.
-- There is no client-side offline persistence.
-- Calendar provider tokens and webhook secrets are stored only in server-only tables without direct anon/authenticated grants.
-- Calendar OAuth tokens are encrypted before storage with `CALENDAR_TOKEN_ENCRYPTION_SECRET`.
-- Emails are logged to the console by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo.
-
-## Security and Privacy Considerations
-
-- Never expose `BUTTERBASE_API_KEY` to client code.
-- Public environment variables must be limited to values safe for browsers.
-- Guest booking and cancellation APIs rely on random tokens (`hold_token`, `cancellation_token`) as authorization.
-- Public profile/event pages render through server-side service-key reads and return selected fields only.
-- Public slot computation uses a service-key route after validating the requested event type is active and belongs to the host.
-- Booking data includes guest names, emails, notes, timezones, and cancellation tokens. Do not log or expose these casually.
-- Keep outbox payloads narrow and ID-based unless a worker truly needs denormalized data.
-- Email templates interpolate user-provided values into HTML. Review escaping/sanitization before adding a real email provider.
-
-See [docs/security.md](docs/security.md).
+The full Vitest suite may print `Not implemented: navigation to another Document` from jsdom while still passing.
 
 ## Common Pitfalls for Coding Agents
 
-- Quote paths containing route groups or dynamic segments in shell commands, for example `'src/app/(dashboard)/dashboard/page.tsx'`.
-- Do not assume every visible dashboard surface is live. Settings still has prototype/mock portions.
+- Quote paths containing route groups or dynamic segments in shell commands, e.g. `'src/app/(dashboard)/dashboard/page.tsx'`.
+- Do not assume every visible dashboard surface is live: Settings still has prototype/mock portions.
 - Dashboard event type list/new/edit pages are backed by Butterbase through server-loaded data and `/api/event-types` mutations.
 - `src/app/booking/cancel/[token]/page.tsx` uses the cancellation token to load safe booking details server-side before rendering `src/components/booking/cancel-booking-form.tsx`.
-- If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.
+- If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` mimic config bugs.
 - Do not remove the booking exclusion constraint or weaken hold conflict checks without a replacement concurrency guard.
 - Do not bypass `create_slot_hold_with_reservation()` for guest holds; direct `slot_holds` inserts miss the reservation exclusion constraint.
 - Do not treat `outbox_events` as delivered work until the processor has successfully completed the row.
+- Do not import `createAdminBackendClient` into a Client Component: server-only modules and route handlers only.
+- `src/proxy.ts` is NOT wired as Next.js middleware. The dashboard `(dashboard)/layout.tsx` and per-page redirects handle auth. Do not add new auth checks assuming the proxy runs.
+- All API routes use `export const runtime = 'edge'`. Do not remove it.
 - Timezone changes need DST-aware tests.
 
 ## Safe-Change Guidelines
@@ -294,17 +193,7 @@ See [docs/security.md](docs/security.md).
 - Avoid speculative rewrites of large dashboard components.
 - Keep public behavior changes explicit in docs and tests.
 - For backend schema changes, update `backend/database/migrations/`, provider-owned function artifacts, and `backend/sql/provider-portability.sql` together.
-
-## Release and Build Notes
-
-- GitHub Actions release gate: `.github/workflows/ci.yml`.
-- Production build command: `npm run build`.
-- Production start command after build: `npm run start`.
-- Vercel cron schedules are committed in `vercel.json`, but a production deploy must still provide the required env vars and run migrations out of band.
-- The build uses `next build --webpack`.
-- `NEXT_PUBLIC_APP_URL` is used for cancellation links in booking confirmation emails.
-
-See [docs/release.md](docs/release.md).
+- Update `backend/butterbase/functions.json` AND `src/lib/backend/functions.ts` together (they are kept in sync manually).
 
 ## PR Checklist
 
@@ -328,6 +217,15 @@ See [docs/release.md](docs/release.md).
 - Public profile/event pages and public API endpoints.
 - Database migrations, especially constraints and policies.
 - Email HTML templates before a real provider is added.
+
+## Module References
+
+Subdirectory AGENTS.md files add module-specific detail: read them when working in that area:
+
+- [src/lib/AGENTS.md](src/lib/AGENTS.md): Core business logic (availability, booking, calendar, validations, backend adapters)
+- [src/app/api/AGENTS.md](src/app/api/AGENTS.md): API route handlers (auth, slots, holds, bookings, availability, calendar, webhooks)
+- [src/components/AGENTS.md](src/components/AGENTS.md): UI components (dashboard views, guest booking flow, shadcn primitives)
+- [backend/AGENTS.md](backend/AGENTS.md): Database migrations, provider-portable SQL, Butterbase functions
 
 ## Supporting Docs
 
