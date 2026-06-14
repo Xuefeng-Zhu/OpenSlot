@@ -34,6 +34,7 @@ vi.mock('../events', () => ({
 /**
  * Creates a mock backend client that simulates the chained query builder pattern.
  * Each method returns `this` to allow chaining, except terminal methods like `single()`.
+ * `rpc` is added per test.
  */
 function createMockClient() {
   const mock: any = {
@@ -43,6 +44,7 @@ function createMockClient() {
     update: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
     single: vi.fn(),
+    maybeSingle: vi.fn(),
   }
   return mock
 }
@@ -55,22 +57,19 @@ describe('cancelBooking', () => {
     cancelReason: 'Schedule conflict',
   }
 
-  const confirmedBooking = {
-    id: 'booking-id-1',
-    event_type_id: 'event-type-1',
+  const hostIdentityRow = {
     host_user_id: 'host-user-1',
-    guest_name: 'Jane Doe',
     guest_email: 'jane@example.com',
-    guest_timezone: 'America/New_York',
-    notes: '',
-    start_at: '2025-01-15T14:00:00Z',
-    end_at: '2025-01-15T14:30:00Z',
-    status: 'confirmed',
-    cancel_reason: null,
-    cancellation_token: 'cancel-token-abc-123',
-    reschedule_token: 'reschedule-token-1',
-    created_at: '2025-01-14T10:00:00Z',
-    updated_at: '2025-01-14T10:00:00Z',
+  }
+
+  /**
+   * Wires the mock client so a successful cancel_booking RPC and a matching
+   * post-cancel contact pre-fetch both succeed. Tests override individual
+   * fields of this to drive the error paths.
+   */
+  function setupRpcSuccess() {
+    mockClient.rpc = vi.fn().mockResolvedValue({ data: null, error: null })
+    mockClient.maybeSingle.mockResolvedValue({ data: hostIdentityRow, error: null })
   }
 
   beforeEach(() => {
@@ -86,70 +85,8 @@ describe('cancelBooking', () => {
     mockClient = createMockClient()
   })
 
-  it('successfully cancels a confirmed booking', async () => {
-    let singleCallCount = 0
-    mockClient.single.mockImplementation(() => {
-      singleCallCount++
-      if (singleCallCount === 1) {
-        // Fetch booking by cancellation token
-        return Promise.resolve({ data: confirmedBooking, error: null })
-      }
-      if (singleCallCount === 2) {
-        // Fetch event type title
-        return Promise.resolve({ data: { title: '30 Minute Meeting' }, error: null })
-      }
-      if (singleCallCount === 3) {
-        // Fetch host profile
-        return Promise.resolve({ data: { name: 'Host User', email: 'host@example.com' }, error: null })
-      }
-      return Promise.resolve({ data: null, error: null })
-    })
-
-    // For the update chain (from.update.eq), it doesn't call single
-    // The eq() at the end of update chain should resolve as a promise with { error: null }
-    // Since the code does: await adminClient.from('bookings').update({...}).eq('id', booking.id)
-    mockClient.update.mockImplementation(() => {
-      return {
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }
-    })
-
-    const result = await cancelBooking(validInput, mockClient)
-
-    expect(result.success).toBe(true)
-    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
-      bookingId: 'booking-id-1',
-      eventTypeId: 'event-type-1',
-      hostUserId: 'host-user-1',
-      startAt: '2025-01-15T14:00:00Z',
-      endAt: '2025-01-15T14:30:00Z',
-      cancelReasonProvided: true,
-    })
-    expect(cancelBookingReservation).toHaveBeenCalledWith(mockClient, 'booking-id-1')
-    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
-      bookingId: 'booking-id-1',
-      eventType: 'booking.cancelled',
-      actorType: 'guest',
-      payload: {
-        eventTypeId: 'event-type-1',
-        hostUserId: 'host-user-1',
-        startAt: '2025-01-15T14:00:00Z',
-        endAt: '2025-01-15T14:30:00Z',
-        cancelReasonProvided: true,
-      },
-    })
-    expect(touchContactForBookingEvent).toHaveBeenCalledWith(mockClient, {
-      hostUserId: 'host-user-1',
-      guestEmail: 'jane@example.com',
-    })
-  })
-
-  it('uses the backend cancel function when the client supports RPCs', async () => {
-    mockClient.rpc = vi.fn().mockResolvedValue({ data: [{ success: true }], error: null })
-    mockClient.single.mockResolvedValueOnce({
-      data: confirmedBooking,
-      error: null,
-    })
+  it('cancels a confirmed booking through the atomic cancel_booking RPC', async () => {
+    setupRpcSuccess()
 
     const result = await cancelBooking(validInput, mockClient)
 
@@ -157,28 +94,30 @@ describe('cancelBooking', () => {
     expect(mockClient.rpc).toHaveBeenCalledWith('cancel_booking', {
       p_cancellation_token: validInput.cancellationToken,
       p_cancel_reason: validInput.cancelReason,
+      p_actor_type: 'guest',
+      p_actor_id: null,
     })
-    expect(mockClient.update).not.toHaveBeenCalled()
+
+    // The atomic RPC handles status flip, reservation release, booking_events
+    // and outbox_events, so the JS-side helpers must not be called.
+    expect(appendBookingEvent).not.toHaveBeenCalled()
     expect(cancelBookingReservation).not.toHaveBeenCalled()
-    expect(enqueueBookingCancelledOutbox).toHaveBeenCalledWith(mockClient, {
-      bookingId: 'booking-id-1',
-      eventTypeId: 'event-type-1',
+    expect(enqueueBookingCancelledOutbox).not.toHaveBeenCalled()
+    expect(mockClient.update).not.toHaveBeenCalled()
+    expect(mockClient.insert).not.toHaveBeenCalled()
+
+    // Contact touch remains the only post-RPC side effect, fed by a minimal
+    // host-identity pre-fetch.
+    expect(mockClient.from).toHaveBeenCalledWith('bookings')
+    expect(mockClient.select).toHaveBeenCalledWith('host_user_id, guest_email')
+    expect(touchContactForBookingEvent).toHaveBeenCalledWith(mockClient, {
       hostUserId: 'host-user-1',
-      startAt: '2025-01-15T14:00:00Z',
-      endAt: '2025-01-15T14:30:00Z',
-      cancelReasonProvided: true,
+      guestEmail: 'jane@example.com',
     })
   })
 
-  it('records authenticated host cancellations with the host actor', async () => {
-    mockClient.single.mockResolvedValueOnce({
-      data: confirmedBooking,
-      error: null,
-    })
-
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
+  it('forwards host-actor inputs to the cancel_booking RPC', async () => {
+    setupRpcSuccess()
 
     const result = await cancelBooking(
       {
@@ -190,131 +129,69 @@ describe('cancelBooking', () => {
     )
 
     expect(result.success).toBe(true)
-    expect(appendBookingEvent).toHaveBeenCalledWith(mockClient, {
-      bookingId: 'booking-id-1',
-      eventType: 'booking.cancelled',
-      actorType: 'host',
-      actorId: 'profile-1',
-      payload: {
-        eventTypeId: 'event-type-1',
-        hostUserId: 'host-user-1',
-        startAt: '2025-01-15T14:00:00Z',
-        endAt: '2025-01-15T14:30:00Z',
-        cancelReasonProvided: true,
-      },
+    expect(mockClient.rpc).toHaveBeenCalledWith('cancel_booking', {
+      p_cancellation_token: validInput.cancellationToken,
+      p_cancel_reason: validInput.cancelReason,
+      p_actor_type: 'host',
+      p_actor_id: 'profile-1',
     })
   })
 
-  it('returns error when booking is not found', async () => {
-    mockClient.single.mockResolvedValueOnce({
+  it('still succeeds when the post-cancel contact pre-fetch finds no row', async () => {
+    setupRpcSuccess()
+    mockClient.maybeSingle.mockResolvedValueOnce({ data: null, error: null })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(true)
+    expect(touchContactForBookingEvent).not.toHaveBeenCalled()
+  })
+
+  it('maps booking_not_found RPC errors to "Booking not found"', async () => {
+    mockClient.rpc = vi.fn().mockResolvedValue({
       data: null,
-      error: { message: 'No rows found', code: 'PGRST116' },
+      error: { message: 'booking_not_found: no booking with that token' },
     })
 
     const result = await cancelBooking(validInput, mockClient)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('not found')
+    expect(result.error).toBe('Booking not found')
   })
 
-  it('returns "already cancelled" error when booking status is already cancelled', async () => {
-    const cancelledBooking = {
-      ...confirmedBooking,
-      status: 'cancelled',
-    }
-
-    mockClient.single.mockResolvedValueOnce({
-      data: cancelledBooking,
-      error: null,
+  it('maps booking_already_cancelled RPC errors to "Booking has already been cancelled"', async () => {
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'booking_already_cancelled: status is cancelled' },
     })
 
     const result = await cancelBooking(validInput, mockClient)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('already been cancelled')
+    expect(result.error).toBe('Booking has already been cancelled')
   })
 
-  it('stores cancel_reason when provided', async () => {
-    let singleCallCount = 0
-    mockClient.single.mockImplementation(() => {
-      singleCallCount++
-      if (singleCallCount === 1) {
-        return Promise.resolve({ data: confirmedBooking, error: null })
-      }
-      if (singleCallCount === 2) {
-        return Promise.resolve({ data: { title: 'Meeting' }, error: null })
-      }
-      if (singleCallCount === 3) {
-        return Promise.resolve({ data: { name: 'Host', email: 'host@test.com' }, error: null })
-      }
-      return Promise.resolve({ data: null, error: null })
-    })
-
-    const updateEqMock = vi.fn().mockResolvedValue({ error: null })
-    mockClient.update.mockImplementation((data: any) => {
-      // Verify cancel_reason is included in the update payload
-      expect(data.cancel_reason).toBe('Schedule conflict')
-      return { eq: updateEqMock }
-    })
-
-    const result = await cancelBooking(validInput, mockClient)
-
-    expect(result.success).toBe(true)
-    expect(mockClient.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'cancelled',
-        cancel_reason: 'Schedule conflict',
-      })
-    )
-  })
-
-  it('continues cancellation when outbox enqueue fails non-fatally', async () => {
-    vi.mocked(enqueueBookingCancelledOutbox).mockResolvedValueOnce({
-      queued: 3,
-      duplicates: 0,
-      failed: 1,
-    })
-
-    let singleCallCount = 0
-    mockClient.single.mockImplementation(() => {
-      singleCallCount++
-      if (singleCallCount === 1) {
-        return Promise.resolve({ data: confirmedBooking, error: null })
-      }
-      if (singleCallCount === 2) {
-        return Promise.resolve({ data: { title: 'Meeting' }, error: null })
-      }
-      if (singleCallCount === 3) {
-        return Promise.resolve({ data: { name: 'Host', email: 'host@test.com' }, error: null })
-      }
-      return Promise.resolve({ data: null, error: null })
-    })
-
-    mockClient.update.mockImplementation(() => ({
-      eq: vi.fn().mockResolvedValue({ error: null }),
-    }))
-
-    const result = await cancelBooking(validInput, mockClient)
-
-    expect(result.success).toBe(true)
-  })
-
-  it('handles database update errors gracefully', async () => {
-    mockClient.single.mockResolvedValueOnce({
-      data: confirmedBooking,
-      error: null,
-    })
-
-    // Update fails with a database error
-    mockClient.update.mockImplementation(() => {
-      return {
-        eq: vi.fn().mockResolvedValue({ error: { message: 'Connection lost', code: '57P01' } }),
-      }
+  it('maps booking_already_rescheduled RPC errors to "Booking has been rescheduled"', async () => {
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'booking_already_rescheduled: status is rescheduled' },
     })
 
     const result = await cancelBooking(validInput, mockClient)
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('Failed to cancel booking')
+    expect(result.error).toBe('Booking has been rescheduled')
+  })
+
+  it('maps unknown RPC errors to "Failed to cancel booking"', async () => {
+    mockClient.rpc = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'Connection lost', code: '57P01' },
+    })
+
+    const result = await cancelBooking(validInput, mockClient)
+
+    expect(result.success).toBe(false)
+    expect(result.error).toBe('Failed to cancel booking')
   })
 })

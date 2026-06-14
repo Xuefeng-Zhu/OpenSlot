@@ -114,12 +114,82 @@ Important safeguards:
   `SLOT_HOLD_TOKEN_SECRET` for a dedicated signing secret, or rely on the
   server-only Butterbase secrets fallback.
 - `/api/holds` creates the hold through `create_slot_hold_with_reservation()`, which inserts `slot_holds` and `host_reservations` in one database transaction.
+- Hold creation, booking confirmation, booking cancellation, and booking
+  rescheduling are all atomic Postgres functions:
+  `create_slot_hold_with_reservation()`, `public.confirm_booking()`,
+  `public.cancel_booking()`, and `reschedule_booking_with_hold()`
+  (migration `20260526120000_add_confirm_cancel_booking_functions.sql`).
+  Each runs as a single database transaction so a mid-flow failure cannot
+  leave partial state behind.
+- `public.confirm_booking()` performs the `bookings` insert, the hold
+  status flip to `confirmed`, the `host_reservations` hold-to-booking
+  conversion, the `booking_events` audit append, and the four
+  `outbox_events` side-effect enqueues inside a single database
+  transaction. A mid-transaction failure (including a `no_overlapping_bookings`
+  23P01 violation) rolls back every side-effect row.
+- `public.cancel_booking()` performs the `bookings` status flip to
+  `cancelled`, the `host_reservations` release, the `booking_events` audit
+  append, and the four `outbox_events` side-effect enqueues inside a single
+  database transaction. A mid-transaction failure rolls back every
+  side-effect row.
+- The 23P01 exclusion violation from `bookings.no_overlapping_bookings`
+  is NOT translated inside the RPC; the lib code in
+  `src/lib/booking/confirm.ts` and `src/app/api/bookings/error-status.ts`
+  maps `error.code === '23P01'` to an HTTP 409 response with the message
+  "This slot has been booked by someone else.".
+- `public.cancel_booking()` distinguishes distinct failure modes through
+  dedicated `RAISE EXCEPTION` codes that the lib and route layer map to
+  distinct HTTP responses:
+  - `booking_not_found` (P0002) → HTTP 404 "Booking not found".
+  - `booking_already_cancelled` (P0001) → HTTP 409 "Booking has already been cancelled".
+  - `booking_already_rescheduled` (P0001) → HTTP 409 "Booking has been rescheduled".
+  - `invalid_actor_type` (22023) → HTTP 400 (defensive enum check; the
+    `booking_events.actor_type` column is constrained to
+    `('system', 'host', 'guest')`).
+- The `outbox_events.dedupe_key` unique index plus
+  `ON CONFLICT (dedupe_key) DO NOTHING` inside both RPCs make retries
+  safe. The deterministic dedupe keys are
+  `booking:{id}:confirmed`,
+  `booking:{id}:calendar-write-requested`,
+  `booking:{id}:notifications-requested`,
+  `booking:{id}:tenant-webhooks-requested`,
+  `booking:{id}:cancelled`,
+  `booking:{id}:calendar-cancel-requested`,
+  `booking:{id}:notifications-cancel-requested`,
+  and `booking:{id}:tenant-webhooks-cancel-requested`. The optional
+  reminder is keyed
+  `booking:{id}:notifications-reminder-requested` with an
+  `available_at` set to `start_at - reminder_minutes_before`. These match
+  the dedupe keys the JS helper at `src/lib/outbox/outbox.ts` has always
+  used, so any retry path that lands on either side is idempotent.
+- The atomicity tests `src/lib/booking/__tests__/confirm.atomic.test.ts`
+  and `src/lib/booking/__tests__/cancel.atomic.test.ts` assert that the
+  JS lib does NOT re-introduce a multi-step fallback. The lib MUST go
+  through the RPC; a JS-side `enqueue*` / `appendBookingEvent` /
+  `convertHoldReservationToBooking` / `cancelBookingReservation` /
+  direct `outbox_events` / `booking_events` / `host_reservations` write
+  will fail the suite.
+- The real-DB integration test
+  `e2e/integration/confirm-cancel.atomic.test.ts` exercises the same
+  contract end-to-end: a 23P01 exclusion violation rolls back every
+  side-effect row, a double cancel raises `booking_already_cancelled`
+  (P0001) and adds no new rows, and a cancel on a rescheduled booking
+  raises `booking_already_rescheduled` (P0001). The integration test is
+  gated on the same `NEXT_PUBLIC_BUTTERBASE_APP_ID` and
+  `BUTTERBASE_API_KEY` env vars the Playwright E2E suite uses and skips
+  cleanly when neither is configured.
 - `/api/slots` validates that the event type is active and belongs to the requested host before using service-key reads to compute availability.
 - `/api/slots`, `/api/holds`, `/api/bookings`, `/api/bookings/reschedule`, and `/api/bookings/[id]/cancel` consume DB-backed public rate limits before expensive reads or guest mutations. Rate-limit identifiers are hashed before storage.
 - Public booking mutations verify Cloudflare Turnstile tokens when `TURNSTILE_SECRET_KEY` is configured. Unconfigured environments skip Turnstile enforcement.
 - `confirmBooking()` rejects expired or reused holds.
-- `bookings.no_overlapping_bookings` prevents overlapping confirmed bookings at the database level.
-- `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings.
+- `bookings.no_overlapping_bookings` prevents overlapping confirmed bookings at the database level. This is the final guard and MUST NOT be removed.
+- `host_reservations_no_overlap` prevents overlapping active host reservations for holds and bookings. This is the final guard and MUST NOT be removed.
+- The `cancelBooking()` lib in `src/lib/booking/cancel.ts` does NOT
+  perform a host ownership check. Host ownership is the responsibility
+  of the host cancellation route in
+  `src/app/api/bookings/[id]/cancel/route.ts`, which loads the booking
+  through `getAuthenticatedHostCancellation` and compares the supplied
+  `cancellation_token` in constant time before calling the lib.
 - Hold creation, booking confirmation, cancellation, and rescheduling accept idempotency keys and store only request hashes plus cached responses in `request_idempotency`.
 - Booking confirmation, cancellation, and rescheduling enqueue ID-based side-effect events in `outbox_events`; workers should fetch sensitive booking details server-side instead of duplicating guest contact data in the payload.
 - `/api/outbox/process` requires `OUTBOX_PROCESS_SECRET` or `CRON_SECRET` in production and uses service-key code to process leased outbox rows.

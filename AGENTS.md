@@ -283,6 +283,7 @@ See [docs/security.md](docs/security.md).
 - If lint cannot resolve Next/ESLint modules, run `npm ci`; stale `node_modules` can mimic config bugs.
 - Do not remove the booking exclusion constraint or weaken hold conflict checks without a replacement concurrency guard.
 - Do not bypass `create_slot_hold_with_reservation()` for guest holds; direct `slot_holds` inserts miss the reservation exclusion constraint.
+- Do not re-introduce a JS-side multi-step fallback for confirm or cancel. Booking confirmation and cancellation are atomic via `public.confirm_booking` and `public.cancel_booking` Postgres functions (migration `20260526120000_add_confirm_cancel_booking_functions.sql`); the JS lib in `src/lib/booking/confirm.ts` and `src/lib/booking/cancel.ts` MUST go through these RPCs. Tests in `src/lib/booking/__tests__/confirm.atomic.test.ts` and `src/lib/booking/__tests__/cancel.atomic.test.ts` enforce this contract; reintroducing a JS-side fallback (direct `outbox_events` / `booking_events` / `host_reservations` writes, calls to `enqueue*Outbox`, `appendBookingEvent`, `convertHoldReservationToBooking`, or `cancelBookingReservation` from the confirm/cancel libs) will fail the suite.
 - Do not treat `outbox_events` as delivered work until the processor has successfully completed the row.
 - Timezone changes need DST-aware tests.
 

@@ -34,6 +34,9 @@ export function getBookingCancellationErrorStatus(error?: string): number {
   if (error.includes('already been cancelled')) {
     return 409
   }
+  if (error.includes('rescheduled')) {
+    return 409
+  }
 
   return 500
 }

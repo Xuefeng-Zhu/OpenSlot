@@ -25,8 +25,31 @@ preserve the transaction semantics documented in
 `../sql/provider-portability.sql`, especially:
 
 - hold creation and rescheduling reserve host time atomically;
-- booking confirmation and cancellation commit primary booking state before
-  app-side outbox/contact work runs;
+- `confirm-booking` and `cancel-booking` are atomic Postgres functions
+  (`public.confirm_booking()` and `public.cancel_booking()` from
+  migration `20260526120000_add_confirm_cancel_booking_functions.sql`)
+  that perform the `bookings` row write, the `host_reservations` mirror
+  write, the `booking_events` audit append, and the four `outbox_events`
+  side-effect enqueues inside a single database transaction. A
+  mid-transaction failure (including a `no_overlapping_bookings` 23P01
+  violation) rolls back every side-effect row. JS-side outbox/contact
+  work is best-effort and runs after the transaction commits.
+- `confirm-booking` does NOT translate the 23P01 exclusion violation; the
+  lib code in `src/lib/booking/confirm.ts` and the route handler in
+  `src/app/api/bookings/error-status.ts` map `error.code === '23P01'` to
+  HTTP 409 "This slot has been booked by someone else.". `cancel-booking`
+  raises dedicated error codes (`booking_not_found`, `booking_already_cancelled`,
+  `booking_already_rescheduled`, `invalid_actor_type`) so the lib can
+  surface distinct HTTP responses.
+- the `outbox_events.dedupe_key` unique index plus
+  `ON CONFLICT (dedupe_key) DO NOTHING` inside both RPCs make retries
+  safe; the deterministic dedupe keys
+  (`booking:{id}:confirmed`, `booking:{id}:cancelled`, and the
+  matching `calendar.*.requested`, `notifications.*.requested`,
+  `tenant.webhooks.*.requested`, and `notifications.reminder.requested`
+  variants) match the keys the JS helper at
+  `src/lib/outbox/outbox.ts` has always used, so retries that race
+  against the JS path are still safe.
 - worker claim functions lease rows with skip-locked semantics;
 - public rate-limit and stale-hold expiry functions remain atomic.
 

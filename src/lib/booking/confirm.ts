@@ -1,353 +1,126 @@
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
-import type { Database, Tables } from '@/lib/types/database'
+import type { Database, Json } from '@/lib/types/database'
 import type { ConfirmBookingInput, ConfirmBookingResult } from './types'
-import {
-  enqueueBookingConfirmedOutbox,
-  enqueueConfiguredBookingReminderOutbox,
-} from '@/lib/outbox/outbox'
-import {
-  convertHoldReservationToBooking,
-  expireHoldReservation,
-} from '@/lib/reservations/host-reservations'
-import { upsertContactFromBooking } from '@/lib/contacts/contacts'
-import { appendBookingEvent } from './events'
 import {
   normalizeInviteeQuestions,
   parseInviteeAnswers,
 } from '@/lib/validations/invitee-questions'
-import type { Json } from '@/lib/types/database'
+import { upsertContactFromBooking } from '@/lib/contacts/contacts'
 import { verifyFinalProviderAvailability } from '@/lib/calendar/final-availability'
+import { expireHoldReservation } from '@/lib/reservations/host-reservations'
 
-/**
- * Confirms a booking from an active hold.
- *
- * Flow:
- * 1. Fetch hold by hold_token where status='active'
- * 2. If not found → return error
- * 3. If expired (expires_at < now) → lazy update status to 'expired', return error
- * 4. Insert booking with status='confirmed' (exclusion constraint provides final guard)
- * 5. If insert fails with code '23P01' → return "slot taken" error
- * 6. Update hold status to 'confirmed'
- * 7. Enqueue outbox side-effect events
- * 8. Emails and external side effects are processed from the outbox
- * 9. Return success with bookingId, cancellationToken, rescheduleToken
- */
-export async function confirmBooking(
-  input: ConfirmBookingInput,
-  adminClient: BackendCompatClient<Database>
-): Promise<ConfirmBookingResult> {
-  const { holdToken, guestName, guestEmail, guestTimezone, notes, answers } = input
-
-  // Step 1: Fetch and validate the hold
-  const { data: hold, error: holdError } = await adminClient
-    .from('slot_holds')
-    .select('*')
-    .eq('hold_token', holdToken)
-    .eq('status', 'active')
-    .single()
-
-  if (holdError || !hold) {
-    return { success: false, error: 'Hold not found or already used' }
-  }
-
-  // Step 2: Check hold expiration (lazy cleanup)
-  if (new Date(hold.expires_at) < new Date()) {
-    // Lazy update: mark the hold as expired
-    await adminClient
-      .from('slot_holds')
-      .update({ status: 'expired' })
-      .eq('id', hold.id)
-    await expireHoldReservation(adminClient, hold.id)
-
-    return {
-      success: false,
-      error: 'Hold has expired. Please select a new slot.',
-    }
-  }
-
-  const { data: eventTypeData, error: eventTypeError } = await adminClient
-    .from('event_types')
-    .select(
-      'location_type, location_value, video_provider, invitee_questions, buffer_before_minutes, buffer_after_minutes'
-    )
-    .eq('id', hold.event_type_id)
-    .single()
-
-  if (eventTypeError || !eventTypeData) {
-    return { success: false, error: 'Failed to load event type.' }
-  }
-
-  const eventType = eventTypeData as Pick<
-    Tables<'event_types'>,
-    | 'location_type'
-    | 'location_value'
-    | 'video_provider'
-    | 'invitee_questions'
-    | 'buffer_before_minutes'
-    | 'buffer_after_minutes'
-  >
-  const conferenceProvider =
-    eventType.location_type === 'video_provider' ? eventType.video_provider : null
-
-  const inviteeQuestions = normalizeInviteeQuestions(
-    eventType.invitee_questions
-  )
-  const parsedAnswers = parseInviteeAnswers(inviteeQuestions, answers ?? {})
-
-  if (!parsedAnswers.success) {
-    return {
-      success: false,
-      error: 'Booking answers validation failed.',
-    }
-  }
-
-  const finalAvailability = await verifyFinalProviderAvailability(adminClient, {
-    hostUserId: hold.host_user_id,
-    startAt: hold.start_at,
-    endAt: hold.end_at,
-    bufferBeforeMinutes: eventType.buffer_before_minutes,
-    bufferAfterMinutes: eventType.buffer_after_minutes,
-  })
-
-  if (!finalAvailability.success) {
-    return { success: false, error: finalAvailability.error }
-  }
-
-  const functionResult = await confirmBookingWithBackendFunction(adminClient, {
-    holdToken,
-    guestName,
-    guestEmail,
-    guestTimezone,
-    notes,
-    parsedAnswers: parsedAnswers.data as Json,
-    locationType: eventType.location_type,
-    locationValue: eventType.location_value ?? '',
-    conferenceProvider,
-  })
-
-  if (functionResult.attempted) {
-    if (!functionResult.success) {
-      return {
-        success: false,
-        error: functionResult.error,
-      }
-    }
-
-    const booking = functionResult.booking
-
-    await appendBookingEvent(adminClient, {
-      bookingId: booking.id,
-      eventType: 'booking.confirmed',
-      payload: {
-        eventTypeId: hold.event_type_id,
-        hostUserId: hold.host_user_id,
-        startAt: hold.start_at,
-        endAt: hold.end_at,
-      },
-    })
-
-    await upsertContactFromBooking(adminClient, {
-      bookingId: booking.id,
-      hostUserId: hold.host_user_id,
-      guestName,
-      guestEmail,
-      guestTimezone,
-    })
-
-    await enqueueBookingConfirmedOutbox(adminClient, {
-      bookingId: booking.id,
-      eventTypeId: hold.event_type_id,
-      hostUserId: hold.host_user_id,
-      startAt: hold.start_at,
-      endAt: hold.end_at,
-    })
-
-    await enqueueConfiguredBookingReminderOutbox(adminClient, {
-      bookingId: booking.id,
-      eventTypeId: hold.event_type_id,
-      hostUserId: hold.host_user_id,
-      startAt: hold.start_at,
-      endAt: hold.end_at,
-    })
-
-    return {
-      success: true,
-      bookingId: booking.id,
-      cancellationToken: booking.cancellation_token,
-      rescheduleToken: booking.reschedule_token,
-      conferenceStatus: booking.conference_status,
-      conferenceUrl: booking.conference_url,
-    }
-  }
-
-  // Step 3: Insert booking (exclusion constraint provides final guard against double-booking)
-  const { data: booking, error: bookingError } = await adminClient
-    .from('bookings')
-    .insert({
-      event_type_id: hold.event_type_id,
-      host_user_id: hold.host_user_id,
-      guest_name: guestName,
-      guest_email: guestEmail,
-      guest_timezone: guestTimezone,
-      notes: notes ?? '',
-      booking_answers: parsedAnswers.data as Json,
-      start_at: hold.start_at,
-      end_at: hold.end_at,
-      status: 'confirmed',
-      location_type: eventType.location_type,
-      location_value: eventType.location_value ?? '',
-      conference_provider: conferenceProvider,
-      conference_status: conferenceProvider ? 'pending' : 'not_required',
-      conference_error: null,
-    })
-    .select('id, cancellation_token, reschedule_token, conference_status, conference_url')
-    .single()
-
-  if (bookingError) {
-    // PostgreSQL exclusion constraint violation = slot taken by another booking
-    if (bookingError.code === '23P01') {
-      return {
-        success: false,
-        error: 'This slot has been booked by someone else. Please select a different time.',
-      }
-    }
-    console.error('Error creating booking:', bookingError)
-    return { success: false, error: 'Failed to create booking.' }
-  }
-
-  // Step 4: Mark hold as confirmed
-  await adminClient
-    .from('slot_holds')
-    .update({ status: 'confirmed' })
-    .eq('id', hold.id)
-
-  await convertHoldReservationToBooking(adminClient, {
-    holdId: hold.id,
-    bookingId: booking.id,
-  })
-
-  await appendBookingEvent(adminClient, {
-    bookingId: booking.id,
-    eventType: 'booking.confirmed',
-    payload: {
-      eventTypeId: hold.event_type_id,
-      hostUserId: hold.host_user_id,
-      startAt: hold.start_at,
-      endAt: hold.end_at,
-    },
-  })
-
-  await upsertContactFromBooking(adminClient, {
-    bookingId: booking.id,
-    hostUserId: hold.host_user_id,
-    guestName,
-    guestEmail,
-    guestTimezone,
-  })
-
-  await enqueueBookingConfirmedOutbox(adminClient, {
-    bookingId: booking.id,
-    eventTypeId: hold.event_type_id,
-    hostUserId: hold.host_user_id,
-    startAt: hold.start_at,
-    endAt: hold.end_at,
-  })
-
-  await enqueueConfiguredBookingReminderOutbox(adminClient, {
-    bookingId: booking.id,
-    eventTypeId: hold.event_type_id,
-    hostUserId: hold.host_user_id,
-    startAt: hold.start_at,
-    endAt: hold.end_at,
-  })
-
-  return {
-    success: true,
-    bookingId: booking.id,
-    cancellationToken: booking.cancellation_token,
-    rescheduleToken: booking.reschedule_token,
-    conferenceStatus: booking.conference_status,
-    conferenceUrl: booking.conference_url,
-  }
-}
-
-type ConfirmFunctionBooking = {
-  id: string
+type ConfirmRpcRow = {
+  booking_id: string
   cancellation_token: string
   reschedule_token: string
   conference_status: string
   conference_url: string | null
 }
 
-type ConfirmFunctionResult =
-  | { attempted: false }
-  | { attempted: true; success: true; booking: ConfirmFunctionBooking }
-  | { attempted: true; success: false; error: string }
+/**
+ * Confirms a booking from an active hold.
+ *
+ * The atomic `confirm_booking` RPC performs the booking row insert, hold
+ * status update, host reservation conversion, `booking_events` append, and
+ * `outbox_events` enqueue in a single database transaction. This function
+ * performs only the pre-RPC validation (hold fetch, answer validation,
+ * optional final provider availability check) and the best-effort post-RPC
+ * contact upsert.
+ */
+export async function confirmBooking(
+  input: ConfirmBookingInput,
+  adminClient: BackendCompatClient<Database>
+): Promise<ConfirmBookingResult> {
+  const { holdToken, guestName, guestEmail, guestTimezone, notes, answers } = input;
 
-async function confirmBookingWithBackendFunction(
-  adminClient: BackendCompatClient<Database>,
-  input: {
-    holdToken: string
-    guestName: string
-    guestEmail: string
-    guestTimezone: string
-    notes?: string
-    parsedAnswers: Json
-    locationType: string
-    locationValue: string
-    conferenceProvider: string | null
+  // Fetch the hold and short-circuit on missing/already-used.
+  const { data: hold, error: holdError } = await adminClient
+    .from('slot_holds').select('*').eq('hold_token', holdToken).eq('status', 'active').single();
+  if (holdError || !hold) return { success: false, error: 'Hold not found or already used' };
+
+  // Lazy expiry fast path: if the hold expired between fetch and RPC, mark
+  // it expired locally so the RPC short-circuits with `hold_already_used`.
+  if (new Date(hold.expires_at) < new Date()) {
+    await adminClient.from('slot_holds').update({ status: 'expired' }).eq('id', hold.id);
+    await expireHoldReservation(adminClient, hold.id);
+    return { success: false, error: 'Hold has expired. Please select a new slot.' };
   }
-): Promise<ConfirmFunctionResult> {
-  if (typeof adminClient.rpc !== 'function') return { attempted: false }
 
-  const { data, error } = await adminClient
-    .rpc('confirm_booking', {
-      p_hold_token: input.holdToken,
-      p_guest_name: input.guestName,
-      p_guest_email: input.guestEmail,
-      p_guest_timezone: input.guestTimezone,
-      p_notes: input.notes ?? '',
-      p_booking_answers: input.parsedAnswers,
-      p_location_type: input.locationType,
-      p_location_value: input.locationValue,
-      p_conference_provider: input.conferenceProvider,
-      p_conference_status: input.conferenceProvider ? 'pending' : 'not_required',
-    })
-    .single<{
-      booking_id: string
-      cancellation_token: string
-      reschedule_token: string
-      conference_status: string
-      conference_url: string | null
-    }>()
-
-  if (error || !data) {
-    if (error?.code === '23P01') {
-      return {
-        attempted: true,
-        success: false,
-        error:
-          'This slot has been booked by someone else. Please select a different time.',
-      }
-    }
-
-    console.error('Error confirming booking through backend function:', error)
-    return {
-      attempted: true,
-      success: false,
-      error: 'Failed to create booking.',
-    }
+  // Read the event_type fields the lib still needs (answer validation +
+  // final availability buffer math). The RPC reads everything else.
+  const { data: eventTypeData, error: eventTypeError } = await adminClient
+    .from('event_types')
+    .select('invitee_questions, buffer_before_minutes, buffer_after_minutes')
+    .eq('id', hold.event_type_id).single();
+  if (eventTypeError || !eventTypeData) {
+    return { success: false, error: 'Failed to load event type.' };
   }
+
+  const parsedAnswers = parseInviteeAnswers(
+    normalizeInviteeQuestions(eventTypeData.invitee_questions),
+    answers ?? {}
+  );
+  if (!parsedAnswers.success) return { success: false, error: 'Booking answers validation failed.' };
+
+  // Final provider availability check (moved before the RPC).
+  const finalAvailability = await verifyFinalProviderAvailability(adminClient, {
+    hostUserId: hold.host_user_id,
+    startAt: hold.start_at,
+    endAt: hold.end_at,
+    bufferBeforeMinutes: eventTypeData.buffer_before_minutes,
+    bufferAfterMinutes: eventTypeData.buffer_after_minutes,
+  });
+  if (!finalAvailability.success) return { success: false, error: finalAvailability.error };
+
+  // Atomic confirm RPC: booking insert + hold flip + reservation convert +
+  // booking_events + outbox_events all in one transaction.
+  const { data: rpcRow, error: rpcError } = await adminClient.rpc('confirm_booking', {
+    p_hold_token: holdToken,
+    p_guest_name: guestName,
+    p_guest_email: guestEmail,
+    p_guest_timezone: guestTimezone,
+    p_notes: notes ?? '',
+    p_booking_answers: parsedAnswers.data as Json,
+  }).single<ConfirmRpcRow>();
+  if (rpcError || !rpcRow) return { success: false, error: confirmRpcErrorMessage(rpcError) };
+
+  // Best-effort post-RPC contact sync. Failures must not undo the booking.
+  await upsertContactFromBooking(adminClient, {
+    bookingId: rpcRow.booking_id,
+    hostUserId: hold.host_user_id,
+    guestName,
+    guestEmail,
+    guestTimezone,
+  });
 
   return {
-    attempted: true,
     success: true,
-    booking: {
-      id: data.booking_id,
-      cancellation_token: data.cancellation_token,
-      reschedule_token: data.reschedule_token,
-      conference_status: data.conference_status,
-      conference_url: data.conference_url,
-    },
+    bookingId: rpcRow.booking_id,
+    cancellationToken: rpcRow.cancellation_token,
+    rescheduleToken: rpcRow.reschedule_token,
+    conferenceStatus: rpcRow.conference_status,
+    conferenceUrl: rpcRow.conference_url,
+  };
+}
+
+function confirmRpcErrorMessage(error: { code?: string; message?: string } | null | undefined): string {
+  if (!error) return 'Failed to create booking.';
+  if (error.code === '23P01') {
+    return 'This slot has been booked by someone else. Please select a different time.';
   }
+  const message = error.message ?? '';
+  if (message.includes('hold_not_found') || message.includes('hold_already_used')) {
+    return 'Hold not found or already used';
+  }
+  if (message.includes('hold_expired')) {
+    return 'Hold has expired. Please select a new slot.';
+  }
+  if (message.includes('event_type_not_found')) {
+    return 'Failed to load event type.';
+  }
+  console.error('Error confirming booking through backend function:', {
+    code: error.code,
+    message: error.message,
+  });
+  return 'Failed to create booking.';
 }
