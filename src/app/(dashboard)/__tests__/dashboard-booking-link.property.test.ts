@@ -14,7 +14,6 @@ import { stringOf } from '@/test/fast-check'
  * that contains that username as a path segment.
  */
 describe('Feature: ui-backend-integration, Property 2: Dashboard booking link contains username', () => {
-  // Generator for valid username strings (alphanumeric + hyphens, URL-safe)
   const usernameArb = stringOf(
     fc.constantFrom(
       'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',

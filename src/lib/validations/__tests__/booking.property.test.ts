@@ -18,18 +18,14 @@ import { stringOf } from '@/test/fast-check'
  * - guestTimezone is a valid IANA timezone
  */
 describe('Property 8: Booking form validation correctness', () => {
-  // Valid IANA timezones for generating valid inputs
   const validTimezones = Intl.supportedValuesOf('timeZone')
 
-  // Arbitrary for valid UUID v4 strings
   const validUuidArb = fc.uuid()
 
-  // Arbitrary for valid guest names (non-empty, max 100 chars)
   const validGuestNameArb = fc.string({ minLength: 1, maxLength: 100 }).filter(
     (s) => s.trim().length > 0
   )
 
-  // Arbitrary for valid email addresses
   const validEmailArb = fc
     .tuple(
       stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
@@ -44,7 +40,6 @@ describe('Property 8: Booking form validation correctness', () => {
     )
     .map(([local, domain, tld]) => `${local}@${domain}.${tld}`)
 
-  // Arbitrary for valid IANA timezone
   const validTimezoneArb = fc.constantFrom(...validTimezones)
 
   describe('accepts valid inputs', () => {
@@ -72,7 +67,6 @@ describe('Property 8: Booking form validation correctness', () => {
 
   describe('rejects invalid holdToken', () => {
     it('rejects non-UUID holdToken strings', () => {
-      // Generate strings that are not valid UUIDs
       const nonUuidArb = fc
         .string({ minLength: 1, maxLength: 50 })
         .filter((s) => {
@@ -149,26 +143,21 @@ describe('Property 8: Booking form validation correctness', () => {
 
   describe('rejects invalid guestEmail', () => {
     it('rejects strings that are not valid email format', () => {
-      // Generate strings that lack @ or proper domain structure
       const invalidEmailArb = fc.oneof(
-        // No @ sign at all
         stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz0123456789'.split('')), {
           minLength: 1,
           maxLength: 20,
         }),
-        // Missing domain part after @
         stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
           minLength: 1,
           maxLength: 10,
         })
           .map((s) => `${s}@`),
-        // Missing local part before @
         stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {
           minLength: 1,
           maxLength: 10,
         })
           .map((s) => `@${s}.com`),
-        // Double @ sign
         fc
           .tuple(
             stringOf(fc.constantFrom(...'abcdefghijklmnopqrstuvwxyz'.split('')), {

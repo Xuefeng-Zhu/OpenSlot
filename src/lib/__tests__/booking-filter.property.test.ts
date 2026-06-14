@@ -4,12 +4,10 @@ import { filterBookingsByEventType, type Booking } from '../booking-utils'
 import { validDate } from '@/test/fast-check'
 
 /**
- * Property 5: Event type filter returns only matching bookings
  * Feature: ui-backend-integration, Property 5: Event type filter returns only matching bookings
  * Validates: Requirements 4.4
  */
 
-// Arbitrary for generating a base booking with all required fields
 const baseBookingArb = fc.record({
   id: fc.uuid(),
   guest_name: fc.string({ minLength: 1, maxLength: 50 }),
@@ -23,10 +21,8 @@ const baseBookingArb = fc.record({
   event_type_title: fc.string({ minLength: 1, maxLength: 100 }),
 })
 
-// Generate a non-empty, non-whitespace filter string
 const nonEmptyFilterArb = fc.string({ minLength: 1, maxLength: 30 }).filter((s) => s.trim().length > 0)
 
-// Generate an array of bookings
 const bookingsArrayArb = fc.array(baseBookingArb, { minLength: 0, maxLength: 20 })
 
 const normalizeEventTypeFilter = (filter: string) => filter.trim().toLowerCase()
@@ -38,7 +34,6 @@ describe('Property 5: Event type filter returns only matching bookings', () => {
         const result = filterBookingsByEventType(bookings, filter)
         const normalizedFilter = normalizeEventTypeFilter(filter)
 
-        // Every booking in the result must have a title that includes the normalized filter.
         for (const booking of result) {
           expect(booking.event_type_title.toLowerCase()).toContain(normalizedFilter)
         }
@@ -53,7 +48,6 @@ describe('Property 5: Event type filter returns only matching bookings', () => {
         const result = filterBookingsByEventType(bookings, filter)
         const normalizedFilter = normalizeEventTypeFilter(filter)
 
-        // Every booking from the original array that matches should be in the result
         const expected = bookings.filter((b) =>
           b.event_type_title.toLowerCase().includes(normalizedFilter)
         )
@@ -106,12 +100,10 @@ describe('Property 5: Event type filter returns only matching bookings', () => {
   })
 
   it('filter is case-insensitive', () => {
-    // Generate bookings with known titles and filters that are substrings with varied casing
     const titleArb = fc.string({ minLength: 2, maxLength: 50 }).filter((s) => s.trim().length > 0)
 
     fc.assert(
       fc.property(titleArb, fc.array(baseBookingArb, { minLength: 1, maxLength: 10 }), (title, otherBookings) => {
-        // Create a booking with the known title
         const targetBooking: Booking = {
           id: 'target-id',
           guest_name: 'Test Guest',
@@ -127,15 +119,11 @@ describe('Property 5: Event type filter returns only matching bookings', () => {
 
         const allBookings = [targetBooking, ...otherBookings]
 
-        // Filter with uppercase version of the title
         const upperResult = filterBookingsByEventType(allBookings, title.toUpperCase())
-        // Filter with lowercase version of the title
         const lowerResult = filterBookingsByEventType(allBookings, title.toLowerCase())
 
-        // Both should return the same set of bookings
         expect(upperResult).toHaveLength(lowerResult.length)
 
-        // The target booking should be in both results
         expect(upperResult).toContainEqual(targetBooking)
         expect(lowerResult).toContainEqual(targetBooking)
       }),

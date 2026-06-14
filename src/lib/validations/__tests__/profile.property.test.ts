@@ -47,7 +47,6 @@ describe('Property 2: Username and timezone validation correctness', () => {
     })
 
     it('rejects strings that do not match the pattern', () => {
-      // Generate strings containing at least one invalid character
       const invalidCharArb = char().filter(
         (c) => !usernameRegex.test(c)
       )

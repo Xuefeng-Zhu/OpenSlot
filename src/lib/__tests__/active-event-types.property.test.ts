@@ -16,11 +16,6 @@ interface EventType {
   is_active: boolean
 }
 
-/**
- * Filters event types to return only those that are active.
- * This replicates the filtering logic used on the public profile page
- * where only event types with is_active === true are displayed.
- */
 function filterActiveEventTypes(eventTypes: EventType[]): EventType[] {
   return eventTypes.filter((et) => et.is_active === true)
 }
