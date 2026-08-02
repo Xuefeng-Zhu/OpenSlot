@@ -31,4 +31,16 @@ describe('landing page links', () => {
       expect(link.getAttribute('href')).toBe('#demo')
     }
   })
+
+  it('uses factual product copy instead of unverified adoption claims', () => {
+    render(<HomePage />)
+
+    expect(
+      screen.getByText('Timezone-aware booking with built-in conflict protection.')
+    ).toBeDefined()
+    expect(
+      screen.getByText('Publish your availability and prevent overlapping bookings.')
+    ).toBeDefined()
+    expect(screen.queryByText(/loved by|2,000|thousands/i)).toBeNull()
+  })
 })

@@ -143,7 +143,7 @@ export default function SignupPage() {
               Create your account
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Join thousands of professionals who book smarter with OpenSlot.
+              Create your profile, availability, and first booking page.
             </p>
           </div>
 

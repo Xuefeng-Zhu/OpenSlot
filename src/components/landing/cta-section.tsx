@@ -13,7 +13,7 @@ export function CTASection() {
           Ready to keep your schedule open?
         </h2>
         <p className="mt-3 text-base text-muted-foreground">
-          Join thousands of professionals who book smarter with OpenSlot.
+          Publish your availability and prevent overlapping bookings.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg">
