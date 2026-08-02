@@ -6,8 +6,10 @@ import {
 import { createAdminBackendClient, createServerBackendClient } from '@/lib/backend/server'
 import { DashboardShell } from './dashboard-shell'
 import type { Tables } from '@/lib/types/database'
+import { routeMetadata } from '@/app/route-metadata'
 
 export const runtime = 'edge'
+export const metadata = routeMetadata.dashboard
 
 export default async function DashboardLayout({
   children,

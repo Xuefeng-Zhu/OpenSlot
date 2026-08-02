@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { createServerBackendClient } from "@/lib/backend/server";
+import { routeMetadata } from "@/app/route-metadata";
 import { LoginForm } from "./login-form";
 import { loginReturnUrl } from "./return-url";
 
@@ -12,6 +13,7 @@ type LoginPageProps = {
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
+export const metadata = routeMetadata.login;
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;

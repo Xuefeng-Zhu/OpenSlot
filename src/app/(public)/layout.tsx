@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { AppIcon } from "@/components/shared/app-icon";
+import { routeMetadata } from "@/app/route-metadata";
 
 export const runtime = "edge";
+export const metadata = routeMetadata.booking;
 
 export default function PublicLayout({
   children,

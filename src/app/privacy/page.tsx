@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { AppIcon } from "@/components/shared/app-icon";
+import { routeMetadata } from "@/app/route-metadata";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy | OpenSlot",
-  description: "Privacy information for OpenSlot accounts and booking flows.",
-};
+export const metadata = routeMetadata.privacy;
 
 export default function PrivacyPage() {
   return (

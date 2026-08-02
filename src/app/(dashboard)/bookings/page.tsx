@@ -4,6 +4,9 @@ import type { Tables } from "@/lib/types/database";
 import BookingsClient from "@/components/dashboard/bookings-client";
 import type { Booking } from "@/lib/booking-utils";
 import { normalizeBookingAnswerSummaries } from "@/lib/validations/invitee-questions";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.bookings;
 
 export default async function BookingsPage() {
   const backendClient = await createServerBackendClient();

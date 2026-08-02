@@ -3,6 +3,9 @@ import { EventTypeEditor, type ScheduleOption } from "../event-type-editor";
 import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
 import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
 import type { Tables } from "@/lib/types/database";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.createEventType;
 
 export default async function NewEventTypePage() {
   const backendClient = await createServerBackendClient();

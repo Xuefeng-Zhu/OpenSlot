@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import { createAdminBackendClient } from "@/lib/backend/server";
 import type { Tables } from "@/lib/types/database";
 import { PublicProfileContent } from "./profile-content";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.bookingProfile;
 
 interface ProfilePageProps {
   params: Promise<{ username: string }>;

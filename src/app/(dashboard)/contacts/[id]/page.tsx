@@ -9,6 +9,9 @@ import {
   type ContactRecord,
 } from "@/lib/contacts/summaries";
 import type { Tables } from "@/lib/types/database";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.contactDetails;
 
 interface ContactPageProps {
   params: Promise<{ id: string }>;
