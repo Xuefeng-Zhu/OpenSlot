@@ -66,6 +66,9 @@ describe("Focus Indicator Presence", () => {
       expect(input?.className).toContain("focus-visible:ring-2");
       expect(input?.className).toContain("focus-visible:ring-ring");
       expect(input?.className).toContain("focus-visible:ring-offset-2");
+      expect(input?.className).toContain("border-input");
+      expect(input?.className).toContain("placeholder:text-muted-foreground");
+      expect(input?.className).not.toContain("placeholder:text-muted-foreground/80");
     });
   });
 
@@ -82,6 +85,9 @@ describe("Focus Indicator Presence", () => {
       expect(textarea?.className).toContain("focus-visible:ring-2");
       expect(textarea?.className).toContain("focus-visible:ring-ring");
       expect(textarea?.className).toContain("focus-visible:ring-offset-2");
+      expect(textarea?.className).toContain("border-input");
+      expect(textarea?.className).toContain("placeholder:text-muted-foreground");
+      expect(textarea?.className).not.toContain("placeholder:text-muted-foreground/80");
     });
   });
 
@@ -98,6 +104,7 @@ describe("Focus Indicator Presence", () => {
       expect(button?.className).toContain("focus-visible:ring-2");
       expect(button?.className).toContain("focus-visible:ring-ring");
       expect(button?.className).toContain("focus-visible:ring-offset-2");
+      expect(button?.className).toContain("bg-input");
     });
   });
 
@@ -123,6 +130,11 @@ describe("Focus Indicator Presence", () => {
       const trigger = container.querySelector('[role="combobox"]');
       expect(trigger?.className).toContain("focus:ring-2");
       expect(trigger?.className).toContain("focus:ring-ring");
+      expect(trigger?.className).toContain("border-input");
+      expect(trigger?.className).toContain(
+        "data-[placeholder]:text-muted-foreground"
+      );
+      expect(trigger?.className).toContain("hover:border-primary");
     });
   });
 });
