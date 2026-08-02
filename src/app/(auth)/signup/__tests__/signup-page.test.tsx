@@ -135,6 +135,27 @@ describe("SignupPage", () => {
     );
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
+
+  it("provides a full-size keyboard-visible password visibility control", () => {
+    render(<SignupPage />);
+
+    const passwordInput = screen.getByLabelText("Password");
+    const visibilityButton = screen.getByRole("button", {
+      name: "Show password",
+    });
+
+    expect(visibilityButton.className).toContain("h-11");
+    expect(visibilityButton.className).toContain("w-11");
+    expect(visibilityButton.className).toContain("focus-visible:ring-2");
+    expect(passwordInput.getAttribute("type")).toBe("password");
+
+    fireEvent.click(visibilityButton);
+
+    expect(passwordInput.getAttribute("type")).toBe("text");
+    expect(
+      screen.getByRole("button", { name: "Hide password" })
+    ).toBeDefined();
+  });
 });
 
 function submitValidSignupForm({ email = "sarah@example.com" } = {}) {
