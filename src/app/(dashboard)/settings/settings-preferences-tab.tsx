@@ -12,6 +12,7 @@ interface SettingsPreferencesTabProps {
   timezone: string;
   dateFormat: SettingsFormValues["dateFormat"];
   timeFormat: SettingsFormValues["timeFormat"];
+  isDirty: boolean;
   savingAction: "account" | "preferences" | "notifications" | null;
   onTimezoneChange: (value: string) => void;
   onDateFormatChange: (value: SettingsFormValues["dateFormat"]) => void;
@@ -23,6 +24,7 @@ export function SettingsPreferencesTab({
   timezone,
   dateFormat,
   timeFormat,
+  isDirty,
   savingAction,
   onTimezoneChange,
   onDateFormatChange,
@@ -41,8 +43,11 @@ export function SettingsPreferencesTab({
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label>Default timezone</Label>
+              <Label htmlFor="settings-default-timezone">
+                Default timezone
+              </Label>
               <TimezoneSelector
+                inputId="settings-default-timezone"
                 value={timezone}
                 onChange={onTimezoneChange}
                 className="mt-1"
@@ -81,14 +86,24 @@ export function SettingsPreferencesTab({
                 <option value="24h">24-hour (13:00)</option>
               </select>
             </div>
-            <Button
-              onClick={onSavePreferences}
-              disabled={savingAction !== null}
-            >
-              {savingAction === "preferences"
-                ? "Saving..."
-                : "Save preferences"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={onSavePreferences}
+                disabled={savingAction !== null || !isDirty}
+              >
+                {savingAction === "preferences"
+                  ? "Saving..."
+                  : "Save preferences"}
+              </Button>
+              {isDirty && (
+                <span
+                  className="text-xs font-medium text-warning"
+                  role="status"
+                >
+                  Unsaved changes
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

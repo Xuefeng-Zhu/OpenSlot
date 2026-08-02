@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
+import { syncAccountEmail } from '@/lib/auth/sync-account-email'
 import { createAdminBackendClient } from '@/lib/backend/server'
 import { parseJsonBody } from '@/lib/http/json'
-import { settingsSchema } from '@/lib/validations/settings'
+import {
+  isLegacyFullSettingsPayload,
+  settingsPatchSchema,
+} from '@/lib/validations/settings'
 
 /**
- * Saves profile and notification/preference settings for the signed-in host.
- * Email changes go through backend auth on the client before this route persists
- * the app profile and user_settings rows.
+ * Saves exactly one account, preference, or notification settings section for
+ * the signed-in host. Account email changes synchronize Auth and profile data
+ * server-side so hidden drafts from another tab cannot leak into the write.
  */
 export const runtime = 'edge'
 
@@ -25,7 +29,18 @@ export async function PATCH(request: NextRequest) {
     const body = await parseJsonBody(request)
     if (!body.ok) return body.response
 
-    const parsed = settingsSchema.safeParse(body.body)
+    if (isLegacyFullSettingsPayload(body.body)) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SETTINGS_CLIENT_OUTDATED',
+          error: 'This settings page is out of date. Reload it and try again.',
+        },
+        { status: 409 }
+      )
+    }
+
+    const parsed = settingsPatchSchema.safeParse(body.body)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -42,38 +57,119 @@ export async function PATCH(request: NextRequest) {
     const adminClient = createAdminBackendClient()
     const now = new Date().toISOString()
 
-    const { error: profileError } = await adminClient
-      .from('profiles')
-      .update({
-        name: settings.name,
-        email: settings.email,
-        default_timezone: settings.defaultTimezone,
-        updated_at: now,
+    if (settings.section === 'account') {
+      const result = await syncAccountEmail({
+        userId: auth.userId,
+        profileId: auth.profileId,
+        currentEmail: auth.email,
+        nextEmail: settings.email,
+        client: adminClient,
       })
-      .eq('id', auth.profileId)
 
-    if (profileError) {
-      console.error('Error updating profile settings:', profileError)
+      if (!result.ok) {
+        return NextResponse.json(
+          { success: false, code: result.code, error: result.error },
+          { status: result.status }
+        )
+      }
+
+      return NextResponse.json({ success: true, email: result.email })
+    }
+
+    if (settings.section === 'preferences') {
+      const { data: previousProfile, error: previousProfileError } =
+        await adminClient
+          .from('profiles')
+          .select('default_timezone')
+          .eq('id', auth.profileId)
+          .single()
+
+      if (previousProfileError || !previousProfile) {
+        console.error(
+          'Error loading existing profile preferences:',
+          previousProfileError
+        )
+        return NextResponse.json(
+          { success: false, error: 'Failed to update preferences' },
+          { status: 500 }
+        )
+      }
+
+      const { error: profileError } = await adminClient
+        .from('profiles')
+        .update({
+          default_timezone: settings.defaultTimezone,
+          updated_at: now,
+        })
+        .eq('id', auth.profileId)
+
+      if (profileError) {
+        console.error('Error updating profile preferences:', profileError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to update preferences' },
+          { status: 500 }
+        )
+      }
+
+      const { error: settingsError } = await adminClient
+        .from('user_settings')
+        .upsert(
+          {
+            profile_id: auth.profileId,
+            date_format: settings.dateFormat,
+            time_format: settings.timeFormat,
+            updated_at: now,
+          },
+          { onConflict: 'profile_id' }
+        )
+
+      if (!settingsError) {
+        return NextResponse.json({ success: true })
+      }
+
+      console.error('Error updating display preferences:', settingsError)
+      const { error: rollbackError } = await adminClient
+        .from('profiles')
+        .update({
+          default_timezone: previousProfile.default_timezone,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', auth.profileId)
+
+      if (rollbackError) {
+        console.error('Error reconciling profile preferences:', rollbackError)
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'PREFERENCES_RECONCILIATION_REQUIRED',
+            error:
+              'Preferences could not be synchronized. Reload before retrying.',
+          },
+          { status: 500 }
+        )
+      }
+
       return NextResponse.json(
-        { success: false, error: 'Failed to update profile settings' },
+        {
+          success: false,
+          code: 'PREFERENCES_UPDATE_FAILED',
+          error: 'Preferences were not changed. Please try again.',
+        },
         { status: 500 }
       )
     }
 
+    const settingsPayload = {
+      profile_id: auth.profileId,
+      notify_new_booking: settings.notifyNewBooking,
+      notify_cancellation: settings.notifyCancellation,
+      notify_reminder: settings.notifyReminder,
+      updated_at: now,
+    }
+
     const { error: settingsError } = await adminClient
       .from('user_settings')
-      .upsert(
-        {
-          profile_id: auth.profileId,
-          date_format: settings.dateFormat,
-          time_format: settings.timeFormat,
-          notify_new_booking: settings.notifyNewBooking,
-          notify_cancellation: settings.notifyCancellation,
-          notify_reminder: settings.notifyReminder,
-          updated_at: now,
-        },
-        { onConflict: 'profile_id' }
-      )
+      .upsert(settingsPayload, { onConflict: 'profile_id' })
 
     if (settingsError) {
       console.error('Error updating user settings:', settingsError)

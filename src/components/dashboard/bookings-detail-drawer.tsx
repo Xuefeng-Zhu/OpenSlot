@@ -25,6 +25,8 @@ import type { Booking } from "@/lib/booking-utils"
 import { formatBookingLocationLabel } from "@/lib/location-labels"
 import { formatBookingAnswerValue } from "@/lib/validations/invitee-questions"
 import { formatBookingDateTime } from "@/components/dashboard/bookings-format"
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider"
+import type { DashboardDisplayPreferences } from "@/lib/dashboard/display-preferences"
 
 interface BookingDetailsDrawerProps {
   booking: Booking | null
@@ -39,6 +41,8 @@ export function BookingDetailsDrawer({
   onClose,
   onCancelBooking,
 }: BookingDetailsDrawerProps) {
+  const displayPreferences = useDashboardDisplayPreferences()
+
   return (
     <Drawer open={open} onClose={onClose} title="Booking Details">
       <DrawerHeader>
@@ -46,7 +50,12 @@ export function BookingDetailsDrawer({
         <DrawerDescription>Full details for this booking.</DrawerDescription>
       </DrawerHeader>
       <DrawerContent>
-        {booking && <BookingDetails booking={booking} />}
+        {booking && (
+          <BookingDetails
+            booking={booking}
+            displayPreferences={displayPreferences}
+          />
+        )}
       </DrawerContent>
       <DrawerFooter>
         {booking?.status === "confirmed" &&
@@ -63,9 +72,23 @@ export function BookingDetailsDrawer({
   )
 }
 
-function BookingDetails({ booking }: { booking: Booking }) {
+function BookingDetails({
+  booking,
+  displayPreferences,
+}: {
+  booking: Booking
+  displayPreferences: DashboardDisplayPreferences
+}) {
   const locationLabel = bookingLocationLabel(booking)
   const statusText = conferenceStatusText(booking)
+  const formattedStart = formatBookingDateTime(
+    booking.start_at,
+    displayPreferences
+  )
+  const formattedEnd = formatBookingDateTime(
+    booking.end_at,
+    displayPreferences
+  )
 
   return (
     <div className="space-y-4">
@@ -86,11 +109,12 @@ function BookingDetails({ booking }: { booking: Booking }) {
           {booking.event_type_title}
         </BookingDetailRow>
         <BookingDetailRow icon={Clock}>
-          {formatBookingDateTime(booking.start_at).date} ·{" "}
-          {formatBookingDateTime(booking.start_at).time} –{" "}
-          {formatBookingDateTime(booking.end_at).time}
+          Your time · {displayPreferences.timezone}: {formattedStart.date} ·{" "}
+          {formattedStart.time} – {formattedEnd.time}
         </BookingDetailRow>
-        <BookingDetailRow icon={Globe}>{booking.guest_timezone}</BookingDetailRow>
+        <BookingDetailRow icon={Globe}>
+          Guest timezone: {booking.guest_timezone}
+        </BookingDetailRow>
         <BookingDetailRow icon={Mail}>{booking.guest_email}</BookingDetailRow>
         {locationLabel && (
           <BookingDetailRow icon={Video}>{locationLabel}</BookingDetailRow>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { KeyRound } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -42,18 +43,36 @@ type McpTokenMutationResponse =
       error?: string;
     };
 
+type McpTokenListResponse =
+  | {
+      success: true;
+      tokens: McpTokenSummary[];
+    }
+  | {
+      success: false;
+      error?: string;
+      code?: string;
+    };
+
+type McpTokenLoadState = "error" | "retrying" | "ready";
+
 export function SettingsMcpTokensSection({
   mcpTokens: initialMcpTokens,
   mcpTokensLoadFailed = false,
 }: SettingsMcpTokensSectionProps) {
   const { toast } = useToast();
   const [mcpTokens, setMcpTokens] = useState(initialMcpTokens);
+  const [mcpTokenLoadState, setMcpTokenLoadState] =
+    useState<McpTokenLoadState>(mcpTokensLoadFailed ? "error" : "ready");
   const [mcpTokenName, setMcpTokenName] = useState("");
   const [mcpCreating, setMcpCreating] = useState(false);
   const [mcpActionId, setMcpActionId] = useState<string | null>(null);
   const [newMcpToken, setNewMcpToken] = useState<string | null>(null);
+  const mcpTokenListReady = mcpTokenLoadState === "ready";
 
   const createMcpToken = async () => {
+    if (!mcpTokenListReady) return;
+
     setMcpCreating(true);
     setNewMcpToken(null);
 
@@ -96,6 +115,8 @@ export function SettingsMcpTokensSection({
   };
 
   const revokeMcpToken = async (token: McpTokenSummary) => {
+    if (!mcpTokenListReady) return;
+
     if (!window.confirm("Revoke this MCP token?")) {
       return;
     }
@@ -151,6 +172,41 @@ export function SettingsMcpTokensSection({
     }
   };
 
+  const retryMcpTokens = async () => {
+    setMcpTokenLoadState("retrying");
+
+    try {
+      const data = await requestJson<McpTokenListResponse>(
+        "/api/mcp/tokens",
+        { method: "GET" },
+        "Failed to load MCP tokens"
+      );
+
+      if (!data.success) {
+        throw new Error(data.error ?? "Failed to load MCP tokens");
+      }
+
+      if (!Array.isArray(data.tokens)) {
+        throw new Error("Failed to load MCP tokens");
+      }
+
+      setMcpTokens(data.tokens);
+      setNewMcpToken(null);
+      setMcpTokenLoadState("ready");
+      toast({
+        title: "MCP tokens loaded",
+        description: "Token actions are available again.",
+      });
+    } catch (error) {
+      setMcpTokenLoadState("error");
+      toast({
+        title: "MCP tokens not loaded",
+        description: errorToastDescription(error),
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -160,9 +216,26 @@ export function SettingsMcpTokensSection({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
-        {mcpTokensLoadFailed ? (
+        {!mcpTokenListReady ? (
           <IntegrationLoadWarning>
-            MCP tokens could not be loaded. Existing tokens may not appear here.
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <span>
+                {mcpTokenLoadState === "retrying"
+                  ? "Retrying MCP token loading. Token actions remain unavailable."
+                  : "MCP tokens could not be loaded. Token actions are unavailable until the full list is restored."}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={mcpTokenLoadState === "retrying"}
+                onClick={retryMcpTokens}
+              >
+                {mcpTokenLoadState === "retrying"
+                  ? "Retrying..."
+                  : "Retry MCP tokens"}
+              </Button>
+            </div>
           </IntegrationLoadWarning>
         ) : null}
 
@@ -171,6 +244,7 @@ export function SettingsMcpTokensSection({
         )}
 
         <McpTokenCreateForm
+          disabled={!mcpTokenListReady}
           mcpCreating={mcpCreating}
           mcpTokenName={mcpTokenName}
           onCreateMcpToken={createMcpToken}
@@ -178,9 +252,10 @@ export function SettingsMcpTokensSection({
         />
 
         <McpTokenList
+          actionsDisabled={!mcpTokenListReady}
           mcpActionId={mcpActionId}
           mcpTokens={mcpTokens}
-          mcpTokensLoadFailed={mcpTokensLoadFailed}
+          mcpTokensLoadFailed={!mcpTokenListReady}
           onRevokeMcpToken={revokeMcpToken}
         />
       </CardContent>

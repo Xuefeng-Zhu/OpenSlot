@@ -12,10 +12,18 @@ import { processCalendarOutboxEvent } from '@/lib/calendar/events'
 import { enqueueWebhookDeliveriesForOutboxEvent } from '@/lib/webhooks/deliveries'
 import { normalizeBookingAnswerSummaries } from '@/lib/validations/invitee-questions'
 import { parseReminderOutboxPayload } from './reminder-payload'
+import { normalizeDashboardDisplayPreferences } from '@/lib/dashboard/display-preferences'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type BookingRow = Tables<'bookings'>
-type LoadedBookingDetails = BookingDetails & Pick<BookingRow, 'status'>
+type HostNotificationPreferences = Pick<
+  Tables<'user_settings'>,
+  'notify_new_booking' | 'notify_cancellation' | 'notify_reminder'
+>
+type LoadedBookingDetails = BookingDetails &
+  Pick<BookingRow, 'status'> & {
+    hostNotificationPreferences: HostNotificationPreferences
+  }
 
 export interface ProcessOutboxBatchOptions {
   adminClient: BackendCompatClient<Database>
@@ -140,7 +148,9 @@ async function sendBookingConfirmedNotifications(
   )
 
   await sendBookingConfirmationToGuest(bookingDetails)
-  await sendBookingNotificationToHost(bookingDetails)
+  if (bookingDetails.hostNotificationPreferences.notify_new_booking) {
+    await sendBookingNotificationToHost(bookingDetails)
+  }
 }
 
 async function sendBookingCancelledNotifications(
@@ -154,7 +164,9 @@ async function sendBookingCancelledNotifications(
   )
 
   await sendCancellationEmail(bookingDetails, 'guest')
-  await sendCancellationEmail(bookingDetails, 'host')
+  if (bookingDetails.hostNotificationPreferences.notify_cancellation) {
+    await sendCancellationEmail(bookingDetails, 'host')
+  }
 }
 
 async function sendBookingRescheduledNotifications(
@@ -168,7 +180,9 @@ async function sendBookingRescheduledNotifications(
   )
 
   await sendBookingConfirmationToGuest(bookingDetails)
-  await sendBookingNotificationToHost(bookingDetails)
+  if (bookingDetails.hostNotificationPreferences.notify_new_booking) {
+    await sendBookingNotificationToHost(bookingDetails)
+  }
 }
 
 async function sendBookingReminderNotifications(
@@ -198,7 +212,10 @@ async function sendBookingReminderNotifications(
     )
   }
 
-  if (reminderRequest.channels.host) {
+  if (
+    reminderRequest.channels.host &&
+    bookingDetails.hostNotificationPreferences.notify_reminder
+  ) {
     await sendBookingReminderEmail(
       bookingDetails,
       'host',
@@ -235,29 +252,72 @@ async function loadBookingDetails(
     )
   }
 
-  const [eventTypeResult, hostProfileResult] = await Promise.all([
-    adminClient
-      .from('event_types')
-      .select('title')
-      .eq('id', booking.event_type_id)
-      .single(),
-    adminClient
-      .from('profiles')
-      .select('name, email')
-      .eq('id', booking.host_user_id)
-      .single(),
-  ])
+  const [eventTypeResult, hostProfileResult, userSettingsResult] =
+    await Promise.all([
+      adminClient
+        .from('event_types')
+        .select('title')
+        .eq('id', booking.event_type_id)
+        .single(),
+      adminClient
+        .from('profiles')
+        .select('name, email, default_timezone')
+        .eq('id', booking.host_user_id)
+        .single(),
+      adminClient
+        .from('user_settings')
+        .select(
+          'date_format, time_format, notify_new_booking, notify_cancellation, notify_reminder'
+        )
+        .eq('profile_id', booking.host_user_id)
+        .maybeSingle(),
+    ])
+
+  if (eventTypeResult.error || !eventTypeResult.data) {
+    throw new Error('Failed to load event type for booking notification')
+  }
+
+  if (hostProfileResult.error || !hostProfileResult.data) {
+    throw new Error('Failed to load host profile for booking notification')
+  }
+
+  if (userSettingsResult.error) {
+    throw new Error('Failed to load host notification preferences')
+  }
+
+  const userSettings = userSettingsResult.data as Pick<
+    Tables<'user_settings'>,
+    | 'date_format'
+    | 'time_format'
+    | 'notify_new_booking'
+    | 'notify_cancellation'
+    | 'notify_reminder'
+  > | null
+  const hostProfile = hostProfileResult.data as Pick<
+    Tables<'profiles'>,
+    'name' | 'email' | 'default_timezone'
+  >
 
   return {
     bookingId: booking.id,
-    eventTitle: eventTypeResult.data?.title ?? 'Meeting',
+    eventTitle: eventTypeResult.data.title,
     startAt: booking.start_at,
     endAt: booking.end_at,
     guestName: booking.guest_name,
     guestEmail: booking.guest_email,
     guestTimezone: booking.guest_timezone,
-    hostName: hostProfileResult.data?.name ?? 'Host',
-    hostEmail: hostProfileResult.data?.email ?? '',
+    hostName: hostProfile.name,
+    hostEmail: hostProfile.email,
+    hostDisplayPreferences: normalizeDashboardDisplayPreferences({
+      timezone: hostProfile?.default_timezone,
+      dateFormat: userSettings?.date_format,
+      timeFormat: userSettings?.time_format,
+    }),
+    hostNotificationPreferences: {
+      notify_new_booking: userSettings?.notify_new_booking ?? true,
+      notify_cancellation: userSettings?.notify_cancellation ?? true,
+      notify_reminder: userSettings?.notify_reminder ?? true,
+    },
     locationType: booking.location_type,
     locationValue: booking.location_value,
     conferenceProvider: booking.conference_provider,

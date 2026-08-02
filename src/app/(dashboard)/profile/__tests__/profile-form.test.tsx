@@ -26,7 +26,6 @@ vi.mock('@/lib/backend/compat/browser-client', () => ({
 const initialData = {
   name: 'Test User',
   username: 'test-user',
-  default_timezone: 'America/Los_Angeles',
   public_headline: 'Advisor',
   public_bio: 'I help teams schedule better.',
   response_time_label: 'Within a day',
@@ -46,6 +45,11 @@ describe('ProfileForm', () => {
   it('refreshes server-rendered dashboard data after a successful profile save', async () => {
     render(<ProfileForm initialData={initialData} />)
 
+    expect(screen.queryByLabelText('Default Timezone')).toBeNull()
+    expect(
+      screen.getByRole('link', { name: 'Preferences' }).getAttribute('href')
+    ).toBe('/settings?tab=preferences')
+
     fireEvent.change(screen.getByLabelText('Name'), {
       target: { value: 'Updated User' },
     })
@@ -58,6 +62,9 @@ describe('ProfileForm', () => {
     expect(mocks.from).toHaveBeenCalledWith('profiles')
     expect(mocks.update).toHaveBeenCalledWith(
       expect.objectContaining({ name: 'Updated User' })
+    )
+    expect(mocks.update.mock.calls[0][0]).not.toHaveProperty(
+      'default_timezone'
     )
     expect(mocks.eq).toHaveBeenCalledWith('auth_user_id', 'auth-user-1')
   })

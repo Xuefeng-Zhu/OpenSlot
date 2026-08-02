@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,14 +9,15 @@ import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
 
 interface SettingsAccountTabProps {
-  name: string;
   email: string;
+  emailError: string | null;
+  emailInputRef: Ref<HTMLInputElement>;
+  isDirty: boolean;
   currentPassword: string;
   newPassword: string;
   savingAction: "account" | "preferences" | "notifications" | null;
   passwordSaving: boolean;
   deleteSaving: boolean;
-  onNameChange: (value: string) => void;
   onEmailChange: (value: string) => void;
   onCurrentPasswordChange: (value: string) => void;
   onNewPasswordChange: (value: string) => void;
@@ -25,14 +27,15 @@ interface SettingsAccountTabProps {
 }
 
 export function SettingsAccountTab({
-  name,
   email,
+  emailError,
+  emailInputRef,
+  isDirty,
   currentPassword,
   newPassword,
   savingAction,
   passwordSaving,
   deleteSaving,
-  onNameChange,
   onEmailChange,
   onCurrentPasswordChange,
   onNewPasswordChange,
@@ -47,30 +50,51 @@ export function SettingsAccountTab({
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <User className="h-4 w-4" aria-hidden="true" />
-              Profile information
+              Sign-in email
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <Label htmlFor="settings-name">Name</Label>
-              <Input
-                id="settings-name"
-                value={name}
-                onChange={(event) => onNameChange(event.target.value)}
-              />
-            </div>
-            <div>
               <Label htmlFor="settings-email">Email</Label>
               <Input
+                ref={emailInputRef}
                 id="settings-email"
                 type="email"
+                required
+                autoComplete="email"
                 value={email}
                 onChange={(event) => onEmailChange(event.target.value)}
+                aria-invalid={Boolean(emailError)}
+                aria-describedby={
+                  emailError ? "settings-email-error" : undefined
+                }
               />
+              {emailError ? (
+                <p
+                  id="settings-email-error"
+                  className="mt-1 text-sm text-destructive"
+                  role="alert"
+                >
+                  {emailError}
+                </p>
+              ) : null}
             </div>
-            <Button onClick={onSaveAccount} disabled={savingAction !== null}>
-              {savingAction === "account" ? "Saving..." : "Save changes"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={onSaveAccount}
+                disabled={savingAction !== null || !isDirty}
+              >
+                {savingAction === "account" ? "Saving..." : "Save email"}
+              </Button>
+              {isDirty && (
+                <span
+                  className="text-xs font-medium text-warning"
+                  role="status"
+                >
+                  Unsaved changes
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
 

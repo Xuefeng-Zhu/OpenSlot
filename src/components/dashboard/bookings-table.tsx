@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Booking, BookingCategory } from "@/lib/booking-utils";
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider";
 import {
   formatBookingDateTime,
   getBookingStatusLabel,
@@ -20,6 +21,8 @@ export function BookingsTable({
   category,
   onBookingClick,
 }: BookingsTableProps) {
+  const displayPreferences = useDashboardDisplayPreferences();
+
   return (
     <>
       {/* Desktop table - hidden on mobile */}
@@ -48,9 +51,13 @@ export function BookingsTable({
             <tbody>
               {bookings.map((booking) => {
                 const { date, time: startTime } = formatBookingDateTime(
-                  booking.start_at
+                  booking.start_at,
+                  displayPreferences
                 );
-                const { time: endTime } = formatBookingDateTime(booking.end_at);
+                const { time: endTime } = formatBookingDateTime(
+                  booking.end_at,
+                  displayPreferences
+                );
                 return (
                   <tr
                     key={booking.id}
@@ -101,9 +108,13 @@ export function BookingsTable({
       <div className="lg:hidden mt-4 space-y-3">
         {bookings.map((booking) => {
           const { date, time: startTime } = formatBookingDateTime(
-            booking.start_at
+            booking.start_at,
+            displayPreferences
           );
-          const { time: endTime } = formatBookingDateTime(booking.end_at);
+          const { time: endTime } = formatBookingDateTime(
+            booking.end_at,
+            displayPreferences
+          );
           return (
             <button
               key={booking.id}

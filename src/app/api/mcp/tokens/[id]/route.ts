@@ -41,8 +41,12 @@ export async function DELETE(
   } catch (error) {
     console.error('Error in DELETE /api/mcp/tokens/[id]:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        error: 'MCP tokens are temporarily unavailable',
+        code: 'MCP_TOKENS_UNAVAILABLE',
+      },
+      { status: 503 }
     )
   }
 }

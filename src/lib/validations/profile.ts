@@ -1,10 +1,9 @@
 import { z } from 'zod'
-import { isValidTimezone } from '@/lib/utils/timezone'
 
 export { getTimezones, isValidTimezone } from '@/lib/utils/timezone'
 
 /**
- * Dashboard profile form schema for public identity and default timezone.
+ * Dashboard profile form schema for public host identity.
  */
 export const profileSchema = z.object({
   name: z.string().trim().min(1, 'Name is required').max(100, 'Name must be 100 characters or less'),
@@ -17,9 +16,6 @@ export const profileSchema = z.object({
       /^[a-z0-9-]+$/,
       'Username can only contain lowercase letters, numbers, and hyphens'
     ),
-  default_timezone: z
-    .string()
-    .refine(isValidTimezone, { message: 'Please select a valid timezone' }),
   public_headline: z
     .string()
     .max(80, 'Headline must be 80 characters or less')

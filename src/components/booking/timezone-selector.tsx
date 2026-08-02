@@ -8,6 +8,7 @@ export interface TimezoneSelectorProps {
   value: string;
   onChange: (tz: string) => void;
   className?: string;
+  inputId?: string;
 }
 
 /**
@@ -23,13 +24,14 @@ export function filterTimezones(timezones: string[], query: string): string[] {
 }
 
 const TimezoneSelector = React.forwardRef<HTMLDivElement, TimezoneSelectorProps>(
-  ({ value, onChange, className }, ref) => {
+  ({ value, onChange, className, inputId }, ref) => {
     const [open, setOpen] = React.useState(false);
     const [query, setQuery] = React.useState("");
     const [highlightedIndex, setHighlightedIndex] = React.useState(0);
     const inputRef = React.useRef<HTMLInputElement>(null);
     const listRef = React.useRef<HTMLUListElement>(null);
     const containerRef = React.useRef<HTMLDivElement>(null);
+    const generatedListboxId = React.useId();
 
     const timezones = React.useMemo(() => getTimezones(), []);
     const filtered = React.useMemo(
@@ -111,17 +113,18 @@ const TimezoneSelector = React.forwardRef<HTMLDivElement, TimezoneSelectorProps>
         <div ref={ref}>
           <input
             ref={inputRef}
+            id={inputId}
             type="text"
             role="combobox"
             aria-expanded={open}
-            aria-controls="timezone-listbox"
+            aria-controls={generatedListboxId}
             aria-autocomplete="list"
             aria-activedescendant={
               open && filtered[highlightedIndex]
-                ? `tz-option-${highlightedIndex}`
+                ? `${generatedListboxId}-option-${highlightedIndex}`
                 : undefined
             }
-            aria-label="Timezone"
+            aria-label={inputId ? undefined : "Timezone"}
             value={open ? query : value}
             placeholder={value || "Search timezone..."}
             onChange={(e) => {
@@ -140,7 +143,7 @@ const TimezoneSelector = React.forwardRef<HTMLDivElement, TimezoneSelectorProps>
         </div>
         {open && filtered.length > 0 && (
           <ul
-            id="timezone-listbox"
+            id={generatedListboxId}
             ref={listRef}
             role="listbox"
             aria-label="Timezone options"
@@ -149,7 +152,7 @@ const TimezoneSelector = React.forwardRef<HTMLDivElement, TimezoneSelectorProps>
             {filtered.map((tz, index) => (
               <li
                 key={tz}
-                id={`tz-option-${index}`}
+                id={`${generatedListboxId}-option-${index}`}
                 role="option"
                 aria-selected={tz === value}
                 className={cn(

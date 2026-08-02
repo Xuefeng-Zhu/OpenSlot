@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { profileSchema, type ProfileFormValues, getTimezones } from '@/lib/validations/profile'
+import { profileSchema, type ProfileFormValues } from '@/lib/validations/profile'
 import { createBrowserBackendClient } from '@/lib/backend/compat/browser-client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,15 +33,11 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
     register,
     handleSubmit,
     formState: { errors },
-    setValue,
     watch,
   } = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: initialData,
   })
-
-  const timezones = getTimezones()
-  const currentTimezone = watch('default_timezone')
 
   async function onSubmit(data: ProfileFormValues) {
     setIsSubmitting(true)
@@ -64,7 +61,6 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
         .update({
           name: data.name,
           username: data.username,
-          default_timezone: data.default_timezone,
           public_headline: optionalText(data.public_headline),
           public_bio: optionalText(data.public_bio),
           response_time_label: optionalText(data.response_time_label),
@@ -95,7 +91,15 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
       <CardHeader>
         <CardTitle>Edit profile</CardTitle>
         <CardDescription>
-          Update your public profile information. Your username will be used in your public booking URL.
+          Update the public information guests see. Your username is used in
+          your booking URL. Manage timezone and date/time formats in{' '}
+          <Link
+            href="/settings?tab=preferences"
+            className="font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Preferences
+          </Link>
+          .
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -132,29 +136,6 @@ export function ProfileForm({ initialData }: ProfileFormProps) {
             {errors.username && (
               <p id="username-error" className="text-sm text-destructive">
                 {errors.username.message}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="default_timezone">Default Timezone</Label>
-            <select
-              id="default_timezone"
-              className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm ring-offset-background transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70"
-              value={currentTimezone}
-              onChange={(e) => setValue('default_timezone', e.target.value, { shouldValidate: true })}
-              aria-invalid={!!errors.default_timezone}
-              aria-describedby={errors.default_timezone ? 'timezone-error' : undefined}
-            >
-              {timezones.map((tz) => (
-                <option key={tz} value={tz}>
-                  {tz.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-            {errors.default_timezone && (
-              <p id="timezone-error" className="text-sm text-destructive">
-                {errors.default_timezone.message}
               </p>
             )}
           </div>

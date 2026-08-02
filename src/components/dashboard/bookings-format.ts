@@ -1,4 +1,10 @@
 import type { BookingCategory } from "@/lib/booking-utils";
+import {
+  defaultDashboardDisplayPreferences,
+  formatDashboardDate,
+  formatDashboardTime,
+  type DashboardDisplayPreferences,
+} from "@/lib/dashboard/display-preferences";
 
 export function getBookingStatusLabel(category: BookingCategory): string {
   if (category === "upcoming") return "Confirmed";
@@ -6,21 +12,15 @@ export function getBookingStatusLabel(category: BookingCategory): string {
   return "Completed";
 }
 
-export function formatBookingDateTime(isoString: string): {
+export function formatBookingDateTime(
+  isoString: string,
+  preferences: DashboardDisplayPreferences = defaultDashboardDisplayPreferences
+): {
   date: string;
   time: string;
 } {
-  const d = new Date(isoString);
-  const date = d.toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-  const time = d.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return { date, time };
+  return {
+    date: formatDashboardDate(isoString, preferences),
+    time: formatDashboardTime(isoString, preferences),
+  };
 }

@@ -119,6 +119,8 @@ render a short summary or consume typed data.
 
 - Apply `backend/database/migrations/20260524000000_add_mcp_api_tokens.sql`
   before enabling tokens in production.
+- Token creation and revocation stay disabled until Settings loads the complete
+  token list. A failed load returns safe retry guidance without database details.
 - Keep MCP tokens out of source control and local issue logs.
 - Revoke and recreate tokens after exposing a client config, device, or backup.
 - Prefer HTTPS for remote MCP clients.

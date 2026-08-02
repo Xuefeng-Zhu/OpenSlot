@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import * as fc from 'fast-check'
 import { profileSchema, isValidTimezone } from '@/lib/validations/profile'
+import { preferencesSettingsPatchSchema } from '@/lib/validations/settings'
 import { char, stringOf } from '@/test/fast-check'
 
 /**
@@ -149,7 +150,9 @@ describe('Property 2: Username and timezone validation correctness', () => {
           (timezone) => {
             expect(isValidTimezone(timezone)).toBe(false)
             expect(
-              profileSchema.shape.default_timezone.safeParse(timezone).success
+              preferencesSettingsPatchSchema.shape.defaultTimezone.safeParse(
+                timezone
+              ).success
             ).toBe(false)
           }
         ),

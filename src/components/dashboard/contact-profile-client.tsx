@@ -29,6 +29,12 @@ import type {
   ContactSummary,
   ContactTimelineItem,
 } from "@/lib/contacts/summaries";
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider";
+import {
+  formatDashboardDate,
+  formatDashboardTime,
+  type DashboardDisplayPreferences,
+} from "@/lib/dashboard/display-preferences";
 
 interface ContactProfileClientProps {
   contact: ContactSummary;
@@ -45,21 +51,13 @@ type ContactAnonymizeResponse =
       error?: string;
     };
 
-function formatDateTime(isoString: string): { date: string; time: string } {
-  const date = new Date(isoString);
-
+function formatDateTime(
+  isoString: string,
+  preferences: DashboardDisplayPreferences
+): { date: string; time: string } {
   return {
-    date: date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-    time: date.toLocaleTimeString("en-US", {
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    }),
+    date: formatDashboardDate(isoString, preferences),
+    time: formatDashboardTime(isoString, preferences),
   };
 }
 
@@ -75,6 +73,7 @@ export function ContactProfileClient({
 }: ContactProfileClientProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const displayPreferences = useDashboardDisplayPreferences();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [anonymizing, setAnonymizing] = useState(false);
 
@@ -164,8 +163,8 @@ export function ContactProfileClient({
           <div className="rounded-md border border-border">
             <ol className="divide-y divide-border">
               {timeline.map((item) => {
-                const start = formatDateTime(item.startAt);
-                const end = formatDateTime(item.endAt);
+                const start = formatDateTime(item.startAt, displayPreferences);
+                const end = formatDateTime(item.endAt, displayPreferences);
                 const status = statusBadge(item.status);
 
                 return (
@@ -195,7 +194,8 @@ export function ContactProfileClient({
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Updated {formatDateTime(item.occurredAt).date}
+                        Updated{" "}
+                        {formatDateTime(item.occurredAt, displayPreferences).date}
                       </p>
                     </div>
                   </li>

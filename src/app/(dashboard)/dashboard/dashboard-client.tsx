@@ -19,6 +19,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { getDisplayedBookings } from "@/lib/dashboard-utils";
 import { copyTextToClipboard } from "@/lib/utils/clipboard";
 import { useCopyFeedback } from "@/components/shared/use-copy-feedback";
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider";
 import {
   formatDashboardBookingDate,
   formatDashboardBookingDuration,
@@ -56,6 +57,7 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const { toast } = useToast();
   const { copied, showCopied } = useCopyFeedback();
+  const displayPreferences = useDashboardDisplayPreferences();
 
   const displayedBookings = getDisplayedBookings(upcomingBookings);
 
@@ -186,10 +188,17 @@ export function DashboardClient({
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm text-foreground">
-                        {formatDashboardBookingDate(booking.start_at)}
+                        {formatDashboardBookingDate(
+                          booking.start_at,
+                          new Date(),
+                          displayPreferences
+                        )}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {formatDashboardBookingTime(booking.start_at)}
+                        {formatDashboardBookingTime(
+                          booking.start_at,
+                          displayPreferences
+                        )}
                       </p>
                     </div>
                     <Badge

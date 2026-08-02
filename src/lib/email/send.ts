@@ -16,6 +16,12 @@ import {
 } from './templates'
 import { formatBookingLocationLabel } from '@/lib/location-labels'
 import type { BookingAnswerSummary } from '@/lib/validations/invitee-questions'
+import {
+  formatDashboardDate,
+  formatDashboardTime,
+  normalizeDashboardDisplayPreferences,
+  type DashboardDisplayPreferences,
+} from '@/lib/dashboard/display-preferences'
 
 /**
  * Booking details needed to compose email notifications.
@@ -30,6 +36,7 @@ export interface BookingDetails {
   guestTimezone: string
   hostName: string
   hostEmail: string
+  hostDisplayPreferences?: DashboardDisplayPreferences
   locationType?: string
   locationValue?: string
   conferenceProvider?: string | null
@@ -84,7 +91,7 @@ export function getEmailProvider(): EmailProvider {
  * Formats a UTC ISO timestamp into a human-readable date and time string
  * for the given timezone.
  */
-function formatBookingDateTime(isoStart: string, isoEnd: string, timezone: string): { date: string; time: string } {
+function formatGuestBookingDateTime(isoStart: string, isoEnd: string, timezone: string): { date: string; time: string } {
   try {
     const start = new Date(isoStart)
     const end = new Date(isoEnd)
@@ -114,6 +121,24 @@ function formatBookingDateTime(isoStart: string, isoEnd: string, timezone: strin
       date: new Date(isoStart).toDateString(),
       time: `${new Date(isoStart).toTimeString().slice(0, 5)} - ${new Date(isoEnd).toTimeString().slice(0, 5)}`,
     }
+  }
+}
+
+function formatHostBookingDateTime(
+  isoStart: string,
+  isoEnd: string,
+  booking: BookingDetails
+): { date: string; time: string; timezone: string } {
+  const preferences = booking.hostDisplayPreferences ??
+    normalizeDashboardDisplayPreferences({ timezone: booking.guestTimezone })
+  const date = formatDashboardDate(isoStart, preferences)
+  const start = formatDashboardTime(isoStart, preferences)
+  const end = formatDashboardTime(isoEnd, preferences)
+
+  return {
+    date,
+    time: start === '—' || end === '—' ? '—' : `${start} - ${end}`,
+    timezone: preferences.timezone,
   }
 }
 
@@ -162,7 +187,7 @@ async function deliverEmail(payload: EmailPayload, failureContext: string): Prom
  * Throws on provider failures so the outbox worker can retry delivery.
  */
 export async function sendBookingConfirmationToGuest(booking: BookingDetails): Promise<void> {
-  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const { date, time } = formatGuestBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
   const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
   const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
   const locationLabel = formatBookingLocationLabel({
@@ -201,7 +226,11 @@ export async function sendBookingConfirmationToGuest(booking: BookingDetails): P
  * Throws on provider failures so the outbox worker can retry delivery.
  */
 export async function sendBookingNotificationToHost(booking: BookingDetails): Promise<void> {
-  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const { date, time, timezone } = formatHostBookingDateTime(
+    booking.startAt,
+    booking.endAt,
+    booking
+  )
   const locationLabel = formatBookingLocationLabel({
     locationType: booking.locationType,
     locationValue: booking.locationValue,
@@ -215,7 +244,7 @@ export async function sendBookingNotificationToHost(booking: BookingDetails): Pr
     guestName: booking.guestName,
     guestEmail: booking.guestEmail,
     hostName: booking.hostName,
-    timezone: booking.guestTimezone,
+    timezone,
     locationLabel,
     conferenceUrl: booking.conferenceUrl ?? undefined,
     bookingAnswers: booking.bookingAnswers,
@@ -241,7 +270,17 @@ export async function sendCancellationEmail(
   recipient: 'guest' | 'host'
 ): Promise<void> {
   const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
-  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const formatted = recipient === 'guest'
+    ? {
+        ...formatGuestBookingDateTime(
+          booking.startAt,
+          booking.endAt,
+          booking.guestTimezone
+        ),
+        timezone: booking.guestTimezone,
+      }
+    : formatHostBookingDateTime(booking.startAt, booking.endAt, booking)
+  const { date, time, timezone } = formatted
 
   const { subject, html, text } = cancellationTemplate(
     {
@@ -251,7 +290,7 @@ export async function sendCancellationEmail(
       guestName: booking.guestName,
       guestEmail: booking.guestEmail,
       hostName: booking.hostName,
-      timezone: booking.guestTimezone,
+      timezone,
     },
     recipient
   )
@@ -277,7 +316,17 @@ export async function sendBookingReminderEmail(
   minutesBefore: number
 ): Promise<void> {
   const toEmail = recipient === 'guest' ? booking.guestEmail : booking.hostEmail
-  const { date, time } = formatBookingDateTime(booking.startAt, booking.endAt, booking.guestTimezone)
+  const formatted = recipient === 'guest'
+    ? {
+        ...formatGuestBookingDateTime(
+          booking.startAt,
+          booking.endAt,
+          booking.guestTimezone
+        ),
+        timezone: booking.guestTimezone,
+      }
+    : formatHostBookingDateTime(booking.startAt, booking.endAt, booking)
+  const { date, time, timezone } = formatted
   const cancellationUrl = buildCancellationUrl(booking.cancellationToken)
   const rescheduleUrl = buildRescheduleUrl(booking.rescheduleToken)
 
@@ -289,7 +338,7 @@ export async function sendBookingReminderEmail(
       guestName: booking.guestName,
       guestEmail: booking.guestEmail,
       hostName: booking.hostName,
-      timezone: booking.guestTimezone,
+      timezone,
       cancellationUrl,
       rescheduleUrl,
     },

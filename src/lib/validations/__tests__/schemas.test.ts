@@ -8,7 +8,6 @@ describe('profileSchema', () => {
   const validProfile = {
     name: 'John Doe',
     username: 'john-doe',
-    default_timezone: 'America/New_York',
   }
 
   describe('username boundary lengths', () => {

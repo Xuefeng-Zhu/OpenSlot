@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { McpTokenSummary } from "@/lib/mcp/tokens";
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider";
+import { formatDashboardTimestamp } from "@/lib/dashboard/display-preferences";
 
 export function McpTokenSecretNotice({
   rawToken,
@@ -38,11 +40,13 @@ export function McpTokenSecretNotice({
 }
 
 export function McpTokenCreateForm({
+  disabled = false,
   mcpCreating,
   mcpTokenName,
   onCreateMcpToken,
   onMcpTokenNameChange,
 }: {
+  disabled?: boolean;
   mcpCreating: boolean;
   mcpTokenName: string;
   onCreateMcpToken: () => void;
@@ -55,12 +59,16 @@ export function McpTokenCreateForm({
         <Input
           id="mcp-token-name"
           value={mcpTokenName}
+          disabled={disabled}
           onChange={(event) => onMcpTokenNameChange(event.target.value)}
           placeholder="Claude Desktop"
         />
       </div>
       <div className="flex items-end">
-        <Button onClick={onCreateMcpToken} disabled={mcpCreating}>
+        <Button
+          onClick={onCreateMcpToken}
+          disabled={disabled || mcpCreating}
+        >
           <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           {mcpCreating ? "Creating..." : "Create token"}
         </Button>
@@ -70,11 +78,13 @@ export function McpTokenCreateForm({
 }
 
 export function McpTokenList({
+  actionsDisabled = false,
   mcpActionId,
   mcpTokens,
   mcpTokensLoadFailed,
   onRevokeMcpToken,
 }: {
+  actionsDisabled?: boolean;
   mcpActionId: string | null;
   mcpTokens: McpTokenSummary[];
   mcpTokensLoadFailed: boolean;
@@ -95,6 +105,7 @@ export function McpTokenList({
             key={token.id}
             token={token}
             disabled={
+              actionsDisabled ||
               mcpActionId === token.id ||
               Boolean(token.revokedAt) ||
               isMcpTokenExpired(token)
@@ -118,6 +129,7 @@ function McpTokenCard({
 }) {
   const isRevoked = Boolean(token.revokedAt);
   const isExpired = isMcpTokenExpired(token);
+  const displayPreferences = useDashboardDisplayPreferences();
 
   return (
     <div className="rounded-md border border-border p-4">
@@ -133,8 +145,12 @@ function McpTokenCard({
             {token.tokenPrefix}...
           </p>
           <p className="text-xs text-muted-foreground">
-            Last used {formatTokenDate(token.lastUsedAt)} · Created{" "}
-            {formatTokenDate(token.createdAt)}
+            Last used{" "}
+            {token.lastUsedAt
+              ? formatDashboardTimestamp(token.lastUsedAt, displayPreferences)
+              : "never"}{" "}
+            · Created{" "}
+            {formatDashboardTimestamp(token.createdAt, displayPreferences)}
           </p>
         </div>
 
@@ -155,13 +171,4 @@ function McpTokenCard({
 
 function isMcpTokenExpired(token: McpTokenSummary): boolean {
   return Boolean(token.expiresAt && new Date(token.expiresAt) <= new Date());
-}
-
-function formatTokenDate(value: string | null): string {
-  if (!value) return "never";
-
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }

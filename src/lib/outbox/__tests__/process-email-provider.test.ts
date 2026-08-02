@@ -41,8 +41,8 @@ function createOutboxClient() {
     })),
     from: vi.fn((table: string) => ({
       select: () => ({
-        eq: () => ({
-          single: async () => {
+        eq: () => {
+          const loadSingle = async () => {
             if (table === 'bookings') {
               return {
                 data: {
@@ -80,12 +80,37 @@ function createOutboxClient() {
             }
 
             if (table === 'profiles') {
-              return { data: { name: 'Host User', email: 'host@example.com' }, error: null }
+              return {
+                data: {
+                  name: 'Host User',
+                  email: 'host@example.com',
+                  default_timezone: 'America/Los_Angeles',
+                },
+                error: null,
+              }
+            }
+
+            if (table === 'user_settings') {
+              return {
+                data: {
+                  date_format: 'MM/DD/YYYY',
+                  time_format: '12h',
+                  notify_new_booking: true,
+                  notify_cancellation: true,
+                  notify_reminder: true,
+                },
+                error: null,
+              }
             }
 
             return { data: null, error: { message: 'unexpected table' } }
-          },
-        }),
+          }
+
+          return {
+            single: loadSingle,
+            maybeSingle: loadSingle,
+          }
+        },
       }),
       update: (payload: Record<string, unknown>) => {
         updates.push(payload)

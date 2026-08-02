@@ -5,6 +5,10 @@ import { PASSWORD_COMPLEXITY_ERROR } from "@/lib/validations/password";
 import { SettingsClient } from "../settings-client";
 
 const toastMock = vi.hoisted(() => vi.fn());
+const routerMock = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  replace: vi.fn(),
+}));
 const backendAuthMock = vi.hoisted(() => ({
   signInWithPassword: vi.fn(),
   updateUser: vi.fn(),
@@ -15,6 +19,10 @@ vi.mock("@/components/ui/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => routerMock,
+}));
+
 vi.mock("@/lib/backend/compat/browser-client", () => ({
   createBrowserBackendClient: () => ({
     auth: backendAuthMock,
@@ -22,7 +30,6 @@ vi.mock("@/lib/backend/compat/browser-client", () => ({
 }));
 
 const initialSettings = {
-  name: "Test User",
   email: "test@example.com",
   defaultTimezone: "America/Los_Angeles",
   dateFormat: "MM/DD/YYYY" as const,
@@ -32,14 +39,158 @@ const initialSettings = {
   notifyReminder: false,
 };
 
+const dirtySectionCases = [
+  {
+    section: "account",
+    tabName: "Account",
+    saveButtonName: "Save email",
+  },
+  {
+    section: "preferences",
+    tabName: "Preferences",
+    saveButtonName: "Save preferences",
+  },
+  {
+    section: "notifications",
+    tabName: "Notifications",
+    saveButtonName: "Save notification settings",
+  },
+] as const;
+
+type DirtySection = (typeof dirtySectionCases)[number]["section"];
+
+function selectSettingsSection(tabName: string) {
+  fireEvent.click(
+    screen.getByRole("tab", { name: new RegExp(`^${tabName}`) })
+  );
+}
+
+function toggleSectionDraft(section: DirtySection) {
+  if (section === "account") {
+    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
+    fireEvent.change(emailInput, {
+      target: {
+        value:
+          emailInput.value === initialSettings.email
+            ? "changed@example.com"
+            : initialSettings.email,
+      },
+    });
+    return;
+  }
+
+  if (section === "preferences") {
+    const dateFormat = screen.getByLabelText(
+      "Date format"
+    ) as HTMLSelectElement;
+    fireEvent.change(dateFormat, {
+      target: {
+        value:
+          dateFormat.value === initialSettings.dateFormat
+            ? "DD/MM/YYYY"
+            : initialSettings.dateFormat,
+      },
+    });
+    return;
+  }
+
+  fireEvent.click(
+    screen.getByRole("switch", { name: "Toggle cancellation notifications" })
+  );
+}
+
+function renderSettingsClient() {
+  return render(
+    <SettingsClient
+      initialSettings={initialSettings}
+      calendarConnections={[]}
+      webhookEndpoints={[]}
+    />
+  );
+}
+
 describe("SettingsClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     toastMock.mockClear();
+    routerMock.refresh.mockReset();
+    routerMock.replace.mockReset();
     backendAuthMock.signInWithPassword.mockReset();
     backendAuthMock.updateUser.mockReset();
     backendAuthMock.signOut.mockReset();
+  });
+
+  it("opens a deep-linked settings tab and keeps tab selection in the URL", () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        initialTab="preferences"
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    expect(
+      screen
+        .getByRole("tab", { name: "Preferences" })
+        .getAttribute("aria-selected")
+    ).toBe("true");
+    expect(screen.getByLabelText("Default timezone")).toBeDefined();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
+    expect(routerMock.replace).toHaveBeenCalledWith(
+      "/settings?tab=integrations",
+      { scroll: false }
+    );
+  });
+
+  it("announces a successful calendar callback once and clears result parameters", async () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        initialTab="integrations"
+        calendarOAuthResult={{ status: "connected", provider: "google" }}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith({
+        title: "Google Calendar connected",
+        description: "Calendar availability and booking sync are ready.",
+      });
+      expect(routerMock.replace).toHaveBeenCalledWith(
+        "/settings?tab=integrations",
+        { scroll: false }
+      );
+    });
+  });
+
+  it("uses safe retry guidance for failed calendar callbacks", async () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        initialTab="integrations"
+        calendarOAuthResult={{
+          status: "error",
+          provider: "microsoft",
+          reason: "provider_unavailable",
+        }}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith({
+        title: "Calendar not connected",
+        description:
+          "The calendar provider is temporarily unavailable. Try again shortly.",
+        variant: "destructive",
+      });
+    });
   });
 
   it("blocks weak settings password changes before reauthenticating", () => {
@@ -99,6 +250,270 @@ describe("SettingsClient", () => {
         password: "Newpass1!",
       });
     });
+  });
+
+  it("saves account email only through the section-owned server route", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        success: true,
+        email: "new@example.com",
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    expect(screen.queryByLabelText("Name")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "New@Example.com" },
+    });
+    expect(screen.getByRole("status").textContent).toBe("Unsaved changes");
+    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/settings",
+        expect.objectContaining({
+          method: "PATCH",
+          body: JSON.stringify({
+            section: "account",
+            email: "new@example.com",
+          }),
+        })
+      );
+      expect(routerMock.refresh).toHaveBeenCalledTimes(1);
+    });
+    expect(backendAuthMock.updateUser).not.toHaveBeenCalled();
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(
+      "new@example.com"
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("blocks invalid account email with an accessible inline error", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderSettingsClient();
+
+    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
+    fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
+
+    const error = screen.getByRole("alert");
+    expect(error.textContent).toBe("Must be a valid email address");
+    expect(emailInput.getAttribute("aria-invalid")).toBe("true");
+    expect(emailInput.getAttribute("aria-describedby")).toBe(
+      "settings-email-error"
+    );
+    expect(document.activeElement).toBe(emailInput);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    fireEvent.change(emailInput, { target: { value: "valid@example.com" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(emailInput.getAttribute("aria-invalid")).toBe("false");
+  });
+
+  it("keeps a rejected email dirty and supports an inline retry", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({
+          success: false,
+          error: "That email address is already in use.",
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          success: true,
+          email: "available@example.com",
+        }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+    renderSettingsClient();
+
+    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
+    fireEvent.change(emailInput, { target: { value: "taken@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "That email address is already in use."
+    );
+    expect(document.activeElement).toBe(emailInput);
+    expect(
+      screen.getByRole("tab", { name: "Account, unsaved changes" })
+    ).toBeDefined();
+    expect(
+      (screen.getByRole("button", { name: "Save email" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(false);
+
+    fireEvent.change(emailInput, {
+      target: { value: "available@example.com" },
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByRole("tab", { name: "Account" })).toBeDefined();
+    });
+  });
+
+  it.each(dirtySectionCases)(
+    "clears the $section dirty baseline after its save succeeds",
+    async ({ section, tabName, saveButtonName }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValueOnce({
+          ok: true,
+          json: async () =>
+            section === "account"
+              ? { success: true, email: "changed@example.com" }
+              : { success: true },
+        })
+      );
+      renderSettingsClient();
+      selectSettingsSection(tabName);
+      toggleSectionDraft(section);
+
+      expect(
+        screen.getByRole("tab", {
+          name: `${tabName}, unsaved changes`,
+        })
+      ).toBeDefined();
+      fireEvent.click(
+        screen.getByRole("button", { name: saveButtonName })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("tab", { name: tabName })).toBeDefined();
+        expect(
+          (
+            screen.getByRole("button", {
+              name: saveButtonName,
+            }) as HTMLButtonElement
+          ).disabled
+        ).toBe(true);
+      });
+    }
+  );
+
+  it.each(dirtySectionCases)(
+    "retains the $section dirty baseline after its save fails",
+    async ({ section, tabName, saveButtonName }) => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false, error: "Save unavailable" }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderSettingsClient();
+      selectSettingsSection(tabName);
+      toggleSectionDraft(section);
+      fireEvent.click(
+        screen.getByRole("button", { name: saveButtonName })
+      );
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(
+          screen.getByRole("tab", {
+            name: `${tabName}, unsaved changes`,
+          })
+        ).toBeDefined();
+        expect(
+          (
+            screen.getByRole("button", {
+              name: saveButtonName,
+            }) as HTMLButtonElement
+          ).disabled
+        ).toBe(false);
+      });
+    }
+  );
+
+  it.each(dirtySectionCases)(
+    "clears the $section dirty baseline when its draft is reverted",
+    ({ section, tabName, saveButtonName }) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      renderSettingsClient();
+      selectSettingsSection(tabName);
+      toggleSectionDraft(section);
+      toggleSectionDraft(section);
+
+      expect(screen.getByRole("tab", { name: tabName })).toBeDefined();
+      expect(
+        (screen.getByRole("button", {
+          name: saveButtonName,
+        }) as HTMLButtonElement).disabled
+      ).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it("keeps other section drafts out of notification saves", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText("Email"), {
+      target: { value: "draft@example.com" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
+    fireEvent.change(screen.getByLabelText("Date format"), {
+      target: { value: "DD/MM/YYYY" },
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Toggle cancellation notifications" })
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save notification settings" })
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(options.body as string)).toEqual({
+      section: "notifications",
+      notifyNewBooking: true,
+      notifyCancellation: false,
+      notifyReminder: false,
+    });
+    expect(routerMock.refresh).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("tab", { name: "Account, unsaved changes" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("tab", { name: "Preferences, unsaved changes" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("tab", { name: "Notifications" })
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("tab", { name: /^Account/ }));
+    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(
+      "draft@example.com"
+    );
+    expect(screen.getByRole("status").textContent).toBe("Unsaved changes");
   });
 
   it("clears a one-time webhook secret after deleting that endpoint", async () => {
@@ -334,6 +749,9 @@ describe("SettingsClient", () => {
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
+    fireEvent.change(screen.getByLabelText("Date format"), {
+      target: { value: "DD/MM/YYYY" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
 
     await waitFor(() => {

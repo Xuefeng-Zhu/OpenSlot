@@ -95,6 +95,25 @@ describe('/api/mcp/tokens', () => {
     expect(JSON.stringify(data)).not.toContain('token_hash')
   })
 
+  it('returns a safe retryable error when token listing fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.listMcpTokenSummaries.mockRejectedValue(
+      new Error('database host and table details')
+    )
+
+    const response = await GET()
+    const data = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(data).toEqual({
+      success: false,
+      error: 'MCP tokens are temporarily unavailable',
+      code: 'MCP_TOKENS_UNAVAILABLE',
+    })
+    expect(JSON.stringify(data)).not.toContain('database host')
+    errorSpy.mockRestore()
+  })
+
   it('creates a token and returns the raw token only once', async () => {
     const response = await POST(
       requestWithJson({ name: 'Claude Desktop' }) as any
@@ -115,6 +134,21 @@ describe('/api/mcp/tokens', () => {
         scopes: ['mcp:read', 'mcp:write'],
       },
     })
+  })
+
+  it('uses the same safe unavailable response when token creation fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.createMcpApiToken.mockRejectedValue(new Error('secret database error'))
+
+    const response = await POST(
+      requestWithJson({ name: 'Claude Desktop' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(data.code).toBe('MCP_TOKENS_UNAVAILABLE')
+    expect(JSON.stringify(data)).not.toContain('secret database error')
+    errorSpy.mockRestore()
   })
 
   it('returns validation errors for invalid create payloads', async () => {
@@ -150,6 +184,19 @@ describe('/api/mcp/tokens', () => {
       profileId: 'profile-1',
       tokenId: 'token-1',
     })
+  })
+
+  it('uses the same safe unavailable response when token revocation fails', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.revokeMcpApiToken.mockRejectedValue(new Error('secret database error'))
+
+    const response = await DELETE({} as any, routeContext())
+    const data = await response.json()
+
+    expect(response.status).toBe(503)
+    expect(data.code).toBe('MCP_TOKENS_UNAVAILABLE')
+    expect(JSON.stringify(data)).not.toContain('secret database error')
+    errorSpy.mockRestore()
   })
 
   it('rejects unauthenticated token requests', async () => {
