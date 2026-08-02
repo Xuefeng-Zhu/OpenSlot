@@ -71,38 +71,41 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {mobileMenuOpen && (
-        <div
+        <nav
           id="mobile-menu"
           className="border-t border-border bg-card md:hidden"
-          role="menu"
+          aria-label="Mobile navigation"
         >
-          <div className="space-y-1 px-4 py-4">
+          <ul className="space-y-1 px-4 py-4">
             {navLinks.map((link) => (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  className="block min-h-[44px] rounded-md px-3 py-2 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+            <li>
               <Link
-                key={link.href}
-                href={link.href}
+                href="/login"
                 className="block min-h-[44px] rounded-md px-3 py-2 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                role="menuitem"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                {link.label}
+                Log In
               </Link>
-            ))}
-            <Link
-              href="/login"
-              className="block min-h-[44px] rounded-md px-3 py-2 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              role="menuitem"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Log In
-            </Link>
-            <div className="pt-2">
-              <Button asChild className="w-full">
-                <Link href="/signup">Create your OpenSlot</Link>
+            </li>
+            <li className="pt-2">
+              <Button asChild className="min-h-[44px] w-full">
+                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
+                  Create your OpenSlot
+                </Link>
               </Button>
-            </div>
-          </div>
-        </div>
+            </li>
+          </ul>
+        </nav>
       )}
     </header>
   )
