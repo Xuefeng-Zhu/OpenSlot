@@ -6,6 +6,7 @@ import type { Page } from "@playwright/test";
 interface PageSmokeCase {
   name: string;
   path: string;
+  title: string | RegExp;
   heading?: string | RegExp;
   visibleText?: Array<string | RegExp>;
 }
@@ -14,48 +15,56 @@ const publicPageCases: PageSmokeCase[] = [
   {
     name: "landing",
     path: "/",
+    title: "OpenSlot - Share availability. Book time. Stay in sync.",
     heading: "Scheduling that stays open.",
     visibleText: ["Create your OpenSlot"],
   },
   {
     name: "terms",
     path: "/terms",
+    title: "Terms of Service | OpenSlot",
     heading: "Terms of Service",
     visibleText: ["Account Responsibilities"],
   },
   {
     name: "privacy",
     path: "/privacy",
+    title: "Privacy Policy | OpenSlot",
     heading: "Privacy Policy",
     visibleText: ["Information We Collect"],
   },
   {
     name: "login",
     path: "/login",
+    title: "Log in | OpenSlot",
     heading: "Welcome back",
     visibleText: ["Log in to manage event types"],
   },
   {
     name: "signup",
     path: "/signup",
+    title: "Create account | OpenSlot",
     heading: "Create your account",
     visibleText: ["Email address", "At least 8 characters"],
   },
   {
     name: "forgot password",
     path: "/forgot-password",
+    title: "Reset password | OpenSlot",
     heading: "Reset your password",
     visibleText: ["Send reset code"],
   },
   {
     name: "reset password",
     path: "/reset-password",
+    title: "Choose a new password | OpenSlot",
     heading: "Choose a new password",
     visibleText: ["Reset code"],
   },
   {
     name: "public profile",
     path: "/demo",
+    title: "Booking profile | OpenSlot",
     heading: "Demo User",
     visibleText: [
       "Book time with Demo",
@@ -66,18 +75,21 @@ const publicPageCases: PageSmokeCase[] = [
   {
     name: "public event",
     path: "/demo/30-minute-meeting",
+    title: "Book a time | OpenSlot",
     heading: "30 Minute Meeting",
     visibleText: ["Demo User", "Select a date", "Available times"],
   },
   {
     name: "booking cancellation",
     path: `/booking/cancel/${demoIds.cancellationToken}`,
+    title: "Cancel booking | OpenSlot",
     heading: "Cancel Booking",
     visibleText: ["Jane Guest", "30 Minute Meeting"],
   },
   {
     name: "booking reschedule",
     path: `/booking/reschedule/${demoIds.rescheduleToken}`,
+    title: "Reschedule booking | OpenSlot",
     heading: "Reschedule booking",
     visibleText: ["Jane Guest", "30 Minute Meeting", "Select a date"],
   },
@@ -87,66 +99,77 @@ const authenticatedPageCases: PageSmokeCase[] = [
   {
     name: "dashboard",
     path: "/dashboard",
+    title: "Dashboard | OpenSlot",
     heading: "Welcome back, Demo",
     visibleText: ["Active event types", "Jane Guest", "30 Minute Meeting"],
   },
   {
     name: "onboarding",
     path: "/onboarding",
+    title: "Set up OpenSlot | OpenSlot",
     heading: "Create your public profile",
     visibleText: ["Set availability", "Create first event type"],
   },
   {
     name: "availability",
     path: "/availability",
+    title: "Availability | OpenSlot",
     heading: "Availability",
     visibleText: ["Weekly hours", "America/New York"],
   },
   {
     name: "settings",
     path: "/settings",
+    title: "Settings | OpenSlot",
     heading: "Settings",
     visibleText: ["Profile information", "Integrations"],
   },
   {
     name: "profile",
     path: "/profile",
+    title: "Profile | OpenSlot",
     heading: "Profile",
     visibleText: ["Control the public name", "Edit profile"],
   },
   {
     name: "contacts",
     path: "/contacts",
+    title: "Contacts | OpenSlot",
     heading: "Contacts",
     visibleText: ["Jane Guest", "jane.guest@example.com"],
   },
   {
     name: "contact profile",
     path: `/contacts/${demoIds.contact}`,
+    title: "Contact details | OpenSlot",
     heading: "Jane Guest",
     visibleText: ["Meeting History", "30 Minute Meeting"],
   },
   {
     name: "event types",
     path: "/event-types",
+    title: "Event types | OpenSlot",
     heading: "Event types",
     visibleText: ["30 Minute Meeting", "60 Minute Consultation"],
   },
   {
     name: "new event type",
     path: "/event-types/new",
+    title: "Create event type | OpenSlot",
     heading: "Create event type",
     visibleText: ["Title", "Live preview"],
   },
   {
     name: "edit event type",
     path: `/event-types/${demoIds.eventType30Min}/edit`,
+    title: "Edit event type | OpenSlot",
     heading: "Edit event type",
     visibleText: ["30 Minute Meeting", "Live preview"],
   },
   {
     name: "bookings",
     path: "/bookings",
+    title: "Bookings | OpenSlot",
     heading: "Bookings",
     visibleText: ["Jane Guest", "30 Minute Meeting", "Confirmed"],
   },
@@ -154,6 +177,8 @@ const authenticatedPageCases: PageSmokeCase[] = [
 
 async function expectSmokePage(page: Page, pageCase: PageSmokeCase) {
   await page.goto(pageCase.path);
+
+  await expect(page).toHaveTitle(pageCase.title);
 
   await expect(page.locator("body")).not.toContainText(
     "This page could not be found"

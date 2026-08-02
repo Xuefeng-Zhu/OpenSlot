@@ -3,6 +3,9 @@ import { createServerBackendClient } from '@/lib/backend/server'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ProfileForm } from './profile-form'
 import type { Tables } from '@/lib/types/database'
+import { routeMetadata } from '@/app/route-metadata'
+
+export const metadata = routeMetadata.profile
 
 export default async function ProfilePage() {
   const backendClient = await createServerBackendClient()

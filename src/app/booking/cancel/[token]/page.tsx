@@ -12,8 +12,10 @@ import {
   formatBookingDate,
   formatBookingTime,
 } from "@/lib/booking/date-time-format";
+import { routeMetadata } from "@/app/route-metadata";
 
 export const runtime = "edge";
+export const metadata = routeMetadata.cancelBooking;
 
 interface CancelBookingPageProps {
   params: Promise<{ token: string }>;

@@ -1,11 +1,8 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { AppIcon } from "@/components/shared/app-icon";
+import { routeMetadata } from "@/app/route-metadata";
 
-export const metadata: Metadata = {
-  title: "Terms of Service | OpenSlot",
-  description: "Terms for using OpenSlot scheduling pages and booking flows.",
-};
+export const metadata = routeMetadata.terms;
 
 export default function TermsPage() {
   return (

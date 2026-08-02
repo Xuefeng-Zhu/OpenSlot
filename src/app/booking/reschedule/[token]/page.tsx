@@ -5,8 +5,10 @@ import { SlotPicker } from "@/components/booking/slot-picker";
 import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
 import type { Tables } from "@/lib/types/database";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
+import { routeMetadata } from "@/app/route-metadata";
 
 export const runtime = "edge";
+export const metadata = routeMetadata.rescheduleBooking;
 
 interface ReschedulePageProps {
   params: Promise<{ token: string }>;

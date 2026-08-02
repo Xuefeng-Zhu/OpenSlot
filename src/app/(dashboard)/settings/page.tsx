@@ -8,8 +8,11 @@ import { createAdminBackendClient, createServerBackendClient } from "@/lib/backe
 import { SettingsClient } from "./settings-client";
 import type { Tables } from "@/lib/types/database";
 import type { SettingsFormValues } from "@/lib/validations/settings";
+import { routeMetadata } from "@/app/route-metadata";
 
 const defaultTimezone = "UTC";
+
+export const metadata = routeMetadata.settings;
 
 export default async function SettingsPage() {
   const backendClient = await createServerBackendClient();

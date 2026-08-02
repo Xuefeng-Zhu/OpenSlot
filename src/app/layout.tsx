@@ -1,12 +1,8 @@
-import type { Metadata } from "next";
 import { Toaster } from "@/components/ui/toaster";
+import { rootMetadata } from "@/app/route-metadata";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "OpenSlot - Share availability. Book time. Stay in sync.",
-  description:
-    "A scheduling platform that lets you share your availability, let guests book time slots, and stay in sync.",
-};
+export const metadata = rootMetadata;
 
 export default function RootLayout({
   children,

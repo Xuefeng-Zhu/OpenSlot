@@ -6,6 +6,9 @@ import {
   EventTypesClient,
   type DashboardEventType,
 } from "./event-types-client";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.eventTypes;
 
 function buildBookingUrl(username: string, slug: string) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";

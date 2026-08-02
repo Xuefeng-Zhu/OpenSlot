@@ -11,6 +11,9 @@ import { createAdminBackendClient, createServerBackendClient } from "@/lib/backe
 import type { Tables } from "@/lib/types/database";
 import type { EventTypeFormValues } from "@/lib/validations/event-type";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.editEventType;
 
 interface EditEventTypePageProps {
   params: Promise<{ id: string }>;

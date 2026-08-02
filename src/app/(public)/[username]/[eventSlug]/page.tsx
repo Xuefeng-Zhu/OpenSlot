@@ -4,6 +4,9 @@ import type { Tables } from "@/lib/types/database";
 import { SlotPicker } from "@/components/booking/slot-picker";
 import { isBookingAgentConfigured } from "@/lib/backend/booking-agent-gateway";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.bookTime;
 
 interface BookingPageProps {
   params: Promise<{ username: string; eventSlug: string }>;

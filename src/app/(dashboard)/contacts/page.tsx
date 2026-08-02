@@ -7,6 +7,9 @@ import {
   type ContactRecord,
 } from "@/lib/contacts/summaries";
 import type { Tables } from "@/lib/types/database";
+import { routeMetadata } from "@/app/route-metadata";
+
+export const metadata = routeMetadata.contacts;
 
 interface BookingRow {
   id: string;
