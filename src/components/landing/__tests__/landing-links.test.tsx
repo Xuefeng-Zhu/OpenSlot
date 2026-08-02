@@ -15,7 +15,7 @@ describe('landing page links', () => {
     expect(screen.getAllByRole('link', { name: 'Features' })[0].getAttribute('href')).toBe(
       '#features'
     )
-    expect(screen.getAllByRole('link', { name: 'Demo' })[0].getAttribute('href')).toBe(
+    expect(screen.getAllByRole('link', { name: 'Preview' })[0].getAttribute('href')).toBe(
       '#demo'
     )
     expect(
@@ -25,6 +25,10 @@ describe('landing page links', () => {
     expect(screen.queryByRole('link', { name: 'Use cases' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Pricing' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Docs' })).toBeNull()
-    expect(screen.getAllByRole('link', { name: 'View demo page' })).toHaveLength(2)
+    const previewLinks = screen.getAllByRole('link', { name: 'Preview booking UI' })
+    expect(previewLinks).toHaveLength(2)
+    for (const link of previewLinks) {
+      expect(link.getAttribute('href')).toBe('#demo')
+    }
   })
 })
