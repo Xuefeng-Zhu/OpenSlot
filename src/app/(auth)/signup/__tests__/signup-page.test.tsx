@@ -136,6 +136,26 @@ describe("SignupPage", () => {
     expect(mocks.signUp).not.toHaveBeenCalled();
   });
 
+  it("refocuses the first invalid field after repeated submissions", () => {
+    render(<SignupPage />);
+
+    const fullNameInput = screen.getByLabelText("Full name");
+    const emailInput = screen.getByLabelText("Email address");
+    const submitButton = screen.getByRole("button", {
+      name: "Create account",
+    });
+
+    fireEvent.click(submitButton);
+    expect(document.activeElement).toBe(fullNameInput);
+
+    emailInput.focus();
+    expect(document.activeElement).toBe(emailInput);
+
+    fireEvent.click(submitButton);
+    expect(document.activeElement).toBe(fullNameInput);
+    expect(mocks.signUp).not.toHaveBeenCalled();
+  });
+
   it("provides a full-size keyboard-visible password visibility control", () => {
     render(<SignupPage />);
 

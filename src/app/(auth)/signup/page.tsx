@@ -42,6 +42,7 @@ export default function SignupPage() {
     general?: string;
   }>({});
   const [loading, setLoading] = useState(false);
+  const [validationAttempt, setValidationAttempt] = useState(0);
 
   const passwordRequirements = getPasswordRequirements(password);
 
@@ -55,7 +56,7 @@ export default function SignupPage() {
           : null;
 
     firstInvalidField?.current?.focus();
-  }, [errors.email, errors.fullName, errors.password]);
+  }, [errors.email, errors.fullName, errors.password, validationAttempt]);
 
   function validate(): boolean {
     const newErrors: typeof errors = {};
@@ -77,8 +78,15 @@ export default function SignupPage() {
       newErrors.password = PASSWORD_COMPLEXITY_ERROR;
     }
 
+    const isValid = Object.keys(newErrors).length === 0;
+
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    if (!isValid) {
+      setValidationAttempt((attempt) => attempt + 1);
+    }
+
+    return isValid;
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
