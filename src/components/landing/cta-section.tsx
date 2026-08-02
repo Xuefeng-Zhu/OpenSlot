@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Play, Calendar } from 'lucide-react'
+import { Eye, Calendar } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 export function CTASection() {
@@ -21,8 +21,8 @@ export function CTASection() {
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href="#demo" className="flex items-center gap-2">
-              <Play className="h-4 w-4" aria-hidden="true" />
-              View demo page
+              <Eye className="h-4 w-4" aria-hidden="true" />
+              Preview booking UI
             </Link>
           </Button>
         </div>
