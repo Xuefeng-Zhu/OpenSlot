@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -27,6 +27,9 @@ import {
 
 export default function SignupPage() {
   const router = useRouter();
+  const fullNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -41,6 +44,18 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   const passwordRequirements = getPasswordRequirements(password);
+
+  useEffect(() => {
+    const firstInvalidField = errors.fullName
+      ? fullNameRef
+      : errors.email
+        ? emailRef
+        : errors.password
+          ? passwordRef
+          : null;
+
+    firstInvalidField?.current?.focus();
+  }, [errors.email, errors.fullName, errors.password]);
 
   function validate(): boolean {
     const newErrors: typeof errors = {};
@@ -157,6 +172,12 @@ export default function SignupPage() {
                 {errors.general}
               </div>
             )}
+            {(errors.fullName || errors.email || errors.password) && (
+              <p className="sr-only" role="alert">
+                Please correct the highlighted fields before creating your
+                account.
+              </p>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="fullName">Full name</Label>
@@ -166,6 +187,7 @@ export default function SignupPage() {
                   aria-hidden="true"
                 />
                 <Input
+                  ref={fullNameRef}
                   id="fullName"
                   type="text"
                   placeholder="Sarah Chen"
@@ -192,6 +214,7 @@ export default function SignupPage() {
                   aria-hidden="true"
                 />
                 <Input
+                  ref={emailRef}
                   id="email"
                   type="email"
                   placeholder="you@example.com"
@@ -218,6 +241,7 @@ export default function SignupPage() {
                   aria-hidden="true"
                 />
                 <Input
+                  ref={passwordRef}
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Create a strong password"

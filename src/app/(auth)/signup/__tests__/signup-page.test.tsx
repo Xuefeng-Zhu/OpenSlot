@@ -120,6 +120,21 @@ describe("SignupPage", () => {
       expectPasswordRequirementState(label, "met", "Met:");
     }
   });
+
+  it("announces validation errors and focuses the first invalid field", () => {
+    render(<SignupPage />);
+
+    fireEvent.change(screen.getByLabelText("Full name"), {
+      target: { value: "Sarah Chen" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(document.activeElement).toBe(screen.getByLabelText("Email address"));
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Please correct the highlighted fields"
+    );
+    expect(mocks.signUp).not.toHaveBeenCalled();
+  });
 });
 
 function submitValidSignupForm({ email = "sarah@example.com" } = {}) {
