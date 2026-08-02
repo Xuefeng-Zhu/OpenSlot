@@ -26,7 +26,7 @@ describe("route metadata", () => {
       forgotPassword: "Reset password",
       resetPassword: "Choose a new password",
       dashboard: {
-        default: "Dashboard | OpenSlot",
+        default: "Dashboard",
         template: "%s | OpenSlot",
       },
       onboarding: "Set up OpenSlot",
@@ -53,6 +53,13 @@ describe("route metadata", () => {
       rescheduleBooking: "Reschedule booking",
       privacy: "Privacy Policy",
       terms: "Terms of Service",
+    });
+  });
+
+  it("leaves the dashboard default unbranded before title template composition", () => {
+    expect(routeMetadata.dashboard.title).toEqual({
+      default: "Dashboard",
+      template: "%s | OpenSlot",
     });
   });
 });

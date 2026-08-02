@@ -18,7 +18,7 @@ export const routeMetadata = {
   forgotPassword: { title: "Reset password" },
   resetPassword: { title: "Choose a new password" },
   dashboard: {
-    title: { default: "Dashboard | OpenSlot", template: "%s | OpenSlot" },
+    title: { default: "Dashboard", template: "%s | OpenSlot" },
   },
   onboarding: { title: "Set up OpenSlot" },
   availability: { title: "Availability" },
