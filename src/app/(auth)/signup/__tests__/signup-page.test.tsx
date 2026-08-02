@@ -97,6 +97,29 @@ describe("SignupPage", () => {
       screen.queryByText("Please enter a valid email address.")
     ).toBeNull();
   });
+
+  it("communicates password requirement status without relying on color", () => {
+    render(<SignupPage />);
+
+    expect(
+      screen.getByRole("list", { name: "Password requirements" })
+    ).toBeDefined();
+    expectPasswordRequirementState("At least 8 characters", "unmet", "Not met:");
+
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "Passw0rd!" },
+    });
+
+    for (const label of [
+      "At least 8 characters",
+      "Includes a number",
+      "Includes a lowercase letter",
+      "Includes an uppercase letter",
+      "Includes a special character",
+    ]) {
+      expectPasswordRequirementState(label, "met", "Met:");
+    }
+  });
 });
 
 function submitValidSignupForm({ email = "sarah@example.com" } = {}) {
@@ -110,4 +133,15 @@ function submitValidSignupForm({ email = "sarah@example.com" } = {}) {
     target: { value: "Passw0rd!" },
   });
   fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+}
+
+function expectPasswordRequirementState(
+  label: string,
+  state: "met" | "unmet",
+  statusText: string
+) {
+  const requirement = screen.getByText(label).closest("[data-state]");
+
+  expect(requirement?.getAttribute("data-state")).toBe(state);
+  expect(requirement?.textContent).toContain(statusText);
 }

@@ -3,7 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowRight, Check, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Circle,
+  Eye,
+  EyeOff,
+  Lock,
+  Mail,
+  User,
+} from "lucide-react";
 import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import { AuthBrandPanel } from "@/components/auth/auth-brand-panel";
 import { AppIcon } from "@/components/shared/app-icon";
@@ -217,7 +226,11 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   className="pl-9 pr-10"
                   aria-invalid={!!errors.password}
-                  aria-describedby={errors.password ? "password-error" : "password-requirements"}
+                  aria-describedby={
+                    errors.password
+                      ? "password-error password-requirements"
+                      : "password-requirements"
+                  }
                 />
                 <button
                   type="button"
@@ -233,21 +246,33 @@ export default function SignupPage() {
                   {errors.password}
                 </p>
               )}
-              <div id="password-requirements" className="flex flex-wrap gap-3 mt-2">
+              <ul
+                id="password-requirements"
+                aria-label="Password requirements"
+                className="mt-2 flex flex-wrap gap-3"
+              >
                 {passwordRequirements.map((requirement) => (
-                  <span
+                  <li
                     key={requirement.id}
+                    data-state={requirement.isMet ? "met" : "unmet"}
                     className={`flex items-center gap-1 text-xs ${
                       requirement.isMet
                         ? "text-success"
                         : "text-muted-foreground"
                     }`}
                   >
-                    <Check className="h-3 w-3" aria-hidden="true" />
+                    <span className="sr-only">
+                      {requirement.isMet ? "Met: " : "Not met: "}
+                    </span>
+                    {requirement.isMet ? (
+                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+                    ) : (
+                      <Circle className="h-3 w-3" aria-hidden="true" />
+                    )}
                     {requirement.label}
-                  </span>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
 
             <Button type="submit" className="w-full" size="lg" disabled={loading}>
