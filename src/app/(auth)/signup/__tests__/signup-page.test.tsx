@@ -156,6 +156,17 @@ describe("SignupPage", () => {
       screen.getByRole("button", { name: "Hide password" })
     ).toBeDefined();
   });
+
+  it("uses factual onboarding copy instead of an unverified adoption claim", () => {
+    render(<SignupPage />);
+
+    expect(
+      screen.getByText(
+        "Create your profile, availability, and first booking page."
+      )
+    ).toBeDefined();
+    expect(screen.queryByText(/thousands/i)).toBeNull();
+  });
 });
 
 function submitValidSignupForm({ email = "sarah@example.com" } = {}) {
