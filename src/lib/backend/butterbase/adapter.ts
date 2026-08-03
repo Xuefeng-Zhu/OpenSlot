@@ -300,12 +300,22 @@ class ButterbaseFunctionsPort implements BackendFunctionsPort {
     request: BackendFunctionRequest<TBody> = {}
   ): Promise<BackendResult<TResponse>> {
     const slug = backendFunctionSlugs[name]
+    const requiresPlatformServiceIdentity =
+      name === 'saveAvailability' || name === 'saveDashboardPreferences'
+    const accessToken =
+      request.accessToken ??
+      (requiresPlatformServiceIdentity
+        ? undefined
+        : this.client.functionAccessToken())
 
     return this.client.result<TResponse, TBody>({
       method: request.method ?? 'POST',
       path: `/v1/${this.client.appId}/fn/${slug}`,
-      auth: 'none',
-      accessToken: request.accessToken ?? this.client.functionAccessToken(),
+      auth:
+        accessToken === undefined && requiresPlatformServiceIdentity
+          ? 'service'
+          : 'none',
+      accessToken,
       headers: request.headers,
       body: request.body,
     })

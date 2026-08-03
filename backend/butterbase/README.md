@@ -59,7 +59,9 @@ preserve the transaction semantics documented in
   `ctx.caller`. Strict payload validation and one parameterized data-modifying
   CTE gate every mutation on `(schedule_id, user_id)` ownership, update the
   schedule timezone, delete requested owned rows, and upsert all supplied
-  rules and overrides atomically.
+  rules and overrides atomically. The browser supplies the schedule version it
+  loaded; the function advances a millisecond-precision monotonic `updated_at`
+  version and returns `409` when another writer wins first.
 - `save-dashboard-preferences` owns the cross-table display-preference write.
   Deploy `functions/save-dashboard-preferences.v1.ts` under that exact slug.
   Its HTTP trigger must require authentication and disable service-key

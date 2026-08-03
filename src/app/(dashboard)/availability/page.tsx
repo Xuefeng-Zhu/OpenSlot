@@ -44,7 +44,7 @@ export default async function AvailabilityPage({
 
   const { data: schedulesData } = await backendClient
     .from("schedules")
-    .select("id, name, timezone, is_default, created_at")
+    .select("id, name, timezone, is_default, created_at, updated_at")
     .eq("user_id", profile.id)
     .order("is_default", { ascending: false })
     .order("created_at", { ascending: true })
@@ -71,12 +71,13 @@ export default async function AvailabilityPage({
 
   const schedules = ((schedulesData as Array<Pick<
     Tables<"schedules">,
-    "id" | "name" | "timezone" | "is_default" | "created_at"
+    "id" | "name" | "timezone" | "is_default" | "created_at" | "updated_at"
   >>) ?? []).map((schedule) => ({
     id: schedule.id,
     name: schedule.name,
     timezone: schedule.timezone,
     is_default: schedule.is_default,
+    updated_at: schedule.updated_at,
     assignedEventTypes: eventTypesBySchedule.get(schedule.id) ?? [],
     assignedEventTypeCount:
       eventTypesBySchedule.get(schedule.id)?.length ?? 0,
@@ -136,6 +137,7 @@ export default async function AvailabilityPage({
       selectedScheduleId={selectedSchedule.id}
       initialRules={rules}
       initialOverrides={overrides}
+      initialScheduleUpdatedAt={selectedSchedule.updated_at}
       timezone={selectedSchedule.timezone || profile.default_timezone || "UTC"}
     />
   )

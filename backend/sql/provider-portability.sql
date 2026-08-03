@@ -65,7 +65,9 @@ CREATE UNIQUE INDEX ux_mcp_api_tokens_token_hash
 -- the same `(schedule_id, user_id)` owner before updating the schedule timezone,
 -- deleting rows, or upserting rules and overrides. The Butterbase source uses
 -- one parameterized data-modifying CTE so the complete batch commits or rolls
--- back as one statement.
+-- back as one statement. It also compares an expected schedule version on the
+-- UPDATE target so overlapping writers fail safely instead of mixing timezone
+-- state across a stale child-row snapshot.
 -- `save-dashboard-preferences` must update profiles.default_timezone and upsert
 -- user_settings.date_format/time_format atomically. The Butterbase source uses
 -- one parameterized data-modifying CTE so both writes commit or roll back as one

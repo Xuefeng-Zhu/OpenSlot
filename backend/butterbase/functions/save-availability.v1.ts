@@ -30,6 +30,7 @@ interface AvailabilityOverrideInput {
 interface SaveAvailabilityInput {
   userId: string
   scheduleId: string
+  expectedScheduleUpdatedAt: string
   timezone: string
   rules: AvailabilityRuleInput[]
   overrides: AvailabilityOverrideInput[]
@@ -41,6 +42,7 @@ const JSON_HEADERS = { 'Content-Type': 'application/json' }
 const INPUT_FIELDS = [
   'userId',
   'scheduleId',
+  'expectedScheduleUpdatedAt',
   'timezone',
   'rules',
   'overrides',
@@ -102,25 +104,27 @@ WITH rule_input AS (
   SELECT value::uuid AS id
   FROM jsonb_array_elements_text($7::jsonb)
 ), owned_schedule AS (
-  SELECT schedules.id, schedules.user_id
+  SELECT schedules.id, schedules.user_id, schedules.updated_at
   FROM public.schedules AS schedules
   WHERE schedules.id = $2::uuid
     AND schedules.user_id = $1::uuid
 ), mutation_guard AS (
   SELECT owned_schedule.id, owned_schedule.user_id
   FROM owned_schedule
-  WHERE NOT EXISTS (
-    SELECT 1
-    FROM rule_input
-    WHERE rule_input.id IS NOT NULL
-      AND NOT EXISTS (
-        SELECT 1
-        FROM public.availability_rules AS owned_rule
-        WHERE owned_rule.id = rule_input.id
-          AND owned_rule.schedule_id = owned_schedule.id
-          AND owned_rule.user_id = owned_schedule.user_id
-      )
-  )
+  WHERE date_trunc('milliseconds', owned_schedule.updated_at) =
+      date_trunc('milliseconds', $8::timestamptz)
+    AND NOT EXISTS (
+      SELECT 1
+      FROM rule_input
+      WHERE rule_input.id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM public.availability_rules AS owned_rule
+          WHERE owned_rule.id = rule_input.id
+            AND owned_rule.schedule_id = owned_schedule.id
+            AND owned_rule.user_id = owned_schedule.user_id
+        )
+    )
     AND NOT EXISTS (
       SELECT 1
       FROM override_input
@@ -133,15 +137,81 @@ WITH rule_input AS (
             AND owned_override.user_id = owned_schedule.user_id
         )
     )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM deleted_rule_input
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.availability_rules AS owned_deleted_rule
+        WHERE owned_deleted_rule.id = deleted_rule_input.id
+          AND owned_deleted_rule.schedule_id = owned_schedule.id
+          AND owned_deleted_rule.user_id = owned_schedule.user_id
+      )
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM deleted_override_input
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM public.availability_overrides AS owned_deleted_override
+        WHERE owned_deleted_override.id = deleted_override_input.id
+          AND owned_deleted_override.schedule_id = owned_schedule.id
+          AND owned_deleted_override.user_id = owned_schedule.user_id
+      )
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.availability_rules AS current_rule
+      WHERE current_rule.schedule_id = owned_schedule.id
+        AND current_rule.user_id = owned_schedule.user_id
+        AND NOT EXISTS (
+          SELECT 1
+          FROM rule_input
+          WHERE rule_input.id = current_rule.id
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM deleted_rule_input
+          WHERE deleted_rule_input.id = current_rule.id
+        )
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.availability_overrides AS current_override
+      WHERE current_override.schedule_id = owned_schedule.id
+        AND current_override.user_id = owned_schedule.user_id
+        AND NOT EXISTS (
+          SELECT 1
+          FROM override_input
+          WHERE override_input.id = current_override.id
+        )
+        AND NOT EXISTS (
+          SELECT 1
+          FROM deleted_override_input
+          WHERE deleted_override_input.id = current_override.id
+        )
+    )
 ), updated_schedule AS (
   UPDATE public.schedules AS schedules
   SET
     timezone = $3,
-    updated_at = statement_timestamp()
+    -- Butterbase REST timestamps are millisecond-precision. Keep the version
+    -- monotonic at that same precision so browser-loaded versions compare
+    -- exactly and every successful writer still advances the guard.
+    updated_at = GREATEST(
+      date_trunc('milliseconds', clock_timestamp()),
+      date_trunc('milliseconds', schedules.updated_at) + interval '1 millisecond'
+    )
   FROM mutation_guard
   WHERE schedules.id = mutation_guard.id
     AND schedules.user_id = mutation_guard.user_id
-  RETURNING schedules.id, schedules.user_id, schedules.timezone
+    AND date_trunc('milliseconds', schedules.updated_at) =
+      date_trunc('milliseconds', $8::timestamptz)
+  RETURNING
+    schedules.id,
+    schedules.user_id,
+    schedules.timezone,
+    schedules.updated_at
 ), deleted_rules AS (
   DELETE FROM public.availability_rules AS rules
   USING updated_schedule, deleted_rule_input
@@ -244,6 +314,8 @@ WITH rule_input AS (
 SELECT
   EXISTS (SELECT 1 FROM owned_schedule) AS schedule_owned,
   EXISTS (SELECT 1 FROM mutation_guard) AS mutation_allowed,
+  EXISTS (SELECT 1 FROM updated_schedule) AS save_applied,
+  (SELECT updated_at FROM updated_schedule) AS schedule_updated_at,
   COALESCE(
     (
       SELECT jsonb_agg(
@@ -322,6 +394,7 @@ export default async function handler(
       JSON.stringify(body.overrides),
       JSON.stringify(body.deletedRuleIds),
       JSON.stringify(body.deletedOverrideIds),
+      body.expectedScheduleUpdatedAt,
     ])
     const rows = Array.isArray(result) ? result : result.rows ?? []
     const row = rows[0] as Record<string, unknown> | undefined
@@ -340,9 +413,30 @@ export default async function handler(
       )
     }
 
+    if (!readBoolean(row, 'save_applied', 'saveApplied')) {
+      return json(
+        {
+          success: false,
+          error: 'Availability changed; reload and retry',
+        },
+        409
+      )
+    }
+
+    const scheduleUpdatedAt = readTimestamp(
+      row,
+      'schedule_updated_at',
+      'scheduleUpdatedAt'
+    )
+    if (!scheduleUpdatedAt) {
+      console.error('Atomic availability query omitted the schedule version')
+      return json({ success: false, error: 'Unable to save availability' }, 500)
+    }
+
     return json({
       rules: readJsonArray(row.rules),
       overrides: readJsonArray(row.overrides),
+      scheduleUpdatedAt,
     })
   } catch {
     console.error('Atomic availability query failed')
@@ -363,6 +457,8 @@ function isValidInput(value: unknown): value is SaveAvailabilityInput {
     !isUuid(value.userId) ||
     typeof value.scheduleId !== 'string' ||
     !isUuid(value.scheduleId) ||
+    typeof value.expectedScheduleUpdatedAt !== 'string' ||
+    !isTimestamp(value.expectedScheduleUpdatedAt) ||
     typeof value.timezone !== 'string' ||
     !isTimezone(value.timezone) ||
     !Array.isArray(rules) ||
@@ -475,6 +571,10 @@ function isTimezone(value: string): boolean {
   }
 }
 
+function isTimestamp(value: string): boolean {
+  return !Number.isNaN(Date.parse(value))
+}
+
 function isNullableTime(value: unknown): value is string | null {
   return value === null || (typeof value === 'string' && TIME_PATTERN.test(value))
 }
@@ -504,6 +604,18 @@ function readBoolean(
   camelCase: string
 ): boolean {
   return row[snakeCase] === true || row[camelCase] === true
+}
+
+function readTimestamp(
+  row: Record<string, unknown>,
+  snakeCase: string,
+  camelCase: string
+): string | null {
+  const value = row[snakeCase] ?? row[camelCase]
+  if (value instanceof Date && !Number.isNaN(value.valueOf())) {
+    return value.toISOString()
+  }
+  return typeof value === 'string' && isTimestamp(value) ? value : null
 }
 
 function readJsonArray(value: unknown): unknown[] {

@@ -408,6 +408,7 @@ describe('createBackendCompatClient', () => {
       .rpc('save_availability', {
         p_user_id: 'host-1',
         p_schedule_id: 'schedule-1',
+        p_expected_schedule_updated_at: '2026-08-03T08:00:00.000Z',
         p_timezone: 'America/New_York',
         p_rules: savedAvailability.rules,
         p_overrides: [],
@@ -424,6 +425,7 @@ describe('createBackendCompatClient', () => {
         body: JSON.stringify({
           userId: 'host-1',
           scheduleId: 'schedule-1',
+          expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
           timezone: 'America/New_York',
           rules: savedAvailability.rules,
           overrides: [],
@@ -473,6 +475,31 @@ describe('createBackendCompatClient', () => {
       'Bearer service-key'
     )
   })
+
+  it('preserves a top-level provider error string and status', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse(
+        { error: 'Availability changed; reload and retry' },
+        { status: 409 }
+      )
+    )
+    const client = createBackendCompatClient({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.example.test',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    const result = await client.rpc('save_availability', {}).single()
+
+    expect(result).toMatchObject({
+      data: null,
+      error: {
+        message: 'Availability changed; reload and retry',
+        status: 409,
+      },
+    })
+  })
 })
 
 function mockFetch(body: unknown) {
@@ -481,9 +508,9 @@ function mockFetch(body: unknown) {
   )
 }
 
-function jsonResponse(body: unknown) {
+function jsonResponse(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
-    status: 200,
+    status: init.status ?? 200,
     headers: { 'Content-Type': 'application/json' },
   })
 }

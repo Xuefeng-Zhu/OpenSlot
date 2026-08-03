@@ -6,8 +6,11 @@ import { validDate } from '@/test/fast-check'
 /**
  * Property 7: Timezone conversion round-trip
  * For any valid UTC timestamp and any valid IANA timezone identifier,
- * converting the timestamp to the target timezone and then back to UTC
- * SHALL produce the original timestamp value (within the same instant).
+ * converting the timestamp to the target timezone and canonicalizing it back
+ * to UTC SHALL preserve the local wall-clock value. During a repeated DST
+ * hour, two UTC instants legitimately map to the same wall time, so the
+ * inverse cannot always recover the original instant without an offset or
+ * explicit disambiguation policy.
  *
  * Validates: Requirements 7.8, 17.3, 17.4
  */
@@ -30,15 +33,26 @@ describe('Property 7: Timezone conversion round-trip', () => {
 
   const timezoneArb = fc.constantFrom(...IANA_TIMEZONES)
 
-  it('converting UTC → local → UTC produces the original timestamp', () => {
+  it('converting UTC → local → canonical UTC preserves the wall time', () => {
     fc.assert(
       fc.property(utcTimestampArb, timezoneArb, (utcDate, timezone) => {
         const local = toHostTimezone(utcDate, timezone)
-        const backToUtc = fromHostTimezone(local, timezone)
+        const canonicalUtc = fromHostTimezone(local, timezone)
+        const canonicalLocal = toHostTimezone(canonicalUtc, timezone)
 
-        expect(backToUtc.getTime()).toBe(utcDate.getTime())
+        expect(canonicalLocal.getTime()).toBe(local.getTime())
       }),
       { numRuns: 100 }
     )
+  })
+
+  it('preserves the wall time during an Auckland repeated DST hour', () => {
+    const utcDate = new Date('2027-04-03T13:00:00.000Z')
+    const local = toHostTimezone(utcDate, 'Pacific/Auckland')
+    const canonicalUtc = fromHostTimezone(local, 'Pacific/Auckland')
+
+    expect(
+      toHostTimezone(canonicalUtc, 'Pacific/Auckland').getTime()
+    ).toBe(local.getTime())
   })
 })

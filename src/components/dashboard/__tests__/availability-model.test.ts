@@ -83,6 +83,7 @@ describe('availability model helpers', () => {
       savedRules: inactiveRules,
       savedOverrides: [],
       selectedScheduleId: 'schedule-1',
+      expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
       timezone: 'America/New_York',
     })
 
@@ -133,6 +134,7 @@ describe('availability model helpers', () => {
       savedRules: mixedRules,
       savedOverrides: [],
       selectedScheduleId: 'schedule-1',
+      expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
       timezone: 'America/New_York',
     })
 
@@ -179,12 +181,14 @@ describe('availability model helpers', () => {
       savedRules,
       savedOverrides,
       selectedScheduleId: 'schedule-1',
+      expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
       timezone: 'America/New_York',
     })
 
     expect(currentRules).toHaveLength(2)
     expect(payload).toEqual({
       scheduleId: 'schedule-1',
+      expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
       rules: [
         {
           id: 'rule-monday',

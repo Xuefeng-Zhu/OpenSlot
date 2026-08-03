@@ -58,16 +58,19 @@ interface AvailabilitySaveRequestInput {
   savedRules: AvailabilityRule[]
   savedOverrides: AvailabilityOverride[]
   selectedScheduleId: string
+  expectedScheduleUpdatedAt: string
   timezone: string
 }
 
 export interface AvailabilitySaveResponse {
   rules?: AvailabilityRule[]
   overrides?: AvailabilityOverride[]
+  scheduleUpdatedAt?: string
 }
 
 export interface AvailabilitySavePayload {
   scheduleId: string
+  expectedScheduleUpdatedAt: string
   rules: AvailabilityRuleDraft[]
   overrides: AvailabilityOverrideDraft[]
   deletedRuleIds: string[]
@@ -169,6 +172,7 @@ export function buildAvailabilitySaveRequest({
   savedRules,
   savedOverrides,
   selectedScheduleId,
+  expectedScheduleUpdatedAt,
   timezone,
 }: AvailabilitySaveRequestInput): {
   currentRules: AvailabilityRuleDraft[]
@@ -197,6 +201,7 @@ export function buildAvailabilitySaveRequest({
     currentRules,
     payload: {
       scheduleId: selectedScheduleId,
+      expectedScheduleUpdatedAt,
       rules,
       overrides: payloadOverrides,
       deletedRuleIds,

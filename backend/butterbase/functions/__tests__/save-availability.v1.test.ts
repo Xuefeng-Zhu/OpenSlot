@@ -7,10 +7,13 @@ const ruleId = '33333333-4444-4555-8666-777777777777'
 const overrideId = '44444444-5555-4666-8777-888888888888'
 const deletedRuleId = '55555555-6666-4777-8888-999999999999'
 const deletedOverrideId = '66666666-7777-4888-8999-aaaaaaaaaaaa'
+const expectedScheduleUpdatedAt = '2026-08-03T08:00:00.000Z'
+const nextScheduleUpdatedAt = '2026-08-03T08:01:00.000Z'
 
 const validBody = {
   userId,
   scheduleId,
+  expectedScheduleUpdatedAt,
   timezone: 'America/Los_Angeles',
   rules: [
     {
@@ -68,6 +71,8 @@ describe('save-availability Butterbase function', () => {
         {
           schedule_owned: true,
           mutation_allowed: true,
+          save_applied: true,
+          schedule_updated_at: nextScheduleUpdatedAt,
           rules: savedRules,
           overrides: JSON.stringify(savedOverrides),
           deleted_rule_count: 1,
@@ -82,6 +87,7 @@ describe('save-availability Butterbase function', () => {
     expect(await response.json()).toEqual({
       rules: savedRules,
       overrides: savedOverrides,
+      scheduleUpdatedAt: nextScheduleUpdatedAt,
     })
     expect(query).toHaveBeenCalledTimes(1)
 
@@ -106,6 +112,7 @@ describe('save-availability Butterbase function', () => {
       JSON.stringify(validBody.overrides),
       JSON.stringify(validBody.deletedRuleIds),
       JSON.stringify(validBody.deletedOverrideIds),
+      expectedScheduleUpdatedAt,
     ])
   })
 
@@ -136,7 +143,49 @@ describe('save-availability Butterbase function', () => {
     expect(sql).toContain('owned_rule.user_id = owned_schedule.user_id')
     expect(sql).toContain('owned_override.schedule_id = owned_schedule.id')
     expect(sql).toContain('owned_override.user_id = owned_schedule.user_id')
+    expect(sql).toContain('owned_deleted_rule.id = deleted_rule_input.id')
+    expect(sql).toContain(
+      'owned_deleted_override.id = deleted_override_input.id'
+    )
+    expect(sql).toContain('rule_input.id = current_rule.id')
+    expect(sql).toContain('deleted_rule_input.id = current_rule.id')
+    expect(sql).toContain('override_input.id = current_override.id')
+    expect(sql).toContain(
+      'deleted_override_input.id = current_override.id'
+    )
     expect(sql).toContain('FROM mutation_guard')
+    expect(sql).toContain(
+      "date_trunc('milliseconds', owned_schedule.updated_at)"
+    )
+    expect(sql).toContain(
+      "date_trunc('milliseconds', schedules.updated_at)"
+    )
+    expect(sql).toContain(
+      "date_trunc('milliseconds', schedules.updated_at) + interval '1 millisecond'"
+    )
+    expect(sql).toContain('EXISTS (SELECT 1 FROM updated_schedule) AS save_applied')
+  })
+
+  it('returns a conflict when a concurrent writer wins the version check', async () => {
+    const query = vi.fn().mockResolvedValue({
+      rows: [
+        {
+          schedule_owned: true,
+          mutation_allowed: true,
+          save_applied: false,
+          rules: [],
+          overrides: [],
+        },
+      ],
+    })
+
+    const response = await handler(request(validBody), context(query))
+
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({
+      success: false,
+      error: 'Availability changed; reload and retry',
+    })
   })
 
   it('returns a generic not-found response for a schedule the caller does not own', async () => {
@@ -174,6 +223,13 @@ describe('save-availability Butterbase function', () => {
       {
         ...validBody,
         rules: [{ ...validBody.rules[0], start_time: '29:00' }],
+      },
+    ],
+    [
+      'invalid schedule version',
+      {
+        ...validBody,
+        expectedScheduleUpdatedAt: 'not-a-timestamp',
       },
     ],
     [

@@ -113,6 +113,7 @@ export function mapRpcToFunction(
         body: {
           userId: params.p_user_id,
           scheduleId: params.p_schedule_id,
+          expectedScheduleUpdatedAt: params.p_expected_schedule_updated_at,
           timezone: params.p_timezone,
           rules: params.p_rules,
           overrides: params.p_overrides,

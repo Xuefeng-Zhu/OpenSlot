@@ -31,6 +31,7 @@ export interface AvailabilityClientProps {
   selectedScheduleId: string
   initialRules: AvailabilityRule[]
   initialOverrides: AvailabilityOverride[]
+  initialScheduleUpdatedAt: string
   timezone: string
 }
 
@@ -51,6 +52,7 @@ export function AvailabilityClient({
   selectedScheduleId,
   initialRules,
   initialOverrides,
+  initialScheduleUpdatedAt,
   timezone,
 }: AvailabilityClientProps) {
   const { toast } = useToast()
@@ -58,6 +60,9 @@ export function AvailabilityClient({
   // Track the "saved" baseline for diff computation
   const [savedRules, setSavedRules] = useState<AvailabilityRule[]>(initialRules)
   const [savedOverrides, setSavedOverrides] = useState<AvailabilityOverride[]>(initialOverrides)
+  const [savedScheduleUpdatedAt, setSavedScheduleUpdatedAt] = useState(
+    initialScheduleUpdatedAt
+  )
 
   // Current editing state
   const [dayStates, setDayStates] = useState<Record<string, DayState>>(
@@ -70,7 +75,8 @@ export function AvailabilityClient({
     setSavedOverrides(initialOverrides)
     setDayStates(buildDayStates(initialRules))
     setOverrides(initialOverrides)
-  }, [initialRules, initialOverrides])
+    setSavedScheduleUpdatedAt(initialScheduleUpdatedAt)
+  }, [initialRules, initialOverrides, initialScheduleUpdatedAt])
 
   // Override form state
   const [newOverrideDate, setNewOverrideDate] = useState("")
@@ -196,6 +202,7 @@ export function AvailabilityClient({
         savedRules,
         savedOverrides,
         selectedScheduleId,
+        expectedScheduleUpdatedAt: savedScheduleUpdatedAt,
         timezone,
       })
       const savedData = await requestJson<AvailabilitySaveResponse>(
@@ -215,8 +222,15 @@ export function AvailabilityClient({
           createTempId: tempId,
         })
 
+      if (!savedData.scheduleUpdatedAt) {
+        throw new Error(
+          'Availability was saved without a new version. Reload and retry.'
+        )
+      }
+
       setSavedRules(nextRules)
       setSavedOverrides(nextOverrides)
+      setSavedScheduleUpdatedAt(savedData.scheduleUpdatedAt)
       setDayStates(buildDayStates(nextRules))
       setOverrides(nextOverrides)
 
@@ -240,6 +254,7 @@ export function AvailabilityClient({
     savedRules,
     savedOverrides,
     selectedScheduleId,
+    savedScheduleUpdatedAt,
     timezone,
     toast,
     weeklyTimeError,

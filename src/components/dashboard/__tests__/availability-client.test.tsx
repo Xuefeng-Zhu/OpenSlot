@@ -9,13 +9,16 @@ const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
   refresh: vi.fn(),
 }))
+const toastMock = vi.hoisted(() => vi.fn())
+const initialScheduleUpdatedAt = '2026-08-03T08:00:00.000Z'
+const nextScheduleUpdatedAt = '2026-08-03T08:01:00.000Z'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMocks,
 }))
 
 vi.mock('@/components/ui/use-toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: toastMock }),
 }))
 
 function schedules(): AvailabilitySchedule[] {
@@ -62,6 +65,7 @@ function renderAvailability(
         },
       ]}
       initialOverrides={[]}
+      initialScheduleUpdatedAt={initialScheduleUpdatedAt}
       timezone="America/New_York"
       {...overrides}
     />
@@ -315,6 +319,7 @@ describe('AvailabilityClient', () => {
               reason: null,
             },
           ]}
+          initialScheduleUpdatedAt={initialScheduleUpdatedAt}
           timezone="America/New_York"
         />
       </DashboardDisplayPreferencesProvider>
@@ -362,6 +367,7 @@ describe('AvailabilityClient', () => {
             success: true,
             rules: body.rules,
             overrides: body.overrides,
+            scheduleUpdatedAt: nextScheduleUpdatedAt,
           }),
           {
             status: 200,
@@ -418,5 +424,68 @@ describe('AvailabilityClient', () => {
       },
     ])
     expect(body.deletedRuleIds).toEqual(['rule-first'])
+    expect(body.expectedScheduleUpdatedAt).toBe(initialScheduleUpdatedAt)
+  })
+
+  it('uses the returned schedule version for the next save', async () => {
+    const fetchMock = vi.fn(
+      async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body))
+        return jsonResponse({
+          success: true,
+          rules: body.rules,
+          overrides: body.overrides,
+          scheduleUpdatedAt:
+            fetchMock.mock.calls.length === 1
+              ? nextScheduleUpdatedAt
+              : '2026-08-03T08:02:00.000Z',
+        })
+      }
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderAvailability()
+    const endTime = screen.getByLabelText('End time for Monday interval 1')
+    fireEvent.change(endTime, { target: { value: '16:30' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save availability' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+
+    fireEvent.change(endTime, { target: { value: '16:00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save availability' }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+
+    const firstBody = JSON.parse(String(fetchMock.mock.calls[0][1]?.body))
+    const secondBody = JSON.parse(String(fetchMock.mock.calls[1][1]?.body))
+    expect(firstBody.expectedScheduleUpdatedAt).toBe(initialScheduleUpdatedAt)
+    expect(secondBody.expectedScheduleUpdatedAt).toBe(nextScheduleUpdatedAt)
+  })
+
+  it('shows the reload guidance when a stale save returns 409', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        jsonResponse(
+          {
+            success: false,
+            error: 'Availability changed; reload and retry',
+          },
+          409
+        )
+      )
+    )
+
+    renderAvailability()
+    fireEvent.change(screen.getByLabelText('End time for Monday interval 1'), {
+      target: { value: '16:30' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save availability' }))
+
+    await waitFor(() =>
+      expect(toastMock).toHaveBeenCalledWith({
+        title: 'Error saving availability',
+        description: 'Availability changed; reload and retry',
+        variant: 'destructive',
+      })
+    )
   })
 })

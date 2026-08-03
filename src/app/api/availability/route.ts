@@ -28,6 +28,7 @@ export const runtime = 'edge'
 interface SaveAvailabilityFunctionResult {
   rules?: unknown[]
   overrides?: unknown[]
+  scheduleUpdatedAt?: string
 }
 
 export async function POST(request: NextRequest) {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
 
     const {
       scheduleId,
+      expectedScheduleUpdatedAt,
       rules,
       overrides,
       deletedRuleIds,
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
       .rpc('save_availability', {
         p_user_id: userId,
         p_schedule_id: scheduleId,
+        p_expected_schedule_updated_at: expectedScheduleUpdatedAt,
         p_timezone: timezone,
         p_rules: rules,
         p_overrides: overrides,
@@ -96,6 +99,31 @@ export async function POST(request: NextRequest) {
 
     if (saveError) {
       console.error('Error saving availability transaction:', saveError)
+
+      if (saveError.status === 409) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Availability changed; reload and retry',
+          },
+          { status: 409 }
+        )
+      }
+
+      if (saveError.status === 404) {
+        return NextResponse.json(
+          { success: false, error: 'Schedule not found' },
+          { status: 404 }
+        )
+      }
+
+      if (saveError.status === 400) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid availability data' },
+          { status: 400 }
+        )
+      }
+
       return NextResponse.json(
         { success: false, error: 'Failed to save availability' },
         { status: 500 }
@@ -104,10 +132,19 @@ export async function POST(request: NextRequest) {
 
     const saved = savedAvailability as SaveAvailabilityFunctionResult | null
 
+    if (!saved?.scheduleUpdatedAt) {
+      console.error('Availability function response omitted schedule version')
+      return NextResponse.json(
+        { success: false, error: 'Failed to save availability' },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       success: true,
       rules: saved?.rules ?? [],
       overrides: saved?.overrides ?? [],
+      scheduleUpdatedAt: saved.scheduleUpdatedAt,
     })
   } catch (error) {
     console.error('Error in POST /api/availability:', error)
