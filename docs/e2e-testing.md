@@ -62,6 +62,21 @@ setup, Playwright fetches the deployment and compares its public
 without changing external data. Deploy the current app build before using this
 mode so the identity header is present.
 
+For an approved release audit, the page smoke suite can capture full-page
+screenshots at an exact viewport. Keep the output outside source-controlled
+paths or review it before committing because authenticated screenshots can
+contain QA fixture data:
+
+```bash
+E2E_ALLOW_EXTERNAL_MUTATIONS=true \
+PLAYWRIGHT_BASE_URL=https://qa.openslot.example \
+PLAYWRIGHT_VIEWPORT_WIDTH=1440 \
+PLAYWRIGHT_VIEWPORT_HEIGHT=900 \
+QA_SCREENSHOT_DIR=/tmp/openslot-release-qa \
+QA_SCREENSHOT_LABEL=1440x900 \
+npm run test:e2e -- e2e/pages.spec.ts
+```
+
 Override the login used by browser specs with `E2E_DEMO_HOST_EMAIL`,
 `E2E_DEMO_HOST_PASSWORD`, and `E2E_DEMO_AUTH_USER_ID` when a shared Butterbase
 test app already has known seeded credentials. The legacy aliases

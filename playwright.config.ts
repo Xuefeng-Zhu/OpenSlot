@@ -3,6 +3,10 @@ import { isLocalE2ETarget } from "./e2e/support/target-guard";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const parsedBaseURL = new URL(baseURL);
+const viewport = {
+  width: positiveInteger(process.env.PLAYWRIGHT_VIEWPORT_WIDTH, 1280),
+  height: positiveInteger(process.env.PLAYWRIGHT_VIEWPORT_HEIGHT, 900),
+};
 const webServerHost = parsedBaseURL.hostname;
 const webServerPort =
   parsedBaseURL.port || (parsedBaseURL.protocol === "https:" ? "443" : "80");
@@ -27,7 +31,7 @@ export default defineConfig({
   use: {
     baseURL,
     browserName: "chromium",
-    viewport: { width: 1280, height: 900 },
+    viewport,
     colorScheme: "light",
     locale: "en-US",
     timezoneId: "America/New_York",
@@ -49,3 +53,8 @@ export default defineConfig({
       }
     : undefined,
 });
+
+function positiveInteger(value: string | undefined, fallback: number) {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
