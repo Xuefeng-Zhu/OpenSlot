@@ -34,6 +34,7 @@ describe('Feature: ui-backend-integration, Property 2: Dashboard booking link co
           },
           upcomingBookings: [],
           activeEventTypeCount: 0,
+          availabilityState: 'no_active_event_types',
           bookingLink: `https://openslot.app/${username}`,
         }
 
@@ -58,6 +59,7 @@ describe('Feature: ui-backend-integration, Property 2: Dashboard booking link co
       },
       upcomingBookings: [],
       activeEventTypeCount: 1,
+      availabilityState: 'configured',
       bookingLink: '/test-user',
     }
 
@@ -79,4 +81,51 @@ describe('Feature: ui-backend-integration, Property 2: Dashboard booking link co
 
     cleanup()
   })
+
+  it.each([
+    [
+      'configured',
+      'Configured',
+      'Booking hours are set for at least one active event type.',
+      '/availability',
+    ],
+    [
+      'needs_hours',
+      'Needs hours',
+      'Add hours to a schedule used by an active event type.',
+      '/availability',
+    ],
+    [
+      'no_active_event_types',
+      'No active types',
+      'Create or activate an event type before sharing availability.',
+      '/event-types',
+    ],
+  ] as const)(
+    'renders the truthful %s availability state',
+    (availabilityState, value, description, href) => {
+      render(
+        createElement(DashboardClient, {
+          profile: { username: 'test-user', name: 'Test User' },
+          upcomingBookings: [],
+          activeEventTypeCount:
+            availabilityState === 'no_active_event_types' ? 0 : 1,
+          availabilityState,
+          bookingLink: '/test-user',
+        })
+      )
+
+      expect(screen.getByText(value)).toBeDefined()
+      expect(screen.getByText(description)).toBeDefined()
+      expect(
+        screen
+          .getAllByRole('link')
+          .some((link) => link.getAttribute('href') === href)
+      ).toBe(true)
+      expect(screen.queryByText('All systems go')).toBeNull()
+      expect(screen.queryByText("You're available to be booked")).toBeNull()
+
+      cleanup()
+    }
+  )
 })

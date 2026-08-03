@@ -134,14 +134,35 @@ class ButterbaseAuthPort implements BackendAuthPort {
   }
 
   async refreshSession(refreshToken: string) {
-    const result = await this.client.result<ButterbaseAuthSession>({
+    const result = await this.client.result<
+      Omit<ButterbaseAuthSession, 'user'>
+    >({
       method: 'POST',
       path: `/auth/${this.client.appId}/refresh`,
       auth: 'none',
       body: { refresh_token: refreshToken },
     })
 
-    return mapResult(result, mapSession)
+    if (result.error) return result
+
+    // Butterbase refresh responses rotate the tokens but intentionally omit
+    // the user. Resolve the refreshed identity with the new access token so
+    // callers always receive the complete backend session contract.
+    const userResult = await this.getCurrentUser(result.data.access_token)
+    if (userResult.error) {
+      return { data: null, error: userResult.error }
+    }
+
+    return {
+      data: {
+        accessToken: result.data.access_token,
+        refreshToken: result.data.refresh_token,
+        expiresIn: result.data.expires_in,
+        tokenType: result.data.token_type,
+        user: userResult.data,
+      },
+      error: null,
+    }
   }
 
   async signOut(accessToken: string) {
@@ -301,7 +322,9 @@ class ButterbaseFunctionsPort implements BackendFunctionsPort {
   ): Promise<BackendResult<TResponse>> {
     const slug = backendFunctionSlugs[name]
     const requiresPlatformServiceIdentity =
-      name === 'saveAvailability' || name === 'saveDashboardPreferences'
+      request.serviceRole === true ||
+      name === 'saveAvailability' ||
+      name === 'saveDashboardPreferences'
     const accessToken =
       request.accessToken ??
       (requiresPlatformServiceIdentity

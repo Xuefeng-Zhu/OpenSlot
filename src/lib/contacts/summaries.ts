@@ -103,7 +103,7 @@ export function buildContactSummaries(
           contact.display_name ||
           latestBooking?.guest_name ||
           'Unknown contact',
-        displayEmail: latestBooking?.guest_email ?? '',
+        displayEmail: latestBooking?.guest_email?.trim() || 'Email unavailable',
         lastGuestTimezone:
           contact.last_guest_timezone || latestBooking?.guest_timezone || null,
         firstSeenAt: contact.first_seen_at,

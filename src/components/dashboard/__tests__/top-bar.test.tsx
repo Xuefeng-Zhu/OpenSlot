@@ -4,6 +4,15 @@ import { TopBar } from '../top-bar'
 import type { DashboardNotification, DashboardNotifications } from '@/lib/dashboard/notifications'
 import { DashboardDisplayPreferencesProvider } from '@/components/dashboard/display-preferences-provider'
 
+const routerMock = vi.hoisted(() => ({
+  push: vi.fn(),
+  replace: vi.fn(),
+}))
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => routerMock,
+}))
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })

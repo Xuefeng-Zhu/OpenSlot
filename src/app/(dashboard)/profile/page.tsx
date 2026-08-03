@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createServerBackendClient } from '@/lib/backend/server'
+import { optionalPageRow, pageUserOrNull } from '@/lib/backend/page-data'
 import { PageHeader } from '@/components/dashboard/page-header'
 import { ProfileForm } from './profile-form'
 import type { Tables } from '@/lib/types/database'
@@ -10,21 +11,20 @@ export const metadata = routeMetadata.profile
 export default async function ProfilePage() {
   const backendClient = await createServerBackendClient()
 
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser()
+  const user = pageUserOrNull(await backendClient.auth.getUser())
 
   if (!user) {
     redirect('/login')
   }
 
-  const { data: profile } = await backendClient
-    .from('profiles')
-    .select('*')
-    .eq('auth_user_id', user.id)
-    .single()
-
-  const typedProfile = profile as Tables<'profiles'> | null
+  const typedProfile = optionalPageRow(
+    await backendClient
+      .from('profiles')
+      .select('*')
+      .eq('auth_user_id', user.id)
+      .single(),
+    'dashboard profile'
+  ) as Tables<'profiles'> | null
 
   if (!typedProfile) {
     redirect('/onboarding')

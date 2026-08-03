@@ -99,6 +99,21 @@ describe("NewEventTypePage editor", () => {
     expect(screen.queryByText("URL slug is required")).toBeNull();
   });
 
+  it("keeps create-mode Save enabled for validation discovery", () => {
+    render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Save" })).toHaveProperty(
+      "disabled",
+      false
+    );
+  });
+
   it("lets hosts add a structured invitee question", () => {
     render(
       <EventTypeEditor

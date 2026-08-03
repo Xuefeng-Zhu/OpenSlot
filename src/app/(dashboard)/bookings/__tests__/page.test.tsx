@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   }),
   createServerBackendClient: vi.fn(),
   bookingsOrder: vi.fn(),
+  bookingsError: null as unknown,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -36,7 +37,7 @@ function createQueryBuilder(table: string) {
         mocks.bookingsOrder(...args);
       }
 
-      return { data: [] };
+      return { data: [], error: table === "bookings" ? mocks.bookingsError : null };
     }),
   };
 
@@ -47,6 +48,7 @@ describe("BookingsPage", () => {
   beforeEach(() => {
     mocks.redirect.mockClear();
     mocks.bookingsOrder.mockReset();
+    mocks.bookingsError = null;
     mocks.createServerBackendClient.mockReset();
     mocks.createServerBackendClient.mockResolvedValue({
       auth: {
@@ -64,5 +66,11 @@ describe("BookingsPage", () => {
     expect(mocks.bookingsOrder).toHaveBeenCalledWith("start_at", {
       ascending: true,
     });
+  });
+
+  it("throws a booking query failure instead of rendering an empty collection", async () => {
+    mocks.bookingsError = { status: 500, message: "database unavailable" };
+
+    await expect(BookingsPage()).rejects.toThrow("Failed to load bookings");
   });
 });

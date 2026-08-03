@@ -13,10 +13,12 @@ artifacts that must exist in the configured Butterbase app.
 - Functions API: OpenSlot invokes HTTP functions at
   `/v1/{app_id}/fn/{function_name}` for atomic booking and worker operations.
 - Service key: `BUTTERBASE_API_KEY` stays server-only and maps to the
-  provider service role that can bypass RLS.
-- Function secret: `BUTTERBASE_FUNCTION_SECRET` is a separate server-only
-  bearer token. Deploy it to each Butterbase function as
-  `OPEN_SLOT_FUNCTION_SECRET`.
+  provider service role that can bypass RLS and invoke protected functions.
+- Function auth: every HTTP trigger requires Butterbase service-key
+  authentication, disables service-key impersonation, and trusts only the
+  provider-verified `service_key` caller identity. Do not add a second custom
+  bearer-secret check inside the handler; it can drift from the active service
+  key and make correctly authenticated calls fail.
 
 ## Required Functions
 

@@ -125,6 +125,39 @@ export function buildEventTypePayload(
   };
 }
 
+/**
+ * Compares editor values by what the API would persist, including the complete
+ * nested invitee-question configuration. Presentational whitespace and stale
+ * location fields that are omitted from the payload do not make an edit dirty.
+ */
+export function hasEventTypeEditorChanges(
+  values: EventTypeEditorFormState,
+  savedValues: EventTypeEditorFormState
+): boolean {
+  return (
+    JSON.stringify(toComparableEventType(values)) !==
+    JSON.stringify(toComparableEventType(savedValues))
+  );
+}
+
+function toComparableEventType(values: EventTypeEditorFormState) {
+  const payload = buildEventTypePayload(values);
+
+  return {
+    ...payload,
+    invitee_questions: payload.invitee_questions.map((question) => ({
+      id: question.id,
+      label: question.label.trim(),
+      type: question.type,
+      required: question.required,
+      options:
+        question.type === "select"
+          ? question.options.map((option) => option.trim())
+          : [],
+    })),
+  };
+}
+
 export function firstFieldErrors(
   details: Partial<Record<keyof EventTypeFormValues, string[]>> | undefined
 ) {

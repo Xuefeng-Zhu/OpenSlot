@@ -1,11 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EventTypeEditor,
   type EditableEventType,
 } from "../../../event-type-editor";
+import { DashboardNavigationGuardProvider } from "@/components/dashboard/navigation-guard-provider";
 
 const push = vi.fn();
+const refresh = vi.fn();
 const schedules = [
   {
     id: "33333333-3333-4333-8333-333333333333",
@@ -15,7 +17,7 @@ const schedules = [
 ];
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, refresh }),
 }));
 
 const strategySession: EditableEventType = {
@@ -49,6 +51,11 @@ const hostProfile = {
 describe("EditEventTypePage editor", () => {
   beforeEach(() => {
     push.mockClear();
+    refresh.mockClear();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it("loads the event type selected from the event types list", () => {
@@ -98,6 +105,109 @@ describe("EditEventTypePage editor", () => {
       screen.getByRole("switch", { name: "Email host reminders" })
         .getAttribute("aria-checked")
     ).toBe("false");
+  });
+
+  it("disables unchanged saves and guards Cancel until changes are discarded", () => {
+    render(
+      <DashboardNavigationGuardProvider>
+        <EventTypeEditor
+          mode="edit"
+          hostProfile={hostProfile}
+          schedules={schedules}
+          initialEventType={strategySession}
+        />
+      </DashboardNavigationGuardProvider>
+    );
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(saveButton).toHaveProperty("disabled", true);
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Strategy workshop" },
+    });
+    expect(saveButton).toHaveProperty("disabled", false);
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(push).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "Discard unsaved changes?" })
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe(
+      "Strategy workshop"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Discard and continue" })
+    );
+
+    expect(push).toHaveBeenCalledWith("/event-types");
+  });
+
+  it("clears edit dirty state when values return to their saved semantics", () => {
+    render(
+      <DashboardNavigationGuardProvider>
+        <EventTypeEditor
+          mode="edit"
+          hostProfile={hostProfile}
+          schedules={schedules}
+          initialEventType={strategySession}
+        />
+      </DashboardNavigationGuardProvider>
+    );
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Strategy workshop" },
+    });
+    expect(saveButton).toHaveProperty("disabled", false);
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "  Strategy session  " },
+    });
+    expect(saveButton).toHaveProperty("disabled", true);
+  });
+
+  it("clears edit dirty state after a successful save", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+    render(
+      <DashboardNavigationGuardProvider>
+        <EventTypeEditor
+          mode="edit"
+          hostProfile={hostProfile}
+          schedules={schedules}
+          initialEventType={strategySession}
+        />
+      </DashboardNavigationGuardProvider>
+    );
+
+    fireEvent.change(screen.getByLabelText("Title"), {
+      target: { value: "Strategy workshop" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith("/event-types");
+      expect(screen.getByRole("button", { name: "Save" })).toHaveProperty(
+        "disabled",
+        true
+      );
+    });
+
+    push.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(push).toHaveBeenCalledWith("/event-types");
+    expect(screen.queryByText("Discard unsaved changes?")).toBeNull();
   });
 
   it("clears field-level validation errors when corrected", () => {

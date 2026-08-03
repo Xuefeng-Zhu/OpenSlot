@@ -143,8 +143,8 @@ valid Butterbase configuration.
 | `NEXT_PUBLIC_BUTTERBASE_APP_ID` | Yes | Browser-safe Butterbase app id. |
 | `NEXT_PUBLIC_BUTTERBASE_API_URL` | Yes | Butterbase API base URL, usually `https://api.butterbase.ai`. |
 | `BUTTERBASE_API_KEY` | Yes | Server-only service key for privileged route handlers. Never expose to client code. |
-| `BUTTERBASE_FUNCTION_SECRET` | Backend functions | Server-only bearer token sent to Butterbase functions. Keep separate from `BUTTERBASE_API_KEY`. |
-| `SLOT_HOLD_TOKEN_SECRET` | Optional | Dedicated HMAC secret for short-lived public slot hold tokens. Omit it to fall back to `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`. |
+| `BUTTERBASE_FUNCTION_SECRET` | Legacy optional | Retained only as a fallback HMAC secret for existing deployments. Butterbase functions use the platform-verified service key. |
+| `SLOT_HOLD_TOKEN_SECRET` | Optional | Dedicated HMAC secret for short-lived public slot hold tokens. Omit it to fall back to the legacy `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`. |
 | `NEXT_PUBLIC_APP_URL` | Yes | Public app origin for links and OAuth callbacks. Use `http://localhost:3000` locally. |
 | `OUTBOX_PROCESS_SECRET` | Production | Protects manual `/api/outbox/process` calls. |
 | `WEBHOOK_PROCESS_SECRET` | Production | Protects manual `/api/webhooks/process` calls. |

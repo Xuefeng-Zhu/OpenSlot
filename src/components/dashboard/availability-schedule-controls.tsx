@@ -20,6 +20,7 @@ import {
 } from "@/components/dashboard/request-json"
 import type { AvailabilitySchedule } from "@/components/dashboard/availability-model"
 import { getScheduleDisplayName } from "@/components/dashboard/availability-schedule-controls-utils"
+import { useDashboardNavigationGuard } from "@/components/dashboard/navigation-guard-provider"
 
 interface AvailabilityScheduleControlsProps {
   schedules: AvailabilitySchedule[]
@@ -38,6 +39,7 @@ export function AvailabilityScheduleControls({
 }: AvailabilityScheduleControlsProps) {
   const { toast } = useToast()
   const router = useRouter()
+  const { requestNavigation } = useDashboardNavigationGuard()
   const [schedules, setSchedules] = useState<AvailabilitySchedule[]>(
     initialSchedules
   )
@@ -74,8 +76,11 @@ export function AvailabilityScheduleControls({
   }, [initialSchedules, selectedScheduleId])
 
   function handleScheduleChange(scheduleId: string) {
-    router.push(`/availability?scheduleId=${scheduleId}`)
-    router.refresh()
+    if (scheduleId === selectedScheduleId) return
+
+    requestNavigation(() => {
+      router.push(`/availability?scheduleId=${scheduleId}`)
+    })
   }
 
   function handleCreateDialogOpenChange(open: boolean) {
@@ -116,10 +121,16 @@ export function AvailabilityScheduleControls({
     }
   }
 
-  async function handleCreateSchedule() {
+  function handleCreateSchedule() {
     const name = newScheduleName.trim()
     if (!name) return
 
+    requestNavigation(() => {
+      void createSchedule(name)
+    })
+  }
+
+  async function createSchedule(name: string) {
     await runScheduleMutation("Could not create schedule", async () => {
       const { schedule } = await requestJson<ScheduleMutationResponse>(
         "/api/availability/schedules",
@@ -137,7 +148,6 @@ export function AvailabilityScheduleControls({
         description: `"${schedule.name}" is ready to edit.`,
       })
       router.push(`/availability?scheduleId=${schedule.id}`)
-      router.refresh()
     })
   }
 
@@ -169,17 +179,22 @@ export function AvailabilityScheduleControls({
         description: `"${updatedSchedule.name}" has been updated.`,
       })
       setRenameDialogOpen(false)
-      router.refresh()
     })
   }
 
-  async function handleDuplicateSchedule() {
+  function handleDuplicateSchedule() {
     const name = duplicateScheduleName.trim()
     if (!selectedSchedule || !name) return
 
+    requestNavigation(() => {
+      void duplicateSchedule(selectedSchedule.id, name)
+    })
+  }
+
+  async function duplicateSchedule(scheduleId: string, name: string) {
     await runScheduleMutation("Could not duplicate schedule", async () => {
       const { schedule } = await requestJson<ScheduleMutationResponse>(
-        `/api/availability/schedules/${selectedSchedule.id}/duplicate`,
+        `/api/availability/schedules/${scheduleId}/duplicate`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -193,7 +208,6 @@ export function AvailabilityScheduleControls({
         description: `"${schedule.name}" is ready to edit.`,
       })
       router.push(`/availability?scheduleId=${schedule.id}`)
-      router.refresh()
     })
   }
 
@@ -221,29 +235,34 @@ export function AvailabilityScheduleControls({
         title: "Default schedule updated",
         description: `"${schedule.name}" is now the default for new event types.`,
       })
-      router.refresh()
     })
   }
 
-  async function handleDeleteSchedule() {
+  function handleDeleteSchedule() {
     if (!selectedSchedule) return
 
+    requestNavigation(() => {
+      void deleteSchedule(selectedSchedule)
+    })
+  }
+
+  async function deleteSchedule(scheduleToDelete: AvailabilitySchedule) {
     await runScheduleMutation("Could not delete schedule", async () => {
       await requestJson<Record<string, never>>(
-        `/api/availability/schedules/${selectedSchedule.id}`,
+        `/api/availability/schedules/${scheduleToDelete.id}`,
         { method: "DELETE" },
         "Failed to delete schedule"
       )
 
       const remaining = schedules.filter(
-        (schedule) => schedule.id !== selectedSchedule.id
+        (schedule) => schedule.id !== scheduleToDelete.id
       )
       const nextSchedule =
         remaining.find((schedule) => schedule.is_default) ?? remaining[0]
 
       toast({
         title: "Schedule deleted",
-        description: `"${selectedSchedule.name}" has been removed.`,
+        description: `"${scheduleToDelete.name}" has been removed.`,
       })
       setDeleteDialogOpen(false)
 
@@ -252,7 +271,6 @@ export function AvailabilityScheduleControls({
       } else {
         router.push("/availability")
       }
-      router.refresh()
     })
   }
 

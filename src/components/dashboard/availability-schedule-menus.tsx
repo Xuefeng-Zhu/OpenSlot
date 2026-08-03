@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import {
   Check,
   ChevronDown,
@@ -24,6 +23,7 @@ import {
   getEventTypeCountLabel,
   getScheduleLabel,
 } from "@/components/dashboard/availability-schedule-controls-utils"
+import { GuardedLink } from "@/components/dashboard/guarded-link"
 
 interface SchedulePickerMenuProps {
   schedules: AvailabilitySchedule[]
@@ -131,7 +131,7 @@ export function AssignedEventTypesMenu({
         {assignedEventTypes.length > 0 ? (
           assignedEventTypes.map((eventType) => (
             <DropdownMenuItem key={eventType.id} asChild>
-              <Link
+              <GuardedLink
                 href={`/event-types/${eventType.id}/edit`}
                 className="flex w-full flex-col items-start gap-0.5"
               >
@@ -139,7 +139,7 @@ export function AssignedEventTypesMenu({
                 <span className="text-xs text-muted-foreground">
                   /{eventType.slug}
                 </span>
-              </Link>
+              </GuardedLink>
             </DropdownMenuItem>
           ))
         ) : (

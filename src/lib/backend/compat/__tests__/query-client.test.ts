@@ -274,7 +274,7 @@ describe('createBackendCompatClient', () => {
     )
   })
 
-  it('patches existing user settings rows by provider row id after profile_id conflict lookup', async () => {
+  it('patches existing user settings rows by their profile_id primary key', async () => {
     const fetchImpl = vi
       .fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
         jsonResponse(null)
@@ -320,7 +320,7 @@ describe('createBackendCompatClient', () => {
     expect(conflictLookupUrl.searchParams.get('profile_id')).toBe('eq.profile-1')
 
     expect(fetchImpl.mock.calls[1][0]).toBe(
-      'https://api.example.test/v1/app_openslot/user_settings/settings-row-1'
+      'https://api.example.test/v1/app_openslot/user_settings/profile-1'
     )
     expect(fetchImpl.mock.calls[1][1]).toEqual(
       expect.objectContaining({
@@ -378,7 +378,7 @@ describe('createBackendCompatClient', () => {
       })
     )
     expect(new Headers(fetchImpl.mock.calls[0][1]?.headers).get('Authorization')).toBe(
-      'Bearer function-secret'
+      'Bearer service-key'
     )
   })
 

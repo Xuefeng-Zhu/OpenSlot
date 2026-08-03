@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { type ReactNode } from "react";
 import {
   Calendar,
@@ -25,6 +24,7 @@ import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { IntegrationLoadWarning } from "./settings-integration-load-warning";
 import { SettingsMcpTokensSection } from "./settings-mcp-tokens-section";
 import { SettingsWebhookEndpointsSection } from "./settings-webhook-endpoints-section";
+import { GuardedLink } from "@/components/dashboard/guarded-link";
 
 interface SettingsIntegrationsTabProps {
   calendarConnections: CalendarConnectionSummary[];
@@ -162,12 +162,16 @@ function CalendarConnectionCard({
         size="sm"
         className="mt-4"
       >
-        <Link href={connectHref} prefetch={false}>
+        <GuardedLink
+          href={connectHref}
+          navigationMode="document"
+          prefetch={false}
+        >
           {connection && (
             <RefreshCw className="mr-2 h-3.5 w-3.5" aria-hidden="true" />
           )}
           {connection ? "Reconnect" : "Connect"}
-        </Link>
+        </GuardedLink>
       </Button>
     </div>
   );

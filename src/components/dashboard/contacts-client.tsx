@@ -48,6 +48,10 @@ function contactMatchesSearch(contact: ContactSummary, search: string): boolean 
   ].some((value) => value.toLowerCase().includes(query));
 }
 
+function contactEmail(contact: ContactSummary): string {
+  return contact.displayEmail.trim() || "Email unavailable";
+}
+
 export function ContactsClient({ contacts }: ContactsClientProps) {
   const [search, setSearch] = useState("");
 
@@ -102,11 +106,20 @@ export function ContactsClient({ contacts }: ContactsClientProps) {
       {filteredContacts.length === 0 ? (
         <EmptyState
           icon={<UserRound className="h-6 w-6" />}
-          heading={contacts.length === 0 ? "No contacts yet" : "No contacts found"}
+          heading={contacts.length === 0 ? "No contacts yet" : "No matching contacts"}
           description={
             contacts.length === 0
               ? "Contacts appear after guests book time with you."
-              : "Adjust the search."
+              : "Try another name, email, or event type."
+          }
+          action={
+            contacts.length > 0
+              ? {
+                  label: "Clear search",
+                  onClick: () => setSearch(""),
+                  variant: "outline",
+                }
+              : undefined
           }
         />
       ) : (
@@ -159,7 +172,7 @@ function ContactsTable({ contacts }: { contacts: ContactSummary[] }) {
                       <div className="min-w-0">
                         <p className="truncate font-medium">{contact.displayName}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          {contact.displayEmail}
+                          {contactEmail(contact)}
                         </p>
                       </div>
                     </div>
@@ -195,9 +208,11 @@ function ContactsTable({ contacts }: { contacts: ContactSummary[] }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{contact.displayName}</p>
-                  <p className="mt-1 flex items-center gap-1 truncate text-sm text-muted-foreground">
+                  <p className="mt-1 flex min-w-0 items-start gap-1 text-sm text-muted-foreground">
                     <Mail className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                    {contact.displayEmail}
+                    <span className="min-w-0 break-all">
+                      {contactEmail(contact)}
+                    </span>
                   </p>
                   <p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground">
                     <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />

@@ -1,5 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
+import {
+  optionalPageRow,
+  pageCollection,
+  pageUserOrNull,
+} from "@/lib/backend/page-data";
 import { ContactProfileClient } from "@/components/dashboard/contact-profile-client";
 import {
   buildContactSummaries,
@@ -40,60 +45,55 @@ export default async function ContactPage({ params }: ContactPageProps) {
   const { id } = await params;
   const backendClient = await createServerBackendClient();
 
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser();
+  const user = pageUserOrNull(await backendClient.auth.getUser());
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await backendClient
-    .from("profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  const profile = profileData as Pick<Tables<"profiles">, "id"> | null;
+  const profile = optionalPageRow(
+    await backendClient
+      .from("profiles")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single(),
+    "dashboard profile"
+  ) as Pick<Tables<"profiles">, "id"> | null;
 
   if (!profile) {
     redirect("/onboarding");
   }
 
   const adminClient = createAdminBackendClient();
-  const { data: contactData, error: contactError } = await adminClient
-    .from("contacts")
-    .select(
-      "id, email_hash, display_name, last_guest_timezone, first_seen_at, last_seen_at, deleted_at"
-    )
-    .eq("id", id)
-    .eq("host_user_id", profile.id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (contactError) {
-    console.error("Error loading contact:", contactError);
-    throw new Error("Failed to load contact");
-  }
+  const contactData = optionalPageRow(
+    await adminClient
+      .from("contacts")
+      .select(
+        "id, email_hash, display_name, last_guest_timezone, first_seen_at, last_seen_at, deleted_at"
+      )
+      .eq("id", id)
+      .eq("host_user_id", profile.id)
+      .is("deleted_at", null)
+      .maybeSingle(),
+    "contact"
+  );
 
   if (!contactData) {
     notFound();
   }
 
   const contact = contactData as ContactRecord;
-  const { data: bookingsData, error: bookingsError } = await adminClient
-    .from("bookings")
-    .select(
-      "id, event_type_id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancel_reason, rescheduled_from_booking_id, rescheduled_to_booking_id, rescheduled_at, created_at, updated_at, event_types(title)"
-    )
-    .eq("host_user_id", profile.id);
-
-  if (bookingsError) {
-    console.error("Error loading contact timeline bookings:", bookingsError);
-    throw new Error("Failed to load contact timeline");
-  }
-
-  const bookings = ((bookingsData as BookingRow[]) ?? []).map(toContactBookingRecord);
+  const bookings = (
+    pageCollection(
+      await adminClient
+        .from("bookings")
+        .select(
+          "id, event_type_id, guest_name, guest_email, guest_timezone, notes, start_at, end_at, status, cancel_reason, rescheduled_from_booking_id, rescheduled_to_booking_id, rescheduled_at, created_at, updated_at, event_types(title)"
+        )
+        .eq("host_user_id", profile.id),
+      "contact timeline"
+    ) as BookingRow[]
+  ).map(toContactBookingRecord);
   const timelineSeed = buildContactTimeline(contact, bookings);
   const bookingIds = timelineSeed.map((item) => item.bookingId);
   const events = await loadBookingEvents(adminClient, bookingIds);
@@ -113,17 +113,13 @@ async function loadBookingEvents(
 ): Promise<ContactEventRecord[]> {
   if (bookingIds.length === 0) return [];
 
-  const { data, error } = await adminClient
-    .from("booking_events")
-    .select("booking_id, event_type, created_at")
-    .in("booking_id", bookingIds);
-
-  if (error) {
-    console.error("Error loading contact booking events:", error);
-    throw new Error("Failed to load contact timeline events");
-  }
-
-  return (data as ContactEventRecord[]) ?? [];
+  return pageCollection(
+    await adminClient
+      .from("booking_events")
+      .select("booking_id, event_type, created_at")
+      .in("booking_id", bookingIds),
+    "contact timeline events"
+  ) as ContactEventRecord[];
 }
 
 function toContactBookingRecord(booking: BookingRow): ContactBookingRecord {

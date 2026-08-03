@@ -15,7 +15,9 @@ import type {
   TableName,
 } from './types'
 
-const primaryKeys: Partial<Record<TableName, string>> = {}
+const primaryKeys: Partial<Record<TableName, string>> = {
+  user_settings: 'profile_id',
+}
 
 const jsonColumns: Partial<Record<TableName, ReadonlySet<string>>> = {
   bookings: new Set(['booking_answers']),

@@ -73,6 +73,20 @@ describe('BookingsClient', () => {
     expect(filter.getAttribute('placeholder')).toBe('No event types to filter')
   })
 
+  it('distinguishes a filtered miss from a genuinely empty booking category', () => {
+    render(<BookingsClient bookings={[booking()]} />)
+
+    fireEvent.change(screen.getByLabelText('Filter by event type'), {
+      target: { value: 'Unrelated event' },
+    })
+
+    expect(screen.getByText('No matching bookings')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+
+    expect(screen.getAllByText('Ada Lovelace').length).toBeGreaterThan(0)
+    expect(screen.queryByText('No matching bookings')).toBeNull()
+  })
+
   it('shows structured answers in the booking detail drawer', () => {
     render(
       <BookingsClient

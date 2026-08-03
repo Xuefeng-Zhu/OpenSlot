@@ -109,6 +109,20 @@ describe('contact summaries', () => {
     })
   })
 
+  it('keeps an empty contact history and supplies missing email copy', () => {
+    const summaries = buildContactSummaries([contact], [])
+
+    expect(summaries).toEqual([
+      expect.objectContaining({
+        id: 'contact-1',
+        displayEmail: 'Email unavailable',
+        totalBookings: 0,
+        lastMeetingAt: null,
+        nextMeetingAt: null,
+      }),
+    ])
+  })
+
   it('builds timeline items with lifecycle event times', () => {
     const timeline = buildContactTimeline(
       contact,

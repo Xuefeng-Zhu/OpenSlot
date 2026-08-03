@@ -16,7 +16,6 @@ NEXT_PUBLIC_APP_URL=...
 NEXT_PUBLIC_BUTTERBASE_APP_ID=...
 NEXT_PUBLIC_BUTTERBASE_API_URL=https://api.butterbase.ai
 BUTTERBASE_API_KEY=...
-BUTTERBASE_FUNCTION_SECRET=...
 SLOT_HOLD_TOKEN_SECRET=...
 ```
 
@@ -67,7 +66,7 @@ BOOKING_AGENT_MODEL=deepseek/deepseek-v4-flash
 Rules:
 
 - `NEXT_PUBLIC_*` values are browser-visible.
-- `BUTTERBASE_API_KEY`, `BUTTERBASE_FUNCTION_SECRET`, and
+- `BUTTERBASE_API_KEY`, the legacy optional `BUTTERBASE_FUNCTION_SECRET`, and
   `SLOT_HOLD_TOKEN_SECRET` must only be used in server-only code.
 - Do not commit `.env.local` or real credentials.
 

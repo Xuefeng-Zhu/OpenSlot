@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  useDashboardNavigationGuard,
+  useDashboardUnsavedChanges,
+} from "@/components/dashboard/navigation-guard-provider";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -70,6 +74,7 @@ export function SettingsClient({
   mcpTokensLoadFailed = false,
 }: SettingsClientProps) {
   const router = useRouter();
+  const { requestNavigation } = useDashboardNavigationGuard();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const oauthFeedbackShown = useRef(false);
@@ -114,6 +119,27 @@ export function SettingsClient({
     notifyNewBooking !== savedNotifyNewBooking ||
     notifyCancellation !== savedNotifyCancellation ||
     notifyReminder !== savedNotifyReminder;
+  const discardDrafts = useCallback(() => {
+    setTimezone(savedTimezone);
+    setDateFormat(savedDateFormat);
+    setTimeFormat(savedTimeFormat);
+    setNotifyNewBooking(savedNotifyNewBooking);
+    setNotifyCancellation(savedNotifyCancellation);
+    setNotifyReminder(savedNotifyReminder);
+  }, [
+    savedDateFormat,
+    savedNotifyCancellation,
+    savedNotifyNewBooking,
+    savedNotifyReminder,
+    savedTimeFormat,
+    savedTimezone,
+  ]);
+
+  useDashboardUnsavedChanges(
+    "settings-drafts",
+    preferencesDirty || notificationsDirty,
+    discardDrafts
+  );
 
   useEffect(() => {
     setActiveTab(initialTab);
@@ -218,7 +244,13 @@ export function SettingsClient({
     }
   };
 
-  const deleteAccount = async () => {
+  const deleteAccount = () => {
+    requestNavigation(() => {
+      void deleteAccountAfterDiscard();
+    });
+  };
+
+  const deleteAccountAfterDiscard = async () => {
     if (
       !window.confirm(
         "Delete your account and all OpenSlot data? This action cannot be undone."

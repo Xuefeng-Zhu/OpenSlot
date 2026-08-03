@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo } from 'react'
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -21,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { useToast } from '@/components/ui/use-toast'
 import { copyTextToClipboard } from '@/lib/utils/clipboard'
 import { useCopyFeedback } from '@/components/shared/use-copy-feedback'
+import { GuardedLink } from '@/components/dashboard/guarded-link'
 
 const navItems = [
   { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
@@ -78,13 +78,13 @@ export function SidebarNav({ username }: SidebarNavProps) {
     <aside className="flex h-full min-h-0 w-64 flex-col overflow-y-auto border-r bg-card/95">
       {/* Logo */}
       <div className="p-6 pb-4">
-        <Link
+        <GuardedLink
           href="/dashboard"
           className="flex items-center text-xl font-bold text-foreground"
         >
           <AppIcon className="mr-2 h-7 w-7" />
           OpenSlot
-        </Link>
+        </GuardedLink>
       </div>
 
       {/* Navigation Links */}
@@ -95,7 +95,7 @@ export function SidebarNav({ username }: SidebarNavProps) {
             (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`))
           const Icon = item.icon
           return (
-            <Link
+            <GuardedLink
               key={item.href}
               href={item.href}
               className={cn(
@@ -108,7 +108,7 @@ export function SidebarNav({ username }: SidebarNavProps) {
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               {item.label}
-            </Link>
+            </GuardedLink>
           )
         })}
       </nav>
@@ -116,10 +116,10 @@ export function SidebarNav({ username }: SidebarNavProps) {
       {/* New event type button */}
       <div className="px-3 mb-4">
         <Button asChild className="w-full" size="sm">
-          <Link href="/event-types/new">
+          <GuardedLink href="/event-types/new">
             <Plus className="h-4 w-4 mr-1.5" aria-hidden="true" />
             New event type
-          </Link>
+          </GuardedLink>
         </Button>
       </div>
 

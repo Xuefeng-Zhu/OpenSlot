@@ -5,6 +5,7 @@ import {
   loadDashboardWebhookEndpoints,
 } from "@/lib/dashboard/integration-load-state";
 import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
+import { optionalPageRow, pageUserOrNull } from "@/lib/backend/page-data";
 import { SettingsClient } from "./settings-client";
 import type { Tables } from "@/lib/types/database";
 import {
@@ -38,19 +39,20 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       ? "integrations"
       : "account";
   const backendClient = await createServerBackendClient();
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser();
+  const user = pageUserOrNull(await backendClient.auth.getUser());
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profile } = await backendClient
-    .from("profiles")
-    .select("id, email, default_timezone")
-    .eq("auth_user_id", user.id)
-    .single();
+  const profile = optionalPageRow(
+    await backendClient
+      .from("profiles")
+      .select("id, email, default_timezone")
+      .eq("auth_user_id", user.id)
+      .single(),
+    "dashboard profile"
+  );
 
   if (!profile) {
     redirect("/onboarding");
@@ -61,26 +63,23 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     "id" | "email" | "default_timezone"
   >;
 
-  const { data: settings, error: settingsError } = await backendClient
-    .from("user_settings")
-    .select(
-      "date_format, time_format, notify_new_booking, notify_cancellation, notify_reminder"
-    )
-    .eq("profile_id", typedProfile.id)
-    .maybeSingle();
-
-  if (settingsError) {
-    throw new Error("Failed to load settings");
-  }
-
-  const typedSettings = settings as Pick<
-    Tables<"user_settings">,
-    | "date_format"
-    | "time_format"
-    | "notify_new_booking"
-    | "notify_cancellation"
-    | "notify_reminder"
-  > | null;
+  const typedSettings = optionalPageRow(
+    await backendClient
+      .from("user_settings")
+      .select(
+        "date_format, time_format, notify_new_booking, notify_cancellation, notify_reminder"
+      )
+      .eq("profile_id", typedProfile.id)
+      .maybeSingle(),
+    "settings"
+  ) as Pick<
+      Tables<"user_settings">,
+      | "date_format"
+      | "time_format"
+      | "notify_new_booking"
+      | "notify_cancellation"
+      | "notify_reminder"
+    > | null;
 
   const initialSettings: SettingsFormValues = {
     email: user.email || typedProfile.email || "",
