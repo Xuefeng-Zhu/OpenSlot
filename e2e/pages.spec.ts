@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { demoIds } from "./demo-data";
 import { loginAsDemoHost } from "./support/auth";
 import { expect, expectVisibleText, test } from "./support/test";
@@ -9,7 +11,11 @@ interface PageSmokeCase {
   title: string | RegExp;
   heading?: string | RegExp;
   visibleText?: Array<string | RegExp>;
+  desktopVisibleText?: Array<string | RegExp>;
 }
+
+const qaScreenshotDirectory = process.env.QA_SCREENSHOT_DIR?.trim();
+const qaScreenshotLabel = process.env.QA_SCREENSHOT_LABEL?.trim() || "qa";
 
 const publicPageCases: PageSmokeCase[] = [
   {
@@ -108,7 +114,7 @@ const authenticatedPageCases: PageSmokeCase[] = [
     path: "/onboarding",
     title: "Set up OpenSlot | OpenSlot",
     heading: "Create your public profile",
-    visibleText: ["Set availability", "Create first event type"],
+    desktopVisibleText: ["Set availability", "Create first event type"],
   },
   {
     name: "availability",
@@ -194,6 +200,27 @@ async function expectSmokePage(page: Page, pageCase: PageSmokeCase) {
   for (const text of pageCase.visibleText ?? []) {
     await expectVisibleText(page, text);
   }
+
+  if ((page.viewportSize()?.width ?? 0) >= 640) {
+    for (const text of pageCase.desktopVisibleText ?? []) {
+      await expectVisibleText(page, text);
+    }
+  }
+
+  if (qaScreenshotDirectory) {
+    mkdirSync(qaScreenshotDirectory, { recursive: true });
+    await page.screenshot({
+      path: path.join(
+        qaScreenshotDirectory,
+        `${safeScreenshotName(qaScreenshotLabel)}-${safeScreenshotName(pageCase.name)}.png`
+      ),
+      fullPage: true,
+    });
+  }
+}
+
+function safeScreenshotName(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
 test("public and token pages render with seeded data", async ({ page }) => {
@@ -234,7 +261,7 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
   await expect(page.getByText("30 Minute Meeting")).toBeVisible();
   await expect(page.getByText("Confirmed").first()).toBeVisible();
 
-  await page.getByRole("link", { name: "Event Types", exact: true }).click();
+  await navigateFromDashboard(page, "Event Types");
   await expect(page).toHaveURL(/\/event-types$/);
   await expect(
     page.getByRole("heading", { name: "Event types" })
@@ -247,7 +274,7 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
     page.getByText(/Showing 1 to 1 of \d+ event types/)
   ).toBeVisible();
 
-  await page.getByRole("link", { name: "Bookings", exact: true }).click();
+  await navigateFromDashboard(page, "Bookings");
   await expect(page).toHaveURL(/\/bookings$/);
   await expect(page.getByRole("heading", { name: "Bookings" })).toBeVisible();
   const janeGuestBooking = page.getByRole("button", {
@@ -268,3 +295,18 @@ test("seeded host can use dashboard page interactions", async ({ page }) => {
   await page.keyboard.press("Escape");
   await expect(bookingDetails).toBeHidden();
 });
+
+async function navigateFromDashboard(page: Page, label: string) {
+  const desktopLink = page.getByRole("link", { name: label, exact: true });
+
+  if (await desktopLink.isVisible()) {
+    await desktopLink.click();
+    return;
+  }
+
+  await page.getByRole("button", { name: "Toggle menu" }).click();
+  await page
+    .getByRole("dialog", { name: "Navigation menu" })
+    .getByRole("link", { name: label, exact: true })
+    .click();
+}

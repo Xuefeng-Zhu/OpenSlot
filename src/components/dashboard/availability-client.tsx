@@ -6,6 +6,7 @@ import {
   validateTimeInterval,
 } from "@/components/dashboard/availability-day-row"
 import { useToast } from "@/components/ui/use-toast"
+import { AvailabilityPageHeader } from "@/components/dashboard/availability-page-header"
 import { AvailabilityOverridesCard } from "@/components/dashboard/availability-overrides-card"
 import { AvailabilitySaveBar } from "@/components/dashboard/availability-save-bar"
 import { AvailabilityScheduleControls } from "@/components/dashboard/availability-schedule-controls"
@@ -313,7 +314,7 @@ export function AvailabilityClient({
 
   return (
     <div className="space-y-6">
-      <h1 className="sr-only">Availability</h1>
+      <AvailabilityPageHeader />
 
       <AvailabilityScheduleControls
         schedules={initialSchedules}

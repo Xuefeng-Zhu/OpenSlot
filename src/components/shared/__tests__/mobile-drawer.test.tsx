@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { afterEach, describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { axe, toHaveNoViolations } from "jest-axe";
 import type { AnchorHTMLAttributes } from "react";
 import { MobileDrawer } from "../mobile-drawer";
 import {
@@ -7,11 +8,27 @@ import {
   useDashboardUnsavedChanges,
 } from "@/components/dashboard/navigation-guard-provider";
 
+expect.extend(toHaveNoViolations);
+
+const signOutMock = vi.hoisted(() => vi.fn());
+const copyTextMock = vi.hoisted(() => vi.fn());
+
 const routerMock = {
   refresh: vi.fn(),
   push: vi.fn(),
   replace: vi.fn(),
 };
+
+vi.mock("@/components/dashboard/dashboard-sign-out-provider", () => ({
+  useDashboardSignOut: () => ({
+    isSigningOut: false,
+    signOut: signOutMock,
+  }),
+}));
+
+vi.mock("@/lib/utils/clipboard", () => ({
+  copyTextToClipboard: copyTextMock,
+}));
 
 interface MockLinkProps
   extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
@@ -70,9 +87,14 @@ describe("MobileDrawer", () => {
     user: {
       name: "Jane Doe",
       email: "jane@example.com",
+      username: "jane",
       avatarUrl: null,
     },
   };
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it("renders nothing when closed", () => {
     const { container } = render(
@@ -84,7 +106,7 @@ describe("MobileDrawer", () => {
   it("renders navigation items when open", () => {
     render(<MobileDrawer {...defaultProps} />);
 
-    expect(screen.getByText("Dashboard")).toBeDefined();
+    expect(screen.getByText("Overview")).toBeDefined();
     expect(screen.getByText("Event Types")).toBeDefined();
     expect(screen.getByText("Availability")).toBeDefined();
     expect(screen.getByText("Bookings")).toBeDefined();
@@ -106,7 +128,7 @@ describe("MobileDrawer", () => {
   it("marks the active navigation item", () => {
     render(<MobileDrawer {...defaultProps} />);
 
-    const dashboardLink = screen.getByText("Dashboard").closest("a");
+    const dashboardLink = screen.getByText("Overview").closest("a");
     expect(dashboardLink?.getAttribute("aria-current")).toBe("page");
 
     const bookingsLink = screen.getByText("Bookings").closest("a");
@@ -163,10 +185,59 @@ describe("MobileDrawer", () => {
     expect(nav).toBeDefined();
   });
 
+  it("keeps navigation and mobile actions reachable on short screens", () => {
+    render(<MobileDrawer {...defaultProps} />);
+
+    const navigation = screen.getByRole("navigation", {
+      name: "Mobile navigation",
+    });
+    const scrollRegion = navigation.parentElement;
+
+    expect(scrollRegion?.classList.contains("min-h-0")).toBe(true);
+    expect(scrollRegion?.classList.contains("flex-1")).toBe(true);
+    expect(scrollRegion?.classList.contains("overflow-y-auto")).toBe(true);
+    expect(
+      screen.getByRole("link", { name: "New event type" }).getAttribute("href")
+    ).toBe("/event-types/new");
+    expect(
+      screen.getByRole("button", { name: "Copy booking link" })
+    ).toBeDefined();
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeDefined();
+  });
+
+  it("copies the host booking link from the mobile action", async () => {
+    copyTextMock.mockResolvedValue(undefined);
+    render(<MobileDrawer {...defaultProps} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Copy booking link" })
+    );
+
+    await waitFor(() => {
+      expect(copyTextMock).toHaveBeenCalledOnce();
+      expect(copyTextMock.mock.calls[0][0]).toMatch(/\/jane$/);
+    });
+    expect(screen.getByRole("button", { name: "Copied" })).toBeDefined();
+  });
+
+  it("uses the shared mobile sign-out action", () => {
+    render(<MobileDrawer {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+
+    expect(signOutMock).toHaveBeenCalledOnce();
+  });
+
   it("renders without user prop", () => {
     render(<MobileDrawer open={true} onClose={vi.fn()} />);
 
     expect(screen.getByText("User")).toBeDefined();
-    expect(screen.getByText("Dashboard")).toBeDefined();
+    expect(screen.getByText("Overview")).toBeDefined();
+  });
+
+  it("has no detectable accessibility violations", async () => {
+    const { container } = render(<MobileDrawer {...defaultProps} />);
+
+    expect(await axe(container)).toHaveNoViolations();
   });
 });

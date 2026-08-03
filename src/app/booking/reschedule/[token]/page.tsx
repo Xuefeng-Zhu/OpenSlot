@@ -107,6 +107,7 @@ export default async function RescheduleBookingPage({
       </div>
 
       <SlotPicker
+        eventHeadingLevel={2}
         eventType={{
           ...eventType,
           invitee_questions: normalizeInviteeQuestions(eventType.invitee_questions),

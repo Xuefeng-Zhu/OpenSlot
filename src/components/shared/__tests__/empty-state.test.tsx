@@ -17,6 +17,21 @@ describe("EmptyState", () => {
     expect(screen.getByText("Create your first item to get started.")).toBeDefined();
   });
 
+  it("allows the containing surface to promote the heading to h2", () => {
+    render(
+      <EmptyState
+        icon={<svg data-testid="test-icon" />}
+        heading="No items yet"
+        headingLevel={2}
+        description="Create your first item to get started."
+      />
+    );
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: "No items yet" })
+    ).toBeDefined();
+  });
+
   it("hides decorative icons from assistive technology", () => {
     render(
       <EmptyState

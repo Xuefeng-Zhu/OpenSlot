@@ -12,9 +12,6 @@ const routerMock = vi.hoisted(() => ({
   refresh: vi.fn(),
   replace: vi.fn(),
 }));
-const backendAuthMock = vi.hoisted(() => ({
-  signOut: vi.fn(),
-}));
 
 vi.mock("@/components/ui/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
@@ -22,12 +19,6 @@ vi.mock("@/components/ui/use-toast", () => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => routerMock,
-}));
-
-vi.mock("@/lib/backend/compat/browser-client", () => ({
-  createBrowserBackendClient: () => ({
-    auth: backendAuthMock,
-  }),
 }));
 
 const initialSettings = {
@@ -51,6 +42,13 @@ const dirtySectionCases = [
     tabName: "Notifications",
     saveButtonName: "Save notification settings",
   },
+] as const;
+
+const settingsTabNames = [
+  "Account",
+  "Preferences",
+  "Notifications",
+  "Integrations",
 ] as const;
 
 type DirtySection = (typeof dirtySectionCases)[number]["section"];
@@ -101,7 +99,6 @@ describe("SettingsClient", () => {
     toastMock.mockClear();
     routerMock.refresh.mockReset();
     routerMock.replace.mockReset();
-    backendAuthMock.signOut.mockReset();
   });
 
   it("opens a deep-linked settings tab and keeps tab selection in the URL", () => {
@@ -124,6 +121,83 @@ describe("SettingsClient", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
     expect(routerMock.replace).toHaveBeenCalledWith(
       "/settings?tab=integrations",
+      { scroll: false }
+    );
+  });
+
+  it("renders a full-width two-column mobile grid and an inline desktop row", () => {
+    renderSettingsClient();
+
+    const tabList = screen.getByRole("tablist", {
+      name: "Settings sections",
+    });
+    expect(tabList.classList.contains("grid")).toBe(true);
+    expect(tabList.classList.contains("w-full")).toBe(true);
+    expect(tabList.classList.contains("grid-cols-2")).toBe(true);
+    expect(tabList.classList.contains("overflow-visible")).toBe(true);
+    expect(tabList.classList.contains("overflow-x-auto")).toBe(false);
+    expect(tabList.classList.contains("sm:inline-flex")).toBe(true);
+    expect(tabList.classList.contains("sm:w-auto")).toBe(true);
+
+    for (const tabName of settingsTabNames) {
+      const tab = screen.getByRole("tab", { name: tabName });
+      expect(tab.classList.contains("w-full")).toBe(true);
+      expect(tab.classList.contains("sm:w-auto")).toBe(true);
+    }
+  });
+
+  it("moves focus with arrows, Home, and End without activating a tab", () => {
+    renderSettingsClient();
+
+    const account = screen.getByRole("tab", { name: "Account" });
+    const preferences = screen.getByRole("tab", { name: "Preferences" });
+    const integrations = screen.getByRole("tab", { name: "Integrations" });
+
+    account.focus();
+    fireEvent.keyDown(account, { key: "ArrowRight" });
+    expect(document.activeElement).toBe(preferences);
+    expect(account.getAttribute("aria-selected")).toBe("true");
+    expect(preferences.getAttribute("aria-selected")).toBe("false");
+
+    fireEvent.keyDown(preferences, { key: "End" });
+    expect(document.activeElement).toBe(integrations);
+    expect(integrations.getAttribute("aria-selected")).toBe("false");
+
+    fireEvent.keyDown(integrations, { key: "Home" });
+    expect(document.activeElement).toBe(account);
+
+    fireEvent.keyDown(account, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(integrations);
+    expect(account.getAttribute("aria-selected")).toBe("true");
+    expect(routerMock.replace).not.toHaveBeenCalled();
+  });
+
+  it("activates focused tabs with Enter and Space and replaces the URL", () => {
+    renderSettingsClient();
+
+    const account = screen.getByRole("tab", { name: "Account" });
+    const preferences = screen.getByRole("tab", { name: "Preferences" });
+    const notifications = screen.getByRole("tab", { name: "Notifications" });
+
+    preferences.focus();
+    fireEvent.keyDown(preferences, { key: "Enter" });
+    expect(preferences.getAttribute("aria-selected")).toBe("true");
+    expect(account.getAttribute("aria-selected")).toBe("false");
+    expect(screen.getByLabelText("Default timezone")).toBeDefined();
+    expect(routerMock.replace).toHaveBeenLastCalledWith(
+      "/settings?tab=preferences",
+      { scroll: false }
+    );
+
+    notifications.focus();
+    fireEvent.keyDown(notifications, { key: " " });
+    expect(notifications.getAttribute("aria-selected")).toBe("true");
+    expect(preferences.getAttribute("aria-selected")).toBe("false");
+    expect(
+      screen.getByRole("button", { name: "Save notification settings" })
+    ).toBeDefined();
+    expect(routerMock.replace).toHaveBeenLastCalledWith(
+      "/settings?tab=notifications",
       { scroll: false }
     );
   });
@@ -227,12 +301,19 @@ describe("SettingsClient", () => {
     expect(screen.queryByLabelText("New password")).toBeNull();
   });
 
-  it("has no detectable accessibility violations in the account settings tab", async () => {
-    const { container } = renderSettingsClient();
+  it.each(settingsTabNames)(
+    "has no detectable accessibility violations in the %s settings tab",
+    async (tabName) => {
+      const { container } = renderSettingsClient();
 
-    const results = await axe(container);
-    expect(results).toHaveNoViolations();
-  });
+      if (tabName !== "Account") {
+        selectSettingsSection(tabName);
+      }
+
+      const results = await axe(container);
+      expect(results).toHaveNoViolations();
+    }
+  );
 
   it("preserves confirmed account deletion and signs out afterward", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({
@@ -241,7 +322,6 @@ describe("SettingsClient", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(window, "confirm").mockReturnValue(true);
-    backendAuthMock.signOut.mockResolvedValue({ error: null });
     renderSettingsClient();
 
     fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
@@ -250,7 +330,6 @@ describe("SettingsClient", () => {
       expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
         method: "DELETE",
       });
-      expect(backendAuthMock.signOut).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -1,3 +1,4 @@
+import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import RescheduleBookingPage from "../page";
@@ -8,6 +9,7 @@ const expectedBookingSelect =
 const mocks = vi.hoisted(() => ({
   createAdminBackendClient: vi.fn(),
   bookingSelect: vi.fn(),
+  slotPickerProps: vi.fn(),
 }));
 
 vi.mock("@/lib/backend/server", () => ({
@@ -19,7 +21,10 @@ vi.mock("@/lib/backend/booking-agent-gateway", () => ({
 }));
 
 vi.mock("@/components/booking/slot-picker", () => ({
-  SlotPicker: () => <div data-testid="slot-picker" />,
+  SlotPicker: (props: unknown) => {
+    mocks.slotPickerProps(props);
+    return <div data-testid="slot-picker" />;
+  },
 }));
 
 function createQueryBuilder(table: string) {
@@ -81,6 +86,7 @@ function createQueryBuilder(table: string) {
 describe("RescheduleBookingPage", () => {
   beforeEach(() => {
     mocks.bookingSelect.mockReset();
+    mocks.slotPickerProps.mockReset();
     mocks.createAdminBackendClient.mockReset();
     mocks.createAdminBackendClient.mockReturnValue({
       from: vi.fn((table: string) => createQueryBuilder(table)),
@@ -93,5 +99,16 @@ describe("RescheduleBookingPage", () => {
     });
 
     expect(mocks.bookingSelect).toHaveBeenCalledWith(expectedBookingSelect);
+  });
+
+  it("keeps the event title subordinate to the reschedule page heading", async () => {
+    const page = await RescheduleBookingPage({
+      params: Promise.resolve({ token: "reschedule-token" }),
+    });
+    render(page);
+
+    expect(mocks.slotPickerProps).toHaveBeenCalledWith(
+      expect.objectContaining({ eventHeadingLevel: 2 })
+    );
   });
 });

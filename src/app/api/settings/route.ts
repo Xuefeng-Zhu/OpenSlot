@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { authJsonWithSignOut } from '@/app/api/auth/_shared'
 import { ACCOUNT_EMAIL_UPDATE_UNAVAILABLE } from '@/lib/auth/account-mutation-policy'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
 import {
@@ -157,7 +158,10 @@ export async function DELETE() {
       )
     }
 
-    return NextResponse.json({ success: true })
+    // The auth user no longer exists, so a follow-up remote logout cannot be
+    // relied on to clear the browser session. Clear OpenSlot's cookies as part
+    // of the successful destructive response instead.
+    return authJsonWithSignOut({ success: true })
   } catch (error) {
     console.error('Error in DELETE /api/settings:', error)
     return NextResponse.json(

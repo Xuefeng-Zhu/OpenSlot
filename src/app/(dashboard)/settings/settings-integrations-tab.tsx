@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { TabsContent } from "@/components/ui/tabs";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import type { McpTokenSummary } from "@/lib/mcp/tokens";
@@ -60,10 +60,10 @@ export function SettingsIntegrationsTab({
       <div className="space-y-6 mt-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold leading-tight tracking-tight">
               <Puzzle className="h-4 w-4" aria-hidden="true" />
               Integrations
-            </CardTitle>
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
             {calendarConnectionsLoadFailed ? (

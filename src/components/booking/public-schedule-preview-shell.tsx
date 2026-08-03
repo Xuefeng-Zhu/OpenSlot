@@ -9,12 +9,14 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
+  BookingHeading,
   BookingPageEventHeader,
+  nextBookingHeadingLevel,
   type BookingPageEventHeaderEvent,
+  type BookingPageEventHeadingLevel,
   type BookingPageEventHeaderHost,
 } from "@/components/booking/booking-page-event-header";
 import { SlotPickerTimezoneControl } from "@/components/booking/slot-picker-timezone-control";
@@ -29,6 +31,7 @@ interface PublicSchedulePreviewShellProps {
   hostProfile: BookingPageEventHeaderHost;
   unavailableDescription: string;
   layout?: "public" | "embedded";
+  eventHeadingLevel?: BookingPageEventHeadingLevel;
 }
 
 export function PublicSchedulePreviewShell({
@@ -36,9 +39,16 @@ export function PublicSchedulePreviewShell({
   hostProfile,
   unavailableDescription,
   layout = "public",
+  eventHeadingLevel,
 }: PublicSchedulePreviewShellProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [timezone, setTimezone] = useState(DEFAULT_TIMEZONE);
+  const resolvedEventHeadingLevel =
+    eventHeadingLevel ?? (layout === "embedded" ? 3 : 1);
+  const sectionHeadingLevel = nextBookingHeadingLevel(
+    resolvedEventHeadingLevel
+  );
+  const emptyStateHeadingLevel = nextBookingHeadingLevel(sectionHeadingLevel);
 
   useEffect(() => {
     setTimezone(browserTimezoneOrDefault());
@@ -49,6 +59,7 @@ export function PublicSchedulePreviewShell({
       <BookingPageEventHeader
         eventType={eventType}
         hostProfile={hostProfile}
+        headingLevel={resolvedEventHeadingLevel}
       />
 
       <SlotPickerTimezoneControl
@@ -64,7 +75,12 @@ export function PublicSchedulePreviewShell({
       >
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Select a date</CardTitle>
+            <BookingHeading
+              level={sectionHeadingLevel}
+              className="text-lg font-semibold leading-tight tracking-tight"
+            >
+              Select a date
+            </BookingHeading>
             <CardDescription>
               Choose a date to see available times
             </CardDescription>
@@ -83,7 +99,12 @@ export function PublicSchedulePreviewShell({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Available times</CardTitle>
+            <BookingHeading
+              level={sectionHeadingLevel}
+              className="text-lg font-semibold leading-tight tracking-tight"
+            >
+              Available times
+            </BookingHeading>
             <CardDescription>
               {selectedDate
                 ? format(selectedDate, "EEEE, MMMM d, yyyy")
@@ -95,6 +116,7 @@ export function PublicSchedulePreviewShell({
               <EmptyState
                 icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
                 heading="Choose a date"
+                headingLevel={emptyStateHeadingLevel}
                 description="Pick an available date from the calendar to see times in your timezone."
                 className="border-0 bg-muted/30 py-10"
               />
@@ -102,6 +124,7 @@ export function PublicSchedulePreviewShell({
               <EmptyState
                 icon={<Clock3 className="h-6 w-6" aria-hidden="true" />}
                 heading="Live availability unavailable"
+                headingLevel={emptyStateHeadingLevel}
                 description={unavailableDescription}
                 className="border-0 bg-muted/30 py-10"
               />

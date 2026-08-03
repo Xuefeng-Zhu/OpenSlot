@@ -11,6 +11,7 @@ const BUTTERBASE_CONNECT_SOURCES = [
 ];
 
 const TURNSTILE_SOURCES = ['https://challenges.cloudflare.com'];
+const E2E_BACKEND_APP_ID_HEADER = 'X-OpenSlot-Butterbase-App-Id';
 
 function compactSources(sources) {
   return Array.from(new Set(sources.filter(Boolean)));
@@ -131,6 +132,14 @@ function buildSecurityHeaders() {
   return headers;
 }
 
+function buildPublicDeploymentIdentityHeaders() {
+  const butterbaseAppId = process.env.NEXT_PUBLIC_BUTTERBASE_APP_ID?.trim();
+
+  return butterbaseAppId
+    ? [{ key: E2E_BACKEND_APP_ID_HEADER, value: butterbaseAppId }]
+    : [];
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
@@ -138,7 +147,10 @@ const nextConfig = {
     return [
       {
         source: '/:path*',
-        headers: buildSecurityHeaders(),
+        headers: [
+          ...buildSecurityHeaders(),
+          ...buildPublicDeploymentIdentityHeaders(),
+        ],
       },
     ];
   },

@@ -33,13 +33,18 @@ export default async function DashboardLayout({
   const typedProfile = optionalPageRow(
     await backendClient
       .from('profiles')
-      .select('id, name, email, username, default_timezone')
+      .select('id, name, email, username, avatar_url, default_timezone')
       .eq('auth_user_id', user.id)
       .single(),
     'dashboard profile'
   ) as Pick<
       Tables<'profiles'>,
-      'id' | 'name' | 'email' | 'username' | 'default_timezone'
+      | 'id'
+      | 'name'
+      | 'email'
+      | 'username'
+      | 'avatar_url'
+      | 'default_timezone'
     > | null
 
   const typedSettings = typedProfile
@@ -72,6 +77,7 @@ export default async function DashboardLayout({
           name: typedProfile?.name || '',
           email: user.email || typedProfile?.email || '',
           username: typedProfile?.username || '',
+          avatarUrl: typedProfile?.avatar_url || null,
         }}
       >
         {children}

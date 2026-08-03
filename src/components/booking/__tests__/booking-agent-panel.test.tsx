@@ -54,6 +54,9 @@ describe('BookingAgentPanel', () => {
       screen.queryByLabelText('Message the booking assistant')
     ).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: /AI assistant/i }))
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Booking assistant' })
+    ).toBeDefined()
 
     fireEvent.change(screen.getByLabelText('Message the booking assistant'), {
       target: { value: 'I can do Tuesday afternoon. I am Jane.' },

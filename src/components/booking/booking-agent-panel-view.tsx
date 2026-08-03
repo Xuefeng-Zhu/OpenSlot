@@ -8,12 +8,15 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import type { TimeSlot } from "@/lib/availability/types";
 import type { BookingAgentMessage } from "@/lib/booking-agent/types";
 import { cn } from "@/lib/utils";
+import {
+  BookingHeading,
+  type BookingHeadingLevel,
+} from "@/components/booking/booking-page-event-header";
 
 export interface BookingAgentTimeSlot extends TimeSlot {
   label?: string;
@@ -21,6 +24,7 @@ export interface BookingAgentTimeSlot extends TimeSlot {
 
 interface BookingAgentPanelViewProps {
   error: string | null;
+  headingLevel: BookingHeadingLevel;
   holdDisabled: boolean;
   holdDisabledReason: string;
   input: string;
@@ -37,6 +41,7 @@ interface BookingAgentPanelViewProps {
 
 export function BookingAgentPanelView({
   error,
+  headingLevel,
   holdDisabled,
   holdDisabledReason,
   input,
@@ -77,7 +82,12 @@ export function BookingAgentPanelView({
                   <Sparkles className="h-4 w-4" aria-hidden="true" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Booking assistant</CardTitle>
+                  <BookingHeading
+                    level={headingLevel}
+                    className="text-lg font-semibold leading-tight tracking-tight"
+                  >
+                    Booking assistant
+                  </BookingHeading>
                   <CardDescription>
                     Ask for a day, time window, or timezone help.
                   </CardDescription>

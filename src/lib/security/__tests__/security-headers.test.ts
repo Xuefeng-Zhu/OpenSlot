@@ -1,5 +1,6 @@
 import { createRequire } from 'module'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { E2E_BACKEND_APP_ID_HEADER } from '../../../../e2e/support/target-guard'
 
 type Header = {
   key: string
@@ -33,6 +34,7 @@ describe('security headers', () => {
   it('applies hardened production browser security headers', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     vi.stubEnv('NEXT_PUBLIC_BUTTERBASE_API_URL', 'https://api.butterbase.ai')
+    vi.stubEnv('NEXT_PUBLIC_BUTTERBASE_APP_ID', 'qa-app-id')
 
     const { source, headers } = await getConfiguredHeaders()
     const csp = headers.get('Content-Security-Policy') ?? ''
@@ -45,6 +47,7 @@ describe('security headers', () => {
     expect(headers.get('X-Frame-Options')).toBe('DENY')
     expect(headers.get('Referrer-Policy')).toBe('strict-origin-when-cross-origin')
     expect(headers.get('Permissions-Policy')).toContain('camera=()')
+    expect(headers.get(E2E_BACKEND_APP_ID_HEADER)).toBe('qa-app-id')
 
     expect(csp).toContain("default-src 'self'")
     expect(csp).toContain("object-src 'none'")
@@ -55,6 +58,14 @@ describe('security headers', () => {
     expect(csp).toContain('wss://api.butterbase.ai')
     expect(csp).toContain('upgrade-insecure-requests')
     expect(csp).not.toContain("'unsafe-eval'")
+  })
+
+  it('does not advertise an empty Butterbase app id', async () => {
+    vi.stubEnv('NEXT_PUBLIC_BUTTERBASE_APP_ID', '')
+
+    const { headers } = await getConfiguredHeaders()
+
+    expect(headers.has(E2E_BACKEND_APP_ID_HEADER)).toBe(false)
   })
 
   it('keeps local development allowances out of production', async () => {

@@ -16,6 +16,7 @@ export interface EmptyStateProps {
     onClick: () => void;
   };
   className?: string;
+  headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
 }
 
 export function EmptyState({
@@ -25,7 +26,21 @@ export function EmptyState({
   action,
   secondaryAction,
   className,
+  headingLevel = 3,
 }: EmptyStateProps) {
+  const Heading =
+    headingLevel === 1
+      ? "h1"
+      : headingLevel === 2
+        ? "h2"
+        : headingLevel === 3
+          ? "h3"
+          : headingLevel === 4
+            ? "h4"
+            : headingLevel === 5
+              ? "h5"
+              : "h6";
+
   return (
     <div
       className={cn(
@@ -39,7 +54,9 @@ export function EmptyState({
       >
         {icon}
       </div>
-      <h3 className="mt-4 text-lg font-semibold text-foreground">{heading}</h3>
+      <Heading className="mt-4 text-lg font-semibold text-foreground">
+        {heading}
+      </Heading>
       <p className="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
         {description}
       </p>

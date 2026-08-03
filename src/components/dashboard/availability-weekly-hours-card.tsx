@@ -5,7 +5,7 @@ import {
   AvailabilityDayRow,
   type TimeInterval,
 } from "@/components/dashboard/availability-day-row"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import {
   DAYS,
   type DayState,
@@ -30,7 +30,9 @@ export function AvailabilityWeeklyHoursCard({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-            <CardTitle className="text-base">Weekly hours</CardTitle>
+            <h2 className="text-base font-semibold leading-tight tracking-tight">
+              Weekly hours
+            </h2>
           </div>
           <p className="text-sm text-muted-foreground">
             Set when you are typically available for meetings

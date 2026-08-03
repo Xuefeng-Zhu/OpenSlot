@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { addDays, format } from "date-fns";
 import { isTurnstileEnabled } from "@/components/booking/turnstile-widget";
 import { SlotPickerView } from "@/components/booking/slot-picker-view";
+import type { BookingPageEventHeadingLevel } from "@/components/booking/booking-page-event-header";
 import {
   browserTimezoneOrDefault,
   DEFAULT_TIMEZONE,
@@ -42,6 +43,7 @@ interface SlotPickerProps {
   eventType: SlotPickerEventType;
   hostProfile: SlotPickerHostProfile;
   layout?: "public" | "embedded";
+  eventHeadingLevel?: BookingPageEventHeadingLevel;
   bookingAgentEnabled?: boolean;
   rescheduleContext?: SlotPickerRescheduleContext;
 }
@@ -55,6 +57,7 @@ export function SlotPicker({
   eventType,
   hostProfile,
   layout = "public",
+  eventHeadingLevel,
   bookingAgentEnabled = false,
   rescheduleContext,
 }: SlotPickerProps) {
@@ -395,6 +398,9 @@ export function SlotPicker({
       holdTurnstileToken={holdTurnstileToken}
       hostProfile={hostProfile}
       layout={layout}
+      eventHeadingLevel={
+        eventHeadingLevel ?? (layout === "embedded" ? 3 : 1)
+      }
       loading={loading}
       rescheduleContext={rescheduleContext}
       selectedDate={selectedDate}

@@ -3,7 +3,7 @@
 import { CalendarDays, Plus, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { EmptyState } from "@/components/shared/empty-state"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -60,7 +60,9 @@ export function AvailabilityOverridesCard({
               className="h-5 w-5 text-muted-foreground"
               aria-hidden="true"
             />
-            <CardTitle className="text-base">Date-specific hours</CardTitle>
+            <h2 className="text-base font-semibold leading-tight tracking-tight">
+              Date-specific hours
+            </h2>
           </div>
           <p className="text-sm text-muted-foreground">
             Adjust hours for specific days

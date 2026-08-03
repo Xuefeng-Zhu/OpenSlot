@@ -3,7 +3,7 @@
 import { Settings2 } from "lucide-react";
 import { TimezoneSelector } from "@/components/booking/timezone-selector";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
 import type { SettingsFormValues } from "@/lib/validations/settings";
@@ -36,10 +36,10 @@ export function SettingsPreferencesTab({
       <div className="space-y-6 mt-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold leading-tight tracking-tight">
               <Settings2 className="h-4 w-4" aria-hidden="true" />
               Display Preferences
-            </CardTitle>
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>

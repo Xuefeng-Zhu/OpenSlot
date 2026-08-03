@@ -58,6 +58,38 @@ describe("EditEventTypePage editor", () => {
     vi.unstubAllGlobals();
   });
 
+  it("uses one page h1 and a subordinate active-event preview heading", () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(JSON.stringify({ slotsByDate: {} }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      )
+    );
+
+    render(
+      <EventTypeEditor
+        mode="edit"
+        hostProfile={hostProfile}
+        schedules={schedules}
+        initialEventType={strategySession}
+      />
+    );
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Edit event type" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Live preview" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Strategy session" })
+    ).toBeDefined();
+  });
+
   it("loads the event type selected from the event types list", () => {
     render(
       <EventTypeEditor

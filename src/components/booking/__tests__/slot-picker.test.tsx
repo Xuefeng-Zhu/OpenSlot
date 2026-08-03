@@ -33,6 +33,70 @@ describe('SlotPicker', () => {
     vi.unstubAllGlobals()
   })
 
+  it('keeps the public event title as the page h1', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ slotsByDate: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<SlotPicker eventType={eventType} hostProfile={hostProfile} />)
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Discovery Call' })
+    ).toBeDefined()
+    expect(
+      screen.queryByRole('heading', { level: 3, name: 'Discovery Call' })
+    ).toBeNull()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Select a date' })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Available times' })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Choose a date' })
+    ).toBeDefined()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+  })
+
+  it('renders the event title as an h3 in an embedded preview', async () => {
+    const fetchMock = vi.fn(async () => {
+      return new Response(JSON.stringify({ slotsByDate: {} }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(
+      <SlotPicker
+        eventType={eventType}
+        hostProfile={hostProfile}
+        layout="embedded"
+      />
+    )
+
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Discovery Call' })
+    ).toBeDefined()
+    expect(
+      screen.queryByRole('heading', { level: 1, name: 'Discovery Call' })
+    ).toBeNull()
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Select a date' })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Available times' })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 5, name: 'Choose a date' })
+    ).toBeDefined()
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+  })
+
   it('renders with a valid timezone before browser detection succeeds', async () => {
     const fetchMock = vi.fn(async (_input: RequestInfo | URL) => {
       return new Response(JSON.stringify({ slotsByDate: {} }), {
@@ -73,6 +137,7 @@ describe('SlotPicker', () => {
       <SlotPicker
         eventType={eventType}
         hostProfile={hostProfile}
+        eventHeadingLevel={2}
         rescheduleContext={{
           token: 'reschedule-token',
           guestName: 'Alex Guest',
@@ -89,6 +154,15 @@ describe('SlotPicker', () => {
       'timezone=Europe%2FLondon'
     )
     expect(screen.getByText('Europe/London')).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Discovery Call' })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 3, name: 'Select a date' })
+    ).toBeDefined()
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Choose a date' })
+    ).toBeDefined()
   })
 
   it('sends an idempotency key when holding an assistant-suggested slot', async () => {

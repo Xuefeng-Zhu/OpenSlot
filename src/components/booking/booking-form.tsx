@@ -25,8 +25,10 @@ import {
   BookingSubmitSection,
 } from "@/components/booking/booking-form-sections";
 import { createClientIdempotencyKey } from "@/lib/idempotency/client-idempotency";
+import type { BookingHeadingLevel } from "@/components/booking/booking-page-event-header";
 
 interface BookingFormProps {
+  headingLevel?: BookingHeadingLevel;
   holdToken?: string;
   expiresAt?: string;
   holdPending?: boolean;
@@ -73,6 +75,7 @@ interface BookingMutationResponseBody {
  * network errors do not duplicate the booking mutation.
  */
 export function BookingForm({
+  headingLevel = 2,
   holdToken,
   expiresAt,
   holdPending = false,
@@ -302,6 +305,7 @@ export function BookingForm({
   return (
     <Card className="mt-6">
       <BookingFormHeader
+        headingLevel={headingLevel}
         eventTitle={eventTitle}
         hostName={hostName}
         holdPending={holdPending}

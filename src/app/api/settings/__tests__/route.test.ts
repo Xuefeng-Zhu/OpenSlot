@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { BACKEND_ACCESS_TOKEN_COOKIE } from '@/lib/backend/session'
 import { DELETE, PATCH } from '../route'
 
 const mocks = vi.hoisted(() => ({
@@ -62,20 +63,25 @@ function createAdminTableMock(table: string) {
   throw new Error(`Unexpected admin table: ${table}`)
 }
 
-vi.mock('@/lib/backend/server', () => ({
-  createServerBackendClient: vi.fn(async () => ({
-    auth: { getUser: mocks.getUser },
-    from: createServerTableMock,
-  })),
-  createAdminBackendClient: vi.fn(() => ({
-    auth: {
-      updateUser: mocks.authUpdateUser,
-      admin: { deleteUser: mocks.deleteUser },
-    },
-    from: createAdminTableMock,
-    rpc: mocks.rpc,
-  })),
-}))
+vi.mock('@/lib/backend/server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/backend/server')>()
+
+  return {
+    ...actual,
+    createServerBackendClient: vi.fn(async () => ({
+      auth: { getUser: mocks.getUser },
+      from: createServerTableMock,
+    })),
+    createAdminBackendClient: vi.fn(() => ({
+      auth: {
+        updateUser: mocks.authUpdateUser,
+        admin: { deleteUser: mocks.deleteUser },
+      },
+      from: createAdminTableMock,
+      rpc: mocks.rpc,
+    })),
+  }
+})
 
 const accountBody = {
   section: 'account',
@@ -300,5 +306,8 @@ describe('DELETE /api/settings', () => {
     expect(response.status).toBe(200)
     expect(data).toEqual({ success: true })
     expect(mocks.deleteUser).toHaveBeenCalledWith('auth-user-1')
+    expect(response.headers.get('set-cookie')).toContain(
+      BACKEND_ACCESS_TOKEN_COOKIE
+    )
   })
 })

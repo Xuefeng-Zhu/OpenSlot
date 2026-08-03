@@ -1,6 +1,9 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { axe, toHaveNoViolations } from "jest-axe";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventTypeEditor } from "../../event-type-editor";
+
+expect.extend(toHaveNoViolations);
 
 const push = vi.fn();
 const refresh = vi.fn();
@@ -60,6 +63,28 @@ describe("NewEventTypePage editor", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("uses one page h1 and a subordinate preview hierarchy", async () => {
+    const { container } = render(
+      <EventTypeEditor
+        mode="create"
+        hostProfile={hostProfile}
+        schedules={schedules}
+      />
+    );
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Create event type" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Live preview" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("heading", { level: 3, name: "Event Title" })
+    ).toBeDefined();
+    expect(await axe(container)).toHaveNoViolations();
   });
 
   it("clears field-level validation errors when corrected", () => {
