@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   profileRollbackError: null as { message: string } | null,
   previousTimezone: 'America/New_York' as string | null,
   previousProfileError: null as { message: string } | null,
+  currentTimezoneBeforeRollback: 'America/Los_Angeles' as string | null,
+  currentProfileError: null as { message: string } | null,
+  profileSelectCount: 0,
   settingsUpsertPayload: null as Record<string, unknown> | null,
   settingsUpsertOptions: null as Record<string, unknown> | null,
   settingsUpsertError: null as { message: string } | null,
@@ -41,12 +44,20 @@ function createAdminTableMock(table: string) {
     return {
       select: () => ({
         eq: () => ({
-          single: async () => ({
-            data: mocks.previousProfileError
-              ? null
-              : { default_timezone: mocks.previousTimezone },
-            error: mocks.previousProfileError,
-          }),
+          single: async () => {
+            mocks.profileSelectCount += 1
+            const isReconciliationRead = mocks.profileSelectCount > 1
+            const error = isReconciliationRead
+              ? mocks.currentProfileError
+              : mocks.previousProfileError
+            const timezone = isReconciliationRead
+              ? mocks.currentTimezoneBeforeRollback
+              : mocks.previousTimezone
+            return {
+              data: error ? null : { default_timezone: timezone },
+              error,
+            }
+          },
         }),
       }),
       update: (payload: Record<string, unknown>) => {
@@ -153,6 +164,9 @@ describe('PATCH /api/settings', () => {
     mocks.profileRollbackError = null
     mocks.previousTimezone = 'America/New_York'
     mocks.previousProfileError = null
+    mocks.currentTimezoneBeforeRollback = 'America/Los_Angeles'
+    mocks.currentProfileError = null
+    mocks.profileSelectCount = 0
     mocks.settingsUpsertPayload = null
     mocks.settingsUpsertOptions = null
     mocks.settingsUpsertError = null
@@ -243,6 +257,23 @@ describe('PATCH /api/settings', () => {
       error: 'Preferences could not be synchronized. Reload before retrying.',
     })
     expect(mocks.profileUpdatePayloads).toHaveLength(2)
+  })
+
+  it('does not roll back a newer concurrent timezone update', async () => {
+    mocks.settingsUpsertError = { message: 'settings write failed' }
+    mocks.currentTimezoneBeforeRollback = 'Europe/London'
+
+    const response = await PATCH(requestWithJson(preferencesBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(409)
+    expect(data).toEqual({
+      success: false,
+      code: 'PREFERENCES_UPDATE_SUPERSEDED',
+      error:
+        'Preferences changed in another session. Reload to see the latest values.',
+    })
+    expect(mocks.profileUpdatePayloads).toHaveLength(1)
   })
 
   it('does not change preferences when their current timezone cannot be loaded', async () => {

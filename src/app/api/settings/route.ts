@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
 import { syncAccountEmail } from '@/lib/auth/sync-account-email'
-import { createAdminBackendClient } from '@/lib/backend/server'
+import {
+  createAdminBackendClient,
+  createServerBackendClient,
+} from '@/lib/backend/server'
 import { parseJsonBody } from '@/lib/http/json'
 import {
   isLegacyFullSettingsPayload,
@@ -17,7 +20,8 @@ export const runtime = 'edge'
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedProfile()
+    const userClient = await createServerBackendClient()
+    const auth = await getAuthenticatedProfile(userClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -64,6 +68,7 @@ export async function PATCH(request: NextRequest) {
         currentEmail: auth.email,
         nextEmail: settings.email,
         client: adminClient,
+        authReader: userClient.auth,
       })
 
       if (!result.ok) {
@@ -128,6 +133,42 @@ export async function PATCH(request: NextRequest) {
       }
 
       console.error('Error updating display preferences:', settingsError)
+
+      const { data: currentProfile, error: currentProfileError } =
+        await adminClient
+          .from('profiles')
+          .select('default_timezone')
+          .eq('id', auth.profileId)
+          .single()
+
+      if (currentProfileError || !currentProfile) {
+        console.error(
+          'Error checking profile preferences before reconciliation:',
+          currentProfileError
+        )
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'PREFERENCES_RECONCILIATION_REQUIRED',
+            error:
+              'Preferences could not be synchronized. Reload before retrying.',
+          },
+          { status: 500 }
+        )
+      }
+
+      if (currentProfile.default_timezone !== settings.defaultTimezone) {
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'PREFERENCES_UPDATE_SUPERSEDED',
+            error:
+              'Preferences changed in another session. Reload to see the latest values.',
+          },
+          { status: 409 }
+        )
+      }
+
       const { error: rollbackError } = await adminClient
         .from('profiles')
         .update({

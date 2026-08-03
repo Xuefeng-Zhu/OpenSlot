@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { syncAccountEmail } from '../sync-account-email'
 
 const mocks = {
+  getUser: vi.fn(),
   updateUser: vi.fn(),
   updateProfile: vi.fn(),
   eqProfile: vi.fn(),
@@ -16,6 +17,7 @@ function createClient(): SyncClient {
 
   return {
     auth: {
+      getUser: mocks.getUser,
       updateUser: mocks.updateUser,
     },
     from: vi.fn(() => ({
@@ -28,6 +30,10 @@ describe('syncAccountEmail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.updateUser.mockResolvedValue({ data: { user: null }, error: null })
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'new@example.com' } },
+      error: null,
+    })
     mocks.eqProfile.mockResolvedValue({ error: null })
   })
 
@@ -40,6 +46,7 @@ describe('syncAccountEmail', () => {
       currentEmail: 'old@example.com',
       nextEmail: ' New@Example.com ',
       client,
+      authReader: client.auth,
     })
 
     expect(result).toEqual({ ok: true, email: 'new@example.com' })
@@ -69,6 +76,7 @@ describe('syncAccountEmail', () => {
       currentEmail: 'old@example.com',
       nextEmail: 'taken@example.com',
       client,
+      authReader: client.auth,
     })
 
     expect(result).toEqual({
@@ -90,6 +98,7 @@ describe('syncAccountEmail', () => {
       currentEmail: 'old@example.com',
       nextEmail: 'new@example.com',
       client,
+      authReader: client.auth,
     })
 
     expect(result).toEqual({
@@ -120,6 +129,7 @@ describe('syncAccountEmail', () => {
       currentEmail: 'old@example.com',
       nextEmail: 'new@example.com',
       client,
+      authReader: client.auth,
     })
 
     expect(result).toEqual(
@@ -139,6 +149,7 @@ describe('syncAccountEmail', () => {
       currentEmail: 'same@example.com',
       nextEmail: 'SAME@example.com',
       client,
+      authReader: client.auth,
     })
 
     expect(result).toEqual({ ok: true, email: 'same@example.com' })
@@ -146,5 +157,31 @@ describe('syncAccountEmail', () => {
     expect(mocks.updateProfile).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'same@example.com' })
     )
+  })
+
+  it('does not overwrite a newer concurrent auth email during compensation', async () => {
+    const client = createClient()
+    mocks.eqProfile.mockResolvedValue({ error: { message: 'database down' } })
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'newer@example.com' } },
+      error: null,
+    })
+
+    const result = await syncAccountEmail({
+      userId: 'user-1',
+      profileId: 'profile-1',
+      currentEmail: 'old@example.com',
+      nextEmail: 'new@example.com',
+      client,
+      authReader: client.auth,
+    })
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        ok: false,
+        code: 'EMAIL_RECONCILIATION_REQUIRED',
+      })
+    )
+    expect(mocks.updateUser).toHaveBeenCalledTimes(1)
   })
 })

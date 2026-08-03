@@ -3,6 +3,7 @@ import type {
   BackendCompatClient,
   BackendCompatError,
 } from '@/lib/backend/compat/query-client'
+import type { BackendCompatAuthPort } from '@/lib/backend/compat/types'
 
 export type AccountEmailSyncErrorCode =
   | 'EMAIL_CONFLICT'
@@ -33,6 +34,7 @@ export async function syncAccountEmail(input: {
   currentEmail: string | null
   nextEmail: string
   client?: AccountEmailSyncClient
+  authReader: Pick<BackendCompatAuthPort, 'getUser'>
 }): Promise<AccountEmailSyncResult> {
   const client = input.client ?? createAdminBackendClient()
   const currentEmail = input.currentEmail?.trim() || null
@@ -84,6 +86,22 @@ export async function syncAccountEmail(input: {
   }
 
   if (currentEmail) {
+    const currentAuthResult = await input.authReader.getUser()
+    const currentAuthEmail = currentAuthResult.data.user?.email
+
+    if (
+      currentAuthResult.error ||
+      !currentAuthEmail ||
+      currentAuthEmail.trim().toLowerCase() !== nextEmail.toLowerCase()
+    ) {
+      return {
+        ok: false,
+        status: 500,
+        code: 'EMAIL_RECONCILIATION_REQUIRED',
+        error: 'Your sign-in email changed, but the account profile could not be synchronized. Contact support before retrying.',
+      }
+    }
+
     const rollbackResult = await client.auth.updateUser({
       userId: input.userId,
       email: currentEmail,

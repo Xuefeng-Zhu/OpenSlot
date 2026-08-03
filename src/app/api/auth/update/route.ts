@@ -82,6 +82,7 @@ export async function PATCH(request: NextRequest) {
       currentEmail: auth.email,
       nextEmail: parsed.data.email,
       client: adminClient,
+      authReader: userClient.auth,
     })
 
     if (!result.ok) {
