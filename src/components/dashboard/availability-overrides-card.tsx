@@ -8,6 +8,13 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import type { AvailabilityOverride } from "@/components/dashboard/availability-model"
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider"
+import {
+  formatDashboardClockTime,
+  formatDashboardDateOnly,
+  formatDashboardDateOnlyDay,
+  formatDashboardDateOnlyMonth,
+} from "@/lib/dashboard/display-preferences"
 
 interface AvailabilityOverridesCardProps {
   overrides: AvailabilityOverride[]
@@ -225,6 +232,8 @@ function AvailabilityOverrideList({
   overrides: AvailabilityOverride[]
   onRemoveOverride: (id: string) => void
 }) {
+  const displayPreferences = useDashboardDisplayPreferences()
+
   return (
     <ul className="space-y-2" aria-label="Date-specific hours">
       {overrides.map((override) => (
@@ -238,7 +247,10 @@ function AvailabilityOverrideList({
             size="icon"
             className="h-8 w-8"
             onClick={() => onRemoveOverride(override.id)}
-            aria-label={`Remove override for ${override.date}`}
+            aria-label={`Remove override for ${formatDashboardDateOnly(
+              override.date,
+              displayPreferences
+            )}`}
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
           </Button>
@@ -253,25 +265,21 @@ function AvailabilityOverrideSummary({
 }: {
   override: AvailabilityOverride
 }) {
-  const date = new Date(`${override.date}T00:00:00`)
+  const displayPreferences = useDashboardDisplayPreferences()
 
   return (
     <div className="flex items-center gap-3">
       <div className="flex flex-col items-center rounded bg-accent px-2 py-1 text-center">
         <span className="text-[10px] font-medium uppercase text-primary">
-          {date.toLocaleDateString(undefined, { month: "short" })}
+          {formatDashboardDateOnlyMonth(override.date)}
         </span>
         <span className="text-lg font-bold leading-none text-foreground">
-          {date.getDate()}
+          {formatDashboardDateOnlyDay(override.date)}
         </span>
       </div>
       <div>
         <p className="text-sm font-medium text-foreground">
-          {date.toLocaleDateString(undefined, {
-            month: "long",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {formatDashboardDateOnly(override.date, displayPreferences)}
         </p>
         <Badge
           variant={override.is_available ? "outline" : "secondary"}
@@ -281,7 +289,12 @@ function AvailabilityOverrideSummary({
         </Badge>
         {override.is_available && override.start_time && override.end_time && (
           <p className="mt-0.5 text-xs text-muted-foreground">
-            {override.start_time} - {override.end_time}
+            {formatDashboardClockTime(
+              override.start_time,
+              displayPreferences
+            )}{" "}
+            –{" "}
+            {formatDashboardClockTime(override.end_time, displayPreferences)}
           </p>
         )}
         {override.reason && (

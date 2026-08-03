@@ -34,13 +34,12 @@ export default async function ProfilePage() {
     <div className="mx-auto max-w-2xl space-y-6">
       <PageHeader
         title="Profile"
-        description="Control the public name, booking URL, and default timezone guests see when they book."
+        description="Control the public identity and booking URL guests see when they book."
       />
       <ProfileForm
         initialData={{
           name: typedProfile.name || '',
           username: typedProfile.username || '',
-          default_timezone: typedProfile.default_timezone || 'UTC',
           public_headline: typedProfile.public_headline || '',
           public_bio: typedProfile.public_bio || '',
           response_time_label: typedProfile.response_time_label || '',

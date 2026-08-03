@@ -17,19 +17,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/shared/empty-state";
 import type { ContactSummary } from "@/lib/contacts/summaries";
+import { useDashboardDisplayPreferences } from "@/components/dashboard/display-preferences-provider";
+import {
+  formatDashboardDate,
+  type DashboardDisplayPreferences,
+} from "@/lib/dashboard/display-preferences";
 
 interface ContactsClientProps {
   contacts: ContactSummary[];
 }
 
-function formatDate(isoString: string | null): string {
+function formatDate(
+  isoString: string | null,
+  preferences: DashboardDisplayPreferences
+): string {
   if (!isoString) return "No meetings";
-
-  return new Date(isoString).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return formatDashboardDate(isoString, preferences);
 }
 
 function contactMatchesSearch(contact: ContactSummary, search: string): boolean {
@@ -114,6 +117,8 @@ export function ContactsClient({ contacts }: ContactsClientProps) {
 }
 
 function ContactsTable({ contacts }: { contacts: ContactSummary[] }) {
+  const displayPreferences = useDashboardDisplayPreferences();
+
   return (
     <>
       <div className="hidden lg:block">
@@ -162,8 +167,12 @@ function ContactsTable({ contacts }: { contacts: ContactSummary[] }) {
                   <td className="p-3">
                     <Badge variant="secondary">{contact.totalBookings} total</Badge>
                   </td>
-                  <td className="p-3">{formatDate(contact.lastMeetingAt)}</td>
-                  <td className="p-3">{formatDate(contact.nextMeetingAt)}</td>
+                  <td className="p-3">
+                    {formatDate(contact.lastMeetingAt, displayPreferences)}
+                  </td>
+                  <td className="p-3">
+                    {formatDate(contact.nextMeetingAt, displayPreferences)}
+                  </td>
                   <td className="p-3">
                     <Button asChild variant="ghost" size="sm">
                       <Link href={`/contacts/${contact.id}`}>

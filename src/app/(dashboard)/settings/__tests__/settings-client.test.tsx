@@ -1,18 +1,26 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { axe, toHaveNoViolations } from "jest-axe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PASSWORD_COMPLEXITY_ERROR } from "@/lib/validations/password";
 import { SettingsClient } from "../settings-client";
 
+expect.extend(toHaveNoViolations);
+
 const toastMock = vi.hoisted(() => vi.fn());
+const routerMock = vi.hoisted(() => ({
+  refresh: vi.fn(),
+  replace: vi.fn(),
+}));
 const backendAuthMock = vi.hoisted(() => ({
-  signInWithPassword: vi.fn(),
-  updateUser: vi.fn(),
   signOut: vi.fn(),
 }));
 
 vi.mock("@/components/ui/use-toast", () => ({
   useToast: () => ({ toast: toastMock }),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => routerMock,
 }));
 
 vi.mock("@/lib/backend/compat/browser-client", () => ({
@@ -22,7 +30,6 @@ vi.mock("@/lib/backend/compat/browser-client", () => ({
 }));
 
 const initialSettings = {
-  name: "Test User",
   email: "test@example.com",
   defaultTimezone: "America/Los_Angeles",
   dateFormat: "MM/DD/YYYY" as const,
@@ -32,47 +39,313 @@ const initialSettings = {
   notifyReminder: false,
 };
 
+const dirtySectionCases = [
+  {
+    section: "preferences",
+    tabName: "Preferences",
+    saveButtonName: "Save preferences",
+  },
+  {
+    section: "notifications",
+    tabName: "Notifications",
+    saveButtonName: "Save notification settings",
+  },
+] as const;
+
+type DirtySection = (typeof dirtySectionCases)[number]["section"];
+
+function selectSettingsSection(tabName: string) {
+  fireEvent.click(
+    screen.getByRole("tab", { name: new RegExp(`^${tabName}`) })
+  );
+}
+
+function toggleSectionDraft(section: DirtySection) {
+  if (section === "preferences") {
+    const dateFormat = screen.getByLabelText(
+      "Date format"
+    ) as HTMLSelectElement;
+    fireEvent.change(dateFormat, {
+      target: {
+        value:
+          dateFormat.value === initialSettings.dateFormat
+            ? "DD/MM/YYYY"
+            : initialSettings.dateFormat,
+      },
+    });
+    return;
+  }
+
+  fireEvent.click(
+    screen.getByRole("switch", { name: "Toggle cancellation notifications" })
+  );
+}
+
+function renderSettingsClient() {
+  return render(
+    <SettingsClient
+      initialSettings={initialSettings}
+      calendarConnections={[]}
+      webhookEndpoints={[]}
+    />
+  );
+}
+
 describe("SettingsClient", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     toastMock.mockClear();
-    backendAuthMock.signInWithPassword.mockReset();
-    backendAuthMock.updateUser.mockReset();
+    routerMock.refresh.mockReset();
+    routerMock.replace.mockReset();
     backendAuthMock.signOut.mockReset();
   });
 
-  it("blocks weak settings password changes before reauthenticating", () => {
+  it("opens a deep-linked settings tab and keeps tab selection in the URL", () => {
     render(
       <SettingsClient
         initialSettings={initialSettings}
+        initialTab="preferences"
         calendarConnections={[]}
         webhookEndpoints={[]}
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Current password"), {
-      target: { value: "Oldpass1!" },
-    });
-    fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "lowercase1!" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+    expect(
+      screen
+        .getByRole("tab", { name: "Preferences" })
+        .getAttribute("aria-selected")
+    ).toBe("true");
+    expect(screen.getByLabelText("Default timezone")).toBeDefined();
 
-    expect(toastMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Password not updated",
-        description: PASSWORD_COMPLEXITY_ERROR,
-        variant: "destructive",
-      })
+    fireEvent.click(screen.getByRole("tab", { name: "Integrations" }));
+    expect(routerMock.replace).toHaveBeenCalledWith(
+      "/settings?tab=integrations",
+      { scroll: false }
     );
-    expect(backendAuthMock.signInWithPassword).not.toHaveBeenCalled();
-    expect(backendAuthMock.updateUser).not.toHaveBeenCalled();
   });
 
-  it("submits strong settings password changes after reauthentication", async () => {
-    backendAuthMock.signInWithPassword.mockResolvedValue({ error: null });
-    backendAuthMock.updateUser.mockResolvedValue({ error: null });
+  it("announces a successful calendar callback once and clears result parameters", async () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        initialTab="integrations"
+        calendarOAuthResult={{ status: "connected", provider: "google" }}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith({
+        title: "Google Calendar connected",
+        description: "Calendar availability and booking sync are ready.",
+      });
+      expect(routerMock.replace).toHaveBeenCalledWith(
+        "/settings?tab=integrations",
+        { scroll: false }
+      );
+    });
+  });
+
+  it("uses safe retry guidance for failed calendar callbacks", async () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        initialTab="integrations"
+        calendarOAuthResult={{
+          status: "error",
+          provider: "microsoft",
+          reason: "provider_unavailable",
+        }}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith({
+        title: "Calendar not connected",
+        description:
+          "The calendar provider is temporarily unavailable. Try again shortly.",
+        variant: "destructive",
+      });
+    });
+  });
+
+  it("clears ignored legacy calendar errors without exposing or announcing them", async () => {
+    render(
+      <SettingsClient
+        initialSettings={initialSettings}
+        initialTab="integrations"
+        clearIgnoredCalendarOAuthResult
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    );
+
+    await waitFor(() => {
+      expect(routerMock.replace).toHaveBeenCalledWith(
+        "/settings?tab=integrations",
+        { scroll: false }
+      );
+    });
+    expect(toastMock).not.toHaveBeenCalled();
+  });
+
+  it("shows the canonical login email without an email save path", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    renderSettingsClient();
+
+    const emailInput = screen.getByLabelText(
+      "Login email"
+    ) as HTMLInputElement;
+    expect(emailInput.value).toBe(initialSettings.email);
+    expect(emailInput.readOnly).toBe(true);
+    expect(emailInput.getAttribute("aria-describedby")).toBe(
+      "settings-email-description"
+    );
+    expect(
+      screen.getByText(/canonical email from your sign-in account/)
+    ).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Save email" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Account" })).toBeDefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("routes password changes to the reset-code flow", () => {
+    renderSettingsClient();
+
+    const resetLink = screen.getByRole("link", { name: "Reset password" });
+    expect(resetLink.getAttribute("href")).toBe("/forgot-password");
+    expect(screen.getByText(/verified reset-code flow/)).toBeDefined();
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    expect(screen.queryByLabelText("New password")).toBeNull();
+  });
+
+  it("has no detectable accessibility violations in the account settings tab", async () => {
+    const { container } = renderSettingsClient();
+
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it("preserves confirmed account deletion and signs out afterward", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    backendAuthMock.signOut.mockResolvedValue({ error: null });
+    renderSettingsClient();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
+        method: "DELETE",
+      });
+      expect(backendAuthMock.signOut).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it.each(dirtySectionCases)(
+    "clears the $section dirty baseline after its save succeeds",
+    async ({ section, tabName, saveButtonName }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValueOnce({
+          ok: true,
+          json: async () => ({ success: true }),
+        })
+      );
+      renderSettingsClient();
+      selectSettingsSection(tabName);
+      toggleSectionDraft(section);
+
+      expect(
+        screen.getByRole("tab", {
+          name: `${tabName}, unsaved changes`,
+        })
+      ).toBeDefined();
+      fireEvent.click(
+        screen.getByRole("button", { name: saveButtonName })
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole("tab", { name: tabName })).toBeDefined();
+        expect(
+          (
+            screen.getByRole("button", {
+              name: saveButtonName,
+            }) as HTMLButtonElement
+          ).disabled
+        ).toBe(true);
+      });
+    }
+  );
+
+  it.each(dirtySectionCases)(
+    "retains the $section dirty baseline after its save fails",
+    async ({ section, tabName, saveButtonName }) => {
+      const fetchMock = vi.fn().mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ success: false, error: "Save unavailable" }),
+      });
+      vi.stubGlobal("fetch", fetchMock);
+      renderSettingsClient();
+      selectSettingsSection(tabName);
+      toggleSectionDraft(section);
+      fireEvent.click(
+        screen.getByRole("button", { name: saveButtonName })
+      );
+
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(
+          screen.getByRole("tab", {
+            name: `${tabName}, unsaved changes`,
+          })
+        ).toBeDefined();
+        expect(
+          (
+            screen.getByRole("button", {
+              name: saveButtonName,
+            }) as HTMLButtonElement
+          ).disabled
+        ).toBe(false);
+      });
+    }
+  );
+
+  it.each(dirtySectionCases)(
+    "clears the $section dirty baseline when its draft is reverted",
+    ({ section, tabName, saveButtonName }) => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      renderSettingsClient();
+      selectSettingsSection(tabName);
+      toggleSectionDraft(section);
+      toggleSectionDraft(section);
+
+      expect(screen.getByRole("tab", { name: tabName })).toBeDefined();
+      expect(
+        (screen.getByRole("button", {
+          name: saveButtonName,
+        }) as HTMLButtonElement).disabled
+      ).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+    }
+  );
+
+  it("keeps preference drafts out of notification saves", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     render(
       <SettingsClient
@@ -82,23 +355,33 @@ describe("SettingsClient", () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Current password"), {
-      target: { value: "Oldpass1!" },
+    fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
+    fireEvent.change(screen.getByLabelText("Date format"), {
+      target: { value: "DD/MM/YYYY" },
     });
-    fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "Newpass1!" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Notifications" }));
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Toggle cancellation notifications" })
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save notification settings" })
+    );
 
-    await waitFor(() => {
-      expect(backendAuthMock.signInWithPassword).toHaveBeenCalledWith({
-        email: initialSettings.email,
-        password: "Oldpass1!",
-      });
-      expect(backendAuthMock.updateUser).toHaveBeenCalledWith({
-        password: "Newpass1!",
-      });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const options = fetchMock.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(options.body as string)).toEqual({
+      section: "notifications",
+      notifyNewBooking: true,
+      notifyCancellation: false,
+      notifyReminder: false,
     });
+    expect(routerMock.refresh).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("tab", { name: "Preferences, unsaved changes" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("tab", { name: "Notifications" })
+    ).toBeDefined();
   });
 
   it("clears a one-time webhook secret after deleting that endpoint", async () => {
@@ -334,6 +617,9 @@ describe("SettingsClient", () => {
     );
 
     fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
+    fireEvent.change(screen.getByLabelText("Date format"), {
+      target: { value: "DD/MM/YYYY" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
 
     await waitFor(() => {

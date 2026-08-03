@@ -1,27 +1,4 @@
 import { backendFunctionSlugs } from '../functions'
-import type { BackendFunctionName } from '../ports'
-import type { ButterbaseHttpClient } from '../butterbase/http-client'
-import { requestAsCompat } from './responses'
-import type { BackendCompatResponse } from './types'
-
-export async function invokeCompatFunction<TResponse = { success: true }>(
-  httpClient: ButterbaseHttpClient,
-  name: BackendFunctionName | 'deleteAuthUser' | 'updateAuthUser',
-  body: unknown
-): Promise<BackendCompatResponse<TResponse>> {
-  const slug =
-    name in backendFunctionSlugs
-      ? backendFunctionSlugs[name as BackendFunctionName]
-      : kebabCase(name)
-
-  return requestAsCompat<TResponse>(httpClient, {
-    method: 'POST',
-    path: `/v1/${httpClient.appId}/fn/${slug}`,
-    auth: 'none',
-    accessToken: httpClient.functionAccessToken(),
-    body,
-  })
-}
 
 export function mapRpcToFunction(
   name: string,
@@ -130,15 +107,31 @@ export function mapRpcToFunction(
     case 'save_availability':
       return {
         slug: backendFunctionSlugs.saveAvailability,
-        serviceRole: true,
+        // This function uses Butterbase's platform-verified service caller
+        // identity instead of the legacy custom function bearer secret.
+        serviceRole: false,
         body: {
           userId: params.p_user_id,
           scheduleId: params.p_schedule_id,
+          expectedScheduleUpdatedAt: params.p_expected_schedule_updated_at,
           timezone: params.p_timezone,
           rules: params.p_rules,
           overrides: params.p_overrides,
           deletedRuleIds: params.p_deleted_rule_ids,
           deletedOverrideIds: params.p_deleted_override_ids,
+        },
+      }
+    case 'save_dashboard_preferences':
+      return {
+        slug: backendFunctionSlugs.saveDashboardPreferences,
+        // This function uses Butterbase's platform-verified service caller
+        // identity instead of the legacy custom function bearer secret.
+        serviceRole: false,
+        body: {
+          profileId: params.p_profile_id,
+          defaultTimezone: params.p_default_timezone,
+          dateFormat: params.p_date_format,
+          timeFormat: params.p_time_format,
         },
       }
     case 'set_default_schedule':

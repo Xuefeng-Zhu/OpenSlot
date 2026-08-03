@@ -20,6 +20,8 @@ import {
   type DashboardNotifications,
 } from '@/lib/dashboard/notifications'
 import { cn } from '@/lib/utils'
+import { useDashboardDisplayPreferences } from '@/components/dashboard/display-preferences-provider'
+import { formatDashboardTimestamp } from '@/lib/dashboard/display-preferences'
 
 interface TopBarProps {
   title: string
@@ -49,6 +51,7 @@ export function TopBar({
   user,
 }: TopBarProps) {
   const { toast } = useToast()
+  const displayPreferences = useDashboardDisplayPreferences()
   const displayName = user?.name || 'User'
   const displayEmail = user?.email || 'View profile'
   const notificationItems = notifications.items
@@ -170,7 +173,10 @@ export function TopBar({
                         suppressHydrationWarning
                         className="text-xs text-muted-foreground"
                       >
-                        {formatNotificationTime(notification.occurredAt)}
+                        {formatDashboardTimestamp(
+                          notification.occurredAt,
+                          displayPreferences
+                        )}
                       </time>
                     </Link>
                   </DropdownMenuItem>
@@ -214,19 +220,4 @@ export function TopBar({
       </div>
     </header>
   )
-}
-
-function formatNotificationTime(occurredAt: string) {
-  const date = new Date(occurredAt)
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Recently'
-  }
-
-  return date.toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

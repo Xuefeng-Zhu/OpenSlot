@@ -43,6 +43,10 @@ MICROSOFT_CALENDAR_TENANT=common
 CALENDAR_TOKEN_ENCRYPTION_SECRET=...
 ```
 
+OAuth callbacks validate the signed-in flow state before handling provider
+success or denial. Dashboard redirects use the allowlisted application origin
+and expose only allowlisted provider/reason codes, never raw provider errors.
+
 Email provider credentials:
 
 ```env

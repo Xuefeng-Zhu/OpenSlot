@@ -52,6 +52,11 @@ const sampleBookingDetails: BookingDetails = {
   guestTimezone: 'America/New_York',
   hostName: 'Bob Host',
   hostEmail: 'bob@example.com',
+  hostDisplayPreferences: {
+    timezone: 'America/Los_Angeles',
+    dateFormat: 'DD/MM/YYYY',
+    timeFormat: '24h',
+  },
   cancellationToken: 'cancel-token-123',
 }
 
@@ -514,6 +519,15 @@ describe('Email Send Functions', () => {
       expect(consoleSpy).toHaveBeenCalled()
     })
 
+    it('keeps guest confirmations in the guest timezone when host preferences differ', async () => {
+      await sendBookingConfirmationToGuest(sampleBookingDetails)
+
+      const output = consoleSpy.mock.calls.flat().join('\n')
+      expect(output).toContain('10:00 AM - 10:30 AM')
+      expect(output).toContain('America/New_York')
+      expect(output).not.toContain('07:00 - 07:30')
+    })
+
     it('does not throw on invalid timezone', async () => {
       const details = { ...sampleBookingDetails, guestTimezone: 'Invalid/Zone' }
       await expect(
@@ -577,6 +591,15 @@ describe('Email Send Functions', () => {
       await sendBookingNotificationToHost(sampleBookingDetails)
       expect(consoleSpy).toHaveBeenCalled()
     })
+
+    it('uses the host timezone and selected formats', async () => {
+      await sendBookingNotificationToHost(sampleBookingDetails)
+
+      const output = consoleSpy.mock.calls.flat().join('\n')
+      expect(output).toContain('15/01/2025')
+      expect(output).toContain('07:00 - 07:30')
+      expect(output).toContain('America/Los_Angeles')
+    })
   })
 
   describe('sendCancellationEmail', () => {
@@ -590,6 +613,15 @@ describe('Email Send Functions', () => {
       await expect(
         sendCancellationEmail(sampleBookingDetails, 'host')
       ).resolves.toBeUndefined()
+    })
+
+    it('formats host cancellations with host preferences', async () => {
+      await sendCancellationEmail(sampleBookingDetails, 'host')
+
+      const output = consoleSpy.mock.calls.flat().join('\n')
+      expect(output).toContain('15/01/2025')
+      expect(output).toContain('07:00 - 07:30')
+      expect(output).toContain('America/Los_Angeles')
     })
 
     it('logs email in dev mode', async () => {
@@ -611,9 +643,27 @@ describe('Email Send Functions', () => {
       ).resolves.toBeUndefined()
     })
 
+    it('formats host reminders with host preferences', async () => {
+      await sendBookingReminderEmail(sampleBookingDetails, 'host', 60)
+
+      const output = consoleSpy.mock.calls.flat().join('\n')
+      expect(output).toContain('15/01/2025')
+      expect(output).toContain('07:00 - 07:30')
+      expect(output).toContain('America/Los_Angeles')
+    })
+
     it('logs email in dev mode', async () => {
       await sendBookingReminderEmail(sampleBookingDetails, 'guest', 60)
       expect(consoleSpy).toHaveBeenCalled()
+    })
+
+    it('keeps guest reminders in the guest timezone when host preferences differ', async () => {
+      await sendBookingReminderEmail(sampleBookingDetails, 'guest', 60)
+
+      const output = consoleSpy.mock.calls.flat().join('\n')
+      expect(output).toContain('10:00 AM - 10:30 AM')
+      expect(output).toContain('America/New_York')
+      expect(output).not.toContain('07:00 - 07:30')
     })
   })
 

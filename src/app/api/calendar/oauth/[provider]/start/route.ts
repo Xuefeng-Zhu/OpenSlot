@@ -76,12 +76,8 @@ export async function GET(
   } catch (error) {
     console.error('Error in GET /api/calendar/oauth/[provider]/start:', error)
     return NextResponse.json(
-      { success: false, error: errorMessage(error) },
+      { success: false, error: 'Calendar connection could not be started' },
       { status: 500 }
     )
   }
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Internal server error'
 }

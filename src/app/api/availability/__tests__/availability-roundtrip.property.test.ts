@@ -109,6 +109,7 @@ const timezoneArb = fc.constantFrom(
 /** Generate a full valid save availability request body */
 const saveAvailabilityRequestArb = fc.record({
   scheduleId: fc.uuid(),
+  expectedScheduleUpdatedAt: fc.constant('2026-08-03T08:00:00.000Z'),
   rules: fc.array(ruleArb, { minLength: 0, maxLength: 7 }),
   overrides: fc.array(overrideArb, { minLength: 0, maxLength: 10 }),
   deletedRuleIds: fc.array(fc.uuid(), { minLength: 0, maxLength: 5 }),
@@ -132,6 +133,9 @@ describe('Property 6: Availability save round-trip preserves state', () => {
 
         // Rules count preserved
         expect(parsed.scheduleId).toBe(input.scheduleId)
+        expect(parsed.expectedScheduleUpdatedAt).toBe(
+          input.expectedScheduleUpdatedAt
+        )
 
         // Rules count preserved
         expect(parsed.rules).toHaveLength(input.rules.length)
@@ -214,6 +218,9 @@ describe('Property 6: Availability save round-trip preserves state', () => {
 
         // Both parses should produce equivalent data
         expect(secondParse.data.scheduleId).toBe(firstParse.data.scheduleId)
+        expect(secondParse.data.expectedScheduleUpdatedAt).toBe(
+          firstParse.data.expectedScheduleUpdatedAt
+        )
         expect(secondParse.data.rules).toHaveLength(firstParse.data.rules.length)
         expect(secondParse.data.overrides).toHaveLength(firstParse.data.overrides.length)
         expect(secondParse.data.deletedRuleIds).toEqual(firstParse.data.deletedRuleIds)
@@ -262,6 +269,7 @@ describe('Property 6: Availability save round-trip preserves state', () => {
             deletedRuleIds: [],
             deletedOverrideIds: [],
             scheduleId: '11111111-1111-4111-8111-111111111111',
+            expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
             timezone: 'America/New_York',
           }
 
@@ -284,6 +292,7 @@ describe('Property 6: Availability save round-trip preserves state', () => {
       fc.property(overrideArb, (override) => {
         const input = {
           scheduleId: '11111111-1111-4111-8111-111111111111',
+          expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
           rules: [],
           overrides: [override],
           deletedRuleIds: [],

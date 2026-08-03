@@ -31,8 +31,12 @@ export async function GET() {
   } catch (error) {
     console.error('Error in GET /api/mcp/tokens:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        error: 'MCP tokens are temporarily unavailable',
+        code: 'MCP_TOKENS_UNAVAILABLE',
+      },
+      { status: 503 }
     )
   }
 }
@@ -81,8 +85,12 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error in POST /api/mcp/tokens:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+      {
+        success: false,
+        error: 'MCP tokens are temporarily unavailable',
+        code: 'MCP_TOKENS_UNAVAILABLE',
+      },
+      { status: 503 }
     )
   }
 }

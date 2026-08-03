@@ -1,19 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ACCOUNT_EMAIL_UPDATE_UNAVAILABLE } from '@/lib/auth/account-mutation-policy'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
-import { createAdminBackendClient } from '@/lib/backend/server'
+import {
+  createAdminBackendClient,
+  createServerBackendClient,
+} from '@/lib/backend/server'
 import { parseJsonBody } from '@/lib/http/json'
-import { settingsSchema } from '@/lib/validations/settings'
+import {
+  isLegacyFullSettingsPayload,
+  settingsPatchSchema,
+} from '@/lib/validations/settings'
 
 /**
- * Saves profile and notification/preference settings for the signed-in host.
- * Email changes go through backend auth on the client before this route persists
- * the app profile and user_settings rows.
+ * Saves exactly one preference or notification settings section for the
+ * signed-in host. Account email writes fail closed until Butterbase exposes a
+ * service-auth mutation that can safely keep Auth and profile data in sync.
  */
 export const runtime = 'edge'
 
 export async function PATCH(request: NextRequest) {
   try {
-    const auth = await getAuthenticatedProfile()
+    const userClient = await createServerBackendClient()
+    const auth = await getAuthenticatedProfile(userClient)
 
     if (!auth.ok) {
       return NextResponse.json(
@@ -25,7 +33,18 @@ export async function PATCH(request: NextRequest) {
     const body = await parseJsonBody(request)
     if (!body.ok) return body.response
 
-    const parsed = settingsSchema.safeParse(body.body)
+    if (isLegacyFullSettingsPayload(body.body)) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: 'SETTINGS_CLIENT_OUTDATED',
+          error: 'This settings page is out of date. Reload it and try again.',
+        },
+        { status: 409 }
+      )
+    }
+
+    const parsed = settingsPatchSchema.safeParse(body.body)
 
     if (!parsed.success) {
       return NextResponse.json(
@@ -39,41 +58,57 @@ export async function PATCH(request: NextRequest) {
     }
 
     const settings = parsed.data
+
+    if (settings.section === 'account') {
+      return NextResponse.json(
+        {
+          success: false,
+          code: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.code,
+          error: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.message,
+        },
+        { status: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.status }
+      )
+    }
+
     const adminClient = createAdminBackendClient()
     const now = new Date().toISOString()
 
-    const { error: profileError } = await adminClient
-      .from('profiles')
-      .update({
-        name: settings.name,
-        email: settings.email,
-        default_timezone: settings.defaultTimezone,
-        updated_at: now,
-      })
-      .eq('id', auth.profileId)
+    if (settings.section === 'preferences') {
+      const { error: preferencesError } = await adminClient
+        .rpc('save_dashboard_preferences', {
+          p_profile_id: auth.profileId,
+          p_default_timezone: settings.defaultTimezone,
+          p_date_format: settings.dateFormat,
+          p_time_format: settings.timeFormat,
+        })
+        .single()
 
-    if (profileError) {
-      console.error('Error updating profile settings:', profileError)
-      return NextResponse.json(
-        { success: false, error: 'Failed to update profile settings' },
-        { status: 500 }
-      )
+      if (preferencesError) {
+        console.error('Atomic dashboard preference update failed')
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'PREFERENCES_UPDATE_FAILED',
+            error: 'Preferences were not changed. Please try again.',
+          },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    const settingsPayload = {
+      profile_id: auth.profileId,
+      notify_new_booking: settings.notifyNewBooking,
+      notify_cancellation: settings.notifyCancellation,
+      notify_reminder: settings.notifyReminder,
+      updated_at: now,
     }
 
     const { error: settingsError } = await adminClient
       .from('user_settings')
-      .upsert(
-        {
-          profile_id: auth.profileId,
-          date_format: settings.dateFormat,
-          time_format: settings.timeFormat,
-          notify_new_booking: settings.notifyNewBooking,
-          notify_cancellation: settings.notifyCancellation,
-          notify_reminder: settings.notifyReminder,
-          updated_at: now,
-        },
-        { onConflict: 'profile_id' }
-      )
+      .upsert(settingsPayload, { onConflict: 'profile_id' })
 
     if (settingsError) {
       console.error('Error updating user settings:', settingsError)

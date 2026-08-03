@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -10,11 +11,12 @@ import {
 import { useToast } from "@/components/ui/use-toast";
 import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
-import type { SettingsFormValues } from "@/lib/validations/settings";
+import type { CalendarOAuthResult } from "@/lib/calendar/oauth-result";
 import {
-  PASSWORD_COMPLEXITY_ERROR,
-  isStrongPassword,
-} from "@/lib/validations/password";
+  type SettingsFormValues,
+  type SettingsPatch,
+  type SettingsTab,
+} from "@/lib/validations/settings";
 import type { McpTokenSummary } from "@/lib/mcp/tokens";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { SettingsAccountTab } from "./settings-account-tab";
@@ -24,6 +26,9 @@ import { SettingsPreferencesTab } from "./settings-preferences-tab";
 
 interface SettingsClientProps {
   initialSettings: SettingsFormValues;
+  initialTab?: SettingsTab;
+  calendarOAuthResult?: CalendarOAuthResult | null;
+  clearIgnoredCalendarOAuthResult?: boolean;
   calendarConnections: CalendarConnectionSummary[];
   calendarConnectionsLoadFailed?: boolean;
   webhookEndpoints: WebhookEndpointSummary[];
@@ -32,7 +37,11 @@ interface SettingsClientProps {
   mcpTokensLoadFailed?: boolean;
 }
 
-type SaveAction = "account" | "preferences" | "notifications";
+type SaveAction = "preferences" | "notifications";
+type WritableSettingsPatch = Exclude<
+  SettingsPatch,
+  { section: "account" }
+>;
 
 type SettingsMutationResponse =
   | {
@@ -50,6 +59,9 @@ type SettingsMutationResponse =
  */
 export function SettingsClient({
   initialSettings,
+  initialTab = "account",
+  calendarOAuthResult = null,
+  clearIgnoredCalendarOAuthResult = false,
   calendarConnections,
   calendarConnectionsLoadFailed = false,
   webhookEndpoints: initialWebhookEndpoints,
@@ -57,66 +69,119 @@ export function SettingsClient({
   mcpTokens: initialMcpTokens = [],
   mcpTokensLoadFailed = false,
 }: SettingsClientProps) {
+  const router = useRouter();
   const { toast } = useToast();
-  const [savedSettings, setSavedSettings] = useState(initialSettings);
-
-  const [name, setName] = useState(initialSettings.name);
-  const [email, setEmail] = useState(initialSettings.email);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
+  const oauthFeedbackShown = useRef(false);
   const [timezone, setTimezone] = useState(initialSettings.defaultTimezone);
+  const [savedTimezone, setSavedTimezone] = useState(
+    initialSettings.defaultTimezone
+  );
   const [dateFormat, setDateFormat] = useState<SettingsFormValues["dateFormat"]>(
     initialSettings.dateFormat
   );
+  const [savedDateFormat, setSavedDateFormat] = useState(dateFormat);
   const [timeFormat, setTimeFormat] = useState<SettingsFormValues["timeFormat"]>(
     initialSettings.timeFormat
   );
+  const [savedTimeFormat, setSavedTimeFormat] = useState(timeFormat);
   const [notifyNewBooking, setNotifyNewBooking] = useState(
+    initialSettings.notifyNewBooking
+  );
+  const [savedNotifyNewBooking, setSavedNotifyNewBooking] = useState(
     initialSettings.notifyNewBooking
   );
   const [notifyCancellation, setNotifyCancellation] = useState(
     initialSettings.notifyCancellation
   );
+  const [savedNotifyCancellation, setSavedNotifyCancellation] = useState(
+    initialSettings.notifyCancellation
+  );
   const [notifyReminder, setNotifyReminder] = useState(
+    initialSettings.notifyReminder
+  );
+  const [savedNotifyReminder, setSavedNotifyReminder] = useState(
     initialSettings.notifyReminder
   );
 
   const [savingAction, setSavingAction] = useState<SaveAction | null>(null);
-  const [passwordSaving, setPasswordSaving] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
-  const currentSettings = (): SettingsFormValues => ({
-    name: name.trim(),
-    email: email.trim(),
-    defaultTimezone: timezone,
-    dateFormat,
-    timeFormat,
-    notifyNewBooking,
-    notifyCancellation,
-    notifyReminder,
-  });
+  const preferencesDirty =
+    timezone !== savedTimezone ||
+    dateFormat !== savedDateFormat ||
+    timeFormat !== savedTimeFormat;
+  const notificationsDirty =
+    notifyNewBooking !== savedNotifyNewBooking ||
+    notifyCancellation !== savedNotifyCancellation ||
+    notifyReminder !== savedNotifyReminder;
+
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (oauthFeedbackShown.current) return;
+
+    if (!calendarOAuthResult) {
+      if (clearIgnoredCalendarOAuthResult) {
+        oauthFeedbackShown.current = true;
+        router.replace("/settings?tab=integrations", { scroll: false });
+      }
+      return;
+    }
+
+    oauthFeedbackShown.current = true;
+    const provider =
+      calendarOAuthResult.provider === "google"
+        ? "Google Calendar"
+        : "Microsoft Outlook";
+
+    if (calendarOAuthResult.status === "connected") {
+      toast({
+        title: `${provider} connected`,
+        description: "Calendar availability and booking sync are ready.",
+      });
+    } else {
+      toast({
+        title: "Calendar not connected",
+        description: calendarOAuthErrorDescription(calendarOAuthResult.reason),
+        variant: "destructive",
+      });
+    }
+
+    router.replace("/settings?tab=integrations", { scroll: false });
+  }, [calendarOAuthResult, clearIgnoredCalendarOAuthResult, router, toast]);
+
+  const settingsPatch = (action: SaveAction): WritableSettingsPatch => {
+    if (action === "preferences") {
+      return {
+        section: "preferences",
+        defaultTimezone: timezone,
+        dateFormat,
+        timeFormat,
+      };
+    }
+
+    return {
+      section: "notifications",
+      notifyNewBooking,
+      notifyCancellation,
+      notifyReminder,
+    };
+  };
 
   const saveSettings = async (action: SaveAction) => {
-    const nextSettings = currentSettings();
+    const patch = settingsPatch(action);
+
     setSavingAction(action);
 
     try {
-      if (action === "account" && nextSettings.email !== savedSettings.email) {
-        const backendClient = createBrowserBackendClient();
-        const { error } = await backendClient.auth.updateUser({
-          email: nextSettings.email,
-        });
-
-        if (error) {
-          throw new Error(error.message);
-        }
-      }
-
       const data = await requestJson<SettingsMutationResponse>(
         "/api/settings",
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(nextSettings),
+          body: JSON.stringify(patch),
         },
         "Failed to save settings"
       );
@@ -125,77 +190,31 @@ export function SettingsClient({
         throw new Error(data.error ?? "Failed to save settings");
       }
 
-      setSavedSettings(nextSettings);
+      if (patch.section === "preferences") {
+        setSavedTimezone(patch.defaultTimezone);
+        setSavedDateFormat(patch.dateFormat);
+        setSavedTimeFormat(patch.timeFormat);
+        router.refresh();
+      } else {
+        setSavedNotifyNewBooking(patch.notifyNewBooking);
+        setSavedNotifyCancellation(patch.notifyCancellation);
+        setSavedNotifyReminder(patch.notifyReminder);
+      }
+
       toast({
         title: "Settings saved",
         description: "Your settings have been updated successfully.",
       });
     } catch (error) {
+      const description = errorToastDescription(error);
+
       toast({
         title: "Settings not saved",
-        description: errorToastDescription(error),
+        description,
         variant: "destructive",
       });
     } finally {
       setSavingAction(null);
-    }
-  };
-
-  const updatePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      toast({
-        title: "Password not updated",
-        description: "Enter your current password and a new password.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isStrongPassword(newPassword)) {
-      toast({
-        title: "Password not updated",
-        description: PASSWORD_COMPLEXITY_ERROR,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setPasswordSaving(true);
-
-    try {
-      const backendClient = createBrowserBackendClient();
-      const { error: signInError } = await backendClient.auth.signInWithPassword({
-        email: savedSettings.email,
-        password: currentPassword,
-      });
-
-      if (signInError) {
-        throw new Error("Current password is incorrect.");
-      }
-
-      const { error } = await backendClient.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setCurrentPassword("");
-      setNewPassword("");
-      toast({
-        title: "Password updated",
-        description: "Use the new password next time you sign in.",
-      });
-    } catch (error) {
-      toast({
-        title: "Password not updated",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPasswordSaving(false);
     }
   };
 
@@ -241,28 +260,45 @@ export function SettingsClient({
         description="Keep account details, display preferences, notifications, calendars, and webhook endpoints in sync."
       />
 
-      <Tabs defaultValue="account">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          const nextTab = value as SettingsTab;
+          setActiveTab(nextTab);
+          router.replace(`/settings?tab=${nextTab}`, { scroll: false });
+        }}
+      >
         <TabsList aria-label="Settings sections">
           <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="preferences">Preferences</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger
+            value="preferences"
+            aria-label={
+              preferencesDirty
+                ? "Preferences, unsaved changes"
+                : "Preferences"
+            }
+          >
+            <SettingsTabLabel label="Preferences" dirty={preferencesDirty} />
+          </TabsTrigger>
+          <TabsTrigger
+            value="notifications"
+            aria-label={
+              notificationsDirty
+                ? "Notifications, unsaved changes"
+                : "Notifications"
+            }
+          >
+            <SettingsTabLabel
+              label="Notifications"
+              dirty={notificationsDirty}
+            />
+          </TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
         </TabsList>
 
         <SettingsAccountTab
-          name={name}
-          email={email}
-          currentPassword={currentPassword}
-          newPassword={newPassword}
-          savingAction={savingAction}
-          passwordSaving={passwordSaving}
+          email={initialSettings.email}
           deleteSaving={deleteSaving}
-          onNameChange={setName}
-          onEmailChange={setEmail}
-          onCurrentPasswordChange={setCurrentPassword}
-          onNewPasswordChange={setNewPassword}
-          onSaveAccount={() => saveSettings("account")}
-          onUpdatePassword={updatePassword}
           onDeleteAccount={deleteAccount}
         />
 
@@ -270,6 +306,7 @@ export function SettingsClient({
           timezone={timezone}
           dateFormat={dateFormat}
           timeFormat={timeFormat}
+          isDirty={preferencesDirty}
           savingAction={savingAction}
           onTimezoneChange={setTimezone}
           onDateFormatChange={setDateFormat}
@@ -281,6 +318,7 @@ export function SettingsClient({
           notifyNewBooking={notifyNewBooking}
           notifyCancellation={notifyCancellation}
           notifyReminder={notifyReminder}
+          isDirty={notificationsDirty}
           savingAction={savingAction}
           onNotifyNewBookingChange={setNotifyNewBooking}
           onNotifyCancellationChange={setNotifyCancellation}
@@ -299,4 +337,40 @@ export function SettingsClient({
       </Tabs>
     </div>
   );
+}
+
+function SettingsTabLabel({ label, dirty }: { label: string; dirty: boolean }) {
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {label}
+      {dirty ? (
+        <span
+          className="h-1.5 w-1.5 rounded-full bg-warning"
+          aria-hidden="true"
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function calendarOAuthErrorDescription(
+  reason: Extract<CalendarOAuthResult, { status: "error" }>["reason"]
+) {
+  if (reason === "access_denied") {
+    return "Calendar access was declined. No connection was created.";
+  }
+
+  if (reason === "invalid_state") {
+    return "The connection session expired. Start the connection again.";
+  }
+
+  if (reason === "unauthorized" || reason === "profile_mismatch") {
+    return "Sign in again, then retry the calendar connection.";
+  }
+
+  if (reason === "provider_unavailable") {
+    return "The calendar provider is temporarily unavailable. Try again shortly.";
+  }
+
+  return "The calendar connection could not be completed. Please try again.";
 }

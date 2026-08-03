@@ -1,15 +1,22 @@
 import { z } from 'zod'
 import { isValidTimezone } from '@/lib/validations/profile'
 
+const CLOCK_TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d)?$/
+
 const timeStringSchema = z.string().regex(
-  /^\d{2}:\d{2}(?::\d{2})?$/,
+  CLOCK_TIME_PATTERN,
   'Start time must be in HH:MM format'
 )
 
 const endTimeStringSchema = z.string().regex(
-  /^\d{2}:\d{2}(?::\d{2})?$/,
+  CLOCK_TIME_PATTERN,
   'End time must be in HH:MM format'
 )
+
+const dateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
+  .refine(isDateOnly, 'Date must be a real calendar date')
 
 function timeStringToSeconds(value: string): number {
   const [hours, minutes, seconds = '0'] = value.split(':')
@@ -18,6 +25,14 @@ function timeStringToSeconds(value: string): number {
 
 function hasPositiveTimeRange(startTime: string, endTime: string): boolean {
   return timeStringToSeconds(startTime) < timeStringToSeconds(endTime)
+}
+
+function isDateOnly(value: string): boolean {
+  const parsed = new Date(`${value}T00:00:00.000Z`)
+  return (
+    !Number.isNaN(parsed.valueOf()) &&
+    parsed.toISOString().slice(0, 10) === value
+  )
 }
 
 /**
@@ -55,7 +70,7 @@ const saveAvailabilityRuleSchema = z.object({
  */
 const availabilityOverrideSchema = z.object({
   id: z.string().uuid().optional(),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+  date: dateOnlySchema,
   start_time: timeStringSchema.nullable(),
   end_time: endTimeStringSchema.nullable(),
   is_available: z.boolean(),
@@ -87,6 +102,7 @@ const availabilityOverrideSchema = z.object({
  */
 export const saveAvailabilitySchema = z.object({
   scheduleId: z.string().uuid(),
+  expectedScheduleUpdatedAt: z.string().datetime({ offset: true }),
   rules: z.array(saveAvailabilityRuleSchema),
   overrides: z.array(availabilityOverrideSchema),
   deletedRuleIds: z.array(z.string().uuid()),

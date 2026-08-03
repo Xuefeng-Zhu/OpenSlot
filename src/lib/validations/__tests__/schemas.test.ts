@@ -8,7 +8,6 @@ describe('profileSchema', () => {
   const validProfile = {
     name: 'John Doe',
     username: 'john-doe',
-    default_timezone: 'America/New_York',
   }
 
   describe('username boundary lengths', () => {
@@ -407,6 +406,7 @@ describe('availabilityRuleSchema', () => {
 describe('saveAvailabilitySchema', () => {
   const validSaveBody = {
     scheduleId: '11111111-1111-4111-8111-111111111111',
+    expectedScheduleUpdatedAt: '2026-08-03T08:00:00.000Z',
     rules: [
       {
         weekday: 1,
@@ -519,6 +519,39 @@ describe('saveAvailabilitySchema', () => {
           is_available: true,
         },
       ],
+    })
+
+    expect(result.success).toBe(false)
+  })
+
+  it.each(['24:00', '29:00', '12:60', '12:30:60'])(
+    'rejects impossible clock time %s',
+    (endTime) => {
+      const result = saveAvailabilitySchema.safeParse({
+        ...validSaveBody,
+        rules: [{ ...validSaveBody.rules[0], end_time: endTime }],
+      })
+
+      expect(result.success).toBe(false)
+    }
+  )
+
+  it.each(['2026-02-30', '2026-13-01', '2026-00-01'])(
+    'rejects impossible calendar date %s',
+    (date) => {
+      const result = saveAvailabilitySchema.safeParse({
+        ...validSaveBody,
+        overrides: [{ ...validSaveBody.overrides[0], date }],
+      })
+
+      expect(result.success).toBe(false)
+    }
+  )
+
+  it('rejects an invalid expected schedule version', () => {
+    const result = saveAvailabilitySchema.safeParse({
+      ...validSaveBody,
+      expectedScheduleUpdatedAt: 'not-a-timestamp',
     })
 
     expect(result.success).toBe(false)

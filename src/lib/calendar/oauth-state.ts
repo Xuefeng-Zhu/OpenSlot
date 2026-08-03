@@ -12,6 +12,33 @@ export const CALENDAR_OAUTH_STATE_COOKIE = 'openslot_calendar_oauth'
 export const CALENDAR_OAUTH_STATE_TTL_SECONDS = 10 * 60
 
 /**
+ * Resolves the canonical public app origin used by calendar OAuth redirects.
+ * Production fails closed when the required public URL is absent instead of
+ * trusting an incoming Host header.
+ */
+export function calendarAppOrigin(request: NextRequest): string {
+  const configuredUrl = process.env.NEXT_PUBLIC_APP_URL
+
+  if (configuredUrl) {
+    const parsed = new URL(configuredUrl)
+    if (
+      !['http:', 'https:'].includes(parsed.protocol) ||
+      parsed.username ||
+      parsed.password
+    ) {
+      throw new Error('NEXT_PUBLIC_APP_URL must be a public HTTP(S) origin')
+    }
+    return parsed.origin
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_PUBLIC_APP_URL is required for calendar OAuth')
+  }
+
+  return new URL(request.url).origin
+}
+
+/**
  * Builds the absolute callback URL registered with calendar providers.
  * NEXT_PUBLIC_APP_URL wins when configured so OAuth callbacks use the public
  * deployment origin instead of an internal request host.
@@ -20,8 +47,10 @@ export function calendarCallbackUrl(
   request: NextRequest,
   provider: CalendarProvider
 ): string {
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
-  return new URL(`/api/calendar/oauth/${provider}/callback`, origin).toString()
+  return new URL(
+    `/api/calendar/oauth/${provider}/callback`,
+    calendarAppOrigin(request)
+  ).toString()
 }
 
 /**

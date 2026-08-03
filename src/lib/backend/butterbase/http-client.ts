@@ -162,7 +162,12 @@ function normalizeButterbaseError(body: unknown): {
   }
 
   return {
-    message: typeof record.message === 'string' ? record.message : undefined,
+    message:
+      typeof record.message === 'string'
+        ? record.message
+        : typeof nested === 'string'
+          ? nested
+          : undefined,
     code: typeof record.code === 'string' ? record.code : undefined,
     remediation:
       typeof record.remediation === 'string' ? record.remediation : undefined,

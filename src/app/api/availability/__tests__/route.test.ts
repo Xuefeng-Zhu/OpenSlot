@@ -27,9 +27,12 @@ const profileId = '22222222-2222-4222-8222-222222222222'
 const scheduleId = '11111111-1111-4111-8111-111111111111'
 const existingRuleId = '33333333-3333-4333-8333-333333333333'
 const deletedRuleId = '44444444-4444-4444-8444-444444444444'
+const expectedScheduleUpdatedAt = '2026-08-03T08:00:00.000Z'
+const nextScheduleUpdatedAt = '2026-08-03T08:01:00.000Z'
 
 const validBody = {
   scheduleId,
+  expectedScheduleUpdatedAt,
   rules: [
     {
       id: existingRuleId,
@@ -91,7 +94,11 @@ describe('POST /api/availability', () => {
     })
     mocks.adminClient.rpc.mockReturnValue(
       rpcResult({
-        data: { rules: validBody.rules, overrides: validBody.overrides },
+        data: {
+          rules: validBody.rules,
+          overrides: validBody.overrides,
+          scheduleUpdatedAt: nextScheduleUpdatedAt,
+        },
         error: null,
       })
     )
@@ -106,6 +113,7 @@ describe('POST /api/availability', () => {
       success: true,
       rules: validBody.rules,
       overrides: validBody.overrides,
+      scheduleUpdatedAt: nextScheduleUpdatedAt,
     })
     expect(mocks.loadOwnedSchedule).toHaveBeenCalledWith(
       mocks.adminClient,
@@ -115,6 +123,7 @@ describe('POST /api/availability', () => {
     expect(mocks.adminClient.rpc).toHaveBeenCalledWith('save_availability', {
       p_user_id: profileId,
       p_schedule_id: scheduleId,
+      p_expected_schedule_updated_at: expectedScheduleUpdatedAt,
       p_timezone: 'America/New_York',
       p_rules: validBody.rules,
       p_overrides: validBody.overrides,
@@ -161,6 +170,52 @@ describe('POST /api/availability', () => {
     consoleError.mockRestore()
   })
 
+  it('fails closed when a successful function response omits the next version', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.adminClient.rpc.mockReturnValue(
+      rpcResult({
+        data: { rules: validBody.rules, overrides: validBody.overrides },
+        error: null,
+      })
+    )
+
+    const response = await POST(requestWithJson(validBody) as never)
+
+    expect(response.status).toBe(500)
+    expect(await response.json()).toEqual({
+      success: false,
+      error: 'Failed to save availability',
+    })
+    consoleError.mockRestore()
+  })
+
+  it.each([
+    [409, 'Availability changed; reload and retry'],
+    [404, 'Schedule not found'],
+    [400, 'Invalid availability data'],
+  ])(
+    'preserves the safe %s backend recovery status',
+    async (status, expectedError) => {
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      mocks.adminClient.rpc.mockReturnValue(
+        rpcResult({
+          data: null,
+          error: { message: 'private provider details', status },
+        })
+      )
+
+      const response = await POST(requestWithJson(validBody) as never)
+      const data = await response.json()
+
+      expect(response.status).toBe(status)
+      expect(data).toEqual({ success: false, error: expectedError })
+      expect(JSON.stringify(data)).not.toContain('private provider details')
+      consoleError.mockRestore()
+    }
+  )
+
   it('rejects invalid availability time ranges before calling the backend function', async () => {
     const response = await POST(
       requestWithJson({
@@ -182,6 +237,29 @@ describe('POST /api/availability', () => {
       success: false,
       error: 'Validation failed',
     })
+    expect(mocks.loadOwnedSchedule).not.toHaveBeenCalled()
+    expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      label: 'impossible clock time',
+      body: {
+        ...validBody,
+        rules: [{ ...validBody.rules[0], end_time: '29:00' }],
+      },
+    },
+    {
+      label: 'impossible calendar date',
+      body: {
+        ...validBody,
+        overrides: [{ ...validBody.overrides[0], date: '2026-02-30' }],
+      },
+    },
+  ])('rejects $label before calling the backend function', async ({ body }) => {
+    const response = await POST(requestWithJson(body) as never)
+
+    expect(response.status).toBe(400)
     expect(mocks.loadOwnedSchedule).not.toHaveBeenCalled()
     expect(mocks.adminClient.rpc).not.toHaveBeenCalled()
   })

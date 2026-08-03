@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TopBar } from '../top-bar'
 import type { DashboardNotification, DashboardNotifications } from '@/lib/dashboard/notifications'
+import { DashboardDisplayPreferencesProvider } from '@/components/dashboard/display-preferences-provider'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -80,6 +81,32 @@ describe('TopBar', () => {
     ).toBe('/bookings')
     expect(screen.getByRole('menuitem', { name: 'View bookings' })).toBeDefined()
     expect(screen.queryByText('No recent booking activity.')).toBeNull()
+  })
+
+  it('formats activity timestamps in the host timezone', async () => {
+    render(
+      <DashboardDisplayPreferencesProvider
+        preferences={{
+          timezone: 'Asia/Tokyo',
+          dateFormat: 'YYYY-MM-DD',
+          timeFormat: '24h',
+        }}
+      >
+        <TopBar
+          title="Dashboard"
+          notifications={notificationState({ unseenCount: 2 })}
+          user={{ name: 'Jane Doe', email: 'jane@example.com' }}
+        />
+      </DashboardDisplayPreferencesProvider>
+    )
+
+    fireEvent.pointerDown(
+      screen.getByRole('button', { name: 'Notifications (2 unread)' }),
+      { button: 0, ctrlKey: false }
+    )
+
+    expect(await screen.findByText('2026-05-17 · 03:00')).toBeDefined()
+    expect(screen.getByText('2026-05-17 · 02:00')).toBeDefined()
   })
 
   it('marks all notifications as read without removing recent activity', async () => {

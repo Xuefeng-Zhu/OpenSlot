@@ -233,6 +233,36 @@ describe('Butterbase backend adapter', () => {
       'Bearer function-secret'
     )
   })
+
+  it.each([
+    ['saveAvailability', 'save-availability'],
+    ['saveDashboardPreferences', 'save-dashboard-preferences'],
+  ] as const)(
+    'uses the platform service key for %s',
+    async (functionName, slug) => {
+      const fetchImpl = mockFetch({ success: true })
+      const backend = createButterbaseBackend({
+        appId: 'app_openslot',
+        apiUrl: 'https://api.butterbase.ai',
+        apiKey: 'service-key',
+        functionSecret: 'function-secret',
+        fetchImpl,
+      })
+
+      await backend.functions.invoke(functionName, {
+        body: {},
+        serviceRole: true,
+      })
+
+      expect(fetchImpl).toHaveBeenCalledWith(
+        `https://api.butterbase.ai/v1/app_openslot/fn/${slug}`,
+        expect.objectContaining({ method: 'POST' })
+      )
+      expect(requestHeaders(fetchImpl).get('Authorization')).toBe(
+        'Bearer service-key'
+      )
+    }
+  )
 })
 
 function mockFetch(body: unknown, init: ResponseInit = {}) {

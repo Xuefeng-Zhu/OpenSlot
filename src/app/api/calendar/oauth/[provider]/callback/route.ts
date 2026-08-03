@@ -13,8 +13,14 @@ import { base64UrlDecodeToString } from '@/lib/security/edge-crypto'
 import { encryptToken } from '@/lib/security/token-encryption'
 import {
   CALENDAR_OAUTH_STATE_COOKIE,
+  calendarAppOrigin,
   calendarCallbackUrl,
 } from '@/lib/calendar/oauth-state'
+import {
+  buildCalendarOAuthSettingsUrl,
+  normalizeCalendarOAuthErrorReason,
+  type CalendarOAuthErrorReason,
+} from '@/lib/calendar/oauth-result'
 import type { Json, Tables } from '@/lib/types/database'
 
 interface CalendarOAuthRouteContext {
@@ -53,34 +59,61 @@ export async function GET(
 
   try {
     const url = new URL(request.url)
-    const error = url.searchParams.get('error')
-
-    if (error) {
-      return redirectToSettings(request, 'error', error)
-    }
-
-    const code = url.searchParams.get('code')
     const state = url.searchParams.get('state')
     const storedState = parseStateCookie(
       request.cookies.get(CALENDAR_OAUTH_STATE_COOKIE)?.value
     )
 
-    if (!code || !state || !storedState || storedState.state !== state) {
-      return redirectToSettings(request, 'error', 'invalid_state')
+    if (!state || !storedState || storedState.state !== state) {
+      return redirectToSettings(
+        request,
+        provider,
+        { status: 'error', reason: 'invalid_state' },
+        { clearState: false }
+      )
     }
 
     if (storedState.provider !== provider) {
-      return redirectToSettings(request, 'error', 'provider_mismatch')
+      return redirectToSettings(
+        request,
+        provider,
+        { status: 'error', reason: 'provider_mismatch' },
+        { clearState: false }
+      )
+    }
+
+    const error = url.searchParams.get('error')
+
+    if (error) {
+      return redirectToSettings(request, provider, {
+        status: 'error',
+        reason: normalizeCalendarOAuthErrorReason(error),
+      })
+    }
+
+    const code = url.searchParams.get('code')
+
+    if (!code) {
+      return redirectToSettings(request, provider, {
+        status: 'error',
+        reason: 'invalid_state',
+      })
     }
 
     const auth = await getAuthenticatedProfile()
 
     if (!auth.ok) {
-      return redirectToSettings(request, 'error', 'unauthorized')
+      return redirectToSettings(request, provider, {
+        status: 'error',
+        reason: 'unauthorized',
+      })
     }
 
     if (auth.profileId !== storedState.profileId) {
-      return redirectToSettings(request, 'error', 'profile_mismatch')
+      return redirectToSettings(request, provider, {
+        status: 'error',
+        reason: 'profile_mismatch',
+      })
     }
 
     const redirectUri = calendarCallbackUrl(request, provider)
@@ -110,10 +143,13 @@ export async function GET(
     await syncCalendarsForConnection(adminClient, connection.id)
     await ensureCalendarWatchesForConnection(adminClient, connection.id)
 
-    return redirectToSettings(request, 'connected', provider)
+    return redirectToSettings(request, provider, { status: 'connected' })
   } catch (error) {
     console.error('Error in GET /api/calendar/oauth/[provider]/callback:', error)
-    return redirectToSettings(request, 'error', errorMessage(error))
+    return redirectToSettings(request, provider, {
+      status: 'error',
+      reason: 'connection_failed',
+    })
   }
 }
 
@@ -197,26 +233,42 @@ async function upsertProviderConnection({
 
 /**
  * Redirects back to settings and clears the one-time OAuth state cookie.
- * The detail value is bounded before it reaches the URL so provider errors do
- * not create oversized redirects.
+ * Only allowlisted result fields cross the redirect boundary. Raw provider or
+ * database errors remain server-side.
  */
 function redirectToSettings(
   request: NextRequest,
-  calendar: string,
-  detail: string
+  provider: CalendarProvider,
+  result:
+    | { status: 'connected' }
+    | { status: 'error'; reason: CalendarOAuthErrorReason },
+  options: { clearState?: boolean } = {}
 ): NextResponse {
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin
-  const url = new URL('/settings', origin)
-  url.searchParams.set('calendar', calendar)
-  url.searchParams.set('detail', detail.slice(0, 120))
-  const response = NextResponse.redirect(url)
-  response.cookies.set(CALENDAR_OAUTH_STATE_COOKIE, '', {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 0,
-    path: '/',
+  let origin: string
+  try {
+    origin = calendarAppOrigin(request)
+  } catch (error) {
+    console.error('Calendar OAuth redirect origin is unavailable:', error)
+    return NextResponse.json(
+      { success: false, error: 'Calendar connection result is unavailable' },
+      { status: 500 }
+    )
+  }
+
+  const url = buildCalendarOAuthSettingsUrl(origin, {
+    ...result,
+    provider,
   })
+  const response = NextResponse.redirect(url)
+  if (options.clearState !== false) {
+    response.cookies.set(CALENDAR_OAUTH_STATE_COOKIE, '', {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 0,
+      path: '/',
+    })
+  }
   return response
 }
 
@@ -245,8 +297,4 @@ function parseStateCookie(value?: string): OAuthStateCookie | null {
   }
 
   return null
-}
-
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Internal server error'
 }

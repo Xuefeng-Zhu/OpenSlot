@@ -43,7 +43,16 @@
     {
       "name": "save-availability",
       "operation": "saveAvailability",
-      "transactionRequired": true
+      "transactionRequired": true,
+      "source": "functions/save-availability.v1.ts",
+      "version": 1
+    },
+    {
+      "name": "save-dashboard-preferences",
+      "operation": "saveDashboardPreferences",
+      "transactionRequired": true,
+      "source": "functions/save-dashboard-preferences.v1.ts",
+      "version": 1
     },
     {
       "name": "set-default-schedule",
@@ -54,16 +63,6 @@
       "name": "anonymize-contact-bookings",
       "operation": "anonymizeContactBookings",
       "transactionRequired": true
-    },
-    {
-      "name": "update-auth-user",
-      "operation": "updateAuthUser",
-      "transactionRequired": false
-    },
-    {
-      "name": "delete-auth-user",
-      "operation": "deleteAuthUser",
-      "transactionRequired": false
     }
   ]
 }

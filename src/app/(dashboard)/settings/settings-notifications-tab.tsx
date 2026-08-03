@@ -10,6 +10,7 @@ interface SettingsNotificationsTabProps {
   notifyNewBooking: boolean;
   notifyCancellation: boolean;
   notifyReminder: boolean;
+  isDirty: boolean;
   savingAction: "account" | "preferences" | "notifications" | null;
   onNotifyNewBookingChange: (value: boolean) => void;
   onNotifyCancellationChange: (value: boolean) => void;
@@ -21,6 +22,7 @@ export function SettingsNotificationsTab({
   notifyNewBooking,
   notifyCancellation,
   notifyReminder,
+  isDirty,
   savingAction,
   onNotifyNewBookingChange,
   onNotifyCancellationChange,
@@ -40,15 +42,17 @@ export function SettingsNotificationsTab({
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium">New bookings</p>
+                <p className="text-sm font-medium">
+                  New and rescheduled bookings
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Get notified when someone books a meeting with you.
+                  Get an email when someone books or reschedules time with you.
                 </p>
               </div>
               <Switch
                 checked={notifyNewBooking}
                 onCheckedChange={onNotifyNewBookingChange}
-                aria-label="Toggle new booking notifications"
+                aria-label="Toggle new and rescheduled booking notifications"
               />
             </div>
             <div className="flex items-center justify-between gap-4">
@@ -66,25 +70,36 @@ export function SettingsNotificationsTab({
             </div>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-medium">Reminders</p>
+                <p className="text-sm font-medium">Host reminders</p>
                 <p className="text-xs text-muted-foreground">
-                  Get reminded before upcoming meetings.
+                  Email me before upcoming meetings. Guest reminders are
+                  controlled per event type.
                 </p>
               </div>
               <Switch
                 checked={notifyReminder}
                 onCheckedChange={onNotifyReminderChange}
-                aria-label="Toggle reminder notifications"
+                aria-label="Toggle host reminder notifications"
               />
             </div>
-            <Button
-              onClick={onSaveNotifications}
-              disabled={savingAction !== null}
-            >
-              {savingAction === "notifications"
-                ? "Saving..."
-                : "Save notification settings"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                onClick={onSaveNotifications}
+                disabled={savingAction !== null || !isDirty}
+              >
+                {savingAction === "notifications"
+                  ? "Saving..."
+                  : "Save notification settings"}
+              </Button>
+              {isDirty && (
+                <span
+                  className="text-xs font-medium text-warning"
+                  role="status"
+                >
+                  Unsaved changes
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

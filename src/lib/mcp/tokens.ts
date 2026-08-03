@@ -76,6 +76,12 @@ export async function createMcpApiToken({
   input: CreateMcpTokenInput
 }): Promise<{ summary: McpTokenSummary; token: string }> {
   const tokenParts = generateMcpApiToken()
+  const scopes = normalizeScopes(input.scopes)
+
+  if (scopes.length === 0) {
+    throw new Error('MCP token requires at least one supported scope')
+  }
+
   const now = new Date().toISOString()
   const { data, error } = await adminClient
     .from('mcp_api_tokens')
@@ -84,7 +90,7 @@ export async function createMcpApiToken({
       name: input.name.trim(),
       token_hash: tokenParts.tokenHash,
       token_prefix: tokenParts.tokenPrefix,
-      scopes: normalizeScopes(input.scopes),
+      scopes,
       expires_at: input.expiresAt ?? null,
       created_at: now,
       updated_at: now,
@@ -182,6 +188,11 @@ export async function authenticateMcpApiToken({
     return null
   }
 
+  const scopes = normalizeScopes(token.scopes)
+  if (scopes.length === 0) {
+    return null
+  }
+
   await adminClient
     .from('mcp_api_tokens')
     .update({ last_used_at: now.toISOString(), updated_at: now.toISOString() })
@@ -190,7 +201,7 @@ export async function authenticateMcpApiToken({
   return {
     tokenId: token.id,
     profileId: token.profile_id,
-    scopes: normalizeScopes(token.scopes),
+    scopes,
   }
 }
 
@@ -219,11 +230,17 @@ export function toMcpTokenSummary(token: Pick<
   }
 }
 
-function normalizeScopes(scopes: readonly string[] | null | undefined): McpScope[] {
+function normalizeScopes(scopes: unknown): McpScope[] {
   const valid = new Set<string>(MCP_DEFAULT_SCOPES)
-  const normalized = Array.from(
-    new Set((scopes ?? MCP_DEFAULT_SCOPES).filter((scope) => valid.has(scope)))
-  ) as McpScope[]
+  if (
+    !Array.isArray(scopes) ||
+    scopes.length === 0 ||
+    !scopes.every(
+      (scope) => typeof scope === 'string' && valid.has(scope)
+    )
+  ) {
+    return []
+  }
 
-  return normalized.length > 0 ? normalized : [...MCP_DEFAULT_SCOPES]
+  return Array.from(new Set(scopes)) as McpScope[]
 }

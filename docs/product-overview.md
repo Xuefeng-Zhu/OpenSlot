@@ -8,7 +8,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Email/password authentication through Butterbase, including password reset.
 - Static legal pages at `/terms` and `/privacy`.
 - Onboarding setup that persists public profile basics, initial weekly availability, and a first active event type.
-- Profile settings with public username and default timezone.
+- Profile settings with public name, username, headline, bio, and response-time text.
 - Public host profile page at `/<username>`.
 - Public event booking page at `/<username>/<eventSlug>`.
 - Public booking assistant for date/time suggestions, timezone help, slot lookup, and booking-form draft prefill when Butterbase AI is configured.
@@ -23,7 +23,8 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Host contacts page with repeat-guest recognition, meeting history, search, and soft anonymization.
 - Host availability editor for weekly rules and date overrides.
 - Event type reminder controls for one configurable pre-meeting email reminder to guests and/or hosts.
-- Host settings persistence for profile basics, display preferences, notification preferences, notification seen state, authenticated password update, and account deletion.
+- Section-owned host settings for the canonical login email, display preferences, host-email preferences, password recovery, and account deletion. The canonical login email is read-only until Butterbase exposes a conditional service-auth email mutation; password changes use the verified reset-code flow.
+- Host timezone, date format, and time format applied consistently across dashboard dates, host notifications, and host email; guest booking messages continue to use the guest timezone.
 - Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
 - Generated Google Meet and Microsoft Teams links for event types configured with a video provider.
 - Tenant webhook endpoint dashboard management, signed deliveries, and retry processing.
@@ -38,7 +39,7 @@ These areas have important implementation notes:
 | `/onboarding` | Persists profile name/username/timezone, replaces initial weekly availability rules, and creates or updates the first active event type. |
 | Booking assistant | Public event and reschedule pages can show an AI assistant when `BUTTERBASE_API_KEY` is configured. The assistant can suggest slots and draft guest form details, but all mutations still go through hold/booking routes. |
 | Email delivery | Console provider by default; `EMAIL_PROVIDER=resend` enables production sends through Resend, and `EMAIL_PROVIDER=maileroo` enables sends through Maileroo. |
-| Reminders | Event types can schedule one pre-meeting reminder through the outbox worker. Cancelled/rescheduled bookings are rechecked and skipped before email send. |
+| Reminders | Event types can schedule one pre-meeting reminder through the outbox worker. Host reminders require both the event-type host channel and the host preference; guest reminders remain independent. Cancelled/rescheduled bookings are rechecked and skipped before email send. |
 | Calendar integrations | OAuth, provider metadata sync, busy-cache refresh, provider availability conflict checks, provider event writes, provider watch/subscription callbacks, and watch renewal exist. |
 | Video links | Google Meet and Microsoft Teams links are generated asynchronously by the calendar outbox worker after booking confirmation. Bookings remain confirmed if provider setup or provider calls fail, and the failure is surfaced for retry/repair. |
 | Provider availability | Synced `external_busy_cache` rows are consumed by public slot computation for calendars marked `use_for_availability`; optional final live provider checks can protect confirmation when cache/watch health is stale. |

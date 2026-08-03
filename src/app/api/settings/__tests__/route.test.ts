@@ -6,11 +6,14 @@ const mocks = vi.hoisted(() => ({
   profile: { id: 'profile-1', auth_user_id: 'auth-user-1' } as
     | { id: string; auth_user_id: string }
     | null,
+  authUpdateUser: vi.fn(),
   profileUpdatePayload: null as Record<string, unknown> | null,
   profileUpdateError: null as { message: string } | null,
   settingsUpsertPayload: null as Record<string, unknown> | null,
   settingsUpsertOptions: null as Record<string, unknown> | null,
   settingsUpsertError: null as { message: string } | null,
+  rpc: vi.fn(),
+  rpcSingle: vi.fn(),
   deleteUser: vi.fn(),
 }))
 
@@ -37,9 +40,7 @@ function createAdminTableMock(table: string) {
       update: (payload: Record<string, unknown>) => {
         mocks.profileUpdatePayload = payload
         return {
-          eq: async () => ({
-            error: mocks.profileUpdateError,
-          }),
+          eq: async () => ({ error: mocks.profileUpdateError }),
         }
       },
     }
@@ -63,22 +64,39 @@ function createAdminTableMock(table: string) {
 
 vi.mock('@/lib/backend/server', () => ({
   createServerBackendClient: vi.fn(async () => ({
-    auth: {
-      getUser: mocks.getUser,
-    },
+    auth: { getUser: mocks.getUser },
     from: createServerTableMock,
   })),
   createAdminBackendClient: vi.fn(() => ({
     auth: {
-      admin: {
-        deleteUser: mocks.deleteUser,
-      },
+      updateUser: mocks.authUpdateUser,
+      admin: { deleteUser: mocks.deleteUser },
     },
     from: createAdminTableMock,
+    rpc: mocks.rpc,
   })),
 }))
 
-const validBody = {
+const accountBody = {
+  section: 'account',
+  email: 'sarah@example.com',
+}
+
+const preferencesBody = {
+  section: 'preferences',
+  defaultTimezone: 'America/Los_Angeles',
+  dateFormat: 'DD/MM/YYYY',
+  timeFormat: '24h',
+}
+
+const notificationsBody = {
+  section: 'notifications',
+  notifyNewBooking: true,
+  notifyCancellation: false,
+  notifyReminder: true,
+}
+
+const legacyBody = {
   name: 'Sarah Chen',
   email: 'sarah@example.com',
   defaultTimezone: 'America/Los_Angeles',
@@ -90,9 +108,7 @@ const validBody = {
 }
 
 function requestWithJson(body: unknown) {
-  return {
-    json: async () => body,
-  } as Request
+  return { json: async () => body } as Request
 }
 
 function requestWithMalformedJson() {
@@ -107,57 +123,143 @@ describe('PATCH /api/settings', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
     mocks.getUser.mockResolvedValue({
-      data: { user: { id: 'auth-user-1' } },
+      data: {
+        user: { id: 'auth-user-1', email: 'old@example.com' },
+      },
       error: null,
     })
     mocks.profile = { id: 'profile-1', auth_user_id: 'auth-user-1' }
+    mocks.authUpdateUser.mockReset()
+    mocks.authUpdateUser.mockResolvedValue({ data: { user: null }, error: null })
     mocks.profileUpdatePayload = null
     mocks.profileUpdateError = null
     mocks.settingsUpsertPayload = null
     mocks.settingsUpsertOptions = null
     mocks.settingsUpsertError = null
+    mocks.rpc.mockReset()
+    mocks.rpc.mockReturnValue({ single: mocks.rpcSingle })
+    mocks.rpcSingle.mockReset()
+    mocks.rpcSingle.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    })
     mocks.deleteUser.mockReset()
     mocks.deleteUser.mockResolvedValue({ error: null })
   })
 
-  it('persists profile and settings for the authenticated profile', async () => {
-    const response = await PATCH(requestWithJson(validBody) as any)
+  it('fails account email changes closed without writing either store', async () => {
+    const response = await PATCH(requestWithJson(accountBody) as any)
     const data = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(data).toEqual({ success: true })
-    expect(mocks.profileUpdatePayload).toMatchObject({
-      name: 'Sarah Chen',
-      email: 'sarah@example.com',
-      default_timezone: 'America/Los_Angeles',
+    expect(response.status).toBe(503)
+    expect(data).toEqual({
+      success: false,
+      code: 'EMAIL_UPDATE_UNAVAILABLE',
+      error:
+        'Sign-in email changes are temporarily unavailable. Your email was not changed.',
     })
+    expect(mocks.authUpdateUser).not.toHaveBeenCalled()
+    expect(mocks.profileUpdatePayload).toBeNull()
+    expect(mocks.settingsUpsertPayload).toBeNull()
+    expect(mocks.rpc).not.toHaveBeenCalled()
+  })
+
+  it('persists only display preferences and profile timezone', async () => {
+    const response = await PATCH(requestWithJson(preferencesBody) as any)
+
+    expect(response.status).toBe(200)
+    expect(mocks.authUpdateUser).not.toHaveBeenCalled()
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.rpc).toHaveBeenCalledWith('save_dashboard_preferences', {
+      p_profile_id: 'profile-1',
+      p_default_timezone: 'America/Los_Angeles',
+      p_date_format: 'DD/MM/YYYY',
+      p_time_format: '24h',
+    })
+    expect(mocks.rpcSingle).toHaveBeenCalledTimes(1)
+    expect(mocks.profileUpdatePayload).toBeNull()
+    expect(mocks.settingsUpsertPayload).toBeNull()
+  })
+
+  it('returns a safe error when the atomic preference function fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.rpcSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'private database details' },
+    })
+
+    const response = await PATCH(requestWithJson(preferencesBody) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(500)
+    expect(data).toEqual({
+      success: false,
+      code: 'PREFERENCES_UPDATE_FAILED',
+      error: 'Preferences were not changed. Please try again.',
+    })
+    expect(JSON.stringify(data)).not.toContain('private database details')
+    expect(mocks.profileUpdatePayload).toBeNull()
+    expect(mocks.settingsUpsertPayload).toBeNull()
+    consoleError.mockRestore()
+  })
+
+  it('persists only notification preferences', async () => {
+    const response = await PATCH(requestWithJson(notificationsBody) as any)
+
+    expect(response.status).toBe(200)
+    expect(mocks.authUpdateUser).not.toHaveBeenCalled()
+    expect(mocks.rpc).not.toHaveBeenCalled()
+    expect(mocks.profileUpdatePayload).toBeNull()
     expect(mocks.settingsUpsertPayload).toMatchObject({
       profile_id: 'profile-1',
-      date_format: 'MM/DD/YYYY',
-      time_format: '12h',
       notify_new_booking: true,
       notify_cancellation: false,
       notify_reminder: true,
     })
+    expect(mocks.settingsUpsertPayload).not.toHaveProperty('date_format')
     expect(mocks.settingsUpsertOptions).toEqual({ onConflict: 'profile_id' })
   })
 
-  it('rejects unauthenticated saves', async () => {
-    mocks.getUser.mockResolvedValue({
-      data: { user: null },
-      error: null,
-    })
+  it('rejects retired all-section payloads with a reload code', async () => {
+    const response = await PATCH(requestWithJson(legacyBody) as any)
+    const data = await response.json()
 
-    const response = await PATCH(requestWithJson(validBody) as any)
+    expect(response.status).toBe(409)
+    expect(data).toEqual({
+      success: false,
+      code: 'SETTINGS_CLIENT_OUTDATED',
+      error: 'This settings page is out of date. Reload it and try again.',
+    })
+    expect(mocks.authUpdateUser).not.toHaveBeenCalled()
+    expect(mocks.profileUpdatePayload).toBeNull()
+    expect(mocks.settingsUpsertPayload).toBeNull()
+  })
+
+  it('rejects fields owned by another section', async () => {
+    const response = await PATCH(
+      requestWithJson({ ...notificationsBody, email: 'draft@example.com' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data.success).toBe(false)
+    expect(mocks.profileUpdatePayload).toBeNull()
+    expect(mocks.settingsUpsertPayload).toBeNull()
+  })
+
+  it('rejects unauthenticated saves', async () => {
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const response = await PATCH(requestWithJson(accountBody) as any)
     const data = await response.json()
 
     expect(response.status).toBe(401)
     expect(data).toEqual({ success: false, error: 'Unauthorized' })
   })
 
-  it('returns field errors for invalid settings', async () => {
+  it('returns field errors for invalid section values', async () => {
     const response = await PATCH(
-      requestWithJson({ ...validBody, timeFormat: 'nope' }) as any
+      requestWithJson({ ...preferencesBody, timeFormat: 'nope' }) as any
     )
     const data = await response.json()
 
@@ -166,15 +268,12 @@ describe('PATCH /api/settings', () => {
     expect(data.details.timeFormat).toBeDefined()
   })
 
-  it('returns the shared invalid JSON error for malformed settings bodies', async () => {
+  it('returns the shared invalid JSON error for malformed bodies', async () => {
     const response = await PATCH(requestWithMalformedJson() as any)
     const data = await response.json()
 
     expect(response.status).toBe(400)
-    expect(data).toEqual({
-      success: false,
-      error: 'Invalid JSON body',
-    })
+    expect(data).toEqual({ success: false, error: 'Invalid JSON body' })
     expect(mocks.profileUpdatePayload).toBeNull()
     expect(mocks.settingsUpsertPayload).toBeNull()
   })
@@ -184,7 +283,9 @@ describe('DELETE /api/settings', () => {
   beforeEach(() => {
     mocks.getUser.mockReset()
     mocks.getUser.mockResolvedValue({
-      data: { user: { id: 'auth-user-1' } },
+      data: {
+        user: { id: 'auth-user-1', email: 'old@example.com' },
+      },
       error: null,
     })
     mocks.profile = { id: 'profile-1', auth_user_id: 'auth-user-1' }

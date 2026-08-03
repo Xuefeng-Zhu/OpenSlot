@@ -1,9 +1,12 @@
 import { NextRequest } from 'next/server'
-import {
-  createAdminBackendClient,
-  currentBackendAccessToken,
-} from '@/lib/backend/server'
+import { currentBackendAccessToken } from '@/lib/backend/server'
 import { createBackendCompatClient } from '@/lib/backend/compat/query-client'
+import {
+  ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED,
+  ACCOUNT_EMAIL_UPDATE_UNAVAILABLE,
+  ACCOUNT_PASSWORD_RESET_REQUIRED,
+} from '@/lib/auth/account-mutation-policy'
+import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
 import { authError, authJson } from '../_shared'
 import { readAuthJsonObject } from '../_request'
 
@@ -16,10 +19,22 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await readAuthJsonObject(request)
-  const email = typeof body?.email === 'string' ? body.email.trim() : undefined
-  const password = typeof body?.password === 'string' ? body.password : undefined
+  const hasEmail = body !== null && 'email' in body
+  const hasPassword = body !== null && 'password' in body
 
-  if (!email && !password) {
+  if (hasEmail && hasPassword) {
+    return authJson(
+      {
+        success: false,
+        code: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.code,
+        error: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.message,
+        details: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.details,
+      },
+      { status: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.status }
+    )
+  }
+
+  if (!hasEmail && !hasPassword) {
     return authError('No account changes were provided.')
   }
 
@@ -27,29 +42,30 @@ export async function PATCH(request: NextRequest) {
     accessToken,
     authMode: 'user',
   })
-  const { data: userResult } = await userClient.auth.getUser()
-  const user = userResult.user
+  const auth = await getAuthenticatedProfile(userClient)
 
-  if (!user) {
-    return authError('Authentication required.', 401)
+  if (!auth.ok) {
+    return authError(auth.error, auth.status)
   }
 
-  const adminClient = createAdminBackendClient()
-  const result = await adminClient.auth.updateUser({
-    userId: user.id,
-    email,
-    password,
-  })
-  if (result.error) {
-    return authError(result.error.message, result.error.status ?? 400)
+  if (hasEmail) {
+    return authJson(
+      {
+        success: false,
+        code: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.code,
+        error: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.message,
+      },
+      { status: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.status }
+    )
   }
 
-  if (email) {
-    await adminClient
-      .from('profiles')
-      .update({ email, updated_at: new Date().toISOString() })
-      .eq('auth_user_id', user.id)
-  }
-
-  return authJson({ success: true, user: result.data?.user ?? user })
+  return authJson(
+    {
+      success: false,
+      code: ACCOUNT_PASSWORD_RESET_REQUIRED.code,
+      error: ACCOUNT_PASSWORD_RESET_REQUIRED.message,
+      details: ACCOUNT_PASSWORD_RESET_REQUIRED.details,
+    },
+    { status: ACCOUNT_PASSWORD_RESET_REQUIRED.status }
+  )
 }

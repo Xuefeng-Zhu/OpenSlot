@@ -101,10 +101,32 @@ function createMockClient({
   events = [claimedEvent],
   handlerError = null,
   bookingOverrides = {},
+  userSettings = {
+    date_format: 'MM/DD/YYYY',
+    time_format: '12h',
+    notify_new_booking: true,
+    notify_cancellation: true,
+    notify_reminder: true,
+  },
+  userSettingsError = null,
+  eventType = { title: 'Intro Call' },
+  eventTypeError = null,
+  hostProfile = {
+    name: 'Host User',
+    email: 'host@example.com',
+    default_timezone: 'America/Los_Angeles',
+  },
+  hostProfileError = null,
 }: {
   events?: Array<Record<string, unknown>>
   handlerError?: Error | null
   bookingOverrides?: Record<string, unknown>
+  userSettings?: Record<string, unknown> | null
+  userSettingsError?: { message: string } | null
+  eventType?: Record<string, unknown> | null
+  eventTypeError?: { message: string } | null
+  hostProfile?: Record<string, unknown> | null
+  hostProfileError?: { message: string } | null
 } = {}) {
   const calls = {
     updates: [] as Array<Record<string, unknown>>,
@@ -117,8 +139,8 @@ function createMockClient({
     })),
     from: vi.fn((table: string) => ({
       select: () => ({
-        eq: () => ({
-          single: async () => {
+        eq: () => {
+          const loadSingle = async () => {
             if (table === 'bookings') {
               return {
                 data: {
@@ -153,16 +175,28 @@ function createMockClient({
             }
 
             if (table === 'event_types') {
-              return { data: { title: 'Intro Call' }, error: null }
+              return { data: eventType, error: eventTypeError }
             }
 
             if (table === 'profiles') {
-              return { data: { name: 'Host User', email: 'host@example.com' }, error: null }
+              return {
+                data: hostProfile,
+                error: hostProfileError,
+              }
+            }
+
+            if (table === 'user_settings') {
+              return { data: userSettings, error: userSettingsError }
             }
 
             return { data: null, error: { message: 'unexpected table' } }
-          },
-        }),
+          }
+
+          return {
+            single: loadSingle,
+            maybeSingle: loadSingle,
+          }
+        },
       }),
       update: (payload: Record<string, unknown>) => {
         calls.updates.push(payload)
@@ -212,6 +246,135 @@ describe('processOutboxBatch', () => {
       last_error: null,
     })
   })
+
+  it.each([
+    ['confirmation', 'notifications.requested'],
+    ['reschedule', 'notifications.reschedule.requested'],
+  ])(
+    'keeps the guest %s email enabled when the host has disabled new booking notifications',
+    async (_label, eventType) => {
+      const event = {
+        ...claimedEvent,
+        event_type: eventType,
+        dedupe_key: `booking:booking-id-1:${eventType}`,
+      }
+      const { client } = createMockClient({
+        events: [event],
+        userSettings: {
+          date_format: 'DD/MM/YYYY',
+          time_format: '24h',
+          notify_new_booking: false,
+          notify_cancellation: true,
+          notify_reminder: true,
+        },
+      })
+
+      const result = await processOutboxBatch({
+        adminClient: client as any,
+      })
+
+      expect(result.completed).toBe(1)
+      expect(sendBookingConfirmationToGuest).toHaveBeenCalledOnce()
+      expect(sendBookingNotificationToHost).not.toHaveBeenCalled()
+      expect(sendBookingConfirmationToGuest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          hostDisplayPreferences: {
+            timezone: 'America/Los_Angeles',
+            dateFormat: 'DD/MM/YYYY',
+            timeFormat: '24h',
+          },
+        })
+      )
+    }
+  )
+
+  it('keeps the guest cancellation email enabled when the host has disabled cancellation notifications', async () => {
+    const cancelEvent = {
+      ...claimedEvent,
+      event_type: 'notifications.cancel.requested',
+      dedupe_key: 'booking:booking-id-1:notifications-cancel-requested',
+    }
+    const { client } = createMockClient({
+      events: [cancelEvent],
+      userSettings: {
+        notify_new_booking: true,
+        notify_cancellation: false,
+        notify_reminder: true,
+      },
+    })
+
+    const result = await processOutboxBatch({ adminClient: client as any })
+
+    expect(result.completed).toBe(1)
+    expect(sendCancellationEmail).toHaveBeenCalledWith(
+      expect.any(Object),
+      'guest'
+    )
+    expect(sendCancellationEmail).not.toHaveBeenCalledWith(
+      expect.any(Object),
+      'host'
+    )
+  })
+
+  it('defaults missing notification settings to enabled', async () => {
+    const { client } = createMockClient({ userSettings: null })
+
+    const result = await processOutboxBatch({ adminClient: client as any })
+
+    expect(result.completed).toBe(1)
+    expect(sendBookingConfirmationToGuest).toHaveBeenCalledOnce()
+    expect(sendBookingNotificationToHost).toHaveBeenCalledOnce()
+  })
+
+  it('retries without sending any email when notification settings cannot be loaded', async () => {
+    const { client, calls } = createMockClient({
+      userSettingsError: { message: 'database unavailable' },
+    })
+
+    const result = await processOutboxBatch({ adminClient: client as any })
+
+    expect(result.failed).toBe(1)
+    expect(sendBookingConfirmationToGuest).not.toHaveBeenCalled()
+    expect(sendBookingNotificationToHost).not.toHaveBeenCalled()
+    expect(calls.updates[0]).toMatchObject({
+      status: 'failed',
+      last_error: 'Failed to load host notification preferences',
+    })
+  })
+
+  it.each([
+    [
+      'event type',
+      {
+        eventType: null,
+        eventTypeError: { message: 'event type unavailable' },
+      },
+      'Failed to load event type for booking notification',
+    ],
+    [
+      'host profile',
+      {
+        hostProfile: null,
+        hostProfileError: { message: 'profile unavailable' },
+      },
+      'Failed to load host profile for booking notification',
+    ],
+  ])(
+    'retries before sending when the %s cannot be loaded',
+    async (_label, options, expectedError) => {
+      const { client, calls } = createMockClient(options)
+
+      const result = await processOutboxBatch({ adminClient: client as any })
+
+      expect(result.failed).toBe(1)
+      expect(sendBookingConfirmationToGuest).not.toHaveBeenCalled()
+      expect(sendBookingNotificationToHost).not.toHaveBeenCalled()
+      expect(calls.updates[0]).toMatchObject({
+        status: 'failed',
+        last_error: expectedError,
+      })
+    }
+  )
 
   it('marks a claimed event failed when its handler throws', async () => {
     const { client, calls } = createMockClient({
@@ -351,6 +514,93 @@ describe('processOutboxBatch', () => {
     )
     expect(sendBookingReminderEmail).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps guest reminders enabled when host reminders are disabled in settings', async () => {
+    const reminderEvent = {
+      ...claimedEvent,
+      id: 'reminder-outbox-id',
+      event_type: 'notifications.reminder.requested',
+      dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+      payload: {
+        ...validReminderPayload,
+        channels: { guest: true, host: true },
+      },
+    }
+    const { client } = createMockClient({
+      events: [reminderEvent],
+      userSettings: {
+        notify_new_booking: true,
+        notify_cancellation: true,
+        notify_reminder: false,
+      },
+    })
+
+    const result = await processOutboxBatch({ adminClient: client as any })
+
+    expect(result.completed).toBe(1)
+    expect(sendBookingReminderEmail).toHaveBeenCalledWith(
+      expect.any(Object),
+      'guest',
+      60
+    )
+    expect(sendBookingReminderEmail).not.toHaveBeenCalledWith(
+      expect.any(Object),
+      'host',
+      60
+    )
+  })
+
+  it.each([
+    ['event type disabled', false, true, false],
+    ['host preference disabled', true, false, false],
+    ['both enabled', true, true, true],
+  ])(
+    'combines host reminder controls when %s',
+    async (_label, eventTypeHostEnabled, hostPreferenceEnabled, sendsHost) => {
+      const reminderEvent = {
+        ...claimedEvent,
+        id: 'reminder-outbox-id',
+        event_type: 'notifications.reminder.requested',
+        dedupe_key: 'booking:booking-id-1:notifications-reminder-requested',
+        payload: {
+          ...validReminderPayload,
+          channels: { guest: true, host: eventTypeHostEnabled },
+        },
+      }
+      const { client } = createMockClient({
+        events: [reminderEvent],
+        userSettings: {
+          notify_new_booking: true,
+          notify_cancellation: true,
+          notify_reminder: hostPreferenceEnabled,
+        },
+      })
+
+      const result = await processOutboxBatch({ adminClient: client as any })
+
+      expect(result.completed).toBe(1)
+      expect(sendBookingReminderEmail).toHaveBeenCalledWith(
+        expect.any(Object),
+        'guest',
+        60
+      )
+      if (sendsHost) {
+        expect(sendBookingReminderEmail).toHaveBeenCalledWith(
+          expect.any(Object),
+          'host',
+          60
+        )
+        expect(sendBookingReminderEmail).toHaveBeenCalledTimes(2)
+      } else {
+        expect(sendBookingReminderEmail).not.toHaveBeenCalledWith(
+          expect.any(Object),
+          'host',
+          60
+        )
+        expect(sendBookingReminderEmail).toHaveBeenCalledTimes(1)
+      }
+    }
+  )
 
   it.each(malformedReminderPayloadCases)(
     'fails malformed reminder payloads with %s',

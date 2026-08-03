@@ -1,43 +1,22 @@
 "use client";
 
+import Link from "next/link";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { TabsContent } from "@/components/ui/tabs";
 
 interface SettingsAccountTabProps {
-  name: string;
   email: string;
-  currentPassword: string;
-  newPassword: string;
-  savingAction: "account" | "preferences" | "notifications" | null;
-  passwordSaving: boolean;
   deleteSaving: boolean;
-  onNameChange: (value: string) => void;
-  onEmailChange: (value: string) => void;
-  onCurrentPasswordChange: (value: string) => void;
-  onNewPasswordChange: (value: string) => void;
-  onSaveAccount: () => void;
-  onUpdatePassword: () => void;
   onDeleteAccount: () => void;
 }
 
 export function SettingsAccountTab({
-  name,
   email,
-  currentPassword,
-  newPassword,
-  savingAction,
-  passwordSaving,
   deleteSaving,
-  onNameChange,
-  onEmailChange,
-  onCurrentPasswordChange,
-  onNewPasswordChange,
-  onSaveAccount,
-  onUpdatePassword,
   onDeleteAccount,
 }: SettingsAccountTabProps) {
   return (
@@ -45,73 +24,56 @@ export function SettingsAccountTab({
       <div className="space-y-6 mt-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold leading-tight tracking-tight">
               <User className="h-4 w-4" aria-hidden="true" />
-              Profile information
-            </CardTitle>
+              Sign-in email
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="settings-name">Name</Label>
-              <Input
-                id="settings-name"
-                value={name}
-                onChange={(event) => onNameChange(event.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="settings-email">Email</Label>
+            <div className="space-y-2">
+              <Label htmlFor="settings-email">Login email</Label>
               <Input
                 id="settings-email"
                 type="email"
+                autoComplete="email"
                 value={email}
-                onChange={(event) => onEmailChange(event.target.value)}
+                readOnly
+                className="bg-muted/50 text-muted-foreground"
+                aria-describedby="settings-email-description"
               />
+              <p
+                id="settings-email-description"
+                className="text-sm text-muted-foreground"
+              >
+                This is the canonical email from your sign-in account. Email
+                changes are temporarily unavailable in OpenSlot.
+              </p>
             </div>
-            <Button onClick={onSaveAccount} disabled={savingAction !== null}>
-              {savingAction === "account" ? "Saving..." : "Save changes"}
-            </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Change password</CardTitle>
+            <h2 className="text-base font-semibold leading-tight tracking-tight">
+              Password
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div>
-              <Label htmlFor="current-password">Current password</Label>
-              <Input
-                id="current-password"
-                type="password"
-                value={currentPassword}
-                onChange={(event) =>
-                  onCurrentPasswordChange(event.target.value)
-                }
-                placeholder="Enter current password"
-              />
-            </div>
-            <div>
-              <Label htmlFor="new-password">New password</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(event) => onNewPasswordChange(event.target.value)}
-                placeholder="Enter new password"
-              />
-            </div>
-            <Button onClick={onUpdatePassword} disabled={passwordSaving}>
-              {passwordSaving ? "Updating..." : "Update password"}
+            <p className="text-sm text-muted-foreground">
+              Password changes use the verified reset-code flow. We&apos;ll
+              send a reset code to your login email.
+            </p>
+            <Button asChild variant="outline">
+              <Link href="/forgot-password">Reset password</Link>
             </Button>
           </CardContent>
         </Card>
 
         <Card className="border-destructive/50">
           <CardHeader>
-            <CardTitle className="text-base text-destructive">
+            <h2 className="text-base font-semibold leading-tight tracking-tight text-destructive">
               Danger zone
-            </CardTitle>
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-muted-foreground">

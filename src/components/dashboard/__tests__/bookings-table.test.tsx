@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { BookingsTable } from '../bookings-table'
 import type { Booking } from '@/lib/booking-utils'
+import { DashboardDisplayPreferencesProvider } from '@/components/dashboard/display-preferences-provider'
 
 function booking(overrides: Partial<Booking> = {}): Booking {
   return {
@@ -45,5 +46,27 @@ describe('BookingsTable', () => {
     expect(onBookingClick).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'booking-1' })
     )
+  })
+
+  it('renders booking instants with the host display preferences', () => {
+    render(
+      <DashboardDisplayPreferencesProvider
+        preferences={{
+          timezone: 'America/Los_Angeles',
+          dateFormat: 'DD/MM/YYYY',
+          timeFormat: '24h',
+        }}
+      >
+        <BookingsTable
+          bookings={[booking()]}
+          category="upcoming"
+          onBookingClick={vi.fn()}
+        />
+      </DashboardDisplayPreferencesProvider>
+    )
+
+    expect(screen.getByText('09/05/2099')).toBeDefined()
+    expect(screen.getByText('10:00 – 10:30')).toBeDefined()
+    expect(screen.getByText('09/05/2099 · 10:00 – 10:30')).toBeDefined()
   })
 })
