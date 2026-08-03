@@ -1,10 +1,33 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   consumePublicRateLimit,
+  getClientIp,
   publicRateLimitResponse,
 } from '@/lib/security/rate-limit'
 
 describe('public rate limiting', () => {
+  it('prefers the Cloudflare client IP ahead of downstream proxy headers', () => {
+    const request = new Request('https://openslot.example/api/slots', {
+      headers: {
+        'cf-connecting-ip': '198.51.100.4',
+        'x-vercel-forwarded-for': '203.0.113.8',
+        'x-forwarded-for': '192.0.2.9, 203.0.113.10',
+      },
+    })
+
+    expect(getClientIp(request as any)).toBe('198.51.100.4')
+  })
+
+  it('uses the first canonical address from each proxy header', () => {
+    const request = new Request('https://openslot.example/api/slots', {
+      headers: {
+        'x-vercel-forwarded-for': ' 203.0.113.8, 192.0.2.9 ',
+      },
+    })
+
+    expect(getClientIp(request as any)).toBe('203.0.113.8')
+  })
+
   it('consumes a database-backed limit using a hashed request fingerprint', async () => {
     const single = vi.fn().mockResolvedValue({
       data: {

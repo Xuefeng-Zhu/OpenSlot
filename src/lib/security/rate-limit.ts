@@ -132,16 +132,20 @@ export function publicRateLimitResponseBody(
  * headers authoritatively.
  */
 export function getClientIp(request: NextRequest): string {
-  // Prefer Vercel's verified header over user-settable forwarded headers.
-  // 'x-vercel-forwarded-for' is set by Vercel's edge layer and cannot be
-  // spoofed by the client.
+  // Cloudflare is the outermost proxy in production, so its canonical client
+  // address takes precedence over the address Vercel sees from Cloudflare.
   return (
-    request.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() ??
-    request.headers.get('cf-connecting-ip') ??
-    request.headers.get('x-real-ip') ??
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    firstForwardedAddress(request.headers.get('cf-connecting-ip')) ??
+    firstForwardedAddress(request.headers.get('x-vercel-forwarded-for')) ??
+    firstForwardedAddress(request.headers.get('x-real-ip')) ??
+    firstForwardedAddress(request.headers.get('x-forwarded-for')) ??
     'unknown-ip'
   )
+}
+
+function firstForwardedAddress(value: string | null): string | null {
+  const address = value?.split(',')[0]?.trim()
+  return address || null
 }
 
 function hashRateLimitIdentifier(parts: Array<string | null | undefined>): string {

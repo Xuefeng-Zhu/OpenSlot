@@ -1,6 +1,7 @@
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { hmacSha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
+import { isSafeWebhookUrl } from '@/lib/validations/webhooks'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type WebhookDeliveryRow = Tables<'webhook_deliveries'>
@@ -215,6 +216,12 @@ async function deliverWebhook({
   endpoint: WebhookEndpointRow
   fetchImpl: typeof fetch
 }): Promise<{ status: number; body: string }> {
+  // Revalidate persisted endpoints at send time so legacy or externally
+  // modified rows cannot bypass the current SSRF protections.
+  if (!isSafeWebhookUrl(endpoint.url)) {
+    throw new Error('Webhook endpoint URL is not allowed')
+  }
+
   const body = JSON.stringify(delivery.payload)
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const signature = signWebhookPayload(endpoint.secret_token, timestamp, body)
