@@ -120,6 +120,21 @@ export default function BookingsClient({ bookings: initialBookings }: BookingsCl
   };
 
   const renderEmptyState = (tab: BookingCategory) => {
+    if (eventTypeFilter.trim()) {
+      return (
+        <EmptyState
+          icon={<Search className="h-6 w-6" aria-hidden="true" />}
+          heading="No matching bookings"
+          description="Try another event type or clear the filter to see this booking status."
+          action={{
+            label: "Clear filter",
+            onClick: () => setEventTypeFilter(""),
+            variant: "outline",
+          }}
+        />
+      );
+    }
+
     const messages: Record<
       BookingCategory,
       { heading: string; description: string }

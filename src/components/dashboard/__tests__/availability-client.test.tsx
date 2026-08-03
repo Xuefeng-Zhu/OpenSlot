@@ -3,6 +3,7 @@ import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AvailabilityClient } from '../availability-client'
 import { DashboardDisplayPreferencesProvider } from '../display-preferences-provider'
+import { DashboardNavigationGuardProvider } from '../navigation-guard-provider'
 import type { AvailabilitySchedule } from '../availability-model'
 
 const routerMocks = vi.hoisted(() => ({
@@ -51,24 +52,26 @@ function schedules(): AvailabilitySchedule[] {
 function renderAvailability(
   overrides: Partial<ComponentProps<typeof AvailabilityClient>> = {}
 ) {
-  render(
-    <AvailabilityClient
-      schedules={schedules()}
-      selectedScheduleId="schedule-default"
-      initialRules={[
-        {
-          id: 'rule-1',
-          weekday: 1,
-          start_time: '09:00',
-          end_time: '17:00',
-          is_active: true,
-        },
-      ]}
-      initialOverrides={[]}
-      initialScheduleUpdatedAt={initialScheduleUpdatedAt}
-      timezone="America/New_York"
-      {...overrides}
-    />
+  return render(
+    <DashboardNavigationGuardProvider>
+      <AvailabilityClient
+        schedules={schedules()}
+        selectedScheduleId="schedule-default"
+        initialRules={[
+          {
+            id: 'rule-1',
+            weekday: 1,
+            start_time: '09:00',
+            end_time: '17:00',
+            is_active: true,
+          },
+        ]}
+        initialOverrides={[]}
+        initialScheduleUpdatedAt={initialScheduleUpdatedAt}
+        timezone="America/New_York"
+        {...overrides}
+      />
+    </DashboardNavigationGuardProvider>
   )
 }
 
@@ -202,7 +205,7 @@ describe('AvailabilityClient', () => {
     expect(routerMocks.push).toHaveBeenCalledWith(
       '/availability?scheduleId=schedule-project'
     )
-    expect(routerMocks.refresh).toHaveBeenCalled()
+    expect(routerMocks.refresh).not.toHaveBeenCalled()
   })
 
   it('renames the selected schedule from the action menu', async () => {
@@ -258,7 +261,171 @@ describe('AvailabilityClient', () => {
         screen.getByRole('button', { name: 'Active schedule' }).textContent
       ).toContain('Client hours (default)')
     )
-    expect(routerMocks.refresh).toHaveBeenCalled()
+    expect(routerMocks.refresh).not.toHaveBeenCalled()
+  })
+
+  it('guards schedule changes while a date override draft is incomplete', async () => {
+    renderAvailability()
+
+    fireEvent.change(screen.getByLabelText('Date'), {
+      target: { value: '2099-05-10' },
+    })
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Active schedule' }), {
+      button: 0,
+      ctrlKey: false,
+    })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Sales hours' }))
+
+    expect(routerMocks.push).not.toHaveBeenCalled()
+    expect(
+      screen.getByRole('dialog', { name: 'Discard unsaved changes?' })
+    ).toBeDefined()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Keep editing' }))
+    expect(screen.getByLabelText('Date')).toHaveProperty('value', '2099-05-10')
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Active schedule' }), {
+      button: 0,
+      ctrlKey: false,
+    })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Sales hours' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Discard and continue' })
+    )
+
+    expect(routerMocks.push).toHaveBeenCalledWith(
+      '/availability?scheduleId=schedule-sales'
+    )
+    expect(screen.getByLabelText('Date')).toHaveProperty('value', '')
+  })
+
+  it('does not erase weekly drafts when same-schedule server props refresh', () => {
+    const initialProps: ComponentProps<typeof AvailabilityClient> = {
+      schedules: schedules(),
+      selectedScheduleId: 'schedule-default',
+      initialRules: [
+        {
+          id: 'rule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '17:00',
+          is_active: true,
+        },
+      ],
+      initialOverrides: [],
+      initialScheduleUpdatedAt,
+      timezone: 'America/New_York',
+    }
+    const { rerender } = render(
+      <DashboardNavigationGuardProvider>
+        <AvailabilityClient {...initialProps} />
+      </DashboardNavigationGuardProvider>
+    )
+
+    fireEvent.change(screen.getByLabelText('End time for Monday interval 1'), {
+      target: { value: '16:30' },
+    })
+
+    rerender(
+      <DashboardNavigationGuardProvider>
+        <AvailabilityClient
+          {...initialProps}
+          initialRules={[
+            {
+              ...initialProps.initialRules[0],
+              end_time: '15:00',
+            },
+          ]}
+          initialScheduleUpdatedAt="2026-08-03T08:05:00.000Z"
+        />
+      </DashboardNavigationGuardProvider>
+    )
+
+    expect(screen.getByLabelText('End time for Monday interval 1')).toHaveProperty(
+      'value',
+      '16:30'
+    )
+  })
+
+  it('adopts a newer same-schedule server version when the editor is clean', () => {
+    const initialProps: ComponentProps<typeof AvailabilityClient> = {
+      schedules: schedules(),
+      selectedScheduleId: 'schedule-default',
+      initialRules: [
+        {
+          id: 'rule-1',
+          weekday: 1,
+          start_time: '09:00',
+          end_time: '17:00',
+          is_active: true,
+        },
+      ],
+      initialOverrides: [],
+      initialScheduleUpdatedAt,
+      timezone: 'America/New_York',
+    }
+    const { rerender } = render(
+      <DashboardNavigationGuardProvider>
+        <AvailabilityClient {...initialProps} />
+      </DashboardNavigationGuardProvider>
+    )
+
+    rerender(
+      <DashboardNavigationGuardProvider>
+        <AvailabilityClient
+          {...initialProps}
+          initialRules={[
+            {
+              ...initialProps.initialRules[0],
+              end_time: '15:00',
+            },
+          ]}
+          initialScheduleUpdatedAt="2026-08-03T08:05:00.000Z"
+        />
+      </DashboardNavigationGuardProvider>
+    )
+
+    expect(screen.getByLabelText('End time for Monday interval 1')).toHaveProperty(
+      'value',
+      '15:00'
+    )
+  })
+
+  it('clears the navigation guard after a successful availability save', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body))
+        return jsonResponse({
+          success: true,
+          rules: body.rules,
+          overrides: body.overrides,
+          scheduleUpdatedAt: nextScheduleUpdatedAt,
+        })
+      })
+    )
+    renderAvailability()
+
+    fireEvent.change(screen.getByLabelText('End time for Monday interval 1'), {
+      target: { value: '16:30' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save availability' }))
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: 'Save availability' })
+      ).toBeNull()
+    )
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Active schedule' }), {
+      button: 0,
+      ctrlKey: false,
+    })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Sales hours' }))
+
+    expect(routerMocks.push).toHaveBeenCalledWith(
+      '/availability?scheduleId=schedule-sales'
+    )
+    expect(screen.queryByText('Discard unsaved changes?')).toBeNull()
   })
 
   it('disables custom date-specific hours until the time range is valid', () => {

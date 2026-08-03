@@ -76,6 +76,7 @@ export function ContactProfileClient({
   const displayPreferences = useDashboardDisplayPreferences();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [anonymizing, setAnonymizing] = useState(false);
+  const displayEmail = contact.displayEmail.trim() || "Email unavailable";
 
   const handleAnonymize = async () => {
     setAnonymizing(true);
@@ -118,13 +119,13 @@ export function ContactProfileClient({
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent text-accent-foreground">
             <UserRound className="h-7 w-7" aria-hidden="true" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="text-2xl font-bold tracking-tight">
               {contact.displayName}
             </h1>
-            <p className="mt-1 flex items-center gap-2 text-muted-foreground">
-              <Mail className="h-4 w-4" aria-hidden="true" />
-              {contact.displayEmail}
+            <p className="mt-1 flex min-w-0 items-start gap-2 text-muted-foreground">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="min-w-0 break-all">{displayEmail}</span>
             </p>
           </div>
         </div>
@@ -157,7 +158,7 @@ export function ContactProfileClient({
 
         {timeline.length === 0 ? (
           <div className="rounded-md border border-border p-6 text-sm text-muted-foreground">
-            No booking history found.
+            No meeting history available.
           </div>
         ) : (
           <div className="rounded-md border border-border">

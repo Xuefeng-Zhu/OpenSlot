@@ -1,7 +1,13 @@
-import { redirect } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import { createServerBackendClient } from "@/lib/backend/server"
+import {
+  optionalPageRow,
+  pageCollection,
+  pageUserOrNull,
+} from "@/lib/backend/page-data"
 import type { Tables } from "@/lib/types/database"
 import { AvailabilityClient } from "@/components/dashboard/availability-client"
+import { AvailabilityNoSchedulesState } from "@/components/dashboard/availability-no-schedules-state"
 import { toDateInputValue, toTimeInputValue } from "@/lib/utils/time"
 import { routeMetadata } from "@/app/route-metadata"
 
@@ -17,48 +23,48 @@ export default async function AvailabilityPage({
   const resolvedSearchParams = await searchParams
   const backendClient = await createServerBackendClient()
 
-  // Get authenticated user
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser()
+  const user = pageUserOrNull(await backendClient.auth.getUser())
 
   if (!user) {
     redirect("/login")
   }
 
-  // Fetch profile (id, default_timezone) using auth_user_id
-  const { data: profileData } = await backendClient
-    .from("profiles")
-    .select("id, default_timezone")
-    .eq("auth_user_id", user.id)
-    .single()
-
-  const profile = profileData as Pick<
-    Tables<"profiles">,
-    "id" | "default_timezone"
-  > | null
+  const profile = optionalPageRow(
+    await backendClient
+      .from("profiles")
+      .select("id, default_timezone")
+      .eq("auth_user_id", user.id)
+      .single(),
+    "dashboard profile"
+  ) as Pick<Tables<"profiles">, "id" | "default_timezone"> | null
 
   if (!profile) {
     redirect("/onboarding")
   }
 
-  const { data: schedulesData } = await backendClient
-    .from("schedules")
-    .select("id, name, timezone, is_default, created_at, updated_at")
-    .eq("user_id", profile.id)
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: true })
+  const [schedulesResult, eventTypeSchedulesResult] = await Promise.all([
+    backendClient
+      .from("schedules")
+      .select("id, name, timezone, is_default, created_at, updated_at")
+      .eq("user_id", profile.id)
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true }),
+    backendClient
+      .from("event_types")
+      .select("id, title, slug, schedule_id")
+      .eq("user_id", profile.id),
+  ])
 
-  const { data: eventTypeScheduleData } = await backendClient
-    .from("event_types")
-    .select("id, title, slug, schedule_id")
-    .eq("user_id", profile.id)
+  const eventTypeScheduleData = pageCollection(
+    eventTypeSchedulesResult,
+    "event type schedules"
+  ) as Array<Pick<Tables<"event_types">, "id" | "title" | "slug" | "schedule_id">>
 
   const eventTypesBySchedule = new Map<
     string,
     Array<{ id: string; title: string; slug: string }>
   >()
-  for (const eventType of eventTypeScheduleData ?? []) {
+  for (const eventType of eventTypeScheduleData) {
     const scheduleId = eventType.schedule_id
     const assignedEventTypes = eventTypesBySchedule.get(scheduleId) ?? []
     assignedEventTypes.push({
@@ -69,10 +75,14 @@ export default async function AvailabilityPage({
     eventTypesBySchedule.set(scheduleId, assignedEventTypes)
   }
 
-  const schedules = ((schedulesData as Array<Pick<
+  const schedulesData = pageCollection(
+    schedulesResult,
+    "availability schedules"
+  ) as Array<Pick<
     Tables<"schedules">,
     "id" | "name" | "timezone" | "is_default" | "created_at" | "updated_at"
-  >>) ?? []).map((schedule) => ({
+  >>
+  const schedules = schedulesData.map((schedule) => ({
     id: schedule.id,
     name: schedule.name,
     timezone: schedule.timezone,
@@ -83,28 +93,49 @@ export default async function AvailabilityPage({
       eventTypesBySchedule.get(schedule.id)?.length ?? 0,
   }))
 
+  const requestedScheduleId = resolvedSearchParams?.scheduleId
+  const requestedSchedule = requestedScheduleId
+    ? schedules.find((schedule) => schedule.id === requestedScheduleId)
+    : undefined
+
+  if (requestedScheduleId && !requestedSchedule) {
+    notFound()
+  }
+
   const selectedSchedule =
-    schedules.find(
-      (schedule) => schedule.id === resolvedSearchParams?.scheduleId
-    ) ??
+    requestedSchedule ??
     schedules.find((schedule) => schedule.is_default) ??
     schedules[0]
 
   if (!selectedSchedule) {
-    redirect("/onboarding")
+    return (
+      <AvailabilityNoSchedulesState
+        timezone={profile.default_timezone || "UTC"}
+      />
+    )
   }
 
-  // Fetch availability rules for the selected schedule
-  const { data: rulesData } = await backendClient
-    .from("availability_rules")
-    .select("id, weekday, start_time, end_time, is_active")
-    .eq("user_id", profile.id)
-    .eq("schedule_id", selectedSchedule.id)
+  const [rulesResult, overridesResult] = await Promise.all([
+    backendClient
+      .from("availability_rules")
+      .select("id, weekday, start_time, end_time, is_active")
+      .eq("user_id", profile.id)
+      .eq("schedule_id", selectedSchedule.id),
+    backendClient
+      .from("availability_overrides")
+      .select("id, date, start_time, end_time, is_available, reason")
+      .eq("user_id", profile.id)
+      .eq("schedule_id", selectedSchedule.id),
+  ])
 
-  const rules = ((rulesData as Array<Pick<
+  const rulesData = pageCollection(
+    rulesResult,
+    "availability rules"
+  ) as Array<Pick<
     Tables<"availability_rules">,
     "id" | "weekday" | "start_time" | "end_time" | "is_active"
-  >>) ?? []).map((rule) => ({
+  >>
+  const rules = rulesData.map((rule) => ({
     id: rule.id,
     weekday: rule.weekday,
     start_time: toTimeInputValue(rule.start_time) ?? "",
@@ -112,17 +143,14 @@ export default async function AvailabilityPage({
     is_active: rule.is_active,
   }))
 
-  // Fetch availability overrides for the authenticated user
-  const { data: overridesData } = await backendClient
-    .from("availability_overrides")
-    .select("id, date, start_time, end_time, is_available, reason")
-    .eq("user_id", profile.id)
-    .eq("schedule_id", selectedSchedule.id)
-
-  const overrides = ((overridesData as Array<Pick<
+  const overridesData = pageCollection(
+    overridesResult,
+    "availability overrides"
+  ) as Array<Pick<
     Tables<"availability_overrides">,
     "id" | "date" | "start_time" | "end_time" | "is_available" | "reason"
-  >>) ?? []).map((override) => ({
+  >>
+  const overrides = overridesData.map((override) => ({
     id: override.id,
     date: toDateInputValue(override.date) ?? "",
     start_time: toTimeInputValue(override.start_time),

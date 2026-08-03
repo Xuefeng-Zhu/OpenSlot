@@ -25,6 +25,10 @@ import {
   formatDashboardBookingDuration,
   formatDashboardBookingTime,
 } from "./dashboard-format";
+import {
+  dashboardAvailabilityCopy,
+  type DashboardAvailabilityState,
+} from "@/lib/dashboard/availability-state";
 
 export interface DashboardBooking {
   id: string;
@@ -41,6 +45,7 @@ export interface DashboardClientProps {
   };
   upcomingBookings: DashboardBooking[];
   activeEventTypeCount: number;
+  availabilityState: DashboardAvailabilityState;
   bookingLink: string;
 }
 
@@ -53,6 +58,7 @@ export function DashboardClient({
   profile,
   upcomingBookings,
   activeEventTypeCount,
+  availabilityState,
   bookingLink,
 }: DashboardClientProps) {
   const { toast } = useToast();
@@ -60,6 +66,7 @@ export function DashboardClient({
   const displayPreferences = useDashboardDisplayPreferences();
 
   const displayedBookings = getDisplayedBookings(upcomingBookings);
+  const availability = dashboardAvailabilityCopy[availabilityState];
 
   const handleCopyLink = () => {
     copyTextToClipboard(bookingLink)
@@ -93,15 +100,20 @@ export function DashboardClient({
           value={activeEventTypeCount}
           icon={<CalendarCheck className="h-5 w-5" />}
           action={{ label: "Manage event types", href: "/event-types" }}
-          subtitle="All systems go"
         />
         <MetricCard
           title="Availability status"
-          value="Open"
+          value={availability.value}
           valueClassName="text-primary"
           icon={<Activity className="h-5 w-5" />}
-          action={{ label: "Manage availability", href: "/availability" }}
-          subtitle="You're available to be booked"
+          action={{
+            label:
+              availabilityState === "no_active_event_types"
+                ? "Manage event types"
+                : "Manage availability",
+            href: availability.actionHref,
+          }}
+          subtitle={availability.description}
         />
         <Card className="h-full">
           <CardContent className="flex h-full flex-col p-5">

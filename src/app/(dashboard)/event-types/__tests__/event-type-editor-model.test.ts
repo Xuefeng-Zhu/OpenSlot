@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildEventTypePayload,
   createEventTypeEditorState,
+  hasEventTypeEditorChanges,
 } from "../event-type-editor-model";
 
 describe("event type editor model", () => {
@@ -67,5 +68,59 @@ describe("event type editor model", () => {
       video_provider: "microsoft_teams",
       is_active: false,
     });
+  });
+
+  it("compares nested invitee questions semantically", () => {
+    const saved = createEventTypeEditorState({
+      id: "event-type-3",
+      schedule_id: "33333333-3333-4333-8333-333333333333",
+      title: "Research call",
+      slug: "research-call",
+      description: "",
+      duration_minutes: 30,
+      buffer_before_minutes: 0,
+      buffer_after_minutes: 0,
+      min_notice_minutes: 60,
+      max_booking_days_ahead: 30,
+      location_type: "online",
+      location_value: "https://example.com/research",
+      invitee_questions: [
+        {
+          id: "topic",
+          label: "Choose a topic",
+          type: "select",
+          required: true,
+          options: ["Product", "Research"],
+        },
+      ],
+      is_active: true,
+      reminder_enabled: false,
+      reminder_minutes_before: 1440,
+      reminder_guest_enabled: true,
+      reminder_host_enabled: true,
+    });
+    const whitespaceOnly = {
+      ...saved,
+      title: "  Research call  ",
+      invitee_questions: [
+        {
+          ...saved.invitee_questions[0],
+          label: "  Choose a topic  ",
+          options: [" Product ", "Research"],
+        },
+      ],
+    };
+    const changedOption = {
+      ...whitespaceOnly,
+      invitee_questions: [
+        {
+          ...whitespaceOnly.invitee_questions[0],
+          options: ["Product", "Engineering"],
+        },
+      ],
+    };
+
+    expect(hasEventTypeEditorChanges(whitespaceOnly, saved)).toBe(false);
+    expect(hasEventTypeEditorChanges(changedOption, saved)).toBe(true);
   });
 });

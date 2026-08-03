@@ -1,11 +1,67 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import type { AnchorHTMLAttributes } from "react";
 import { MobileDrawer } from "../mobile-drawer";
+import {
+  DashboardNavigationGuardProvider,
+  useDashboardUnsavedChanges,
+} from "@/components/dashboard/navigation-guard-provider";
+
+const routerMock = {
+  refresh: vi.fn(),
+  push: vi.fn(),
+  replace: vi.fn(),
+};
+
+interface MockLinkProps
+  extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> {
+  href: string;
+  onNavigate?: (event: { preventDefault: () => void }) => void;
+  replace?: boolean;
+  scroll?: boolean;
+  prefetch?: boolean | "auto" | null;
+}
+
+vi.mock("next/link", async () => {
+  const React = await import("react");
+
+  return {
+    default: React.forwardRef<HTMLAnchorElement, MockLinkProps>(
+      function MockNextLink(
+        { href, onNavigate, onClick, replace, scroll, prefetch, ...props },
+        ref
+      ) {
+        void replace;
+        void scroll;
+        void prefetch;
+
+        return (
+          <a
+            {...props}
+            ref={ref}
+            href={href}
+            onClick={(event) => {
+              onClick?.(event);
+              if (event.defaultPrevented) return;
+              onNavigate?.({ preventDefault: () => event.preventDefault() });
+            }}
+          />
+        );
+      }
+    ),
+  };
+});
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
+  useRouter: () => routerMock,
 }));
+
+function DirtyDrawerState({ children }: { children: React.ReactNode }) {
+  useDashboardUnsavedChanges("mobile-drawer-test", true, () => undefined);
+  return children;
+}
 
 describe("MobileDrawer", () => {
   const defaultProps = {
@@ -57,11 +113,26 @@ describe("MobileDrawer", () => {
     expect(bookingsLink?.getAttribute("aria-current")).toBeNull();
   });
 
-  it("calls onClose when a nav link is clicked", () => {
+  it("closes only after dirty navigation is confirmed", () => {
     const onClose = vi.fn();
-    render(<MobileDrawer open={true} onClose={onClose} user={defaultProps.user} />);
+    render(
+      <DashboardNavigationGuardProvider>
+        <DirtyDrawerState>
+          <MobileDrawer
+            open={true}
+            onClose={onClose}
+            user={defaultProps.user}
+          />
+        </DirtyDrawerState>
+      </DashboardNavigationGuardProvider>
+    );
 
     fireEvent.click(screen.getByText("Bookings"));
+    expect(onClose).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Discard and continue" })
+    );
     expect(onClose).toHaveBeenCalled();
   });
 

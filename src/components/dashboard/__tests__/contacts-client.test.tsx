@@ -79,4 +79,35 @@ describe('ContactsClient', () => {
 
     expect(screen.getByText('No contacts yet')).toBeDefined()
   })
+
+  it('distinguishes a filtered miss and restores contacts from the empty state', () => {
+    render(<ContactsClient contacts={[contact()]} />)
+
+    fireEvent.change(screen.getByLabelText('Search contacts'), {
+      target: { value: 'nobody' },
+    })
+
+    expect(screen.getByText('No matching contacts')).toBeDefined()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear search' }))
+
+    expect(screen.getAllByText('Ada Lovelace').length).toBeGreaterThan(0)
+    expect(screen.queryByText('No matching contacts')).toBeNull()
+  })
+
+  it('renders missing email copy and allows long mobile emails to wrap', () => {
+    const longEmail = `${'long-address'.repeat(8)}@example.com`
+    const { rerender } = render(
+      <ContactsClient contacts={[contact({ displayEmail: '' })]} />
+    )
+
+    expect(screen.getAllByText('Email unavailable').length).toBeGreaterThan(0)
+
+    rerender(<ContactsClient contacts={[contact({ displayEmail: longEmail })]} />)
+    const mobileEmail = screen
+      .getAllByText(longEmail)
+      .find((element) => element.tagName === 'SPAN')
+
+    expect(mobileEmail?.classList.contains('break-all')).toBe(true)
+    expect(mobileEmail?.closest('p')?.classList.contains('truncate')).toBe(false)
+  })
 })

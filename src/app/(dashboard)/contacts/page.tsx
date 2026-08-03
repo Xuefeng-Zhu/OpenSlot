@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
 import { createServerBackendClient } from "@/lib/backend/server";
+import {
+  optionalPageRow,
+  pageCollection,
+  pageUserOrNull,
+} from "@/lib/backend/page-data";
 import { ContactsClient } from "@/components/dashboard/contacts-client";
 import {
   buildContactSummaries,
@@ -33,30 +38,26 @@ interface BookingRow {
 export default async function ContactsPage() {
   const backendClient = await createServerBackendClient();
 
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser();
+  const user = pageUserOrNull(await backendClient.auth.getUser());
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await backendClient
-    .from("profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  const profile = profileData as Pick<Tables<"profiles">, "id"> | null;
+  const profile = optionalPageRow(
+    await backendClient
+      .from("profiles")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .single(),
+    "dashboard profile"
+  ) as Pick<Tables<"profiles">, "id"> | null;
 
   if (!profile) {
     redirect("/onboarding");
   }
 
-  const [
-    { data: contactsData, error: contactsError },
-    { data: bookingsData, error: bookingsError },
-  ] = await Promise.all([
+  const [contactsResult, bookingsResult] = await Promise.all([
     backendClient
       .from("contacts")
       .select(
@@ -73,19 +74,10 @@ export default async function ContactsPage() {
       .eq("host_user_id", profile.id),
   ]);
 
-  if (contactsError) {
-    console.error("Error loading contacts:", contactsError);
-    throw new Error("Failed to load contacts");
-  }
-
-  if (bookingsError) {
-    console.error("Error loading contact booking history:", bookingsError);
-    throw new Error("Failed to load contact booking history");
-  }
-
   const contacts = buildContactSummaries(
-    ((contactsData as ContactRecord[]) ?? []),
-    ((bookingsData as BookingRow[]) ?? []).map(toContactBookingRecord)
+    pageCollection(contactsResult, "contacts") as ContactRecord[],
+    (pageCollection(bookingsResult, "contact booking history") as BookingRow[])
+      .map(toContactBookingRecord)
   );
 
   return <ContactsClient contacts={contacts} />;

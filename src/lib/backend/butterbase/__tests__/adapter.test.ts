@@ -84,6 +84,61 @@ describe('Butterbase backend adapter', () => {
     )
   })
 
+  it('hydrates the user after Butterbase refresh rotates token-only responses', async () => {
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: 'refreshed-access-token',
+            refresh_token: 'refreshed-refresh-token',
+            expires_in: 3600,
+            token_type: 'Bearer',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            user: {
+              id: 'auth-user-1',
+              email: 'host@example.com',
+              email_verified: true,
+              display_name: 'Host',
+              avatar_url: null,
+            },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        )
+      )
+    const backend = createButterbaseBackend({
+      appId: 'app_openslot',
+      apiUrl: 'https://api.butterbase.ai',
+      apiKey: 'service-key',
+      fetchImpl,
+    })
+
+    const result = await backend.auth.refreshSession('stale-access-refresh-token')
+
+    expect(result.error).toBeNull()
+    expect(result.data).toMatchObject({
+      accessToken: 'refreshed-access-token',
+      refreshToken: 'refreshed-refresh-token',
+      user: { id: 'auth-user-1', email: 'host@example.com' },
+    })
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
+      'https://api.butterbase.ai/auth/app_openslot/me',
+      expect.objectContaining({
+        headers: expect.any(Headers),
+      })
+    )
+    expect(
+      new Headers(fetchImpl.mock.calls[1][1]?.headers).get('Authorization')
+    ).toBe('Bearer refreshed-access-token')
+  })
+
   it('maps wrapped signup user responses from Butterbase auth', async () => {
     const fetchImpl = mockFetch({
       user: {
@@ -230,11 +285,13 @@ describe('Butterbase backend adapter', () => {
       })
     )
     expect(requestHeaders(fetchImpl).get('Authorization')).toBe(
-      'Bearer function-secret'
+      'Bearer service-key'
     )
   })
 
   it.each([
+    ['createSlotHold', 'create-slot-hold'],
+    ['consumePublicRateLimit', 'consume-public-rate-limit'],
     ['saveAvailability', 'save-availability'],
     ['saveDashboardPreferences', 'save-dashboard-preferences'],
   ] as const)(

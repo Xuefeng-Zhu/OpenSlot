@@ -1,7 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { User } from "lucide-react";
+import { GuardedLink } from "@/components/dashboard/guarded-link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -64,7 +64,7 @@ export function SettingsAccountTab({
               send a reset code to your login email.
             </p>
             <Button asChild variant="outline">
-              <Link href="/forgot-password">Reset password</Link>
+              <GuardedLink href="/forgot-password">Reset password</GuardedLink>
             </Button>
           </CardContent>
         </Card>

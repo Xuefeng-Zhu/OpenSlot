@@ -84,7 +84,9 @@ test.describe("guest booking flow", () => {
       await expect(dialog.getByText(guestName)).toBeVisible();
       await expect(dialog.getByText(guestEmail).first()).toBeVisible();
       await expect(dialog.getByText(eventType.title)).toBeVisible();
-      await expect(dialog.getByText("America/New_York")).toBeVisible();
+      await expect(
+        dialog.getByText("Guest timezone: America/New_York", { exact: true })
+      ).toBeVisible();
     } finally {
       await cleanupEventType(adminClient, eventType.id);
     }

@@ -1,7 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  useDashboardNavigationGuard,
+  useDashboardUnsavedChanges,
+} from "@/components/dashboard/navigation-guard-provider";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
@@ -24,7 +28,9 @@ import {
   type ApiResponse,
   type EditableEventType,
   type FieldErrors,
+  createEventTypeEditorState,
   firstFieldErrors,
+  hasEventTypeEditorChanges,
   videoProviderHealth,
 } from "./event-type-editor-model";
 import { useEventTypeEditorState } from "./use-event-type-editor-state";
@@ -122,6 +128,7 @@ export function EventTypeEditor({
   calendarConnectionsLoadFailed = false,
 }: EventTypeEditorProps) {
   const router = useRouter();
+  const { requestNavigation } = useDashboardNavigationGuard();
   const { toast } = useToast();
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,7 +151,14 @@ export function EventTypeEditor({
     updateQuestionOptions,
     selectLocation,
     buildPayload,
+    reset,
   } = useEventTypeEditorState(initialEventType, defaultScheduleId);
+  const initialValues = useMemo(
+    () => createEventTypeEditorState(initialEventType, defaultScheduleId),
+    [defaultScheduleId, initialEventType]
+  );
+  const [savedValues, setSavedValues] = useState(initialValues);
+  const isDirty = hasEventTypeEditorChanges(values, savedValues);
   const selectedVideoHealth = !calendarConnectionsLoadFailed && values.video_provider
     ? videoProviderHealth(values.video_provider, calendarConnections)
     : null;
@@ -152,6 +166,12 @@ export function EventTypeEditor({
     mode === "edit" && initialEventType
       ? `event-type-editor-${initialEventType.id}`
       : "event-type-editor-new";
+  const handleDiscard = useCallback(() => {
+    reset(savedValues);
+    setServerError("");
+  }, [reset, savedValues]);
+
+  useDashboardUnsavedChanges(editorFormId, isDirty, handleDiscard);
 
   const toggleSection = (id: FormSectionId) => {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -163,6 +183,8 @@ export function EventTypeEditor({
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (mode === "edit" && !isDirty) return;
 
     const parsed = eventTypeSchema.safeParse(buildPayload());
 
@@ -222,6 +244,7 @@ export function EventTypeEditor({
         title: mode === "create" ? "Event type created" : "Event type updated",
         description: `"${parsed.data.title}" has been saved successfully.`,
       });
+      setSavedValues(values);
       router.push("/event-types");
       router.refresh();
     } catch (error) {
@@ -237,7 +260,9 @@ export function EventTypeEditor({
   };
 
   const handleCancel = () => {
-    router.push("/event-types");
+    requestNavigation(() => {
+      router.push("/event-types");
+    });
   };
 
   const renderSection = (sectionId: FormSectionId) => {
@@ -371,7 +396,11 @@ export function EventTypeEditor({
         <Button type="button" variant="outline" onClick={handleCancel}>
           Cancel
         </Button>
-        <Button type="submit" form={editorFormId} disabled={isSubmitting}>
+        <Button
+          type="submit"
+          form={editorFormId}
+          disabled={isSubmitting || (mode === "edit" && !isDirty)}
+        >
           {isSubmitting ? "Saving..." : "Save"}
         </Button>
       </div>

@@ -9,6 +9,10 @@ import type { Tables } from '@/lib/types/database'
 import { routeMetadata } from '@/app/route-metadata'
 import { DashboardDisplayPreferencesProvider } from '@/components/dashboard/display-preferences-provider'
 import { normalizeDashboardDisplayPreferences } from '@/lib/dashboard/display-preferences'
+import {
+  optionalPageRow,
+  pageUserOrNull,
+} from '@/lib/backend/page-data'
 
 export const runtime = 'edge'
 export const metadata = routeMetadata.dashboard
@@ -20,41 +24,37 @@ export default async function DashboardLayout({
 }) {
   const backendClient = await createServerBackendClient()
 
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser()
+  const user = pageUserOrNull(await backendClient.auth.getUser())
 
   if (!user) {
     redirect('/login')
   }
 
-  const { data: profile } = await backendClient
-    .from('profiles')
-    .select('id, name, email, username, default_timezone')
-    .eq('auth_user_id', user.id)
-    .single()
+  const typedProfile = optionalPageRow(
+    await backendClient
+      .from('profiles')
+      .select('id, name, email, username, default_timezone')
+      .eq('auth_user_id', user.id)
+      .single(),
+    'dashboard profile'
+  ) as Pick<
+      Tables<'profiles'>,
+      'id' | 'name' | 'email' | 'username' | 'default_timezone'
+    > | null
 
-  const typedProfile = profile as Pick<
-    Tables<'profiles'>,
-    'id' | 'name' | 'email' | 'username' | 'default_timezone'
-  > | null
-
-  const { data: settings, error: settingsError } = typedProfile
-    ? await backendClient
-        .from('user_settings')
-        .select('date_format, time_format')
-        .eq('profile_id', typedProfile.id)
-        .maybeSingle()
-    : { data: null, error: null }
-
-  if (settingsError) {
-    throw new Error('Failed to load dashboard display preferences')
-  }
-
-  const typedSettings = settings as Pick<
-    Tables<'user_settings'>,
-    'date_format' | 'time_format'
-  > | null
+  const typedSettings = typedProfile
+    ? (optionalPageRow(
+        await backendClient
+          .from('user_settings')
+          .select('date_format, time_format')
+          .eq('profile_id', typedProfile.id)
+          .maybeSingle(),
+        'dashboard display preferences'
+      ) as Pick<
+        Tables<'user_settings'>,
+        'date_format' | 'time_format'
+      > | null)
+    : null
   const displayPreferences = normalizeDashboardDisplayPreferences({
     timezone: typedProfile?.default_timezone,
     dateFormat: typedSettings?.date_format,

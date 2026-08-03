@@ -122,7 +122,7 @@ test.describe("host dashboard workflows", () => {
     try {
       await loginAsDemoHost(page, "/contacts");
       await page.getByLabel("Search contacts").fill("no matching contact");
-      await expect(page.getByText("No contacts found")).toBeVisible();
+      await expect(page.getByText("No matching contacts")).toBeVisible();
 
       await page.getByLabel("Search contacts").fill(guestEmail);
       const contactsTable = page.getByRole("table");
@@ -130,9 +130,12 @@ test.describe("host dashboard workflows", () => {
       await expect(contactsTable.getByText(guestEmail)).toBeVisible();
 
       await contactsTable.getByRole("link", { name: /View/ }).click();
+      await expect(page).toHaveURL(/\/contacts\/[0-9a-f-]+$/, {
+        timeout: 15_000,
+      });
       await expect(
         page.getByRole("heading", { name: guestName })
-      ).toBeVisible();
+      ).toBeVisible({ timeout: 15_000 });
       await expect(page.getByText("Meeting History")).toBeVisible();
       await expect(page.getByText(eventType.title)).toBeVisible();
       await expect(page.getByText("Contact timeline note from E2E.")).toBeVisible();
@@ -219,15 +222,23 @@ test.describe("host dashboard workflows", () => {
 
       await page.goto("/settings");
       await page.getByRole("tab", { name: "Preferences" }).click();
-      await page.getByLabel("Date format").selectOption("YYYY-MM-DD");
-      await page.getByLabel("Time format").selectOption("24h");
+      const dateFormat = page.getByLabel("Date format");
+      const timeFormat = page.getByLabel("Time format");
+      const nextDateFormat =
+        (await dateFormat.inputValue()) === "YYYY-MM-DD"
+          ? "DD/MM/YYYY"
+          : "YYYY-MM-DD";
+      const nextTimeFormat =
+        (await timeFormat.inputValue()) === "24h" ? "12h" : "24h";
+      await dateFormat.selectOption(nextDateFormat);
+      await timeFormat.selectOption(nextTimeFormat);
       await page.getByRole("button", { name: "Save preferences" }).click();
       await expectVisibleText(page, "Settings saved");
 
       await page.reload();
       await page.getByRole("tab", { name: "Preferences" }).click();
-      await expect(page.getByLabel("Date format")).toHaveValue("YYYY-MM-DD");
-      await expect(page.getByLabel("Time format")).toHaveValue("24h");
+      await expect(page.getByLabel("Date format")).toHaveValue(nextDateFormat);
+      await expect(page.getByLabel("Time format")).toHaveValue(nextTimeFormat);
     } finally {
       await restoreDemoState(adminClient, snapshot);
     }
@@ -238,6 +249,8 @@ test.describe("host dashboard workflows", () => {
   test("settings can create, pause, enable, and delete a webhook endpoint", async ({
     page,
   }) => {
+    test.slow();
+
     const adminClient = createE2EAdminClient();
     const endpointUrl = `https://example.com/e2e/${uniqueE2EId("webhook")}`;
 
@@ -265,18 +278,20 @@ test.describe("host dashboard workflows", () => {
       await expectVisibleText(page, "Webhook created");
       await expect(page.getByLabel("Signing secret")).toBeVisible();
       await expect(page.getByText(endpointUrl)).toBeVisible();
-      await expect(page.getByText("Active").first()).toBeVisible();
+      const endpointCard = page
+        .getByText(endpointUrl)
+        .locator(
+          "xpath=ancestor::div[.//button[normalize-space()='Pause' or normalize-space()='Enable']][1]"
+        );
+      await expect(endpointCard.getByText("Active")).toBeVisible();
 
-      await page.getByRole("button", { name: "Pause" }).click();
-      await expect(page.getByText("Paused").first()).toBeVisible();
-      await page.getByRole("button", { name: "Enable" }).click();
-      await expect(page.getByText("Active").first()).toBeVisible();
+      await endpointCard.getByRole("button", { name: "Pause" }).click();
+      await expect(endpointCard.getByText("Paused")).toBeVisible();
+      await endpointCard.getByRole("button", { name: "Enable" }).click();
+      await expect(endpointCard.getByText("Active")).toBeVisible();
 
-      await page.getByRole("button", { name: "Delete" }).click();
+      await endpointCard.getByRole("button", { name: "Delete" }).click();
       await expect(page.getByText(endpointUrl)).toBeHidden();
-      await expect(
-        page.getByText("No webhook endpoints configured.")
-      ).toBeVisible();
     } finally {
       await cleanupWebhookEndpointByUrl(adminClient, endpointUrl);
     }

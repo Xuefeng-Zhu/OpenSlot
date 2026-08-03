@@ -1,13 +1,16 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   type EditableEventType,
   EventTypeEditor,
   type ScheduleOption,
 } from "../../event-type-editor";
-import { Button } from "@/components/ui/button";
 import { loadDashboardCalendarConnections } from "@/lib/dashboard/integration-load-state";
 import { createAdminBackendClient, createServerBackendClient } from "@/lib/backend/server"
+import {
+  optionalPageRow,
+  pageCollection,
+  pageUserOrNull,
+} from "@/lib/backend/page-data";
 import type { Tables } from "@/lib/types/database";
 import type { EventTypeFormValues } from "@/lib/validations/event-type";
 import { normalizeInviteeQuestions } from "@/lib/validations/invitee-questions";
@@ -25,21 +28,20 @@ export default async function EditEventTypePage({
   const { id } = await params;
   const backendClient = await createServerBackendClient();
 
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser();
+  const user = pageUserOrNull(await backendClient.auth.getUser());
 
   if (!user) {
     redirect("/login");
   }
 
-  const { data: profileData } = await backendClient
-    .from("profiles")
-    .select("id, name, username, avatar_url")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  const profile = profileData as Pick<
+  const profile = optionalPageRow(
+    await backendClient
+      .from("profiles")
+      .select("id, name, username, avatar_url")
+      .eq("auth_user_id", user.id)
+      .single(),
+    "dashboard profile"
+  ) as Pick<
     Tables<"profiles">,
     "id" | "name" | "username" | "avatar_url"
   > | null;
@@ -48,16 +50,17 @@ export default async function EditEventTypePage({
     redirect("/onboarding");
   }
 
-  const { data: eventTypeData } = await backendClient
-    .from("event_types")
-    .select(
-      "id, schedule_id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active, reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
-    )
-    .eq("id", id)
-    .eq("user_id", profile.id)
-    .single();
-
-  const eventType = eventTypeData as
+  const eventType = optionalPageRow(
+    await backendClient
+      .from("event_types")
+      .select(
+        "id, schedule_id, title, slug, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_booking_days_ahead, location_type, location_value, video_provider, invitee_questions, is_active, reminder_enabled, reminder_minutes_before, reminder_guest_enabled, reminder_host_enabled"
+      )
+      .eq("id", id)
+      .eq("user_id", profile.id)
+      .single(),
+    "event type"
+  ) as
     | (Pick<
         Tables<"event_types">,
         | "id"
@@ -86,7 +89,7 @@ export default async function EditEventTypePage({
     | null;
 
   if (!eventType) {
-    return <EventTypeNotFound />;
+    notFound();
   }
 
   const editableEventType: EditableEventType = {
@@ -116,14 +119,15 @@ export default async function EditEventTypePage({
     profile.id
   );
 
-  const { data: schedulesData } = await backendClient
-    .from("schedules")
-    .select("id, name, is_default")
-    .eq("user_id", profile.id)
-    .order("is_default", { ascending: false })
-    .order("created_at", { ascending: true });
-
-  const schedules = ((schedulesData as ScheduleOption[] | null) ?? []);
+  const schedules = pageCollection(
+    await backendClient
+      .from("schedules")
+      .select("id, name, is_default")
+      .eq("user_id", profile.id)
+      .order("is_default", { ascending: false })
+      .order("created_at", { ascending: true }),
+    "availability schedules"
+  ) as ScheduleOption[];
 
   return (
     <EventTypeEditor
@@ -139,23 +143,5 @@ export default async function EditEventTypePage({
       calendarConnections={calendarConnections.data}
       calendarConnectionsLoadFailed={calendarConnections.loadFailed}
     />
-  );
-}
-
-function EventTypeNotFound() {
-  return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Event type not found
-        </h1>
-        <p className="text-muted-foreground">
-          We couldn&apos;t find that event type. It may have been deleted.
-        </p>
-      </div>
-      <Button asChild>
-        <Link href="/event-types">Back to event types</Link>
-      </Button>
-    </div>
   );
 }

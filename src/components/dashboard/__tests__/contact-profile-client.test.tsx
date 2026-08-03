@@ -93,4 +93,30 @@ describe('ContactProfileClient', () => {
     expect(pushMock).not.toHaveBeenCalled()
     expect(refreshMock).not.toHaveBeenCalled()
   })
+
+  it('keeps a contact with no meetings as a valid profile', () => {
+    render(
+      <ContactProfileClient
+        contact={{ ...contact, displayEmail: '' }}
+        timeline={[]}
+      />
+    )
+
+    expect(screen.getByText('Email unavailable')).toBeDefined()
+    expect(screen.getByText('No meeting history available.')).toBeDefined()
+  })
+
+  it('wraps a long contact email instead of truncating it', () => {
+    const longEmail = `${'long-address'.repeat(8)}@example.com`
+    render(
+      <ContactProfileClient
+        contact={{ ...contact, displayEmail: longEmail }}
+        timeline={[]}
+      />
+    )
+
+    const email = screen.getByText(longEmail)
+    expect(email.classList.contains('break-all')).toBe(true)
+    expect(email.closest('p')?.classList.contains('truncate')).toBe(false)
+  })
 })

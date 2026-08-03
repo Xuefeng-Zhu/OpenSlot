@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
 import { Bell, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
@@ -22,6 +21,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useDashboardDisplayPreferences } from '@/components/dashboard/display-preferences-provider'
 import { formatDashboardTimestamp } from '@/lib/dashboard/display-preferences'
+import { GuardedLink } from '@/components/dashboard/guarded-link'
 
 interface TopBarProps {
   title: string
@@ -161,7 +161,10 @@ export function TopBar({
                     asChild
                     className="h-auto cursor-pointer items-start px-2 py-2"
                   >
-                    <Link href={notification.href} className="flex flex-col gap-1">
+                    <GuardedLink
+                      href={notification.href}
+                      className="flex flex-col gap-1"
+                    >
                       <span className="text-sm font-medium text-foreground">
                         {notification.title}
                       </span>
@@ -178,7 +181,7 @@ export function TopBar({
                           displayPreferences
                         )}
                       </time>
-                    </Link>
+                    </GuardedLink>
                   </DropdownMenuItem>
                 ))}
               </div>
@@ -194,7 +197,7 @@ export function TopBar({
             )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link href="/bookings">View bookings</Link>
+              <GuardedLink href="/bookings">View bookings</GuardedLink>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -204,7 +207,10 @@ export function TopBar({
           variant="ghost"
           className="ml-1 h-auto justify-start gap-2 px-2 py-1.5"
         >
-          <Link href="/profile" aria-label={`View profile for ${displayName}`}>
+          <GuardedLink
+            href="/profile"
+            aria-label={`View profile for ${displayName}`}
+          >
             <Avatar
               src={user?.avatarUrl || null}
               alt={displayName}
@@ -215,7 +221,7 @@ export function TopBar({
               <span className="block truncate text-sm font-medium text-foreground">{displayName}</span>
               <span className="block truncate text-xs text-muted-foreground">{displayEmail}</span>
             </span>
-          </Link>
+          </GuardedLink>
         </Button>
       </div>
     </header>

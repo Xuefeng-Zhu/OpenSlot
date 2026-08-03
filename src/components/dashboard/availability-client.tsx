@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, useCallback, useEffect } from "react"
+import { useState, useMemo, useCallback, useEffect, useRef } from "react"
 import {
   type TimeInterval,
   validateTimeInterval,
@@ -10,6 +10,7 @@ import { AvailabilityOverridesCard } from "@/components/dashboard/availability-o
 import { AvailabilitySaveBar } from "@/components/dashboard/availability-save-bar"
 import { AvailabilityScheduleControls } from "@/components/dashboard/availability-schedule-controls"
 import { AvailabilityWeeklyHoursCard } from "@/components/dashboard/availability-weekly-hours-card"
+import { useDashboardUnsavedChanges } from "@/components/dashboard/navigation-guard-provider"
 import {
   errorToastDescription,
   requestJson,
@@ -56,6 +57,8 @@ export function AvailabilityClient({
   timezone,
 }: AvailabilityClientProps) {
   const { toast } = useToast()
+  const selectedScheduleRef = useRef(selectedScheduleId)
+  const scheduleVersionRef = useRef(initialScheduleUpdatedAt)
 
   // Track the "saved" baseline for diff computation
   const [savedRules, setSavedRules] = useState<AvailabilityRule[]>(initialRules)
@@ -69,14 +72,6 @@ export function AvailabilityClient({
     () => buildDayStates(initialRules)
   )
   const [overrides, setOverrides] = useState<AvailabilityOverride[]>(initialOverrides)
-
-  useEffect(() => {
-    setSavedRules(initialRules)
-    setSavedOverrides(initialOverrides)
-    setDayStates(buildDayStates(initialRules))
-    setOverrides(initialOverrides)
-    setSavedScheduleUpdatedAt(initialScheduleUpdatedAt)
-  }, [initialRules, initialOverrides, initialScheduleUpdatedAt])
 
   // Override form state
   const [newOverrideDate, setNewOverrideDate] = useState("")
@@ -98,6 +93,13 @@ export function AvailabilityClient({
     return ""
   }, [newOverrideAvailable, newOverrideEnd, newOverrideStart])
   const canAddOverride = Boolean(newOverrideDate) && !newOverrideTimeError
+  const hasOverrideDraft = Boolean(
+    newOverrideDate ||
+      newOverrideAvailable ||
+      newOverrideStart ||
+      newOverrideEnd ||
+      newOverrideReason
+  )
 
   const hasChanges = useMemo(() => {
     return hasAvailabilityChanges({
@@ -119,6 +121,55 @@ export function AvailabilityClient({
     }
     return ""
   }, [dayStates])
+
+  useEffect(() => {
+    const scheduleChanged = selectedScheduleRef.current !== selectedScheduleId
+    const serverVersionChanged =
+      scheduleVersionRef.current !== initialScheduleUpdatedAt
+
+    if (
+      !scheduleChanged &&
+      (!serverVersionChanged || hasChanges || hasOverrideDraft)
+    ) {
+      return
+    }
+
+    selectedScheduleRef.current = selectedScheduleId
+    scheduleVersionRef.current = initialScheduleUpdatedAt
+    setSavedRules(initialRules)
+    setSavedOverrides(initialOverrides)
+    setDayStates(buildDayStates(initialRules))
+    setOverrides(initialOverrides)
+    setSavedScheduleUpdatedAt(initialScheduleUpdatedAt)
+    setNewOverrideDate("")
+    setNewOverrideAvailable(false)
+    setNewOverrideStart("")
+    setNewOverrideEnd("")
+    setNewOverrideReason("")
+  }, [
+    hasChanges,
+    hasOverrideDraft,
+    initialRules,
+    initialOverrides,
+    initialScheduleUpdatedAt,
+    selectedScheduleId,
+  ])
+
+  const handleDiscard = useCallback(() => {
+    setDayStates(buildDayStates(savedRules))
+    setOverrides([...savedOverrides])
+    setNewOverrideDate("")
+    setNewOverrideAvailable(false)
+    setNewOverrideStart("")
+    setNewOverrideEnd("")
+    setNewOverrideReason("")
+  }, [savedRules, savedOverrides])
+
+  useDashboardUnsavedChanges(
+    `availability-editor-${selectedScheduleId}`,
+    hasChanges || hasOverrideDraft,
+    handleDiscard
+  )
 
   // --- Day row handlers ---
 
@@ -259,11 +310,6 @@ export function AvailabilityClient({
     toast,
     weeklyTimeError,
   ])
-
-  const handleDiscard = useCallback(() => {
-    setDayStates(buildDayStates(savedRules))
-    setOverrides([...savedOverrides])
-  }, [savedRules, savedOverrides])
 
   return (
     <div className="space-y-6">

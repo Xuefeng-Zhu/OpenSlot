@@ -162,6 +162,24 @@ export function useEventTypeEditorState(
     [values]
   );
 
+  const reset = useCallback(
+    (savedValues?: EventTypeEditorFormState) => {
+      const nextValues =
+        savedValues ??
+        createEventTypeEditorState(initialEventType, defaultScheduleId);
+
+      setValues({
+        ...nextValues,
+        invitee_questions: nextValues.invitee_questions.map((question) => ({
+          ...question,
+          options: [...question.options],
+        })),
+      });
+      setErrors({});
+    },
+    [defaultScheduleId, initialEventType]
+  );
+
   return {
     values,
     errors,
@@ -175,5 +193,6 @@ export function useEventTypeEditorState(
     updateQuestionOptions,
     selectLocation,
     buildPayload,
+    reset,
   };
 }

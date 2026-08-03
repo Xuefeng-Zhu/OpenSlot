@@ -56,10 +56,7 @@ export class BackendRpcBuilder<TData = any>
     const result = await this.httpClient.request<unknown>({
       method: 'POST',
       path: `/v1/${this.httpClient.appId}/fn/${mapped.slug}`,
-      auth: mapped.serviceRole ? 'none' : this.authMode,
-      accessToken: mapped.serviceRole
-        ? this.httpClient.functionAccessToken()
-        : undefined,
+      auth: mapped.serviceRole ? 'service' : this.authMode,
       body: mapped.body,
     })
 

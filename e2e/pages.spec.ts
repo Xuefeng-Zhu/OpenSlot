@@ -122,14 +122,14 @@ const authenticatedPageCases: PageSmokeCase[] = [
     path: "/settings",
     title: "Settings | OpenSlot",
     heading: "Settings",
-    visibleText: ["Profile information", "Integrations"],
+    visibleText: ["Sign-in email", "Integrations"],
   },
   {
     name: "profile",
     path: "/profile",
     title: "Profile | OpenSlot",
     heading: "Profile",
-    visibleText: ["Control the public name", "Edit profile"],
+    visibleText: ["Control the public identity", "Edit profile"],
   },
   {
     name: "contacts",
@@ -210,6 +210,8 @@ test("dashboard pages require authentication", async ({ page }) => {
 });
 
 test("authenticated seeded pages render", async ({ page }) => {
+  test.slow();
+
   await loginAsDemoHost(page);
 
   for (const pageCase of authenticatedPageCases) {

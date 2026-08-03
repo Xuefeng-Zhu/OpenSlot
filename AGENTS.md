@@ -80,7 +80,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Required env vars (full list in `.env.example`): `NEXT_PUBLIC_BUTTERBASE_APP_ID`, `NEXT_PUBLIC_BUTTERBASE_API_URL`, `BUTTERBASE_API_KEY`, `BUTTERBASE_FUNCTION_SECRET`, `SLOT_HOLD_TOKEN_SECRET`, `NEXT_PUBLIC_APP_URL`. Worker secret (`OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, `HOLD_EXPIRY_PROCESS_SECRET`, or shared `CRON_SECRET`). Calendar OAuth IDs + secrets. `CALENDAR_TOKEN_ENCRYPTION_SECRET`. Optional Turnstile keys. `EMAIL_PROVIDER` (`console` | `resend` | `maileroo`) + provider key.
+Required env vars (full list in `.env.example`): `NEXT_PUBLIC_BUTTERBASE_APP_ID`, `NEXT_PUBLIC_BUTTERBASE_API_URL`, `BUTTERBASE_API_KEY`, and `NEXT_PUBLIC_APP_URL`. `SLOT_HOLD_TOKEN_SECRET` is the recommended optional signing secret; legacy deployments may still use `BUTTERBASE_FUNCTION_SECRET` as its fallback, but protected Butterbase functions authenticate with the provider-verified service key. Worker secret (`OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, `HOLD_EXPIRY_PROCESS_SECRET`, or shared `CRON_SECRET`). Calendar OAuth IDs + secrets. `CALENDAR_TOKEN_ENCRYPTION_SECRET`. Optional Turnstile keys. `EMAIL_PROVIDER` (`console` | `resend` | `maileroo`) + provider key.
 
 Landing page renders without Butterbase credentials. Authenticated dashboard routes, public booking data, API routes, and booking writes require valid Butterbase configuration. Apply the schema, RLS policies, and functions from `backend/database/migrations/`, `backend/sql/provider-portability.sql`, and `backend/butterbase/` to the configured Butterbase app.
 

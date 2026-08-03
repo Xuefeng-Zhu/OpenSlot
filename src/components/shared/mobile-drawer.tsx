@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -15,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { AppIcon } from '@/components/shared/app-icon'
 import { Drawer } from '@/components/ui/drawer'
 import { Avatar, getInitials } from '@/components/ui/avatar'
+import { GuardedLink } from '@/components/dashboard/guarded-link'
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -50,14 +50,14 @@ export function MobileDrawer({ open, onClose, user }: MobileDrawerProps) {
       <div className="flex h-full flex-col">
         {/* Logo */}
         <div className="p-6">
-          <Link
+          <GuardedLink
             href="/dashboard"
             className="flex items-center text-xl font-bold text-foreground"
-            onClick={onClose}
+            onNavigationAccepted={onClose}
           >
             <AppIcon className="mr-2 h-7 w-7" />
             OpenSlot
-          </Link>
+          </GuardedLink>
         </div>
 
         {/* Navigation Links */}
@@ -68,10 +68,10 @@ export function MobileDrawer({ open, onClose, user }: MobileDrawerProps) {
               (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`))
             const Icon = item.icon
             return (
-              <Link
+              <GuardedLink
                 key={item.href}
                 href={item.href}
-                onClick={onClose}
+                onNavigationAccepted={onClose}
                 className={cn(
                   'flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   isActive
@@ -82,7 +82,7 @@ export function MobileDrawer({ open, onClose, user }: MobileDrawerProps) {
               >
                 <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                 {item.label}
-              </Link>
+              </GuardedLink>
             )
           })}
         </nav>

@@ -1,55 +1,72 @@
 import { redirect } from "next/navigation";
 import { createServerBackendClient } from "@/lib/backend/server";
+import {
+  optionalPageRow,
+  pageCollection,
+  pageUserOrNull,
+} from "@/lib/backend/page-data";
+import {
+  deriveDashboardAvailabilityState,
+  type DashboardAvailabilityState,
+} from "@/lib/dashboard/availability-state";
 import type { Tables } from "@/lib/types/database";
 import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
   const backendClient = await createServerBackendClient();
 
-  // Get authenticated user
-  const {
-    data: { user },
-  } = await backendClient.auth.getUser();
+  const user = pageUserOrNull(await backendClient.auth.getUser());
 
   if (!user) {
     redirect("/login");
   }
 
-  // Fetch profile (username, name) using auth_user_id
-  const { data: profileData } = await backendClient
-    .from("profiles")
-    .select("id, username, name")
-    .eq("auth_user_id", user.id)
-    .single();
-
-  const profile = profileData as Pick<
-    Tables<"profiles">,
-    "id" | "username" | "name"
-  > | null;
+  const profile = optionalPageRow(
+    await backendClient
+      .from("profiles")
+      .select("id, username, name")
+      .eq("auth_user_id", user.id)
+      .single(),
+    "dashboard profile"
+  ) as Pick<Tables<"profiles">, "id" | "username" | "name"> | null;
 
   if (!profile || !profile.username) {
     redirect("/onboarding");
   }
 
-  // Fetch upcoming confirmed bookings joined with event_types
-  const { data: bookingsData } = await backendClient
-    .from("bookings")
-    .select("id, guest_name, start_at, end_at, event_type_id, event_types(title)")
-    .eq("host_user_id", profile.id)
-    .eq("status", "confirmed")
-    .gt("start_at", new Date().toISOString())
-    .order("start_at", { ascending: true });
+  const now = new Date();
+  const [bookingsResult, activeEventTypesResult] = await Promise.all([
+    backendClient
+      .from("bookings")
+      .select("id, guest_name, start_at, end_at, event_type_id, event_types(title)")
+      .eq("host_user_id", profile.id)
+      .eq("status", "confirmed")
+      .gt("start_at", now.toISOString())
+      .order("start_at", { ascending: true }),
+    backendClient
+      .from("event_types")
+      .select("id, schedule_id")
+      .eq("user_id", profile.id)
+      .eq("is_active", true),
+  ]);
 
-  const upcomingBookings = (
-    (bookingsData as Array<{
-      id: string;
-      guest_name: string;
-      start_at: string;
-      end_at: string;
-      event_type_id: string;
-      event_types: { title: string } | null;
-    }>) ?? []
-  ).map((booking) => ({
+  const bookingsData = pageCollection(
+    bookingsResult,
+    "dashboard bookings"
+  ) as Array<{
+    id: string;
+    guest_name: string;
+    start_at: string;
+    end_at: string;
+    event_type_id: string;
+    event_types: { title: string } | null;
+  }>;
+  const activeEventTypes = pageCollection(
+    activeEventTypesResult,
+    "active event types"
+  ) as Array<Pick<Tables<"event_types">, "id" | "schedule_id">>;
+
+  const upcomingBookings = bookingsData.map((booking) => ({
     id: booking.id,
     guest_name: booking.guest_name,
     start_at: booking.start_at,
@@ -57,12 +74,53 @@ export default async function DashboardPage() {
     event_type_title: booking.event_types?.title ?? "Unknown",
   }));
 
-  // Fetch count of active event types
-  const { count: activeEventTypeCount } = await backendClient
-    .from("event_types")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", profile.id)
-    .eq("is_active", true);
+  let availabilityState: DashboardAvailabilityState = "no_active_event_types";
+  if (activeEventTypes.length > 0) {
+    const scheduleIds = Array.from(
+      new Set(activeEventTypes.map((eventType) => eventType.schedule_id))
+    );
+    const [schedulesResult, rulesResult, overridesResult] = await Promise.all([
+      backendClient
+        .from("schedules")
+        .select("id, timezone")
+        .eq("user_id", profile.id)
+        .in("id", scheduleIds),
+      backendClient
+        .from("availability_rules")
+        .select("schedule_id, is_active")
+        .eq("user_id", profile.id)
+        .in("schedule_id", scheduleIds)
+        .eq("is_active", true),
+      backendClient
+        .from("availability_overrides")
+        .select("schedule_id, date, start_time, end_time, is_available")
+        .eq("user_id", profile.id)
+        .in("schedule_id", scheduleIds)
+        .eq("is_available", true),
+    ]);
+
+    availabilityState = deriveDashboardAvailabilityState({
+      activeEventTypes,
+      schedules: pageCollection(
+        schedulesResult,
+        "availability schedules"
+      ) as Array<Pick<Tables<"schedules">, "id" | "timezone">>,
+      rules: pageCollection(
+        rulesResult,
+        "availability rules"
+      ) as Array<Pick<Tables<"availability_rules">, "schedule_id" | "is_active">>,
+      overrides: pageCollection(
+        overridesResult,
+        "availability overrides"
+      ) as Array<
+        Pick<
+          Tables<"availability_overrides">,
+          "schedule_id" | "date" | "start_time" | "end_time" | "is_available"
+        >
+      >,
+      now,
+    });
+  }
 
   // Build a shareable booking link while keeping a relative fallback for local setup.
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
@@ -77,7 +135,8 @@ export default async function DashboardPage() {
         name: profile.name,
       }}
       upcomingBookings={upcomingBookings}
-      activeEventTypeCount={activeEventTypeCount ?? 0}
+      activeEventTypeCount={activeEventTypes.length}
+      availabilityState={availabilityState}
       bookingLink={bookingLink}
     />
   );

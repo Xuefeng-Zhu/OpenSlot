@@ -8,6 +8,7 @@ import {
   emptyDashboardNotifications,
   type DashboardNotifications,
 } from '@/lib/dashboard/notifications'
+import { DashboardNavigationGuardProvider } from '@/components/dashboard/navigation-guard-provider'
 
 interface DashboardShellProps {
   children: React.ReactNode
@@ -27,31 +28,33 @@ export function DashboardShell({
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      {/* Desktop sidebar - hidden on mobile/tablet */}
-      <div className="hidden min-h-0 lg:flex">
-        <SidebarNav username={user.username} />
-      </div>
+    <DashboardNavigationGuardProvider>
+      <div className="flex h-screen overflow-hidden bg-background">
+        {/* Desktop sidebar - hidden on mobile/tablet */}
+        <div className="hidden min-h-0 lg:flex">
+          <SidebarNav username={user.username} />
+        </div>
 
-      {/* Mobile drawer - visible only on mobile/tablet */}
-      <MobileDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        user={{ name: user.name, email: user.email }}
-      />
-
-      {/* Content area */}
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <TopBar
-          title="Dashboard"
-          notifications={notifications}
-          onMenuToggle={() => setDrawerOpen(true)}
+        {/* Mobile drawer - visible only on mobile/tablet */}
+        <MobileDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
           user={{ name: user.name, email: user.email }}
         />
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
-        </main>
+
+        {/* Content area */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <TopBar
+            title="Dashboard"
+            notifications={notifications}
+            onMenuToggle={() => setDrawerOpen(true)}
+            user={{ name: user.name, email: user.email }}
+          />
+          <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+            <div className="mx-auto w-full max-w-7xl">{children}</div>
+          </main>
+        </div>
       </div>
-    </div>
+    </DashboardNavigationGuardProvider>
   )
 }

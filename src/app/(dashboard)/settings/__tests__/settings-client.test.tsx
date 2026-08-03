@@ -3,6 +3,7 @@ import { axe, toHaveNoViolations } from "jest-axe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsClient } from "../settings-client";
+import { DashboardNavigationGuardProvider } from "@/components/dashboard/navigation-guard-provider";
 
 expect.extend(toHaveNoViolations);
 
@@ -83,11 +84,13 @@ function toggleSectionDraft(section: DirtySection) {
 
 function renderSettingsClient() {
   return render(
-    <SettingsClient
-      initialSettings={initialSettings}
-      calendarConnections={[]}
-      webhookEndpoints={[]}
-    />
+    <DashboardNavigationGuardProvider>
+      <SettingsClient
+        initialSettings={initialSettings}
+        calendarConnections={[]}
+        webhookEndpoints={[]}
+      />
+    </DashboardNavigationGuardProvider>
   );
 }
 
@@ -249,6 +252,59 @@ describe("SettingsClient", () => {
       });
       expect(backendAuthMock.signOut).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("guards account deletion and discards preference and notification drafts together", () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmMock = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderSettingsClient();
+
+    selectSettingsSection("Preferences");
+    fireEvent.change(screen.getByLabelText("Date format"), {
+      target: { value: "DD/MM/YYYY" },
+    });
+    selectSettingsSection("Notifications");
+    fireEvent.click(
+      screen.getByRole("switch", { name: "Toggle cancellation notifications" })
+    );
+    selectSettingsSection("Account");
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("dialog", { name: "Discard unsaved changes?" })
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(
+      screen.getByRole("tab", { name: "Preferences, unsaved changes" })
+    ).toBeDefined();
+    expect(
+      screen.getByRole("tab", { name: "Notifications, unsaved changes" })
+    ).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Discard and continue" })
+    );
+
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("tab", { name: "Preferences" })).toBeDefined();
+    expect(screen.getByRole("tab", { name: "Notifications" })).toBeDefined();
+
+    selectSettingsSection("Preferences");
+    expect(screen.getByLabelText("Date format")).toHaveProperty(
+      "value",
+      initialSettings.dateFormat
+    );
+    selectSettingsSection("Notifications");
+    expect(
+      screen.getByRole("switch", { name: "Toggle cancellation notifications" })
+        .getAttribute("aria-checked")
+    ).toBe("true");
   });
 
   it.each(dirtySectionCases)(
