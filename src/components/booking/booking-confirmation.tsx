@@ -7,7 +7,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,8 +14,13 @@ import {
   formatBookingTime,
 } from "@/lib/booking/date-time-format";
 import { formatBookingLocationLabel } from "@/lib/location-labels";
+import {
+  BookingHeading,
+  type BookingPageEventHeadingLevel,
+} from "@/components/booking/booking-page-event-header";
 
 interface BookingConfirmationProps {
+  headingLevel?: BookingPageEventHeadingLevel;
   bookingId: string;
   cancellationToken: string;
   rescheduleToken?: string;
@@ -35,6 +39,7 @@ interface BookingConfirmationProps {
 }
 
 export function BookingConfirmation({
+  headingLevel = 1,
   cancellationToken,
   rescheduleToken,
   startAt,
@@ -71,9 +76,12 @@ export function BookingConfirmation({
         <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success/10 text-success">
           <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
         </div>
-        <CardTitle className="text-xl">
+        <BookingHeading
+          level={headingLevel}
+          className="text-xl font-semibold leading-tight tracking-tight"
+        >
           {isReschedule ? "Booking rescheduled" : "Booking confirmed"}
-        </CardTitle>
+        </BookingHeading>
         <CardDescription>
           {isReschedule
             ? "Your meeting has been moved successfully."

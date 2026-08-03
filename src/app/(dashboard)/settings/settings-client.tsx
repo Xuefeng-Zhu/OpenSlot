@@ -13,7 +13,6 @@ import {
   requestJson,
 } from "@/components/dashboard/request-json";
 import { useToast } from "@/components/ui/use-toast";
-import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client";
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import type { CalendarOAuthResult } from "@/lib/calendar/oauth-result";
 import {
@@ -272,8 +271,6 @@ export function SettingsClient({
         throw new Error(data.error ?? "Failed to delete account");
       }
 
-      const backendClient = createBrowserBackendClient();
-      await backendClient.auth.signOut();
       window.location.assign("/signup");
     } catch (error) {
       setDeleteSaving(false);
@@ -300,10 +297,16 @@ export function SettingsClient({
           router.replace(`/settings?tab=${nextTab}`, { scroll: false });
         }}
       >
-        <TabsList aria-label="Settings sections">
-          <TabsTrigger value="account">Account</TabsTrigger>
+        <TabsList
+          aria-label="Settings sections"
+          className="grid w-full grid-cols-2 overflow-visible sm:inline-flex sm:w-auto"
+        >
+          <TabsTrigger value="account" className="w-full sm:w-auto">
+            Account
+          </TabsTrigger>
           <TabsTrigger
             value="preferences"
+            className="w-full sm:w-auto"
             aria-label={
               preferencesDirty
                 ? "Preferences, unsaved changes"
@@ -314,6 +317,7 @@ export function SettingsClient({
           </TabsTrigger>
           <TabsTrigger
             value="notifications"
+            className="w-full sm:w-auto"
             aria-label={
               notificationsDirty
                 ? "Notifications, unsaved changes"
@@ -325,7 +329,9 @@ export function SettingsClient({
               dirty={notificationsDirty}
             />
           </TabsTrigger>
-          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="integrations" className="w-full sm:w-auto">
+            Integrations
+          </TabsTrigger>
         </TabsList>
 
         <SettingsAccountTab

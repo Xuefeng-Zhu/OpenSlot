@@ -34,7 +34,34 @@ describe('BookingForm', () => {
     expect(
       screen.getByRole('button', { name: 'Securing Time...' })
     ).toHaveProperty('disabled', true)
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Confirm your booking' })
+    ).toBeDefined()
     expect(screen.queryByRole('timer')).toBeNull()
+  })
+
+  it('uses the heading level supplied by an embedded booking context', () => {
+    render(
+      <BookingForm
+        headingLevel={4}
+        holdPending
+        selectedSlot={{
+          start: '2026-05-15T17:00:00.000Z',
+          end: '2026-05-15T17:30:00.000Z',
+        }}
+        eventTitle="Discovery Call"
+        hostName="Sarah Chen"
+        timezone="America/Los_Angeles"
+        inviteeQuestions={[]}
+        onConfirmed={vi.fn()}
+        onHoldExpired={vi.fn()}
+        onSlotTaken={vi.fn()}
+      />
+    )
+
+    expect(
+      screen.getByRole('heading', { level: 4, name: 'Confirm your booking' })
+    ).toBeDefined()
   })
 
   it('renders configured invitee questions in the public booking form', () => {

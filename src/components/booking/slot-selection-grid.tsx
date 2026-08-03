@@ -9,9 +9,13 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/shared/empty-state";
+import {
+  BookingHeading,
+  nextBookingHeadingLevel,
+  type BookingHeadingLevel,
+} from "@/components/booking/booking-page-event-header";
 import { TimeSlotButton } from "@/components/booking/time-slot-button";
 import { TurnstileWidget } from "@/components/booking/turnstile-widget";
 import type { TimeSlot } from "@/lib/availability/types";
@@ -19,6 +23,7 @@ import { cn } from "@/lib/utils";
 
 interface SlotSelectionGridProps {
   layout: "public" | "embedded";
+  headingLevel: BookingHeadingLevel;
   selectedDate: Date | undefined;
   loading: boolean;
   error: string | null;
@@ -37,6 +42,7 @@ interface SlotSelectionGridProps {
 
 export function SlotSelectionGrid({
   layout,
+  headingLevel,
   selectedDate,
   loading,
   error,
@@ -52,6 +58,8 @@ export function SlotSelectionGrid({
   onHoldTurnstileTokenChange,
   formatSlotTime,
 }: SlotSelectionGridProps) {
+  const emptyStateHeadingLevel = nextBookingHeadingLevel(headingLevel);
+
   return (
     <div
       className={cn(
@@ -61,7 +69,12 @@ export function SlotSelectionGrid({
     >
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Select a date</CardTitle>
+          <BookingHeading
+            level={headingLevel}
+            className="text-lg font-semibold leading-tight tracking-tight"
+          >
+            Select a date
+          </BookingHeading>
           <CardDescription>Choose a date to see available times</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
@@ -78,7 +91,12 @@ export function SlotSelectionGrid({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Available times</CardTitle>
+          <BookingHeading
+            level={headingLevel}
+            className="text-lg font-semibold leading-tight tracking-tight"
+          >
+            Available times
+          </BookingHeading>
           <CardDescription>
             {selectedDate
               ? format(selectedDate, "EEEE, MMMM d, yyyy")
@@ -90,6 +108,7 @@ export function SlotSelectionGrid({
             <EmptyState
               icon={<CalendarDays className="h-6 w-6" aria-hidden="true" />}
               heading="Choose a date"
+              headingLevel={emptyStateHeadingLevel}
               description="Pick an available date from the calendar to see times in your timezone."
               className="border-0 bg-muted/30 py-10"
             />
@@ -132,6 +151,7 @@ export function SlotSelectionGrid({
             <EmptyState
               icon={<Clock3 className="h-6 w-6" aria-hidden="true" />}
               heading="No slots on this date"
+              headingLevel={emptyStateHeadingLevel}
               description="Try another date on the calendar to find a time that works."
               className="border-0 bg-muted/30 py-10"
             />

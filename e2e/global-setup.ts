@@ -8,6 +8,7 @@ import {
 import { saveDemoHostSessionState } from "./support/auth-state";
 import { ensureDemoAuthSession } from "./support/demo-auth";
 import { loadE2EEnv } from "./support/env";
+import { assertSafeE2ETarget } from "./support/target-guard";
 import type { E2EAdminClient } from "./support/db/types";
 
 const janeGuestEmailHash =
@@ -15,7 +16,20 @@ const janeGuestEmailHash =
 const staleDemoEventTypeAgeMs = 6 * 60 * 60 * 1000;
 
 export default async function globalSetup() {
+  const baseURL =
+    process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+  // Capture explicit shell consent before loadE2EEnv loads .env.local. Keeping
+  // this out of persistent env files makes every external mutation deliberate.
+  const allowExternalMutations =
+    process.env.E2E_ALLOW_EXTERNAL_MUTATIONS;
   const env = loadE2EEnv();
+
+  await assertSafeE2ETarget({
+    baseURL,
+    expectedButterbaseAppId: env.butterbaseAppId,
+    allowExternalMutations,
+  });
+
   const adminClient = createE2EAdminClient();
   const backend = createButterbaseBackend({
     appId: env.butterbaseAppId,

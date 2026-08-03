@@ -1,36 +1,16 @@
 'use client'
 
-import { useMemo } from 'react'
 import { usePathname } from 'next/navigation'
-import {
-  LayoutDashboard,
-  Calendar,
-  Clock,
-  BookOpen,
-  Settings,
-  Plus,
-  Check,
-  Link2,
-  User,
-  Users,
-} from 'lucide-react'
+import { Plus, Check, Link2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AppIcon } from '@/components/shared/app-icon'
 import { Button } from '@/components/ui/button'
-import { useToast } from '@/components/ui/use-toast'
-import { copyTextToClipboard } from '@/lib/utils/clipboard'
-import { useCopyFeedback } from '@/components/shared/use-copy-feedback'
 import { GuardedLink } from '@/components/dashboard/guarded-link'
-
-const navItems = [
-  { label: 'Overview', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'Event Types', href: '/event-types', icon: Calendar },
-  { label: 'Availability', href: '/availability', icon: Clock },
-  { label: 'Bookings', href: '/bookings', icon: BookOpen },
-  { label: 'Contacts', href: '/contacts', icon: Users },
-  { label: 'Profile', href: '/profile', icon: User },
-  { label: 'Settings', href: '/settings', icon: Settings },
-]
+import {
+  dashboardNavigationRoutes,
+  isDashboardRouteActive,
+} from '@/components/dashboard/dashboard-routes'
+import { useBookingLinkAction } from '@/components/dashboard/use-booking-link-action'
 
 interface SidebarNavProps {
   username?: string
@@ -38,41 +18,8 @@ interface SidebarNavProps {
 
 export function SidebarNav({ username }: SidebarNavProps) {
   const pathname = usePathname()
-  const { toast } = useToast()
-  const { copied, showCopied } = useCopyFeedback()
-
-  const publicBookingUrl = useMemo(() => {
-    if (!username) return ''
-
-    const normalizedUsername = username.replace(/^\/+/, '')
-    const browserOrigin =
-      typeof window !== 'undefined' ? window.location.origin : ''
-    const configuredOrigin = process.env.NEXT_PUBLIC_APP_URL || ''
-    const origin = browserOrigin || configuredOrigin
-
-    return origin
-      ? `${origin}/${normalizedUsername}`
-      : `/${normalizedUsername}`
-  }, [username])
-
-  const handleCopyBookingLink = async () => {
-    if (!publicBookingUrl) return
-
-    try {
-      await copyTextToClipboard(publicBookingUrl)
-      showCopied()
-      toast({
-        title: 'Booking link copied',
-        description: 'Your public booking page URL is ready to share.',
-      })
-    } catch {
-      toast({
-        title: 'Could not copy link',
-        description: 'Copy the link from your profile preview instead.',
-        variant: 'destructive',
-      })
-    }
-  }
+  const { copied, copyBookingLink, publicBookingUrl } =
+    useBookingLinkAction(username)
 
   return (
     <aside className="flex h-full min-h-0 w-64 flex-col overflow-y-auto border-r bg-card/95">
@@ -89,10 +36,8 @@ export function SidebarNav({ username }: SidebarNavProps) {
 
       {/* Navigation Links */}
       <nav className="flex-1 space-y-1 px-3" aria-label="Dashboard navigation">
-        {navItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== '/dashboard' && pathname.startsWith(`${item.href}/`))
+        {dashboardNavigationRoutes.map((item) => {
+          const isActive = isDashboardRouteActive(pathname, item.href)
           const Icon = item.icon
           return (
             <GuardedLink
@@ -107,7 +52,7 @@ export function SidebarNav({ username }: SidebarNavProps) {
               aria-current={isActive ? 'page' : undefined}
             >
               <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-              {item.label}
+              {item.navigationLabel}
             </GuardedLink>
           )
         })}
@@ -133,7 +78,7 @@ export function SidebarNav({ username }: SidebarNavProps) {
           variant="outline"
           size="sm"
           className="mt-3 w-full"
-          onClick={handleCopyBookingLink}
+          onClick={() => void copyBookingLink()}
           disabled={!publicBookingUrl}
         >
           {copied ? (

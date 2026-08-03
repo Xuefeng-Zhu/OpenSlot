@@ -1,10 +1,13 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { axe, toHaveNoViolations } from 'jest-axe'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AvailabilityClient } from '../availability-client'
 import { DashboardDisplayPreferencesProvider } from '../display-preferences-provider'
 import { DashboardNavigationGuardProvider } from '../navigation-guard-provider'
 import type { AvailabilitySchedule } from '../availability-model'
+
+expect.extend(toHaveNoViolations)
 
 const routerMocks = vi.hoisted(() => ({
   push: vi.fn(),
@@ -97,6 +100,18 @@ describe('AvailabilityClient', () => {
     expect(
       screen.getByRole('button', { name: 'Active schedule' }).textContent
     ).toContain('Working hours (default)')
+  })
+
+  it('renders one visible page heading and has no detectable accessibility violations', async () => {
+    const { container } = renderAvailability()
+
+    const pageHeadings = screen.getAllByRole('heading', {
+      level: 1,
+      name: 'Availability',
+    })
+    expect(pageHeadings).toHaveLength(1)
+    expect(pageHeadings[0].classList.contains('sr-only')).toBe(false)
+    expect(await axe(container)).toHaveNoViolations()
   })
 
   it('lists schedules and exposes the create action from the header dropdown', async () => {

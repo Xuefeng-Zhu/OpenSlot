@@ -27,10 +27,11 @@ npm run test:e2e:ui
 npm run test:e2e:debug
 ```
 
-The Playwright config starts the Next.js dev server at
-`PLAYWRIGHT_BASE_URL`, defaulting to `http://127.0.0.1:3000`. Use another port,
-for example `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100`, when port 3000 is
-already occupied. It expects `NEXT_PUBLIC_BUTTERBASE_APP_ID` and
+The Playwright config starts the Next.js dev server when
+`PLAYWRIGHT_BASE_URL` is local, defaulting to `http://127.0.0.1:3000`. Use
+another port, for example `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3100`, when
+port 3000 is already occupied. Local E2E setup does not require any additional
+mutation opt-in. The suite expects `NEXT_PUBLIC_BUTTERBASE_APP_ID` and
 `BUTTERBASE_API_KEY` to be available in the shell or `.env.local`. Before tests
 run, Playwright verifies the demo host password through the real Butterbase Auth
 password flow. If the fixed demo auth user is stale and the configured
@@ -39,6 +40,27 @@ that auth user. If those admin functions are not available, setup provisions a
 disposable runtime demo login, stores it under the gitignored `.e2e-auth/`
 directory, and keeps the public `/demo` profile, default schedule, and weekday
 availability aligned with that auth user.
+
+### External deployment safety
+
+The full suite writes and deletes fixture data. Run it against an external
+deployment only when that deployment and its Butterbase app are disposable QA
+resources. External targets must use HTTPS and require an explicit, per-command
+opt-in:
+
+```bash
+E2E_ALLOW_EXTERNAL_MUTATIONS=true \
+PLAYWRIGHT_BASE_URL=https://qa.openslot.example \
+npm run test:e2e
+```
+
+Do not store `E2E_ALLOW_EXTERNAL_MUTATIONS` in `.env.local`, and do not use the
+full automated suite against production. Before any auth or database fixture
+setup, Playwright fetches the deployment and compares its public
+`X-OpenSlot-Butterbase-App-Id` response header with the locally configured
+`NEXT_PUBLIC_BUTTERBASE_APP_ID`. Missing or mismatched identity fails closed
+without changing external data. Deploy the current app build before using this
+mode so the identity header is present.
 
 Override the login used by browser specs with `E2E_DEMO_HOST_EMAIL`,
 `E2E_DEMO_HOST_PASSWORD`, and `E2E_DEMO_AUTH_USER_ID` when a shared Butterbase

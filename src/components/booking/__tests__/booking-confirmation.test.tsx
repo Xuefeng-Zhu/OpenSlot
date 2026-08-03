@@ -23,8 +23,37 @@ describe("BookingConfirmation", () => {
 
     const link = screen.getByRole("link", { name: "Open meeting" });
 
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Booking confirmed" })
+    ).toBeDefined();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     expect(link.getAttribute("href")).toBe("https://meet.google.com/abc-defg-hij");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+  });
+
+  it("keeps reschedule confirmation subordinate to its page heading", () => {
+    render(
+      <>
+        <h1>Reschedule booking</h1>
+        <BookingConfirmation
+          headingLevel={2}
+          bookingId="booking-1"
+          cancellationToken="cancel-token"
+          startAt="2026-06-01T15:00:00.000Z"
+          endAt="2026-06-01T15:30:00.000Z"
+          guestName="Jane Doe"
+          eventTitle="Intro Call"
+          hostName="Sarah Chen"
+          timezone="America/New_York"
+          variant="reschedule"
+        />
+      </>
+    );
+
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { level: 2, name: "Booking rescheduled" })
+    ).toBeDefined();
   });
 });

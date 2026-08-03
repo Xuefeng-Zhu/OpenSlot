@@ -2,7 +2,7 @@
 
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { TabsContent } from "@/components/ui/tabs";
 
@@ -34,10 +34,10 @@ export function SettingsNotificationsTab({
       <div className="space-y-6 mt-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
+            <h2 className="flex items-center gap-2 text-base font-semibold leading-tight tracking-tight">
               <Bell className="h-4 w-4" aria-hidden="true" />
               Email Notifications
-            </CardTitle>
+            </h2>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between gap-4">

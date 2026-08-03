@@ -39,12 +39,14 @@ export function EventTypePreview({
             eventType={previewEventType}
             hostProfile={hostProfile}
             layout="embedded"
+            eventHeadingLevel={3}
           />
         ) : (
           <PublicSchedulePreviewShell
             eventType={previewEventType}
             hostProfile={hostProfile}
             layout="embedded"
+            eventHeadingLevel={3}
             unavailableDescription={
               mode === "create"
                 ? "Save this event type to load bookable times."

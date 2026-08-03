@@ -1,10 +1,12 @@
 import { defineConfig } from "@playwright/test";
+import { isLocalE2ETarget } from "./e2e/support/target-guard";
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const parsedBaseURL = new URL(baseURL);
 const webServerHost = parsedBaseURL.hostname;
 const webServerPort =
   parsedBaseURL.port || (parsedBaseURL.protocol === "https:" ? "443" : "80");
+const shouldStartWebServer = isLocalE2ETarget(baseURL);
 const webServerEnv = Object.fromEntries(
   Object.entries(process.env).filter(
     (entry): entry is [string, string] => typeof entry[1] === "string"
@@ -33,15 +35,17 @@ export default defineConfig({
     trace: "retain-on-failure",
     video: "retain-on-failure",
   },
-  webServer: {
-    command: `npm run dev -- --hostname ${webServerHost} --port ${webServerPort}`,
-    url: baseURL,
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-    env: {
-      ...webServerEnv,
-      TZ: process.env.TZ ?? "America/New_York",
-      NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? baseURL,
-    },
-  },
+  webServer: shouldStartWebServer
+    ? {
+        command: `npm run dev -- --hostname ${webServerHost} --port ${webServerPort}`,
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 120_000,
+        env: {
+          ...webServerEnv,
+          TZ: process.env.TZ ?? "America/New_York",
+          NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL ?? baseURL,
+        },
+      }
+    : undefined,
 });

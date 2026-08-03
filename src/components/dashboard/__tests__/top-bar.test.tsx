@@ -1,45 +1,91 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { axe, toHaveNoViolations } from 'jest-axe'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { TopBar } from '../top-bar'
 import type { DashboardNotification, DashboardNotifications } from '@/lib/dashboard/notifications'
 import { DashboardDisplayPreferencesProvider } from '@/components/dashboard/display-preferences-provider'
 
+expect.extend(toHaveNoViolations)
+
 const routerMock = vi.hoisted(() => ({
   push: vi.fn(),
   replace: vi.fn(),
 }))
+const navigationMock = vi.hoisted(() => ({ pathname: '/dashboard' }))
+const signOutMock = vi.hoisted(() => vi.fn())
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMock,
+  usePathname: () => navigationMock.pathname,
+}))
+
+vi.mock('@/components/dashboard/dashboard-sign-out-provider', () => ({
+  useDashboardSignOut: () => ({
+    isSigningOut: false,
+    signOut: signOutMock,
+  }),
 }))
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  vi.clearAllMocks()
+  navigationMock.pathname = '/dashboard'
 })
 
 describe('TopBar', () => {
-  it('uses real account data and links the account affordance to profile', () => {
+  it('uses real account data and exposes an accessible account menu', async () => {
     render(
       <TopBar
-        title="Dashboard"
         user={{ name: 'Jane Doe', email: 'jane@example.com' }}
       />
     )
 
-    const profileLink = screen.getByRole('link', {
-      name: 'View profile for Jane Doe',
+    const accountButton = screen.getByRole('button', {
+      name: 'Open account menu for Jane Doe',
     })
+    fireEvent.pointerDown(accountButton, { button: 0, ctrlKey: false })
 
-    expect(profileLink.getAttribute('href')).toBe('/profile')
+    expect(
+      (await screen.findByRole('menuitem', { name: 'Profile' })).getAttribute(
+        'href'
+      )
+    ).toBe('/profile')
+    expect(
+      screen.getByRole('menuitem', { name: 'Settings' }).getAttribute('href')
+    ).toBe('/settings')
+    expect(screen.getByRole('menuitem', { name: 'Sign out' })).toBeDefined()
     expect(screen.getByText('Jane Doe')).toBeDefined()
     expect(screen.getByText('jane@example.com')).toBeDefined()
     expect(screen.queryByText('Product Designer')).toBeNull()
   })
 
+  it('uses the shared route configuration for the header label', () => {
+    navigationMock.pathname = '/event-types/event-1/edit'
+
+    render(<TopBar user={{ name: 'Jane Doe' }} />)
+
+    expect(
+      screen.getByRole('banner', { name: 'Edit event type header' })
+    ).toBeDefined()
+  })
+
+  it('starts shared sign-out from the account menu', async () => {
+    render(<TopBar user={{ name: 'Jane Doe' }} />)
+
+    fireEvent.pointerDown(
+      screen.getByRole('button', {
+        name: 'Open account menu for Jane Doe',
+      }),
+      { button: 0, ctrlKey: false }
+    )
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
+
+    expect(signOutMock).toHaveBeenCalledOnce()
+  })
+
   it('opens the empty notification menu from the header controls', async () => {
     render(
       <TopBar
-        title="Dashboard"
         user={{ name: 'Jane Doe', email: 'jane@example.com' }}
       />
     )
@@ -62,7 +108,6 @@ describe('TopBar', () => {
 
     render(
       <TopBar
-        title="Dashboard"
         notifications={notifications}
         user={{ name: 'Jane Doe', email: 'jane@example.com' }}
       />
@@ -102,7 +147,6 @@ describe('TopBar', () => {
         }}
       >
         <TopBar
-          title="Dashboard"
           notifications={notificationState({ unseenCount: 2 })}
           user={{ name: 'Jane Doe', email: 'jane@example.com' }}
         />
@@ -135,7 +179,6 @@ describe('TopBar', () => {
 
     render(
       <TopBar
-        title="Dashboard"
         notifications={notificationState({ unseenCount: 2 })}
         user={{ name: 'Jane Doe', email: 'jane@example.com' }}
       />
@@ -179,7 +222,6 @@ describe('TopBar', () => {
 
     render(
       <TopBar
-        title="Dashboard"
         notifications={notificationState({ unseenCount: 2 })}
         user={{ name: 'Jane Doe', email: 'jane@example.com' }}
       />
@@ -204,6 +246,14 @@ describe('TopBar', () => {
       })
     ).toBeDefined()
     expect(screen.getByRole('menuitem', { name: 'Mark all as read' })).toBeDefined()
+  })
+
+  it('has no detectable accessibility violations', async () => {
+    const { container } = render(
+      <TopBar user={{ name: 'Jane Doe', email: 'jane@example.com' }} />
+    )
+
+    expect(await axe(container)).toHaveNoViolations()
   })
 })
 

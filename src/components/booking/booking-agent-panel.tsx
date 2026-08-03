@@ -9,8 +9,10 @@ import type {
   BookingAgentDraft,
   BookingAgentMessage,
 } from "@/lib/booking-agent/types";
+import type { BookingHeadingLevel } from "@/components/booking/booking-page-event-header";
 
 interface BookingAgentPanelProps {
+  headingLevel?: BookingHeadingLevel;
   mode: "booking" | "reschedule";
   eventTypeId: string;
   hostUserId: string;
@@ -36,6 +38,7 @@ interface AgentResponse {
 const BOOKING_AGENT_REQUEST_TIMEOUT_MS = 20_000;
 
 export function BookingAgentPanel({
+  headingLevel = 2,
   mode,
   eventTypeId,
   hostUserId,
@@ -191,6 +194,7 @@ export function BookingAgentPanel({
   return (
     <BookingAgentPanelView
       error={error}
+      headingLevel={headingLevel}
       holdDisabled={holdDisabled}
       holdDisabledReason={holdDisabledReason}
       input={input}

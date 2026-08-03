@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import {
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +17,10 @@ import {
   formatBookingDate,
   formatBookingTime,
 } from "@/lib/booking/date-time-format";
+import {
+  BookingHeading,
+  type BookingHeadingLevel,
+} from "@/components/booking/booking-page-event-header";
 
 interface SelectedSlotSummary {
   start: string;
@@ -25,12 +28,14 @@ interface SelectedSlotSummary {
 }
 
 export function BookingFormHeader({
+  headingLevel,
   eventTitle,
   hostName,
   holdPending,
   isRescheduling,
   timeRemaining,
 }: {
+  headingLevel: BookingHeadingLevel;
   eventTitle: string;
   hostName: string;
   holdPending: boolean;
@@ -41,9 +46,12 @@ export function BookingFormHeader({
     <CardHeader>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <CardTitle className="text-lg">
+          <BookingHeading
+            level={headingLevel}
+            className="text-lg font-semibold leading-tight tracking-tight"
+          >
             {isRescheduling ? "Confirm new time" : "Confirm your booking"}
-          </CardTitle>
+          </BookingHeading>
           <CardDescription>
             {eventTitle} with {hostName}
           </CardDescription>

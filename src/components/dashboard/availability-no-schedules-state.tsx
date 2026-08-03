@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { CalendarClock } from "lucide-react"
 import { EmptyState } from "@/components/shared/empty-state"
+import { AvailabilityPageHeader } from "@/components/dashboard/availability-page-header"
 import {
   errorToastDescription,
   requestJson,
@@ -58,14 +59,18 @@ export function AvailabilityNoSchedulesState({
   }
 
   return (
-    <EmptyState
-      icon={<CalendarClock className="h-6 w-6" aria-hidden="true" />}
-      heading="No availability schedules"
-      description="Create a schedule to add the booking hours used by your event types."
-      action={{
-        label: creating ? "Creating schedule..." : "Create schedule",
-        onClick: createSchedule,
-      }}
-    />
+    <div className="space-y-6">
+      <AvailabilityPageHeader />
+      <EmptyState
+        icon={<CalendarClock className="h-6 w-6" aria-hidden="true" />}
+        heading="No availability schedules"
+        headingLevel={2}
+        description="Create a schedule to add the booking hours used by your event types."
+        action={{
+          label: creating ? "Creating schedule..." : "Create schedule",
+          onClick: createSchedule,
+        }}
+      />
+    </div>
   )
 }

@@ -81,4 +81,22 @@ describe('Drawer', () => {
 
     expect(document.activeElement).toBe(lastButton)
   })
+
+  it('uses a 40px close target while retaining the 16px icon', () => {
+    const { container } = render(
+      <Drawer open onClose={vi.fn()} title="Navigation menu">
+        Drawer content
+      </Drawer>
+    )
+
+    const closeButton = screen.getByRole('button', { name: 'Close' })
+    const closeIcon = closeButton.querySelector('svg')
+
+    expect(closeButton.classList.contains('h-10')).toBe(true)
+    expect(closeButton.classList.contains('w-10')).toBe(true)
+    expect(closeButton.classList.contains('focus-visible:ring-2')).toBe(true)
+    expect(closeIcon?.classList.contains('h-4')).toBe(true)
+    expect(closeIcon?.classList.contains('w-4')).toBe(true)
+    expect(container.textContent).toContain('Drawer content')
+  })
 })

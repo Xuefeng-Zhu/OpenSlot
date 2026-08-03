@@ -6,7 +6,11 @@ import type { BookingAgentDraft } from "@/lib/booking-agent/types";
 import { BookingAgentPanel } from "@/components/booking/booking-agent-panel";
 import { BookingConfirmation } from "@/components/booking/booking-confirmation";
 import { BookingForm } from "@/components/booking/booking-form";
-import { BookingPageEventHeader } from "@/components/booking/booking-page-event-header";
+import {
+  BookingPageEventHeader,
+  nextBookingHeadingLevel,
+  type BookingPageEventHeadingLevel,
+} from "@/components/booking/booking-page-event-header";
 import { SlotPickerTimezoneControl } from "@/components/booking/slot-picker-timezone-control";
 import { SlotSelectionGrid } from "@/components/booking/slot-selection-grid";
 import { formatBookingTime } from "@/lib/booking/date-time-format";
@@ -28,6 +32,7 @@ interface SlotPickerViewProps {
   holdTurnstileToken: string | null;
   hostProfile: SlotPickerHostProfile;
   layout: "public" | "embedded";
+  eventHeadingLevel: BookingPageEventHeadingLevel;
   loading: boolean;
   rescheduleContext?: SlotPickerRescheduleContext;
   selectedDate: Date | undefined;
@@ -57,6 +62,7 @@ export function SlotPickerView({
   holdTurnstileToken,
   hostProfile,
   layout,
+  eventHeadingLevel,
   loading,
   rescheduleContext,
   selectedDate,
@@ -75,10 +81,13 @@ export function SlotPickerView({
   onSlotTaken,
   onTimezoneChange,
 }: SlotPickerViewProps) {
+  const sectionHeadingLevel = nextBookingHeadingLevel(eventHeadingLevel);
+
   if (flowState.step === "confirmed") {
     return (
       <div className="max-w-4xl mx-auto">
         <BookingConfirmation
+          headingLevel={eventHeadingLevel}
           bookingId={flowState.booking.bookingId}
           cancellationToken={flowState.booking.cancellationToken}
           rescheduleToken={flowState.booking.rescheduleToken}
@@ -109,6 +118,7 @@ export function SlotPickerView({
       <BookingPageEventHeader
         eventType={eventType}
         hostProfile={hostProfile}
+        headingLevel={eventHeadingLevel}
       />
 
       <SlotPickerTimezoneControl
@@ -118,6 +128,7 @@ export function SlotPickerView({
 
       <SlotSelectionGrid
         layout={layout}
+        headingLevel={sectionHeadingLevel}
         selectedDate={selectedDate}
         loading={loading}
         error={error}
@@ -136,6 +147,7 @@ export function SlotPickerView({
 
       {showBookingAgent && (
         <BookingAgentPanel
+          headingLevel={sectionHeadingLevel}
           mode={rescheduleContext ? "reschedule" : "booking"}
           eventTypeId={eventType.id}
           hostUserId={hostProfile.id}
@@ -158,6 +170,7 @@ export function SlotPickerView({
 
       {flowState.step === "booking-form" && (
         <BookingForm
+          headingLevel={sectionHeadingLevel}
           holdToken={flowState.hold?.holdToken}
           expiresAt={flowState.hold?.expiresAt}
           holdPending={!flowState.hold}

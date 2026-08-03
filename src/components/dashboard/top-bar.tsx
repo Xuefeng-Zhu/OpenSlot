@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, Menu } from 'lucide-react'
+import { usePathname } from 'next/navigation'
+import { Bell, LogOut, Menu, Settings, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, getInitials } from '@/components/ui/avatar'
 import { requestJson } from '@/components/dashboard/request-json'
@@ -22,9 +23,10 @@ import { cn } from '@/lib/utils'
 import { useDashboardDisplayPreferences } from '@/components/dashboard/display-preferences-provider'
 import { formatDashboardTimestamp } from '@/lib/dashboard/display-preferences'
 import { GuardedLink } from '@/components/dashboard/guarded-link'
+import { dashboardHeaderLabel } from '@/components/dashboard/dashboard-routes'
+import { useDashboardSignOut } from '@/components/dashboard/dashboard-sign-out-provider'
 
 interface TopBarProps {
-  title: string
   notifications?: DashboardNotifications
   onMenuToggle?: () => void
   user?: {
@@ -45,15 +47,17 @@ type MarkNotificationsSeenResponse =
     }
 
 export function TopBar({
-  title,
   notifications = emptyDashboardNotifications,
   onMenuToggle,
   user,
 }: TopBarProps) {
+  const pathname = usePathname()
   const { toast } = useToast()
+  const { isSigningOut, signOut } = useDashboardSignOut()
   const displayPreferences = useDashboardDisplayPreferences()
   const displayName = user?.name || 'User'
   const displayEmail = user?.email || 'View profile'
+  const title = dashboardHeaderLabel(pathname)
   const notificationItems = notifications.items
   const [unseenCount, setUnseenCount] = useState(notifications.unseenCount)
   const [markingRead, setMarkingRead] = useState(false)
@@ -202,27 +206,55 @@ export function TopBar({
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          asChild
-          variant="ghost"
-          className="ml-1 h-auto justify-start gap-2 px-2 py-1.5"
-        >
-          <GuardedLink
-            href="/profile"
-            aria-label={`View profile for ${displayName}`}
-          >
-            <Avatar
-              src={user?.avatarUrl || null}
-              alt={displayName}
-              fallback={getInitials(displayName)}
-              size="sm"
-            />
-            <span className="hidden max-w-[180px] text-left sm:block">
-              <span className="block truncate text-sm font-medium text-foreground">{displayName}</span>
-              <span className="block truncate text-xs text-muted-foreground">{displayEmail}</span>
-            </span>
-          </GuardedLink>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              aria-label={`Open account menu for ${displayName}`}
+              className="ml-1 h-auto justify-start gap-2 px-2 py-1.5"
+            >
+              <Avatar
+                src={user?.avatarUrl || null}
+                alt={displayName}
+                fallback={getInitials(displayName)}
+                size="sm"
+              />
+              <span className="hidden max-w-[180px] text-left sm:block">
+                <span className="block truncate text-sm font-medium text-foreground">
+                  {displayName}
+                </span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {displayEmail}
+                </span>
+              </span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <GuardedLink href="/profile">
+                <User className="mr-2 h-4 w-4" aria-hidden="true" />
+                Profile
+              </GuardedLink>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <GuardedLink href="/settings">
+                <Settings className="mr-2 h-4 w-4" aria-hidden="true" />
+                Settings
+              </GuardedLink>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={isSigningOut}
+              onSelect={signOut}
+              className="text-destructive focus:text-destructive"
+            >
+              <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
+              {isSigningOut ? 'Signing out…' : 'Sign out'}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   )
