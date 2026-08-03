@@ -56,7 +56,17 @@ CREATE UNIQUE INDEX ux_mcp_api_tokens_token_hash
 -- - consume-public-rate-limit
 -- - expire-stale-slot-holds
 -- - save-availability
+-- - save-dashboard-preferences
 --
 -- These can be implemented as database functions, edge/serverless functions
 -- that run SQL in a transaction, or provider-native atomic operations. REST-only
 -- multi-step writes are not an acceptable substitute for these paths.
+-- `save-availability` must gate the schedule and every supplied existing row on
+-- the same `(schedule_id, user_id)` owner before updating the schedule timezone,
+-- deleting rows, or upserting rules and overrides. The Butterbase source uses
+-- one parameterized data-modifying CTE so the complete batch commits or rolls
+-- back as one statement.
+-- `save-dashboard-preferences` must update profiles.default_timezone and upsert
+-- user_settings.date_format/time_format atomically. The Butterbase source uses
+-- one parameterized data-modifying CTE so both writes commit or roll back as one
+-- statement without relying on connection-pinned BEGIN/COMMIT calls.

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AvailabilityClient } from '../availability-client'
+import { DashboardDisplayPreferencesProvider } from '../display-preferences-provider'
 import type { AvailabilitySchedule } from '../availability-model'
 
 const routerMocks = vi.hoisted(() => ({
@@ -289,6 +290,41 @@ describe('AvailabilityClient', () => {
 
     expect(screen.queryByRole('alert')).toBeNull()
     expect(addOverride).toHaveProperty('disabled', false)
+  })
+
+  it('uses the host date format in override action labels', () => {
+    render(
+      <DashboardDisplayPreferencesProvider
+        preferences={{
+          timezone: 'America/New_York',
+          dateFormat: 'DD/MM/YYYY',
+          timeFormat: '24h',
+        }}
+      >
+        <AvailabilityClient
+          schedules={schedules()}
+          selectedScheduleId="schedule-default"
+          initialRules={[]}
+          initialOverrides={[
+            {
+              id: 'override-1',
+              date: '2099-05-10',
+              is_available: false,
+              start_time: null,
+              end_time: null,
+              reason: null,
+            },
+          ]}
+          timezone="America/New_York"
+        />
+      </DashboardDisplayPreferencesProvider>
+    )
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Remove override for 10/05/2099',
+      })
+    ).toBeDefined()
   })
 
   it('blocks saving while weekly hours contain an invalid interval', () => {

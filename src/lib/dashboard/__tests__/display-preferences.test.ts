@@ -94,6 +94,22 @@ describe("dashboard display preferences", () => {
     ).toBe("Tomorrow");
   });
 
+  it("formats the Los Angeles spring-forward boundary without inventing 2 AM", () => {
+    expect(
+      formatDashboardTime("2026-03-08T09:30:00.000Z", preferences)
+    ).toBe("1:30 AM");
+    expect(
+      formatDashboardTime("2026-03-08T10:30:00.000Z", preferences)
+    ).toBe("3:30 AM");
+    expect(
+      formatDashboardRelativeDate(
+        "2026-03-08T10:30:00.000Z",
+        preferences,
+        "2026-03-08T07:30:00.000Z"
+      )
+    ).toBe("Tomorrow");
+  });
+
   it("uses an em dash for invalid timestamps and impossible date-only values", () => {
     expect(formatDashboardDate("not-a-date", preferences)).toBe("—");
     expect(formatDashboardTime("not-a-date", preferences)).toBe("—");

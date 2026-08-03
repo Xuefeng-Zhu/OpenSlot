@@ -1,8 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { axe, toHaveNoViolations } from "jest-axe";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { PASSWORD_COMPLEXITY_ERROR } from "@/lib/validations/password";
 import { SettingsClient } from "../settings-client";
+
+expect.extend(toHaveNoViolations);
 
 const toastMock = vi.hoisted(() => vi.fn());
 const routerMock = vi.hoisted(() => ({
@@ -10,8 +12,6 @@ const routerMock = vi.hoisted(() => ({
   replace: vi.fn(),
 }));
 const backendAuthMock = vi.hoisted(() => ({
-  signInWithPassword: vi.fn(),
-  updateUser: vi.fn(),
   signOut: vi.fn(),
 }));
 
@@ -41,11 +41,6 @@ const initialSettings = {
 
 const dirtySectionCases = [
   {
-    section: "account",
-    tabName: "Account",
-    saveButtonName: "Save email",
-  },
-  {
     section: "preferences",
     tabName: "Preferences",
     saveButtonName: "Save preferences",
@@ -66,19 +61,6 @@ function selectSettingsSection(tabName: string) {
 }
 
 function toggleSectionDraft(section: DirtySection) {
-  if (section === "account") {
-    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
-    fireEvent.change(emailInput, {
-      target: {
-        value:
-          emailInput.value === initialSettings.email
-            ? "changed@example.com"
-            : initialSettings.email,
-      },
-    });
-    return;
-  }
-
   if (section === "preferences") {
     const dateFormat = screen.getByLabelText(
       "Date format"
@@ -116,8 +98,6 @@ describe("SettingsClient", () => {
     toastMock.mockClear();
     routerMock.refresh.mockReset();
     routerMock.replace.mockReset();
-    backendAuthMock.signInWithPassword.mockReset();
-    backendAuthMock.updateUser.mockReset();
     backendAuthMock.signOut.mockReset();
   });
 
@@ -193,178 +173,81 @@ describe("SettingsClient", () => {
     });
   });
 
-  it("blocks weak settings password changes before reauthenticating", () => {
+  it("clears ignored legacy calendar errors without exposing or announcing them", async () => {
     render(
       <SettingsClient
         initialSettings={initialSettings}
+        initialTab="integrations"
+        clearIgnoredCalendarOAuthResult
         calendarConnections={[]}
         webhookEndpoints={[]}
       />
     );
-
-    fireEvent.change(screen.getByLabelText("Current password"), {
-      target: { value: "Oldpass1!" },
-    });
-    fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "lowercase1!" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
-
-    expect(toastMock).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Password not updated",
-        description: PASSWORD_COMPLEXITY_ERROR,
-        variant: "destructive",
-      })
-    );
-    expect(backendAuthMock.signInWithPassword).not.toHaveBeenCalled();
-    expect(backendAuthMock.updateUser).not.toHaveBeenCalled();
-  });
-
-  it("submits strong settings password changes after reauthentication", async () => {
-    backendAuthMock.signInWithPassword.mockResolvedValue({ error: null });
-    backendAuthMock.updateUser.mockResolvedValue({ error: null });
-
-    render(
-      <SettingsClient
-        initialSettings={initialSettings}
-        calendarConnections={[]}
-        webhookEndpoints={[]}
-      />
-    );
-
-    fireEvent.change(screen.getByLabelText("Current password"), {
-      target: { value: "Oldpass1!" },
-    });
-    fireEvent.change(screen.getByLabelText("New password"), {
-      target: { value: "Newpass1!" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "Update password" }));
 
     await waitFor(() => {
-      expect(backendAuthMock.signInWithPassword).toHaveBeenCalledWith({
-        email: initialSettings.email,
-        password: "Oldpass1!",
-      });
-      expect(backendAuthMock.updateUser).toHaveBeenCalledWith({
-        password: "Newpass1!",
-      });
-    });
-  });
-
-  it("saves account email only through the section-owned server route", async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        success: true,
-        email: "new@example.com",
-      }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    render(
-      <SettingsClient
-        initialSettings={initialSettings}
-        calendarConnections={[]}
-        webhookEndpoints={[]}
-      />
-    );
-
-    expect(screen.queryByLabelText("Name")).toBeNull();
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "New@Example.com" },
-    });
-    expect(screen.getByRole("status").textContent).toBe("Unsaved changes");
-    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/settings",
-        expect.objectContaining({
-          method: "PATCH",
-          body: JSON.stringify({
-            section: "account",
-            email: "new@example.com",
-          }),
-        })
+      expect(routerMock.replace).toHaveBeenCalledWith(
+        "/settings?tab=integrations",
+        { scroll: false }
       );
-      expect(routerMock.refresh).toHaveBeenCalledTimes(1);
     });
-    expect(backendAuthMock.updateUser).not.toHaveBeenCalled();
-    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(
-      "new@example.com"
-    );
-    expect(screen.queryByRole("status")).toBeNull();
+    expect(toastMock).not.toHaveBeenCalled();
   });
 
-  it("blocks invalid account email with an accessible inline error", () => {
+  it("shows the canonical login email without an email save path", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     renderSettingsClient();
 
-    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
-    fireEvent.change(emailInput, { target: { value: "not-an-email" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
-
-    const error = screen.getByRole("alert");
-    expect(error.textContent).toBe("Must be a valid email address");
-    expect(emailInput.getAttribute("aria-invalid")).toBe("true");
+    const emailInput = screen.getByLabelText(
+      "Login email"
+    ) as HTMLInputElement;
+    expect(emailInput.value).toBe(initialSettings.email);
+    expect(emailInput.readOnly).toBe(true);
     expect(emailInput.getAttribute("aria-describedby")).toBe(
-      "settings-email-error"
+      "settings-email-description"
     );
-    expect(document.activeElement).toBe(emailInput);
+    expect(
+      screen.getByText(/canonical email from your sign-in account/)
+    ).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Save email" })).toBeNull();
+    expect(screen.getByRole("tab", { name: "Account" })).toBeDefined();
     expect(fetchMock).not.toHaveBeenCalled();
-
-    fireEvent.change(emailInput, { target: { value: "valid@example.com" } });
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(emailInput.getAttribute("aria-invalid")).toBe("false");
   });
 
-  it("keeps a rejected email dirty and supports an inline retry", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: false,
-        json: async () => ({
-          success: false,
-          error: "That email address is already in use.",
-        }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          success: true,
-          email: "available@example.com",
-        }),
-      });
-    vi.stubGlobal("fetch", fetchMock);
+  it("routes password changes to the reset-code flow", () => {
     renderSettingsClient();
 
-    const emailInput = screen.getByLabelText("Email") as HTMLInputElement;
-    fireEvent.change(emailInput, { target: { value: "taken@example.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
+    const resetLink = screen.getByRole("link", { name: "Reset password" });
+    expect(resetLink.getAttribute("href")).toBe("/forgot-password");
+    expect(screen.getByText(/verified reset-code flow/)).toBeDefined();
+    expect(screen.queryByLabelText("Current password")).toBeNull();
+    expect(screen.queryByLabelText("New password")).toBeNull();
+  });
 
-    expect((await screen.findByRole("alert")).textContent).toBe(
-      "That email address is already in use."
-    );
-    expect(document.activeElement).toBe(emailInput);
-    expect(
-      screen.getByRole("tab", { name: "Account, unsaved changes" })
-    ).toBeDefined();
-    expect(
-      (screen.getByRole("button", { name: "Save email" }) as HTMLButtonElement)
-        .disabled
-    ).toBe(false);
+  it("has no detectable accessibility violations in the account settings tab", async () => {
+    const { container } = renderSettingsClient();
 
-    fireEvent.change(emailInput, {
-      target: { value: "available@example.com" },
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it("preserves confirmed account deletion and signs out afterward", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ success: true }),
     });
-    expect(screen.queryByRole("alert")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Save email" }));
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    backendAuthMock.signOut.mockResolvedValue({ error: null });
+    renderSettingsClient();
+
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(screen.getByRole("tab", { name: "Account" })).toBeDefined();
+      expect(fetchMock).toHaveBeenCalledWith("/api/settings", {
+        method: "DELETE",
+      });
+      expect(backendAuthMock.signOut).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -375,10 +258,7 @@ describe("SettingsClient", () => {
         "fetch",
         vi.fn().mockResolvedValueOnce({
           ok: true,
-          json: async () =>
-            section === "account"
-              ? { success: true, email: "changed@example.com" }
-              : { success: true },
+          json: async () => ({ success: true }),
         })
       );
       renderSettingsClient();
@@ -460,7 +340,7 @@ describe("SettingsClient", () => {
     }
   );
 
-  it("keeps other section drafts out of notification saves", async () => {
+  it("keeps preference drafts out of notification saves", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({
       ok: true,
       json: async () => ({ success: true }),
@@ -475,9 +355,6 @@ describe("SettingsClient", () => {
       />
     );
 
-    fireEvent.change(screen.getByLabelText("Email"), {
-      target: { value: "draft@example.com" },
-    });
     fireEvent.click(screen.getByRole("tab", { name: "Preferences" }));
     fireEvent.change(screen.getByLabelText("Date format"), {
       target: { value: "DD/MM/YYYY" },
@@ -500,20 +377,11 @@ describe("SettingsClient", () => {
     });
     expect(routerMock.refresh).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("tab", { name: "Account, unsaved changes" })
-    ).toBeDefined();
-    expect(
       screen.getByRole("tab", { name: "Preferences, unsaved changes" })
     ).toBeDefined();
     expect(
       screen.getByRole("tab", { name: "Notifications" })
     ).toBeDefined();
-
-    fireEvent.click(screen.getByRole("tab", { name: /^Account/ }));
-    expect((screen.getByLabelText("Email") as HTMLInputElement).value).toBe(
-      "draft@example.com"
-    );
-    expect(screen.getByRole("status").textContent).toBe("Unsaved changes");
   });
 
   it("clears a one-time webhook secret after deleting that endpoint", async () => {

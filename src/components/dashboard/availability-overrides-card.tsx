@@ -232,6 +232,8 @@ function AvailabilityOverrideList({
   overrides: AvailabilityOverride[]
   onRemoveOverride: (id: string) => void
 }) {
+  const displayPreferences = useDashboardDisplayPreferences()
+
   return (
     <ul className="space-y-2" aria-label="Date-specific hours">
       {overrides.map((override) => (
@@ -245,7 +247,10 @@ function AvailabilityOverrideList({
             size="icon"
             className="h-8 w-8"
             onClick={() => onRemoveOverride(override.id)}
-            aria-label={`Remove override for ${override.date}`}
+            aria-label={`Remove override for ${formatDashboardDateOnly(
+              override.date,
+              displayPreferences
+            )}`}
           >
             <Trash2 className="h-3.5 w-3.5 text-destructive" aria-hidden="true" />
           </Button>

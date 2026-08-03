@@ -97,6 +97,70 @@ describe('mapRpcToFunction', () => {
       expect(result.body).not.toHaveProperty('conferenceStatus')
     })
   })
+
+  describe('save_dashboard_preferences', () => {
+    it('maps the section-owned fields to the atomic Butterbase function', () => {
+      const result = mapRpcToFunction('save_dashboard_preferences', {
+        p_profile_id: '11111111-2222-4333-8444-555555555555',
+        p_default_timezone: 'America/Los_Angeles',
+        p_date_format: 'DD/MM/YYYY',
+        p_time_format: '24h',
+      })
+
+      expect(result).toEqual({
+        slug: 'save-dashboard-preferences',
+        serviceRole: false,
+        body: {
+          profileId: '11111111-2222-4333-8444-555555555555',
+          defaultTimezone: 'America/Los_Angeles',
+          dateFormat: 'DD/MM/YYYY',
+          timeFormat: '24h',
+        },
+      })
+    })
+  })
+
+  describe('save_availability', () => {
+    it('maps host-owned rows to the atomic platform-authenticated function', () => {
+      const result = mapRpcToFunction('save_availability', {
+        p_user_id: '11111111-2222-4333-8444-555555555555',
+        p_schedule_id: '22222222-3333-4444-8555-666666666666',
+        p_timezone: 'America/Los_Angeles',
+        p_rules: [
+          {
+            weekday: 1,
+            start_time: '09:00',
+            end_time: '17:00',
+            is_active: true,
+          },
+        ],
+        p_overrides: [],
+        p_deleted_rule_ids: [],
+        p_deleted_override_ids: [],
+      })
+
+      expect(result).toEqual({
+        slug: 'save-availability',
+        serviceRole: false,
+        body: {
+          userId: '11111111-2222-4333-8444-555555555555',
+          scheduleId: '22222222-3333-4444-8555-666666666666',
+          timezone: 'America/Los_Angeles',
+          rules: [
+            {
+              weekday: 1,
+              start_time: '09:00',
+              end_time: '17:00',
+              is_active: true,
+            },
+          ],
+          overrides: [],
+          deletedRuleIds: [],
+          deletedOverrideIds: [],
+        },
+      })
+    })
+  })
 })
 
 describe('normalizeRpcResult', () => {

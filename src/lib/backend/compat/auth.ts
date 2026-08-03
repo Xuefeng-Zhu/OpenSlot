@@ -1,5 +1,9 @@
 import type { ButterbaseHttpClient } from '../butterbase/http-client'
-import { invokeCompatFunction } from './function-mapping'
+import {
+  ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED,
+  ACCOUNT_EMAIL_UPDATE_UNAVAILABLE,
+  ACCOUNT_PASSWORD_RESET_REQUIRED,
+} from '@/lib/auth/account-mutation-policy'
 import { mapCompatResponse, requestAsCompat } from './responses'
 import type {
   AuthMode,
@@ -34,8 +38,18 @@ export class BackendCompatAuth implements BackendCompatAuthPort {
   ) {
     if (authMode === 'service') {
       this.admin = {
-        deleteUser: async (userId: string) =>
-          invokeCompatFunction(this.httpClient, 'deleteAuthUser', { userId }),
+        deleteUser: async (userId: string) => {
+          const response = await requestAsCompat<{
+            deleted: true
+            user_id: string
+          }>(this.httpClient, {
+            method: 'DELETE',
+            path: `/v1/${this.httpClient.appId}/admin/auth/users/${encodeURIComponent(userId)}`,
+            auth: 'service',
+          })
+
+          return mapCompatResponse(response, () => ({ success: true as const }))
+        },
       }
     }
   }
@@ -109,13 +123,52 @@ export class BackendCompatAuth implements BackendCompatAuthPort {
     email?: string
     password?: string
   }) {
-    const result = await invokeCompatFunction<unknown>(
-      this.httpClient,
-      'updateAuthUser',
-      input
-    )
-    if (result.error) return { data: null, error: result.error }
-    return { data: { user: null }, error: null }
+    const hasEmail = input.email !== undefined
+    const hasPassword = input.password !== undefined
+
+    if (!hasEmail && !hasPassword) {
+      return {
+        data: null,
+        error: {
+          message: 'No account changes were provided.',
+          code: 'NO_ACCOUNT_CHANGES',
+          status: 400,
+        },
+      }
+    }
+
+    if (hasEmail && hasPassword) {
+      return {
+        data: null,
+        error: {
+          message: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.message,
+          code: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.code,
+          status: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.status,
+          details: ACCOUNT_COMBINED_UPDATE_NOT_ALLOWED.details,
+        },
+      }
+    }
+
+    if (hasEmail) {
+      return {
+        data: null,
+        error: {
+          message: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.message,
+          code: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.code,
+          status: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.status,
+        },
+      }
+    }
+
+    return {
+      data: null,
+      error: {
+        message: ACCOUNT_PASSWORD_RESET_REQUIRED.message,
+        code: ACCOUNT_PASSWORD_RESET_REQUIRED.code,
+        status: ACCOUNT_PASSWORD_RESET_REQUIRED.status,
+        details: ACCOUNT_PASSWORD_RESET_REQUIRED.details,
+      },
+    }
   }
 
   async resetPasswordForEmail(email: string) {

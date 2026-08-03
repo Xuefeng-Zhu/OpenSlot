@@ -150,6 +150,7 @@ export type BackendFunctionName =
   | 'consumePublicRateLimit'
   | 'expireStaleSlotHolds'
   | 'saveAvailability'
+  | 'saveDashboardPreferences'
 
 export interface BackendFunctionRequest<TBody = Json> {
   body?: TBody

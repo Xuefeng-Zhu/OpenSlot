@@ -251,4 +251,37 @@ describe('MCP token helpers', () => {
     ).resolves.toBeNull()
     expect(update).not.toHaveBeenCalled()
   })
+
+  it('fails closed when persisted scopes mix supported and unsupported values', async () => {
+    const update = vi.fn(() => ({
+      eq: () => Promise.resolve({ data: null, error: null }),
+    }))
+    const adminClient = {
+      from: vi.fn(() => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                id: 'token-1',
+                profile_id: 'profile-1',
+                scopes: ['mcp:write', 'mcp:admin'],
+                expires_at: null,
+                revoked_at: null,
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update,
+      })),
+    } as any
+
+    await expect(
+      authenticateMcpApiToken({
+        adminClient,
+        bearerToken: 'os_mcp_mixed-scope',
+      })
+    ).resolves.toBeNull()
+    expect(update).not.toHaveBeenCalled()
+  })
 })

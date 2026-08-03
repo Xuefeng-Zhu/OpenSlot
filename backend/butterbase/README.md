@@ -52,5 +52,21 @@ preserve the transaction semantics documented in
   against the JS path are still safe.
 - worker claim functions lease rows with skip-locked semantics;
 - public rate-limit and stale-hold expiry functions remain atomic.
+- `save-availability` owns the schedule/rules/overrides batch write. Deploy
+  `functions/save-availability.v1.ts` under that exact slug. Its HTTP trigger
+  must require authentication and disable service-key impersonation; the
+  handler accepts only Butterbase-verified `service_key` callers through
+  `ctx.caller`. Strict payload validation and one parameterized data-modifying
+  CTE gate every mutation on `(schedule_id, user_id)` ownership, update the
+  schedule timezone, delete requested owned rows, and upsert all supplied
+  rules and overrides atomically.
+- `save-dashboard-preferences` owns the cross-table display-preference write.
+  Deploy `functions/save-dashboard-preferences.v1.ts` under that exact slug.
+  Its HTTP trigger must require authentication and disable service-key
+  impersonation; the handler accepts only Butterbase-verified `service_key`
+  callers through `ctx.caller`.
+  Its single parameterized data-modifying CTE updates `profiles.default_timezone`
+  and upserts the matching `user_settings` formats atomically, so a failed
+  settings write cannot leave a profile-only timezone change behind.
 
 Keep this manifest in sync with `src/lib/backend/functions.ts`.

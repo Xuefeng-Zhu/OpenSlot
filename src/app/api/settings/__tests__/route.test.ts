@@ -8,17 +8,12 @@ const mocks = vi.hoisted(() => ({
     | null,
   authUpdateUser: vi.fn(),
   profileUpdatePayload: null as Record<string, unknown> | null,
-  profileUpdatePayloads: [] as Array<Record<string, unknown>>,
   profileUpdateError: null as { message: string } | null,
-  profileRollbackError: null as { message: string } | null,
-  previousTimezone: 'America/New_York' as string | null,
-  previousProfileError: null as { message: string } | null,
-  currentTimezoneBeforeRollback: 'America/Los_Angeles' as string | null,
-  currentProfileError: null as { message: string } | null,
-  profileSelectCount: 0,
   settingsUpsertPayload: null as Record<string, unknown> | null,
   settingsUpsertOptions: null as Record<string, unknown> | null,
   settingsUpsertError: null as { message: string } | null,
+  rpc: vi.fn(),
+  rpcSingle: vi.fn(),
   deleteUser: vi.fn(),
 }))
 
@@ -42,33 +37,10 @@ function createServerTableMock(table: string) {
 function createAdminTableMock(table: string) {
   if (table === 'profiles') {
     return {
-      select: () => ({
-        eq: () => ({
-          single: async () => {
-            mocks.profileSelectCount += 1
-            const isReconciliationRead = mocks.profileSelectCount > 1
-            const error = isReconciliationRead
-              ? mocks.currentProfileError
-              : mocks.previousProfileError
-            const timezone = isReconciliationRead
-              ? mocks.currentTimezoneBeforeRollback
-              : mocks.previousTimezone
-            return {
-              data: error ? null : { default_timezone: timezone },
-              error,
-            }
-          },
-        }),
-      }),
       update: (payload: Record<string, unknown>) => {
         mocks.profileUpdatePayload = payload
-        mocks.profileUpdatePayloads.push(payload)
-        const updateError =
-          mocks.profileUpdatePayloads.length === 1
-            ? mocks.profileUpdateError
-            : mocks.profileRollbackError
         return {
-          eq: async () => ({ error: updateError }),
+          eq: async () => ({ error: mocks.profileUpdateError }),
         }
       },
     }
@@ -101,6 +73,7 @@ vi.mock('@/lib/backend/server', () => ({
       admin: { deleteUser: mocks.deleteUser },
     },
     from: createAdminTableMock,
+    rpc: mocks.rpc,
   })),
 }))
 
@@ -159,35 +132,36 @@ describe('PATCH /api/settings', () => {
     mocks.authUpdateUser.mockReset()
     mocks.authUpdateUser.mockResolvedValue({ data: { user: null }, error: null })
     mocks.profileUpdatePayload = null
-    mocks.profileUpdatePayloads = []
     mocks.profileUpdateError = null
-    mocks.profileRollbackError = null
-    mocks.previousTimezone = 'America/New_York'
-    mocks.previousProfileError = null
-    mocks.currentTimezoneBeforeRollback = 'America/Los_Angeles'
-    mocks.currentProfileError = null
-    mocks.profileSelectCount = 0
     mocks.settingsUpsertPayload = null
     mocks.settingsUpsertOptions = null
     mocks.settingsUpsertError = null
+    mocks.rpc.mockReset()
+    mocks.rpc.mockReturnValue({ single: mocks.rpcSingle })
+    mocks.rpcSingle.mockReset()
+    mocks.rpcSingle.mockResolvedValue({
+      data: { success: true },
+      error: null,
+    })
     mocks.deleteUser.mockReset()
     mocks.deleteUser.mockResolvedValue({ error: null })
   })
 
-  it('synchronizes only the account email section', async () => {
+  it('fails account email changes closed without writing either store', async () => {
     const response = await PATCH(requestWithJson(accountBody) as any)
     const data = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(data).toEqual({ success: true, email: 'sarah@example.com' })
-    expect(mocks.authUpdateUser).toHaveBeenCalledWith({
-      userId: 'auth-user-1',
-      email: 'sarah@example.com',
+    expect(response.status).toBe(503)
+    expect(data).toEqual({
+      success: false,
+      code: 'EMAIL_UPDATE_UNAVAILABLE',
+      error:
+        'Sign-in email changes are temporarily unavailable. Your email was not changed.',
     })
-    expect(mocks.profileUpdatePayload).toMatchObject({
-      email: 'sarah@example.com',
-    })
+    expect(mocks.authUpdateUser).not.toHaveBeenCalled()
+    expect(mocks.profileUpdatePayload).toBeNull()
     expect(mocks.settingsUpsertPayload).toBeNull()
+    expect(mocks.rpc).not.toHaveBeenCalled()
   })
 
   it('persists only display preferences and profile timezone', async () => {
@@ -195,38 +169,24 @@ describe('PATCH /api/settings', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.authUpdateUser).not.toHaveBeenCalled()
-    expect(mocks.profileUpdatePayload).toMatchObject({
-      default_timezone: 'America/Los_Angeles',
+    expect(mocks.rpc).toHaveBeenCalledTimes(1)
+    expect(mocks.rpc).toHaveBeenCalledWith('save_dashboard_preferences', {
+      p_profile_id: 'profile-1',
+      p_default_timezone: 'America/Los_Angeles',
+      p_date_format: 'DD/MM/YYYY',
+      p_time_format: '24h',
     })
-    expect(mocks.profileUpdatePayload).not.toHaveProperty('email')
-    expect(mocks.settingsUpsertPayload).toMatchObject({
-      profile_id: 'profile-1',
-      date_format: 'DD/MM/YYYY',
-      time_format: '24h',
-    })
-    expect(mocks.settingsUpsertPayload).not.toHaveProperty(
-      'notify_new_booking'
-    )
-    expect(mocks.profileUpdatePayloads).toHaveLength(1)
-  })
-
-  it('does not write display settings when the profile timezone update fails', async () => {
-    mocks.profileUpdateError = { message: 'profile write failed' }
-
-    const response = await PATCH(requestWithJson(preferencesBody) as any)
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data).toEqual({
-      success: false,
-      error: 'Failed to update preferences',
-    })
+    expect(mocks.rpcSingle).toHaveBeenCalledTimes(1)
+    expect(mocks.profileUpdatePayload).toBeNull()
     expect(mocks.settingsUpsertPayload).toBeNull()
-    expect(mocks.profileUpdatePayloads).toHaveLength(1)
   })
 
-  it('restores the previous timezone when display settings fail to save', async () => {
-    mocks.settingsUpsertError = { message: 'settings write failed' }
+  it('returns a safe error when the atomic preference function fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mocks.rpcSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'private database details' },
+    })
 
     const response = await PATCH(requestWithJson(preferencesBody) as any)
     const data = await response.json()
@@ -237,53 +197,10 @@ describe('PATCH /api/settings', () => {
       code: 'PREFERENCES_UPDATE_FAILED',
       error: 'Preferences were not changed. Please try again.',
     })
-    expect(mocks.profileUpdatePayloads).toHaveLength(2)
-    expect(mocks.profileUpdatePayloads[1]).toMatchObject({
-      default_timezone: 'America/New_York',
-    })
-  })
-
-  it('reports when a failed display-settings save cannot restore the timezone', async () => {
-    mocks.settingsUpsertError = { message: 'settings write failed' }
-    mocks.profileRollbackError = { message: 'rollback failed' }
-
-    const response = await PATCH(requestWithJson(preferencesBody) as any)
-    const data = await response.json()
-
-    expect(response.status).toBe(500)
-    expect(data).toEqual({
-      success: false,
-      code: 'PREFERENCES_RECONCILIATION_REQUIRED',
-      error: 'Preferences could not be synchronized. Reload before retrying.',
-    })
-    expect(mocks.profileUpdatePayloads).toHaveLength(2)
-  })
-
-  it('does not roll back a newer concurrent timezone update', async () => {
-    mocks.settingsUpsertError = { message: 'settings write failed' }
-    mocks.currentTimezoneBeforeRollback = 'Europe/London'
-
-    const response = await PATCH(requestWithJson(preferencesBody) as any)
-    const data = await response.json()
-
-    expect(response.status).toBe(409)
-    expect(data).toEqual({
-      success: false,
-      code: 'PREFERENCES_UPDATE_SUPERSEDED',
-      error:
-        'Preferences changed in another session. Reload to see the latest values.',
-    })
-    expect(mocks.profileUpdatePayloads).toHaveLength(1)
-  })
-
-  it('does not change preferences when their current timezone cannot be loaded', async () => {
-    mocks.previousProfileError = { message: 'read failed' }
-
-    const response = await PATCH(requestWithJson(preferencesBody) as any)
-
-    expect(response.status).toBe(500)
-    expect(mocks.profileUpdatePayloads).toHaveLength(0)
+    expect(JSON.stringify(data)).not.toContain('private database details')
+    expect(mocks.profileUpdatePayload).toBeNull()
     expect(mocks.settingsUpsertPayload).toBeNull()
+    consoleError.mockRestore()
   })
 
   it('persists only notification preferences', async () => {
@@ -291,6 +208,7 @@ describe('PATCH /api/settings', () => {
 
     expect(response.status).toBe(200)
     expect(mocks.authUpdateUser).not.toHaveBeenCalled()
+    expect(mocks.rpc).not.toHaveBeenCalled()
     expect(mocks.profileUpdatePayload).toBeNull()
     expect(mocks.settingsUpsertPayload).toMatchObject({
       profile_id: 'profile-1',

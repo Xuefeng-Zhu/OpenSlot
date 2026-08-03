@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { ACCOUNT_EMAIL_UPDATE_UNAVAILABLE } from '@/lib/auth/account-mutation-policy'
 import { getAuthenticatedProfile } from '@/lib/auth/get-authenticated-profile'
-import { syncAccountEmail } from '@/lib/auth/sync-account-email'
 import {
   createAdminBackendClient,
   createServerBackendClient,
@@ -12,9 +12,9 @@ import {
 } from '@/lib/validations/settings'
 
 /**
- * Saves exactly one account, preference, or notification settings section for
- * the signed-in host. Account email changes synchronize Auth and profile data
- * server-side so hidden drafts from another tab cannot leak into the write.
+ * Saves exactly one preference or notification settings section for the
+ * signed-in host. Account email writes fail closed until Butterbase exposes a
+ * service-auth mutation that can safely keep Auth and profile data in sync.
  */
 export const runtime = 'edge'
 
@@ -58,146 +58,44 @@ export async function PATCH(request: NextRequest) {
     }
 
     const settings = parsed.data
-    const adminClient = createAdminBackendClient()
-    const now = new Date().toISOString()
 
     if (settings.section === 'account') {
-      const result = await syncAccountEmail({
-        userId: auth.userId,
-        profileId: auth.profileId,
-        currentEmail: auth.email,
-        nextEmail: settings.email,
-        client: adminClient,
-        authReader: userClient.auth,
-      })
-
-      if (!result.ok) {
-        return NextResponse.json(
-          { success: false, code: result.code, error: result.error },
-          { status: result.status }
-        )
-      }
-
-      return NextResponse.json({ success: true, email: result.email })
-    }
-
-    if (settings.section === 'preferences') {
-      const { data: previousProfile, error: previousProfileError } =
-        await adminClient
-          .from('profiles')
-          .select('default_timezone')
-          .eq('id', auth.profileId)
-          .single()
-
-      if (previousProfileError || !previousProfile) {
-        console.error(
-          'Error loading existing profile preferences:',
-          previousProfileError
-        )
-        return NextResponse.json(
-          { success: false, error: 'Failed to update preferences' },
-          { status: 500 }
-        )
-      }
-
-      const { error: profileError } = await adminClient
-        .from('profiles')
-        .update({
-          default_timezone: settings.defaultTimezone,
-          updated_at: now,
-        })
-        .eq('id', auth.profileId)
-
-      if (profileError) {
-        console.error('Error updating profile preferences:', profileError)
-        return NextResponse.json(
-          { success: false, error: 'Failed to update preferences' },
-          { status: 500 }
-        )
-      }
-
-      const { error: settingsError } = await adminClient
-        .from('user_settings')
-        .upsert(
-          {
-            profile_id: auth.profileId,
-            date_format: settings.dateFormat,
-            time_format: settings.timeFormat,
-            updated_at: now,
-          },
-          { onConflict: 'profile_id' }
-        )
-
-      if (!settingsError) {
-        return NextResponse.json({ success: true })
-      }
-
-      console.error('Error updating display preferences:', settingsError)
-
-      const { data: currentProfile, error: currentProfileError } =
-        await adminClient
-          .from('profiles')
-          .select('default_timezone')
-          .eq('id', auth.profileId)
-          .single()
-
-      if (currentProfileError || !currentProfile) {
-        console.error(
-          'Error checking profile preferences before reconciliation:',
-          currentProfileError
-        )
-        return NextResponse.json(
-          {
-            success: false,
-            code: 'PREFERENCES_RECONCILIATION_REQUIRED',
-            error:
-              'Preferences could not be synchronized. Reload before retrying.',
-          },
-          { status: 500 }
-        )
-      }
-
-      if (currentProfile.default_timezone !== settings.defaultTimezone) {
-        return NextResponse.json(
-          {
-            success: false,
-            code: 'PREFERENCES_UPDATE_SUPERSEDED',
-            error:
-              'Preferences changed in another session. Reload to see the latest values.',
-          },
-          { status: 409 }
-        )
-      }
-
-      const { error: rollbackError } = await adminClient
-        .from('profiles')
-        .update({
-          default_timezone: previousProfile.default_timezone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', auth.profileId)
-
-      if (rollbackError) {
-        console.error('Error reconciling profile preferences:', rollbackError)
-        return NextResponse.json(
-          {
-            success: false,
-            code: 'PREFERENCES_RECONCILIATION_REQUIRED',
-            error:
-              'Preferences could not be synchronized. Reload before retrying.',
-          },
-          { status: 500 }
-        )
-      }
-
       return NextResponse.json(
         {
           success: false,
-          code: 'PREFERENCES_UPDATE_FAILED',
-          error: 'Preferences were not changed. Please try again.',
+          code: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.code,
+          error: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.message,
         },
-        { status: 500 }
+        { status: ACCOUNT_EMAIL_UPDATE_UNAVAILABLE.status }
       )
+    }
+
+    const adminClient = createAdminBackendClient()
+    const now = new Date().toISOString()
+
+    if (settings.section === 'preferences') {
+      const { error: preferencesError } = await adminClient
+        .rpc('save_dashboard_preferences', {
+          p_profile_id: auth.profileId,
+          p_default_timezone: settings.defaultTimezone,
+          p_date_format: settings.dateFormat,
+          p_time_format: settings.timeFormat,
+        })
+        .single()
+
+      if (preferencesError) {
+        console.error('Atomic dashboard preference update failed')
+        return NextResponse.json(
+          {
+            success: false,
+            code: 'PREFERENCES_UPDATE_FAILED',
+            error: 'Preferences were not changed. Please try again.',
+          },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ success: true })
     }
 
     const settingsPayload = {

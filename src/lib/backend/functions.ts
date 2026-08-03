@@ -10,4 +10,5 @@ export const backendFunctionSlugs = {
   consumePublicRateLimit: 'consume-public-rate-limit',
   expireStaleSlotHolds: 'expire-stale-slot-holds',
   saveAvailability: 'save-availability',
+  saveDashboardPreferences: 'save-dashboard-preferences',
 } as const satisfies Record<BackendFunctionName, string>

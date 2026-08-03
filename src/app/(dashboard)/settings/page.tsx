@@ -28,10 +28,13 @@ export const metadata = routeMetadata.settings;
 export default async function SettingsPage({ searchParams }: SettingsPageProps) {
   const resolvedSearchParams = (await searchParams) ?? {};
   const oauthResult = parseOAuthResult(resolvedSearchParams);
+  const clearIgnoredCalendarOAuthResult =
+    firstSearchParam(resolvedSearchParams.calendar) === "error" &&
+    oauthResult === null;
   const requestedTab = firstSearchParam(resolvedSearchParams.tab);
   const initialTab = settingsTabs.includes(requestedTab as SettingsTab)
     ? (requestedTab as SettingsTab)
-    : oauthResult
+    : oauthResult || clearIgnoredCalendarOAuthResult
       ? "integrations"
       : "account";
   const backendClient = await createServerBackendClient();
@@ -101,6 +104,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
       initialSettings={initialSettings}
       initialTab={initialTab}
       calendarOAuthResult={oauthResult}
+      clearIgnoredCalendarOAuthResult={clearIgnoredCalendarOAuthResult}
       calendarConnections={calendarConnections.data}
       calendarConnectionsLoadFailed={calendarConnections.loadFailed}
       webhookEndpoints={webhookEndpoints.data}

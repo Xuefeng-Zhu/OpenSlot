@@ -250,7 +250,7 @@ artifacts belong under `backend/butterbase/`:
 | `GET/POST /api/holds/expire` | Bearer-token stale hold expiry worker | `src/lib/booking/hold-expiry.ts` |
 | `DELETE /api/contacts/[id]` | Authenticated host contact anonymization scoped to own profile | `src/lib/contacts/contacts.ts` |
 | `GET/POST /api/outbox/process` | Bearer-token worker trigger, service-key write | `src/lib/outbox/process.ts` |
-| `PATCH/DELETE /api/settings` | Strict, one-section-at-a-time account/display/notification updates and account deletion | `src/app/api/settings/route.ts` |
+| `PATCH/DELETE /api/settings` | Strict, one-section-at-a-time display/notification updates and account deletion; email mutation fails closed with `EMAIL_UPDATE_UNAVAILABLE` | `src/app/api/settings/route.ts` |
 | `GET /api/calendar/connections` | Authenticated host, safe server-side calendar connection summaries | `src/lib/calendar/connections.ts` |
 | `GET /api/calendar/oauth/[provider]/start` | Authenticated host calendar OAuth redirect | `src/lib/calendar/oauth.ts` |
 | `GET /api/calendar/oauth/[provider]/callback` | Authenticated host calendar OAuth callback | `src/lib/calendar/oauth.ts` |

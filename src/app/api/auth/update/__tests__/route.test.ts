@@ -1,19 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PASSWORD_COMPLEXITY_ERROR } from '@/lib/validations/password'
 import { PATCH } from '../route'
 
 const mocks = vi.hoisted(() => ({
   currentAccessToken: vi.fn(),
   getAuthenticatedProfile: vi.fn(),
-  syncAccountEmail: vi.fn(),
-  updateUser: vi.fn(),
 }))
 
 vi.mock('@/lib/backend/server', () => ({
   currentBackendAccessToken: mocks.currentAccessToken,
-  createAdminBackendClient: vi.fn(() => ({
-    auth: { updateUser: mocks.updateUser },
-  })),
 }))
 
 vi.mock('@/lib/backend/compat/query-client', () => ({
@@ -25,10 +19,6 @@ vi.mock('@/lib/backend/compat/query-client', () => ({
 
 vi.mock('@/lib/auth/get-authenticated-profile', () => ({
   getAuthenticatedProfile: mocks.getAuthenticatedProfile,
-}))
-
-vi.mock('@/lib/auth/sync-account-email', () => ({
-  syncAccountEmail: mocks.syncAccountEmail,
 }))
 
 function requestWithJson(body: unknown) {
@@ -45,11 +35,6 @@ describe('PATCH /api/auth/update', () => {
       profileId: 'profile-1',
       email: 'old@example.com',
     })
-    mocks.syncAccountEmail.mockResolvedValue({
-      ok: true,
-      email: 'new@example.com',
-    })
-    mocks.updateUser.mockResolvedValue({ data: { user: null }, error: null })
   })
 
   it('rejects combined email and password mutations', async () => {
@@ -65,56 +50,34 @@ describe('PATCH /api/auth/update', () => {
     expect(data).toEqual({
       success: false,
       code: 'COMBINED_ACCOUNT_UPDATE_NOT_ALLOWED',
-      error: 'Update email and password separately.',
+      error:
+        'Sign-in email changes are unavailable. Use the password reset flow to change your password.',
+      details: { resetPath: '/forgot-password' },
     })
     expect(mocks.getAuthenticatedProfile).not.toHaveBeenCalled()
   })
 
-  it.each(['', 'short', 'lowercase1!'])(
-    'rejects weak password updates before calling privileged auth for %j',
-    async (password) => {
-      const response = await PATCH(requestWithJson({ password }) as any)
-      const data = await response.json()
-
-      expect(response.status).toBe(400)
-      expect(data).toEqual({
-        success: false,
-        error: PASSWORD_COMPLEXITY_ERROR,
-      })
-      expect(mocks.getAuthenticatedProfile).not.toHaveBeenCalled()
-      expect(mocks.updateUser).not.toHaveBeenCalled()
-    }
-  )
-
-  it('uses the compensated server email synchronization helper', async () => {
+  it('fails email updates closed without invoking privileged auth', async () => {
     const response = await PATCH(
       requestWithJson({ email: ' New@Example.com ' }) as any
     )
     const data = await response.json()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(503)
     expect(data).toEqual({
-      success: true,
-      user: null,
-      email: 'new@example.com',
+      success: false,
+      code: 'EMAIL_UPDATE_UNAVAILABLE',
+      error:
+        'Sign-in email changes are temporarily unavailable. Your email was not changed.',
     })
-    expect(mocks.syncAccountEmail).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 'user-1',
-        profileId: 'profile-1',
-        currentEmail: 'old@example.com',
-        nextEmail: 'new@example.com',
-      })
-    )
-    expect(mocks.updateUser).not.toHaveBeenCalled()
+    expect(mocks.getAuthenticatedProfile).toHaveBeenCalledOnce()
   })
 
-  it('returns safe reconciliation errors from email synchronization', async () => {
-    mocks.syncAccountEmail.mockResolvedValue({
+  it('requires an authenticated session before returning capability guidance', async () => {
+    mocks.getAuthenticatedProfile.mockResolvedValue({
       ok: false,
-      status: 500,
-      code: 'EMAIL_RECONCILIATION_REQUIRED',
-      error: 'Account email needs support reconciliation.',
+      status: 401,
+      error: 'Authentication required.',
     })
 
     const response = await PATCH(
@@ -122,24 +85,55 @@ describe('PATCH /api/auth/update', () => {
     )
     const data = await response.json()
 
-    expect(response.status).toBe(500)
+    expect(response.status).toBe(401)
     expect(data).toEqual({
       success: false,
-      code: 'EMAIL_RECONCILIATION_REQUIRED',
-      error: 'Account email needs support reconciliation.',
+      error: 'Authentication required.',
     })
   })
 
-  it('keeps password updates separate from profile email writes', async () => {
-    const response = await PATCH(
-      requestWithJson({ password: 'Newpass1!' }) as any
-    )
+  it.each(['', 'short', 'Newpass1!'])(
+    'directs password mutation %j to the supported reset flow',
+    async (password) => {
+      const response = await PATCH(requestWithJson({ password }) as any)
+      const data = await response.json()
 
-    expect(response.status).toBe(200)
-    expect(mocks.updateUser).toHaveBeenCalledWith({
-      userId: 'user-1',
-      password: 'Newpass1!',
+      expect(response.status).toBe(409)
+      expect(data).toEqual({
+        success: false,
+        code: 'PASSWORD_RESET_REQUIRED',
+        error: 'Use the password reset flow to change your password.',
+        details: { resetPath: '/forgot-password' },
+      })
+      expect(mocks.getAuthenticatedProfile).toHaveBeenCalledOnce()
+    }
+  )
+
+  it('rejects requests without an active session', async () => {
+    mocks.currentAccessToken.mockResolvedValue(null)
+
+    const response = await PATCH(
+      requestWithJson({ email: 'new@example.com' }) as any
+    )
+    const data = await response.json()
+
+    expect(response.status).toBe(401)
+    expect(data).toEqual({
+      success: false,
+      error: 'Authentication required.',
     })
-    expect(mocks.syncAccountEmail).not.toHaveBeenCalled()
+    expect(mocks.getAuthenticatedProfile).not.toHaveBeenCalled()
+  })
+
+  it('rejects requests without an account mutation', async () => {
+    const response = await PATCH(requestWithJson({ displayName: 'Host' }) as any)
+    const data = await response.json()
+
+    expect(response.status).toBe(400)
+    expect(data).toEqual({
+      success: false,
+      error: 'No account changes were provided.',
+    })
+    expect(mocks.getAuthenticatedProfile).not.toHaveBeenCalled()
   })
 })

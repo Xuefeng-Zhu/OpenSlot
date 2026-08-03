@@ -13,15 +13,10 @@ import { createBrowserBackendClient } from "@/lib/backend/compat/browser-client"
 import type { CalendarConnectionSummary } from "@/lib/calendar/connections";
 import type { CalendarOAuthResult } from "@/lib/calendar/oauth-result";
 import {
-  accountSettingsPatchSchema,
   type SettingsFormValues,
   type SettingsPatch,
   type SettingsTab,
 } from "@/lib/validations/settings";
-import {
-  PASSWORD_COMPLEXITY_ERROR,
-  isStrongPassword,
-} from "@/lib/validations/password";
 import type { McpTokenSummary } from "@/lib/mcp/tokens";
 import type { WebhookEndpointSummary } from "@/lib/webhooks/endpoints";
 import { SettingsAccountTab } from "./settings-account-tab";
@@ -33,6 +28,7 @@ interface SettingsClientProps {
   initialSettings: SettingsFormValues;
   initialTab?: SettingsTab;
   calendarOAuthResult?: CalendarOAuthResult | null;
+  clearIgnoredCalendarOAuthResult?: boolean;
   calendarConnections: CalendarConnectionSummary[];
   calendarConnectionsLoadFailed?: boolean;
   webhookEndpoints: WebhookEndpointSummary[];
@@ -41,12 +37,15 @@ interface SettingsClientProps {
   mcpTokensLoadFailed?: boolean;
 }
 
-type SaveAction = "account" | "preferences" | "notifications";
+type SaveAction = "preferences" | "notifications";
+type WritableSettingsPatch = Exclude<
+  SettingsPatch,
+  { section: "account" }
+>;
 
 type SettingsMutationResponse =
   | {
       success: true;
-      email?: string;
     }
   | {
       success: false;
@@ -62,6 +61,7 @@ export function SettingsClient({
   initialSettings,
   initialTab = "account",
   calendarOAuthResult = null,
+  clearIgnoredCalendarOAuthResult = false,
   calendarConnections,
   calendarConnectionsLoadFailed = false,
   webhookEndpoints: initialWebhookEndpoints,
@@ -73,12 +73,6 @@ export function SettingsClient({
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
   const oauthFeedbackShown = useRef(false);
-  const emailInputRef = useRef<HTMLInputElement>(null);
-  const [email, setEmail] = useState(initialSettings.email);
-  const [savedEmail, setSavedEmail] = useState(initialSettings.email);
-  const [emailError, setEmailError] = useState<string | null>(null);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
   const [timezone, setTimezone] = useState(initialSettings.defaultTimezone);
   const [savedTimezone, setSavedTimezone] = useState(
     initialSettings.defaultTimezone
@@ -111,9 +105,7 @@ export function SettingsClient({
   );
 
   const [savingAction, setSavingAction] = useState<SaveAction | null>(null);
-  const [passwordSaving, setPasswordSaving] = useState(false);
   const [deleteSaving, setDeleteSaving] = useState(false);
-  const accountDirty = email.trim().toLowerCase() !== savedEmail.toLowerCase();
   const preferencesDirty =
     timezone !== savedTimezone ||
     dateFormat !== savedDateFormat ||
@@ -128,7 +120,15 @@ export function SettingsClient({
   }, [initialTab]);
 
   useEffect(() => {
-    if (!calendarOAuthResult || oauthFeedbackShown.current) return;
+    if (oauthFeedbackShown.current) return;
+
+    if (!calendarOAuthResult) {
+      if (clearIgnoredCalendarOAuthResult) {
+        oauthFeedbackShown.current = true;
+        router.replace("/settings?tab=integrations", { scroll: false });
+      }
+      return;
+    }
 
     oauthFeedbackShown.current = true;
     const provider =
@@ -150,13 +150,9 @@ export function SettingsClient({
     }
 
     router.replace("/settings?tab=integrations", { scroll: false });
-  }, [calendarOAuthResult, router, toast]);
+  }, [calendarOAuthResult, clearIgnoredCalendarOAuthResult, router, toast]);
 
-  const settingsPatch = (action: SaveAction): SettingsPatch => {
-    if (action === "account") {
-      return { section: "account", email: email.trim() };
-    }
-
+  const settingsPatch = (action: SaveAction): WritableSettingsPatch => {
     if (action === "preferences") {
       return {
         section: "preferences",
@@ -175,23 +171,7 @@ export function SettingsClient({
   };
 
   const saveSettings = async (action: SaveAction) => {
-    let patch = settingsPatch(action);
-
-    if (patch.section === "account") {
-      const parsed = accountSettingsPatchSchema.safeParse(patch);
-
-      if (!parsed.success) {
-        setEmailError(
-          parsed.error.flatten().fieldErrors.email?.[0] ??
-            "Enter a valid email address."
-        );
-        emailInputRef.current?.focus();
-        return;
-      }
-
-      patch = parsed.data;
-      setEmailError(null);
-    }
+    const patch = settingsPatch(action);
 
     setSavingAction(action);
 
@@ -210,13 +190,7 @@ export function SettingsClient({
         throw new Error(data.error ?? "Failed to save settings");
       }
 
-      if (patch.section === "account") {
-        const canonicalEmail = data.email ?? patch.email;
-        setEmail(canonicalEmail);
-        setSavedEmail(canonicalEmail);
-        setEmailError(null);
-        router.refresh();
-      } else if (patch.section === "preferences") {
+      if (patch.section === "preferences") {
         setSavedTimezone(patch.defaultTimezone);
         setSavedDateFormat(patch.dateFormat);
         setSavedTimeFormat(patch.timeFormat);
@@ -234,16 +208,6 @@ export function SettingsClient({
     } catch (error) {
       const description = errorToastDescription(error);
 
-      if (action === "account") {
-        setEmailError(
-          description === "Validation failed"
-            ? "Enter a valid email address."
-            : description
-        );
-        emailInputRef.current?.focus();
-        return;
-      }
-
       toast({
         title: "Settings not saved",
         description,
@@ -251,64 +215,6 @@ export function SettingsClient({
       });
     } finally {
       setSavingAction(null);
-    }
-  };
-
-  const updatePassword = async () => {
-    if (!currentPassword || !newPassword) {
-      toast({
-        title: "Password not updated",
-        description: "Enter your current password and a new password.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!isStrongPassword(newPassword)) {
-      toast({
-        title: "Password not updated",
-        description: PASSWORD_COMPLEXITY_ERROR,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setPasswordSaving(true);
-
-    try {
-      const backendClient = createBrowserBackendClient();
-      const { error: signInError } = await backendClient.auth.signInWithPassword({
-        email: savedEmail,
-        password: currentPassword,
-      });
-
-      if (signInError) {
-        throw new Error("Current password is incorrect.");
-      }
-
-      const { error } = await backendClient.auth.updateUser({
-        password: newPassword,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      setCurrentPassword("");
-      setNewPassword("");
-      toast({
-        title: "Password updated",
-        description: "Use the new password next time you sign in.",
-      });
-    } catch (error) {
-      toast({
-        title: "Password not updated",
-        description:
-          error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setPasswordSaving(false);
     }
   };
 
@@ -363,12 +269,7 @@ export function SettingsClient({
         }}
       >
         <TabsList aria-label="Settings sections">
-          <TabsTrigger
-            value="account"
-            aria-label={accountDirty ? "Account, unsaved changes" : "Account"}
-          >
-            <SettingsTabLabel label="Account" dirty={accountDirty} />
-          </TabsTrigger>
+          <TabsTrigger value="account">Account</TabsTrigger>
           <TabsTrigger
             value="preferences"
             aria-label={
@@ -396,23 +297,8 @@ export function SettingsClient({
         </TabsList>
 
         <SettingsAccountTab
-          email={email}
-          emailError={emailError}
-          emailInputRef={emailInputRef}
-          isDirty={accountDirty}
-          currentPassword={currentPassword}
-          newPassword={newPassword}
-          savingAction={savingAction}
-          passwordSaving={passwordSaving}
+          email={initialSettings.email}
           deleteSaving={deleteSaving}
-          onEmailChange={(value) => {
-            setEmail(value);
-            setEmailError(null);
-          }}
-          onCurrentPasswordChange={setCurrentPassword}
-          onNewPasswordChange={setNewPassword}
-          onSaveAccount={() => saveSettings("account")}
-          onUpdatePassword={updatePassword}
           onDeleteAccount={deleteAccount}
         />
 

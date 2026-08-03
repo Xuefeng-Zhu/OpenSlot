@@ -230,9 +230,17 @@ export function toMcpTokenSummary(token: Pick<
   }
 }
 
-function normalizeScopes(scopes: readonly string[] | null | undefined): McpScope[] {
+function normalizeScopes(scopes: unknown): McpScope[] {
   const valid = new Set<string>(MCP_DEFAULT_SCOPES)
-  return Array.from(
-    new Set((scopes ?? []).filter((scope) => valid.has(scope)))
-  ) as McpScope[]
+  if (
+    !Array.isArray(scopes) ||
+    scopes.length === 0 ||
+    !scopes.every(
+      (scope) => typeof scope === 'string' && valid.has(scope)
+    )
+  ) {
+    return []
+  }
+
+  return Array.from(new Set(scopes)) as McpScope[]
 }

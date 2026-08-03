@@ -23,7 +23,7 @@ OpenSlot is an MVP scheduling product for hosts who want a public booking page a
 - Host contacts page with repeat-guest recognition, meeting history, search, and soft anonymization.
 - Host availability editor for weekly rules and date overrides.
 - Event type reminder controls for one configurable pre-meeting email reminder to guests and/or hosts.
-- Section-owned host settings for the canonical login email, display preferences, host-email preferences, authenticated password update, and account deletion.
+- Section-owned host settings for the canonical login email, display preferences, host-email preferences, password recovery, and account deletion. The canonical login email is read-only until Butterbase exposes a conditional service-auth email mutation; password changes use the verified reset-code flow.
 - Host timezone, date format, and time format applied consistently across dashboard dates, host notifications, and host email; guest booking messages continue to use the guest timezone.
 - Google/Microsoft calendar OAuth, provider calendar sync, busy-cache refresh, and safe settings/API summaries.
 - Generated Google Meet and Microsoft Teams links for event types configured with a video provider.
