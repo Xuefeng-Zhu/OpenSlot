@@ -392,10 +392,10 @@ export async function refreshProviderCalendarBusyCache({
  * Tokens are decrypted only server-side; expiring tokens are refreshed and the
  * replacement credentials are encrypted back into storage.
  *
- * Uses optimistic concurrency on `updated_at` to prevent concurrent refreshes
- * from overwriting each other's tokens. A lost comparison reloads and verifies
- * token freshness before either using the winning credential or retrying the
- * write after an unrelated concurrent connection update.
+ * Uses the atomic `refresh-provider-token` Butterbase function to compare
+ * `updated_at` and persist credentials in one database statement. A lost
+ * comparison reloads and verifies token freshness before either using the
+ * winning credential or retrying after an unrelated connection update.
  */
 export async function getFreshAccessToken(
   adminClient: BackendCompatClient<Database>,
@@ -426,19 +426,17 @@ export async function getFreshAccessToken(
   let expectedUpdatedAt = connection.updated_at
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const { data: updateResult, error: updateError } = await adminClient
-      .from('provider_connections')
-      .update({
-        access_token_encrypted: encryptedAccessToken,
-        refresh_token_encrypted: encryptedRefreshToken,
-        token_expires_at: tokens.expiresAt,
-        scopes: tokens.scopes,
-        last_error: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', connection.id)
-      .eq('updated_at', expectedUpdatedAt)
-      .select('id')
+    const { data: updateResult, error: updateError } = await adminClient.rpc(
+      'refresh_provider_token',
+      {
+        p_connection_id: connection.id,
+        p_expected_updated_at: expectedUpdatedAt,
+        p_access_token_encrypted: encryptedAccessToken,
+        p_refresh_token_encrypted: encryptedRefreshToken,
+        p_token_expires_at: tokens.expiresAt,
+        p_scopes: tokens.scopes,
+      }
+    )
 
     if (updateError) {
       throw new Error(
@@ -446,7 +444,10 @@ export async function getFreshAccessToken(
       )
     }
 
-    if (updateResult && updateResult.length > 0) {
+    const refreshResult = (updateResult?.[0] ?? null) as {
+      updated?: boolean
+    } | null
+    if (refreshResult?.updated === true) {
       return tokens.accessToken
     }
 

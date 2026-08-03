@@ -54,6 +54,11 @@ preserve the transaction semantics documented in
   against the JS path are still safe.
 - worker claim functions lease rows with skip-locked semantics;
 - public rate-limit and stale-hold expiry functions remain atomic.
+- `refresh-provider-token` owns the provider credential compare-and-swap.
+  Deploy `functions/refresh-provider-token.v1.ts` under that exact slug before
+  deploying app code that invokes it. Its single conditional `UPDATE` compares
+  `provider_connections.updated_at` and stores the encrypted access token,
+  refresh token, expiry, and scopes without a REST read/PATCH race.
 - `save-availability` owns the schedule/rules/overrides batch write. Deploy
   `functions/save-availability.v1.ts` under that exact slug. Its HTTP trigger
   must require authentication and disable service-key impersonation; the

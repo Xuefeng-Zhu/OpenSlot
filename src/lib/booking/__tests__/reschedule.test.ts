@@ -170,8 +170,12 @@ describe('rescheduleBooking', () => {
       bookingId: 'new-booking-1',
       previousBookingId: 'old-booking-1',
     })
+    expect(appendBookingEvent).toHaveBeenCalledTimes(2)
+    expect(upsertContactFromBooking).toHaveBeenCalledTimes(1)
+    expect(enqueueBookingRescheduledOutbox).toHaveBeenCalledTimes(1)
+    expect(enqueueConfiguredBookingReminderOutbox).toHaveBeenCalledTimes(1)
     expect(consoleError).toHaveBeenCalledWith(
-      expect.stringContaining('reschedule committed'),
+      expect.stringContaining('old booking audit event'),
       expect.any(Error)
     )
     consoleError.mockRestore()

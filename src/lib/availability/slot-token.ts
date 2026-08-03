@@ -1,4 +1,5 @@
 import type { TimeSlot } from '@/lib/availability/types'
+import { sha256Hex } from '@/lib/security/edge-crypto'
 
 const SLOT_HOLD_TOKEN_TTL_MS = 5 * 60 * 1000
 
@@ -196,16 +197,29 @@ async function signingKey(
 
 /**
  * Returns the HMAC signing secret for slot hold tokens.
- * Never falls back to BUTTERBASE_API_KEY — that credential is the service-role
- * key used for RLS-bypassing admin operations and must not be reused as a
- * token-signing secret.
+ * Dedicated secrets take precedence. Legacy deployments that only provide the
+ * required Butterbase service key derive a domain-separated signing key so slot
+ * generation remains available without using the raw service credential as the
+ * HMAC key.
  */
 function slotTokenSecret(): string | null {
-  return (
-    process.env.SLOT_HOLD_TOKEN_SECRET ??
-    process.env.BUTTERBASE_FUNCTION_SECRET ??
-    (process.env.NODE_ENV === 'test' ? 'test-slot-hold-token-secret' : null)
-  )
+  if (process.env.SLOT_HOLD_TOKEN_SECRET) {
+    return process.env.SLOT_HOLD_TOKEN_SECRET
+  }
+
+  if (process.env.BUTTERBASE_FUNCTION_SECRET) {
+    return process.env.BUTTERBASE_FUNCTION_SECRET
+  }
+
+  if (process.env.BUTTERBASE_API_KEY) {
+    return sha256Hex(
+      `openslot:slot-hold-token:v1\n${process.env.BUTTERBASE_API_KEY}`
+    )
+  }
+
+  return process.env.NODE_ENV === 'test'
+    ? 'test-slot-hold-token-secret'
+    : null
 }
 
 function base64UrlEncode(bytes: Uint8Array): string {

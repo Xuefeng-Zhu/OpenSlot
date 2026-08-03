@@ -158,6 +158,61 @@ describe('processWebhookDeliveriesBatch', () => {
     })
   })
 
+  it('rejects an unsafe redirect target before requesting it', async () => {
+    const updates: Array<Record<string, unknown>> = []
+    const fetchImpl = vi.fn().mockResolvedValueOnce(
+      new Response(null, {
+        status: 307,
+        headers: { Location: 'http://127.0.0.1/internal' },
+      })
+    )
+    const adminClient = {
+      rpc: vi.fn().mockResolvedValue({ data: [claimedDelivery], error: null }),
+      from: vi.fn((table: string) => {
+        if (table === 'webhook_endpoints') {
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => ({
+                  data: {
+                    id: 'endpoint-1',
+                    url: 'https://example.com/webhook',
+                    secret_token: 'secret',
+                    is_active: true,
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          }
+        }
+
+        return {
+          update: (payload: Record<string, unknown>) => {
+            updates.push(payload)
+            return { eq: async () => ({ error: null }) }
+          },
+        }
+      }),
+    } as any
+
+    const result = await processWebhookDeliveriesBatch({
+      adminClient,
+      fetchImpl: fetchImpl as any,
+    })
+
+    expect(result).toEqual({ claimed: 1, delivered: 0, failed: 1 })
+    expect(fetchImpl).toHaveBeenCalledTimes(1)
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'https://example.com/webhook',
+      expect.objectContaining({ redirect: 'manual' })
+    )
+    expect(updates[0]).toMatchObject({
+      status: 'failed',
+      last_error: 'Webhook redirect URL is not allowed',
+    })
+  })
+
   it('signs and delivers claimed webhook deliveries', async () => {
     const updates: Array<Record<string, unknown>> = []
     const fetchImpl = vi.fn(async () => new Response('ok', { status: 200 }))

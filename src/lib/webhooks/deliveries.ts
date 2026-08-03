@@ -36,6 +36,8 @@ export interface ProcessWebhookDeliveriesResult {
 
 const DEFAULT_LIMIT = 10
 const DEFAULT_MAX_ATTEMPTS = 5
+const MAX_WEBHOOK_REDIRECTS = 5
+const WEBHOOK_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 
 /**
  * Expands a tenant webhook outbox event into endpoint-specific delivery rows.
@@ -226,7 +228,7 @@ async function deliverWebhook({
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const signature = signWebhookPayload(endpoint.secret_token, timestamp, body)
 
-  const response = await fetchImpl(endpoint.url, {
+  const requestInit: RequestInit = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -237,7 +239,12 @@ async function deliverWebhook({
       'X-OpenSlot-Signature': `t=${timestamp},v1=${signature}`,
     },
     body,
-  })
+  }
+  const response = await fetchWebhookWithSafeRedirects(
+    endpoint.url,
+    requestInit,
+    fetchImpl
+  )
 
   const responseBody = await response.text().catch(() => '')
 
@@ -251,6 +258,49 @@ async function deliverWebhook({
   return {
     status: response.status,
     body: responseBody.slice(0, 4000),
+  }
+}
+
+async function fetchWebhookWithSafeRedirects(
+  initialUrl: string,
+  requestInit: RequestInit,
+  fetchImpl: typeof fetch
+): Promise<Response> {
+  let url = initialUrl
+
+  for (let redirectCount = 0; ; redirectCount += 1) {
+    if (!isSafeWebhookUrl(url)) {
+      throw new Error('Webhook endpoint URL is not allowed')
+    }
+
+    const response = await fetchImpl(url, {
+      ...requestInit,
+      redirect: 'manual',
+    })
+
+    if (!WEBHOOK_REDIRECT_STATUSES.has(response.status)) {
+      return response
+    }
+
+    if (redirectCount >= MAX_WEBHOOK_REDIRECTS) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error('Webhook endpoint exceeded the redirect limit')
+    }
+
+    const location = response.headers.get('location')
+    if (!location) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error('Webhook endpoint returned a redirect without a location')
+    }
+
+    const nextUrl = new URL(location, url).toString()
+    if (!isSafeWebhookUrl(nextUrl)) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error('Webhook redirect URL is not allowed')
+    }
+
+    await response.body?.cancel().catch(() => undefined)
+    url = nextUrl
   }
 }
 

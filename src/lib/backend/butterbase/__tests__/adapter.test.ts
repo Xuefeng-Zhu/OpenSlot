@@ -292,6 +292,7 @@ describe('Butterbase backend adapter', () => {
   it.each([
     ['createSlotHold', 'create-slot-hold'],
     ['consumePublicRateLimit', 'consume-public-rate-limit'],
+    ['refreshProviderToken', 'refresh-provider-token'],
     ['saveAvailability', 'save-availability'],
     ['saveDashboardPreferences', 'save-dashboard-preferences'],
   ] as const)(

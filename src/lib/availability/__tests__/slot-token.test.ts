@@ -87,4 +87,29 @@ describe('slot hold tokens', () => {
       },
     ])
   })
+
+  it('derives a compatible signing key from the required Butterbase key', async () => {
+    vi.stubEnv('SLOT_HOLD_TOKEN_SECRET', '')
+    vi.stubEnv('BUTTERBASE_FUNCTION_SECRET', '')
+    vi.stubEnv('BUTTERBASE_API_KEY', 'bb_sk_legacy-deployment-key')
+
+    const token = await createSlotHoldToken({
+      hostUserId,
+      eventTypeId,
+      startAt,
+      endAt,
+      now: new Date('2026-06-16T17:55:00.000Z'),
+    })
+
+    await expect(
+      verifySlotHoldToken({
+        token,
+        hostUserId,
+        eventTypeId,
+        startAt,
+        endAt,
+        now: new Date('2026-06-16T17:56:00.000Z'),
+      })
+    ).resolves.toEqual({ ok: true })
+  })
 })

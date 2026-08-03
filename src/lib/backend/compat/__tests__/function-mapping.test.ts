@@ -120,6 +120,32 @@ describe('mapRpcToFunction', () => {
     })
   })
 
+  describe('refresh_provider_token', () => {
+    it('maps encrypted credentials to the atomic Butterbase function', () => {
+      const result = mapRpcToFunction('refresh_provider_token', {
+        p_connection_id: '11111111-2222-4333-8444-555555555555',
+        p_expected_updated_at: '2026-08-03T17:00:00.000Z',
+        p_access_token_encrypted: 'encrypted-access',
+        p_refresh_token_encrypted: 'encrypted-refresh',
+        p_token_expires_at: '2026-08-03T18:00:00.000Z',
+        p_scopes: ['calendar.read'],
+      })
+
+      expect(result).toEqual({
+        slug: 'refresh-provider-token',
+        serviceRole: true,
+        body: {
+          connectionId: '11111111-2222-4333-8444-555555555555',
+          expectedUpdatedAt: '2026-08-03T17:00:00.000Z',
+          accessTokenEncrypted: 'encrypted-access',
+          refreshTokenEncrypted: 'encrypted-refresh',
+          tokenExpiresAt: '2026-08-03T18:00:00.000Z',
+          scopes: ['calendar.read'],
+        },
+      })
+    })
+  })
+
   describe('save_availability', () => {
     it('maps host-owned rows to the atomic platform-authenticated function', () => {
       const result = mapRpcToFunction('save_availability', {

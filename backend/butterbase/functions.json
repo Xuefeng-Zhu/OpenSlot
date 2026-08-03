@@ -41,6 +41,13 @@
       "transactionRequired": true
     },
     {
+      "name": "refresh-provider-token",
+      "operation": "refreshProviderToken",
+      "transactionRequired": true,
+      "source": "functions/refresh-provider-token.v1.ts",
+      "version": 1
+    },
+    {
       "name": "save-availability",
       "operation": "saveAvailability",
       "transactionRequired": true,

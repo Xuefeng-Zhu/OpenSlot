@@ -115,7 +115,7 @@ Important safeguards:
 - `/api/holds` checks overlapping active holds and confirmed bookings.
 - `/api/slots` signs short-lived slot hold tokens; use
   `SLOT_HOLD_TOKEN_SECRET` for a dedicated signing secret, or rely on the
-  server-only Butterbase secrets fallback.
+  server-only legacy function secret or domain-separated service-key fallback.
 - `/api/holds` creates the hold through `create_slot_hold_with_reservation()`, which inserts `slot_holds` and `host_reservations` in one database transaction.
 - Hold creation, booking confirmation, booking cancellation, and booking
   rescheduling are all atomic Postgres functions:

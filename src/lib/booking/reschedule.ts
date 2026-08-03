@@ -102,10 +102,10 @@ export async function rescheduleBooking(
     return { success: false, error: 'Failed to reschedule booking' }
   }
 
-  // Post-mutation side effects: wrapped in try/catch so a transient failure
-  // does not hide the already-committed reschedule from the client.
-  try {
-    await appendBookingEvent(adminClient, {
+  // The RPC has already committed. Run every best-effort seam independently so
+  // one transient failure cannot suppress unrelated audit or outbox work.
+  await runRescheduleSideEffect('old booking audit event', () =>
+    appendBookingEvent(adminClient, {
       bookingId: row.old_booking_id,
       eventType: 'booking.rescheduled',
       actorType: 'guest',
@@ -117,8 +117,10 @@ export async function rescheduleBooking(
         endAt: row.end_at,
       },
     })
+  )
 
-    await appendBookingEvent(adminClient, {
+  await runRescheduleSideEffect('new booking audit event', () =>
+    appendBookingEvent(adminClient, {
       bookingId: row.new_booking_id,
       eventType: 'booking.confirmed',
       actorType: 'guest',
@@ -130,16 +132,20 @@ export async function rescheduleBooking(
         endAt: row.end_at,
       },
     })
+  )
 
-    await upsertContactFromBooking(adminClient, {
+  await runRescheduleSideEffect('contact update', () =>
+    upsertContactFromBooking(adminClient, {
       bookingId: row.new_booking_id,
       hostUserId: row.host_user_id,
       guestName: input.guestName,
       guestEmail: input.guestEmail,
       guestTimezone: input.guestTimezone,
     })
+  )
 
-    await enqueueBookingRescheduledOutbox(adminClient, {
+  await runRescheduleSideEffect('reschedule outbox', () =>
+    enqueueBookingRescheduledOutbox(adminClient, {
       bookingId: row.new_booking_id,
       previousBookingId: row.old_booking_id,
       eventTypeId: row.event_type_id,
@@ -149,20 +155,17 @@ export async function rescheduleBooking(
       previousStartAt: row.previous_start_at,
       previousEndAt: row.previous_end_at,
     })
+  )
 
-    await enqueueConfiguredBookingReminderOutbox(adminClient, {
+  await runRescheduleSideEffect('reminder outbox', () =>
+    enqueueConfiguredBookingReminderOutbox(adminClient, {
       bookingId: row.new_booking_id,
       eventTypeId: row.event_type_id,
       hostUserId: row.host_user_id,
       startAt: row.start_at,
       endAt: row.end_at,
     })
-  } catch (sideEffectError) {
-    console.error(
-      'Error enqueuing post-reschedule side effects (reschedule committed):',
-      sideEffectError
-    )
-  }
+  )
 
   return {
     success: true,
@@ -176,6 +179,20 @@ export async function rescheduleBooking(
     endAt: row.end_at,
     previousStartAt: row.previous_start_at,
     previousEndAt: row.previous_end_at,
+  }
+}
+
+async function runRescheduleSideEffect(
+  name: string,
+  effect: () => Promise<unknown>
+): Promise<void> {
+  try {
+    await effect()
+  } catch (error) {
+    console.error(
+      `Error running post-reschedule ${name} (reschedule committed):`,
+      error
+    )
   }
 }
 

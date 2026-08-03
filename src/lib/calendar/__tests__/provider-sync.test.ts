@@ -21,12 +21,20 @@ vi.mock('@/lib/security/token-encryption', () => ({
   encryptToken: vi.fn((value: string) => `encrypted:${value}`),
 }))
 
-function createSequentialProviderClient(
-  results: Array<{ data: any; error: { message: string } | null }>
-) {
-  const queries: any[] = []
+function createProviderTokenClient({
+  rpcResults,
+  reloadResults,
+}: {
+  rpcResults: Array<{ data: any; error: { message: string } | null }>
+  reloadResults: Array<{ data: any; error: { message: string } | null }>
+}) {
+  const rpc = vi.fn(async () => {
+    const result = rpcResults.shift()
+    if (!result) throw new Error('Unexpected provider token RPC')
+    return result
+  })
   const from = vi.fn(() => {
-    const result = results.shift()
+    const result = reloadResults.shift()
     if (!result) throw new Error('Unexpected provider connection query')
 
     const query: any = {
@@ -37,11 +45,10 @@ function createSequentialProviderClient(
       then: (resolve: (value: typeof result) => unknown) =>
         Promise.resolve(result).then(resolve),
     }
-    queries.push(query)
     return query
   })
 
-  return { client: { from } as any, from, queries }
+  return { client: { from, rpc } as any, from, rpc }
 }
 
 const expiringConnection = {
@@ -142,22 +149,25 @@ describe('calendar access token refresh', () => {
       scopes: ['calendar.read'],
       tokenType: 'Bearer',
     })
-    const { client, from } = createSequentialProviderClient([
-      { data: [], error: null },
-      {
-        data: {
-          access_token_encrypted: 'encrypted-concurrent-access',
-          token_expires_at: '2099-01-01T00:00:00.000Z',
-          updated_at: '2026-06-01T00:00:01.000Z',
+    const { client, from, rpc } = createProviderTokenClient({
+      rpcResults: [{ data: [{ updated: false }], error: null }],
+      reloadResults: [
+        {
+          data: {
+            access_token_encrypted: 'encrypted-concurrent-access',
+            token_expires_at: '2099-01-01T00:00:00.000Z',
+            updated_at: '2026-06-01T00:00:01.000Z',
+          },
+          error: null,
         },
-        error: null,
-      },
-    ])
+      ],
+    })
 
     const token = await getFreshAccessToken(client, expiringConnection)
 
     expect(token).toBe('access-token')
-    expect(from).toHaveBeenCalledTimes(2)
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(from).toHaveBeenCalledTimes(1)
   })
 
   it('retries storage after an unrelated concurrent connection update', async () => {
@@ -168,26 +178,33 @@ describe('calendar access token refresh', () => {
       scopes: ['calendar.read'],
       tokenType: 'Bearer',
     })
-    const { client, from, queries } = createSequentialProviderClient([
-      { data: [], error: null },
-      {
-        data: {
-          access_token_encrypted: 'encrypted-old-access',
-          token_expires_at: '2000-01-01T00:00:00.000Z',
-          updated_at: '2026-06-01T00:00:01.000Z',
+    const { client, from, rpc } = createProviderTokenClient({
+      rpcResults: [
+        { data: [{ updated: false }], error: null },
+        { data: [{ updated: true }], error: null },
+      ],
+      reloadResults: [
+        {
+          data: {
+            access_token_encrypted: 'encrypted-old-access',
+            token_expires_at: '2000-01-01T00:00:00.000Z',
+            updated_at: '2026-06-01T00:00:01.000Z',
+          },
+          error: null,
         },
-        error: null,
-      },
-      { data: [{ id: 'connection-1' }], error: null },
-    ])
+      ],
+    })
 
     const token = await getFreshAccessToken(client, expiringConnection)
 
     expect(token).toBe('new-access-token')
-    expect(from).toHaveBeenCalledTimes(3)
-    expect(queries[2].eq).toHaveBeenCalledWith(
-      'updated_at',
-      '2026-06-01T00:00:01.000Z'
+    expect(from).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'refresh_provider_token',
+      expect.objectContaining({
+        p_expected_updated_at: '2026-06-01T00:00:01.000Z',
+      })
     )
   })
 })

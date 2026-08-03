@@ -104,6 +104,19 @@ export function mapRpcToFunction(
         serviceRole: true,
         body: { limit: params.p_limit },
       }
+    case 'refresh_provider_token':
+      return {
+        slug: backendFunctionSlugs.refreshProviderToken,
+        serviceRole: true,
+        body: {
+          connectionId: params.p_connection_id,
+          expectedUpdatedAt: params.p_expected_updated_at,
+          accessTokenEncrypted: params.p_access_token_encrypted,
+          refreshTokenEncrypted: params.p_refresh_token_encrypted,
+          tokenExpiresAt: params.p_token_expires_at,
+          scopes: params.p_scopes,
+        },
+      }
     case 'save_availability':
       return {
         slug: backendFunctionSlugs.saveAvailability,
