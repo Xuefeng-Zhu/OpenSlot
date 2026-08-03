@@ -220,4 +220,35 @@ describe('MCP token helpers', () => {
       })
     ).resolves.toBeNull()
   })
+
+  it('fails closed when persisted scopes are empty or unsupported', async () => {
+    const update = vi.fn()
+    const adminClient = {
+      from: vi.fn(() => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({
+              data: {
+                id: 'token-1',
+                profile_id: 'profile-1',
+                scopes: ['mcp:admin'],
+                expires_at: null,
+                revoked_at: null,
+              },
+              error: null,
+            }),
+          }),
+        }),
+        update,
+      })),
+    } as any
+
+    await expect(
+      authenticateMcpApiToken({
+        adminClient,
+        bearerToken: 'os_mcp_invalid-scope',
+      })
+    ).resolves.toBeNull()
+    expect(update).not.toHaveBeenCalled()
+  })
 })
