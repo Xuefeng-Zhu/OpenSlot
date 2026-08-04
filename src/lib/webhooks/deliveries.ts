@@ -267,6 +267,7 @@ async function fetchWebhookWithSafeRedirects(
   fetchImpl: typeof fetch
 ): Promise<Response> {
   let url = initialUrl
+  let currentRequestInit = requestInit
 
   for (let redirectCount = 0; ; redirectCount += 1) {
     if (!isSafeWebhookUrl(url)) {
@@ -274,7 +275,7 @@ async function fetchWebhookWithSafeRedirects(
     }
 
     const response = await fetchImpl(url, {
-      ...requestInit,
+      ...currentRequestInit,
       redirect: 'manual',
     })
 
@@ -299,8 +300,42 @@ async function fetchWebhookWithSafeRedirects(
       throw new Error('Webhook redirect URL is not allowed')
     }
 
+    currentRequestInit = redirectedWebhookRequestInit(
+      response.status,
+      currentRequestInit
+    )
     await response.body?.cancel().catch(() => undefined)
     url = nextUrl
+  }
+}
+
+function redirectedWebhookRequestInit(
+  status: number,
+  requestInit: RequestInit
+): RequestInit {
+  const method = (requestInit.method ?? 'GET').toUpperCase()
+  const changesPostToGet =
+    ((status === 301 || status === 302) && method === 'POST') ||
+    (status === 303 && method !== 'GET' && method !== 'HEAD')
+
+  if (!changesPostToGet) return requestInit
+
+  const headers = new Headers(requestInit.headers)
+  for (const header of [
+    'content-encoding',
+    'content-language',
+    'content-location',
+    'content-type',
+    'content-length',
+  ]) {
+    headers.delete(header)
+  }
+
+  return {
+    ...requestInit,
+    method: 'GET',
+    body: undefined,
+    headers,
   }
 }
 

@@ -41,6 +41,41 @@ const claimedDelivery = {
   updated_at: '2026-05-08T00:00:00.000Z',
 }
 
+function createDeliveryAdminClient(
+  endpointUrl: string,
+  updates: Array<Record<string, unknown>>
+) {
+  return {
+    rpc: vi.fn().mockResolvedValue({ data: [claimedDelivery], error: null }),
+    from: vi.fn((table: string) => {
+      if (table === 'webhook_endpoints') {
+        return {
+          select: () => ({
+            eq: () => ({
+              single: async () => ({
+                data: {
+                  id: 'endpoint-1',
+                  url: endpointUrl,
+                  secret_token: 'secret',
+                  is_active: true,
+                },
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+
+      return {
+        update: (payload: Record<string, unknown>) => {
+          updates.push(payload)
+          return { eq: async () => ({ error: null }) }
+        },
+      }
+    }),
+  } as any
+}
+
 describe('enqueueWebhookDeliveriesForOutboxEvent', () => {
   it('creates deliveries for subscribed active endpoints', async () => {
     const inserts: Array<Record<string, unknown>> = []
@@ -212,6 +247,82 @@ describe('processWebhookDeliveriesBatch', () => {
       last_error: 'Webhook redirect URL is not allowed',
     })
   })
+
+  it.each([301, 302, 303])(
+    'changes POST redirects to GET for HTTP %i responses',
+    async (status) => {
+      const updates: Array<Record<string, unknown>> = []
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(null, {
+            status,
+            headers: { Location: '/completed' },
+          })
+        )
+        .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+      const adminClient = createDeliveryAdminClient(
+        'https://example.com/webhook',
+        updates
+      )
+
+      const result = await processWebhookDeliveriesBatch({
+        adminClient,
+        fetchImpl: fetchImpl as any,
+      })
+
+      expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0 })
+      expect(fetchImpl).toHaveBeenNthCalledWith(
+        2,
+        'https://example.com/completed',
+        expect.objectContaining({
+          method: 'GET',
+          body: undefined,
+          redirect: 'manual',
+        })
+      )
+      const redirectedHeaders = new Headers(
+        fetchImpl.mock.calls[1][1]?.headers
+      )
+      expect(redirectedHeaders.has('content-type')).toBe(false)
+    }
+  )
+
+  it.each([307, 308])(
+    'preserves POST and its body across HTTP %i redirects',
+    async (status) => {
+      const updates: Array<Record<string, unknown>> = []
+      const fetchImpl = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(null, {
+            status,
+            headers: { Location: '/moved' },
+          })
+        )
+        .mockResolvedValueOnce(new Response('ok', { status: 200 }))
+      const adminClient = createDeliveryAdminClient(
+        'https://example.com/webhook',
+        updates
+      )
+
+      const result = await processWebhookDeliveriesBatch({
+        adminClient,
+        fetchImpl: fetchImpl as any,
+      })
+
+      expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0 })
+      expect(fetchImpl).toHaveBeenNthCalledWith(
+        2,
+        'https://example.com/moved',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify(claimedDelivery.payload),
+          redirect: 'manual',
+        })
+      )
+    }
+  )
 
   it('signs and delivers claimed webhook deliveries', async () => {
     const updates: Array<Record<string, unknown>> = []
