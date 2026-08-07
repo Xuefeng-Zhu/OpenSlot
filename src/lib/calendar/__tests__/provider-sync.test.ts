@@ -2,14 +2,63 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createProviderCalendarEvent,
   deleteProviderCalendarEvent,
+  getFreshAccessToken,
   refreshCalendarAvailabilityForHost,
   syncCalendarsForConnection,
 } from '../provider-sync'
+import { refreshCalendarAccessToken } from '../oauth'
+
+vi.mock('../oauth', async () => {
+  const actual = await vi.importActual<typeof import('../oauth')>('../oauth')
+  return {
+    ...actual,
+    refreshCalendarAccessToken: vi.fn(),
+  }
+})
 
 vi.mock('@/lib/security/token-encryption', () => ({
   decryptToken: vi.fn(() => 'access-token'),
   encryptToken: vi.fn((value: string) => `encrypted:${value}`),
 }))
+
+function createProviderTokenClient({
+  rpcResults,
+  reloadResults,
+}: {
+  rpcResults: Array<{ data: any; error: { message: string } | null }>
+  reloadResults: Array<{ data: any; error: { message: string } | null }>
+}) {
+  const rpc = vi.fn(async () => {
+    const result = rpcResults.shift()
+    if (!result) throw new Error('Unexpected provider token RPC')
+    return result
+  })
+  const from = vi.fn(() => {
+    const result = reloadResults.shift()
+    if (!result) throw new Error('Unexpected provider connection query')
+
+    const query: any = {
+      update: vi.fn(() => query),
+      select: vi.fn(() => query),
+      eq: vi.fn(() => query),
+      single: vi.fn(async () => result),
+      then: (resolve: (value: typeof result) => unknown) =>
+        Promise.resolve(result).then(resolve),
+    }
+    return query
+  })
+
+  return { client: { from, rpc } as any, from, rpc }
+}
+
+const expiringConnection = {
+  id: 'connection-1',
+  provider: 'google',
+  access_token_encrypted: 'encrypted-old-access',
+  refresh_token_encrypted: 'encrypted-refresh',
+  token_expires_at: '2000-01-01T00:00:00.000Z',
+  updated_at: '2026-06-01T00:00:00.000Z',
+} as any
 
 function createSyncQuery({
   table,
@@ -90,6 +139,75 @@ function createSyncQuery({
 
   return query
 }
+
+describe('calendar access token refresh', () => {
+  it('uses a fresh token written by a concurrent refresh', async () => {
+    vi.mocked(refreshCalendarAccessToken).mockResolvedValueOnce({
+      accessToken: 'new-access-token',
+      refreshToken: null,
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      scopes: ['calendar.read'],
+      tokenType: 'Bearer',
+    })
+    const { client, from, rpc } = createProviderTokenClient({
+      rpcResults: [{ data: [{ updated: false }], error: null }],
+      reloadResults: [
+        {
+          data: {
+            access_token_encrypted: 'encrypted-concurrent-access',
+            token_expires_at: '2099-01-01T00:00:00.000Z',
+            updated_at: '2026-06-01T00:00:01.000Z',
+          },
+          error: null,
+        },
+      ],
+    })
+
+    const token = await getFreshAccessToken(client, expiringConnection)
+
+    expect(token).toBe('access-token')
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(from).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries storage after an unrelated concurrent connection update', async () => {
+    vi.mocked(refreshCalendarAccessToken).mockResolvedValueOnce({
+      accessToken: 'new-access-token',
+      refreshToken: 'rotated-refresh-token',
+      expiresAt: '2099-01-01T00:00:00.000Z',
+      scopes: ['calendar.read'],
+      tokenType: 'Bearer',
+    })
+    const { client, from, rpc } = createProviderTokenClient({
+      rpcResults: [
+        { data: [{ updated: false }], error: null },
+        { data: [{ updated: true }], error: null },
+      ],
+      reloadResults: [
+        {
+          data: {
+            access_token_encrypted: 'encrypted-old-access',
+            token_expires_at: '2000-01-01T00:00:00.000Z',
+            updated_at: '2026-06-01T00:00:01.000Z',
+          },
+          error: null,
+        },
+      ],
+    })
+
+    const token = await getFreshAccessToken(client, expiringConnection)
+
+    expect(token).toBe('new-access-token')
+    expect(from).toHaveBeenCalledTimes(1)
+    expect(rpc).toHaveBeenNthCalledWith(
+      2,
+      'refresh_provider_token',
+      expect.objectContaining({
+        p_expected_updated_at: '2026-06-01T00:00:01.000Z',
+      })
+    )
+  })
+})
 
 describe('calendar provider event sync', () => {
   it('creates Google Calendar events and returns provider references', async () => {

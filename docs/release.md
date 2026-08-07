@@ -105,7 +105,7 @@ RESEND_API_KEY=...
 MAILEROO_API_KEY=...
 ```
 
-`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. Butterbase functions require the provider-verified service-key caller identity. `SLOT_HOLD_TOKEN_SECRET` signs short-lived public slot hold tokens; if it is unset, signing falls back to a legacy `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, and `HOLD_EXPIRY_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
+`NEXT_PUBLIC_APP_URL` is used when generating cancellation, rescheduling, and OAuth callback URLs. Butterbase functions require the provider-verified service-key caller identity. `SLOT_HOLD_TOKEN_SECRET` signs short-lived public slot hold tokens; if it is unset, signing falls back to a legacy `BUTTERBASE_FUNCTION_SECRET`, then a domain-separated key derived from `BUTTERBASE_API_KEY`. `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`, `CALENDAR_SYNC_SECRET`, and `HOLD_EXPIRY_PROCESS_SECRET` protect manual worker POSTs. `CRON_SECRET` protects Vercel Cron GET invocations.
 
 Set both `NEXT_PUBLIC_TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` to enforce
 Cloudflare Turnstile on public booking mutations. Leave them unset for local

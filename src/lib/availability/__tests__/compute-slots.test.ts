@@ -58,6 +58,19 @@ describe('computeAvailableSlots', () => {
     expect(slots).toHaveLength(2)
   })
 
+  it('accepts database TIME values that include seconds', () => {
+    const rules = [
+      makeRule({ start_time: '09:00:00', end_time: '10:00:00.000000' }),
+    ]
+
+    const slots = computeAvailableSlots(makeInput(), rules, [], [], [])
+
+    expect(slots.map((slot) => slot.start)).toEqual([
+      '2025-01-06T14:00:00.000Z',
+      '2025-01-06T14:30:00.000Z',
+    ])
+  })
+
   it('returns empty array when no rules match the weekday', () => {
     // Rule is for Tuesday (weekday 2), but date is Monday
     const rules = [makeRule({ weekday: 2 })]

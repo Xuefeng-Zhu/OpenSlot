@@ -26,7 +26,7 @@ import type {
  * the time is expressed in.
  *
  * @param dateStr - "YYYY-MM-DD" date
- * @param timeStr - "HH:mm" local time
+ * @param timeStr - "HH:mm" or database "HH:mm:ss[.fraction]" local time
  * @param timezone - IANA timezone identifier
  * @returns UTC Date representing that local time on that date
  */
@@ -35,11 +35,16 @@ function parseLocalTimeToUTC(
   timeStr: string,
   timezone: string
 ): Date {
-  // Build a local datetime string and convert from the given timezone to UTC
-  const [hours, minutes] = timeStr.split(':').map(Number)
-  // Create a date object representing the local time
-  const localDate = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`)
-  return fromZonedTime(localDate, timezone)
+  const timeMatch = /^(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?$/.exec(timeStr)
+  const normalizedTime = timeMatch
+    ? `${timeMatch[1]}:${timeMatch[2]}:${timeMatch[3] ?? '00'}`
+    : timeStr
+
+  // Pass the datetime string directly to fromZonedTime. When given a string
+  // without a timezone suffix, fromZonedTime interprets it as wall-clock time
+  // in the specified timezone — bypassing server-local Date parsing entirely,
+  // which avoids DST gap shifts on non-UTC servers.
+  return fromZonedTime(`${dateStr}T${normalizedTime}`, timezone)
 }
 
 /**

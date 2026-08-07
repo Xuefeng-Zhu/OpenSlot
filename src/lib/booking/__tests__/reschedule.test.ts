@@ -154,6 +154,33 @@ describe('rescheduleBooking', () => {
     )
   })
 
+  it('returns the committed reschedule when a follow-up side effect fails', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    vi.mocked(appendBookingEvent).mockRejectedValueOnce(
+      new Error('temporary event write failure')
+    )
+    const adminClient = createAdminBackendClient({
+      rpcResult: { data: [rpcRow], error: null },
+    }) as any
+
+    const result = await rescheduleBooking(validInput, adminClient)
+
+    expect(result).toMatchObject({
+      success: true,
+      bookingId: 'new-booking-1',
+      previousBookingId: 'old-booking-1',
+    })
+    expect(appendBookingEvent).toHaveBeenCalledTimes(2)
+    expect(upsertContactFromBooking).toHaveBeenCalledTimes(1)
+    expect(enqueueBookingRescheduledOutbox).toHaveBeenCalledTimes(1)
+    expect(enqueueConfiguredBookingReminderOutbox).toHaveBeenCalledTimes(1)
+    expect(consoleError).toHaveBeenCalledWith(
+      expect.stringContaining('old booking audit event'),
+      expect.any(Error)
+    )
+    consoleError.mockRestore()
+  })
+
   it('passes validated invitee answers into the reschedule RPC', async () => {
     const adminClient = createAdminBackendClient({
       rpcResult: { data: [rpcRow], error: null },

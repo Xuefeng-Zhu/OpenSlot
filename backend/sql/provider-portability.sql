@@ -55,12 +55,19 @@ CREATE UNIQUE INDEX ux_mcp_api_tokens_token_hash
 -- - claim-webhook-deliveries
 -- - consume-public-rate-limit
 -- - expire-stale-slot-holds
+-- - refresh-provider-token
 -- - save-availability
 -- - save-dashboard-preferences
 --
 -- These can be implemented as database functions, edge/serverless functions
 -- that run SQL in a transaction, or provider-native atomic operations. REST-only
 -- multi-step writes are not an acceptable substitute for these paths.
+-- `refresh-provider-token` must compare provider_connections.updated_at at the
+-- REST API's millisecond precision and update the encrypted access/refresh
+-- credentials plus a millisecond-precision monotonic version in one conditional
+-- database statement. A REST read followed by a primary-key PATCH is not an
+-- atomic compare-and-swap and can overwrite a concurrently rotated refresh
+-- token.
 -- `save-availability` must gate the schedule and every supplied existing row on
 -- the same `(schedule_id, user_id)` owner before updating the schedule timezone,
 -- deleting rows, or upserting rules and overrides. The Butterbase source uses

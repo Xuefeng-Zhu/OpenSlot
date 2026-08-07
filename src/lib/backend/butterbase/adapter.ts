@@ -323,6 +323,8 @@ class ButterbaseFunctionsPort implements BackendFunctionsPort {
     const slug = backendFunctionSlugs[name]
     const requiresPlatformServiceIdentity =
       request.serviceRole === true ||
+      name === 'refreshProviderToken' ||
+      name === 'resolveWebhookHostname' ||
       name === 'saveAvailability' ||
       name === 'saveDashboardPreferences'
     const accessToken =

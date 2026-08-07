@@ -41,7 +41,8 @@ the provider-verified `service_key` caller identity. A separate function
 bearer secret is no longer required.
 Set `SLOT_HOLD_TOKEN_SECRET` only when you want a dedicated HMAC secret for
 short-lived public slot hold tokens; omit it when you want signing to fall
-back to a legacy `BUTTERBASE_FUNCTION_SECRET`, then `BUTTERBASE_API_KEY`.
+back to a legacy `BUTTERBASE_FUNCTION_SECRET`, then a domain-separated key
+derived from `BUTTERBASE_API_KEY`.
 
 Worker routes can run without secrets outside production. Set
 `OUTBOX_PROCESS_SECRET`, `WEBHOOK_PROCESS_SECRET`,

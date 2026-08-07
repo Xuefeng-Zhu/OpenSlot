@@ -1,6 +1,10 @@
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { hmacSha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
+import {
+  isSafeWebhookAddress,
+  isSafeWebhookUrl,
+} from '@/lib/validations/webhooks'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type WebhookDeliveryRow = Tables<'webhook_deliveries'>
@@ -12,6 +16,8 @@ interface WebhookEndpointRow {
   is_active: boolean
   subscribed_events?: string[]
 }
+
+type WebhookHostnameResolver = (hostname: string) => Promise<string[]>
 
 export interface EnqueueWebhookDeliveriesResult {
   queued: number
@@ -25,6 +31,7 @@ export interface ProcessWebhookDeliveriesOptions {
   limit?: number
   maxAttempts?: number
   fetchImpl?: typeof fetch
+  resolveHostname?: WebhookHostnameResolver
 }
 
 export interface ProcessWebhookDeliveriesResult {
@@ -35,6 +42,8 @@ export interface ProcessWebhookDeliveriesResult {
 
 const DEFAULT_LIMIT = 10
 const DEFAULT_MAX_ATTEMPTS = 5
+const MAX_WEBHOOK_REDIRECTS = 5
+const WEBHOOK_REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308])
 
 /**
  * Expands a tenant webhook outbox event into endpoint-specific delivery rows.
@@ -129,6 +138,7 @@ export async function processWebhookDeliveriesBatch({
   limit = DEFAULT_LIMIT,
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
   fetchImpl = fetch,
+  resolveHostname,
 }: ProcessWebhookDeliveriesOptions): Promise<ProcessWebhookDeliveriesResult> {
   const { data: deliveriesData, error } = await adminClient.rpc(
     'claim_webhook_deliveries',
@@ -149,6 +159,9 @@ export async function processWebhookDeliveriesBatch({
     delivered: 0,
     failed: 0,
   }
+  const destinationResolver =
+    resolveHostname ??
+    ((hostname: string) => resolveWebhookHostname(adminClient, hostname))
 
   for (const delivery of deliveries) {
     try {
@@ -162,6 +175,7 @@ export async function processWebhookDeliveriesBatch({
         delivery,
         endpoint,
         fetchImpl,
+        resolveHostname: destinationResolver,
       })
       await markWebhookDeliveryDelivered(
         adminClient,
@@ -210,16 +224,24 @@ async function deliverWebhook({
   delivery,
   endpoint,
   fetchImpl,
+  resolveHostname,
 }: {
   delivery: WebhookDeliveryRow
   endpoint: WebhookEndpointRow
   fetchImpl: typeof fetch
+  resolveHostname: WebhookHostnameResolver
 }): Promise<{ status: number; body: string }> {
+  // Revalidate persisted endpoints at send time so legacy or externally
+  // modified rows cannot bypass the current SSRF protections.
+  if (!isSafeWebhookUrl(endpoint.url)) {
+    throw new Error('Webhook endpoint URL is not allowed')
+  }
+
   const body = JSON.stringify(delivery.payload)
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const signature = signWebhookPayload(endpoint.secret_token, timestamp, body)
 
-  const response = await fetchImpl(endpoint.url, {
+  const requestInit: RequestInit = {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -230,7 +252,13 @@ async function deliverWebhook({
       'X-OpenSlot-Signature': `t=${timestamp},v1=${signature}`,
     },
     body,
-  })
+  }
+  const response = await fetchWebhookWithSafeRedirects(
+    endpoint.url,
+    requestInit,
+    fetchImpl,
+    resolveHostname
+  )
 
   const responseBody = await response.text().catch(() => '')
 
@@ -244,6 +272,127 @@ async function deliverWebhook({
   return {
     status: response.status,
     body: responseBody.slice(0, 4000),
+  }
+}
+
+async function fetchWebhookWithSafeRedirects(
+  initialUrl: string,
+  requestInit: RequestInit,
+  fetchImpl: typeof fetch,
+  resolveHostname: WebhookHostnameResolver
+): Promise<Response> {
+  let url = initialUrl
+  let currentRequestInit = requestInit
+
+  for (let redirectCount = 0; ; redirectCount += 1) {
+    await assertSafeWebhookDestination(url, resolveHostname)
+
+    const response = await fetchImpl(url, {
+      ...currentRequestInit,
+      redirect: 'manual',
+    })
+
+    if (!WEBHOOK_REDIRECT_STATUSES.has(response.status)) {
+      return response
+    }
+
+    if (redirectCount >= MAX_WEBHOOK_REDIRECTS) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error('Webhook endpoint exceeded the redirect limit')
+    }
+
+    const location = response.headers.get('location')
+    if (!location) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error('Webhook endpoint returned a redirect without a location')
+    }
+
+    const nextUrl = new URL(location, url).toString()
+    if (!isSafeWebhookUrl(nextUrl)) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error('Webhook redirect URL is not allowed')
+    }
+
+    currentRequestInit = redirectedWebhookRequestInit(
+      response.status,
+      currentRequestInit
+    )
+    await response.body?.cancel().catch(() => undefined)
+    url = nextUrl
+  }
+}
+
+async function assertSafeWebhookDestination(
+  urlString: string,
+  resolveHostname: WebhookHostnameResolver
+): Promise<void> {
+  if (!isSafeWebhookUrl(urlString)) {
+    throw new Error('Webhook endpoint URL is not allowed')
+  }
+
+  const hostname = new URL(urlString).hostname
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
+    .toLowerCase()
+
+  if (isSafeWebhookAddress(hostname)) return
+
+  const addresses = await resolveHostname(hostname)
+  if (
+    addresses.length === 0 ||
+    addresses.some((address) => !isSafeWebhookAddress(address))
+  ) {
+    throw new Error('Webhook endpoint resolved to a non-public address')
+  }
+}
+
+async function resolveWebhookHostname(
+  adminClient: BackendCompatClient<Database>,
+  hostname: string
+): Promise<string[]> {
+  const { data, error } = await adminClient
+    .rpc('resolve_webhook_hostname', { p_hostname: hostname })
+    .single<{ addresses: unknown }>()
+
+  if (
+    error ||
+    !data ||
+    !Array.isArray(data.addresses) ||
+    !data.addresses.every((address) => typeof address === 'string')
+  ) {
+    throw new Error('Webhook destination DNS lookup failed')
+  }
+
+  return data.addresses as string[]
+}
+
+function redirectedWebhookRequestInit(
+  status: number,
+  requestInit: RequestInit
+): RequestInit {
+  const method = (requestInit.method ?? 'GET').toUpperCase()
+  const changesPostToGet =
+    ((status === 301 || status === 302) && method === 'POST') ||
+    (status === 303 && method !== 'GET' && method !== 'HEAD')
+
+  if (!changesPostToGet) return requestInit
+
+  const headers = new Headers(requestInit.headers)
+  for (const header of [
+    'content-encoding',
+    'content-language',
+    'content-location',
+    'content-type',
+    'content-length',
+  ]) {
+    headers.delete(header)
+  }
+
+  return {
+    ...requestInit,
+    method: 'GET',
+    body: undefined,
+    headers,
   }
 }
 

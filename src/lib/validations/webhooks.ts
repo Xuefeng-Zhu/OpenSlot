@@ -7,6 +7,146 @@ const webhookDescriptionSchema = z
   .string()
   .max(200, 'Description must be 200 characters or less')
 
+function parseIpv4(hostname: string): number[] | null {
+  const octets = hostname.split('.').map(Number)
+  if (
+    octets.length !== 4 ||
+    octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
+  ) {
+    return null
+  }
+
+  return octets
+}
+
+function isBlockedIpv4(hostname: string): boolean {
+  const octets = parseIpv4(hostname)
+  if (!octets) return false
+
+  const [first, second] = octets
+  return (
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  )
+}
+
+function parseIpv6(hostname: string): number[] | null {
+  const pieces = hostname.split('::')
+  if (pieces.length > 2) return null
+
+  const left = pieces[0] ? pieces[0].split(':') : []
+  const right = pieces[1] ? pieces[1].split(':') : []
+  const missing = 8 - left.length - right.length
+  if ((pieces.length === 1 && missing !== 0) || missing < 0) return null
+
+  const hextets = [
+    ...left,
+    ...Array.from({ length: missing }, () => '0'),
+    ...right,
+  ].map((piece) => Number.parseInt(piece, 16))
+
+  if (
+    hextets.length !== 8 ||
+    hextets.some(
+      (piece) => !Number.isInteger(piece) || piece < 0 || piece > 0xffff
+    )
+  ) {
+    return null
+  }
+
+  return hextets
+}
+
+function isBlockedIpv6(hostname: string): boolean {
+  const hextets = parseIpv6(hostname)
+  if (!hextets) return false
+
+  const [first] = hextets
+  const isUnspecified = hextets.every((piece) => piece === 0)
+  const isLoopback =
+    hextets.slice(0, 7).every((piece) => piece === 0) && hextets[7] === 1
+  const isUniqueLocal = (first & 0xfe00) === 0xfc00
+  const isLinkLocal = (first & 0xffc0) === 0xfe80
+  const isSiteLocal = (first & 0xffc0) === 0xfec0
+  const isMulticast = (first & 0xff00) === 0xff00
+  const isIpv4Mapped =
+    hextets.slice(0, 5).every((piece) => piece === 0) &&
+    hextets[5] === 0xffff
+  const isIpv4Compatible = hextets.slice(0, 6).every((piece) => piece === 0)
+
+  if (isIpv4Mapped || isIpv4Compatible) {
+    const ipv4 = [
+      hextets[6] >> 8,
+      hextets[6] & 0xff,
+      hextets[7] >> 8,
+      hextets[7] & 0xff,
+    ].join('.')
+    if (isBlockedIpv4(ipv4)) return true
+  }
+
+  return (
+    isUnspecified ||
+    isLoopback ||
+    isUniqueLocal ||
+    isLinkLocal ||
+    isSiteLocal ||
+    isMulticast
+  )
+}
+
+/**
+ * Returns whether a resolved IPv4 or IPv6 address is public and eligible as a
+ * webhook destination. Hostnames intentionally return false because callers
+ * must resolve and validate every returned address before sending.
+ */
+export function isSafeWebhookAddress(address: string): boolean {
+  const normalized = address
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
+    .toLowerCase()
+
+  if (parseIpv4(normalized)) return !isBlockedIpv4(normalized)
+  if (parseIpv6(normalized)) return !isBlockedIpv6(normalized)
+
+  return false
+}
+
+/**
+ * Returns whether a webhook URL is safe to send from the worker. The URL parser
+ * canonicalizes alternate IPv4 forms; hostname normalization additionally
+ * covers trailing-dot hostnames and IPv4-mapped IPv6 literals.
+ */
+export function isSafeWebhookUrl(urlString: string): boolean {
+  try {
+    const parsed = new URL(urlString)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false
+
+    const hostname = parsed.hostname
+      .replace(/^\[|\]$/g, '')
+      .replace(/\.+$/, '')
+      .toLowerCase()
+
+    if (
+      hostname === 'localhost' ||
+      hostname.endsWith('.localhost') ||
+      hostname === 'metadata.google.internal'
+    ) {
+      return false
+    }
+
+    return !isBlockedIpv4(hostname) && !isBlockedIpv6(hostname)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Create schema for webhook endpoints managed from settings.
  * The endpoint secret is generated server-side and is intentionally not accepted
@@ -18,6 +158,10 @@ export const webhookEndpointSchema = z.object({
     .url('Webhook URL must be a valid URL')
     .refine((value) => value.startsWith('https://') || value.startsWith('http://'), {
       message: 'Webhook URL must use HTTP or HTTPS',
+    })
+    .refine(isSafeWebhookUrl, {
+      message:
+        'Webhook URL must not point to a private, loopback, or link-local address',
     }),
   description: webhookDescriptionSchema.optional(),
   subscribedEvents: z

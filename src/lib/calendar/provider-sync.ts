@@ -391,6 +391,11 @@ export async function refreshProviderCalendarBusyCache({
  * Returns a usable access token for a provider connection.
  * Tokens are decrypted only server-side; expiring tokens are refreshed and the
  * replacement credentials are encrypted back into storage.
+ *
+ * Uses the atomic `refresh-provider-token` Butterbase function to compare
+ * `updated_at` and persist credentials in one database statement. A lost
+ * comparison reloads and verifies token freshness before either using the
+ * winning credential or retrying after an unrelated connection update.
  */
 export async function getFreshAccessToken(
   adminClient: BackendCompatClient<Database>,
@@ -416,20 +421,61 @@ export async function getFreshAccessToken(
     fetchImpl,
   })
   const nextRefreshToken = tokens.refreshToken ?? refreshToken
+  const encryptedAccessToken = await encryptToken(tokens.accessToken)
+  const encryptedRefreshToken = await encryptToken(nextRefreshToken)
+  let expectedUpdatedAt = connection.updated_at
 
-  await adminClient
-    .from('provider_connections')
-    .update({
-      access_token_encrypted: await encryptToken(tokens.accessToken),
-      refresh_token_encrypted: await encryptToken(nextRefreshToken),
-      token_expires_at: tokens.expiresAt,
-      scopes: tokens.scopes,
-      last_error: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', connection.id)
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data: updateResult, error: updateError } = await adminClient.rpc(
+      'refresh_provider_token',
+      {
+        p_connection_id: connection.id,
+        p_expected_updated_at: expectedUpdatedAt,
+        p_access_token_encrypted: encryptedAccessToken,
+        p_refresh_token_encrypted: encryptedRefreshToken,
+        p_token_expires_at: tokens.expiresAt,
+        p_scopes: tokens.scopes,
+      }
+    )
 
-  return tokens.accessToken
+    if (updateError) {
+      throw new Error(
+        `Failed to store refreshed calendar token: ${updateError.message}`
+      )
+    }
+
+    const refreshResult = (updateResult?.[0] ?? null) as {
+      updated?: boolean
+    } | null
+    if (refreshResult?.updated === true) {
+      return tokens.accessToken
+    }
+
+    const { data: latestConnection, error: reloadError } = await adminClient
+      .from('provider_connections')
+      .select('access_token_encrypted, token_expires_at, updated_at')
+      .eq('id', connection.id)
+      .single()
+
+    if (reloadError || !latestConnection) {
+      throw new Error(
+        'Failed to reload calendar connection after token refresh conflict'
+      )
+    }
+
+    if (
+      latestConnection.access_token_encrypted &&
+      !isTokenExpiring(latestConnection)
+    ) {
+      return decryptToken(latestConnection.access_token_encrypted)
+    }
+
+    expectedUpdatedAt = latestConnection.updated_at
+  }
+
+  throw new Error(
+    'Failed to store refreshed calendar token after concurrent updates'
+  )
 }
 
 /**
@@ -1065,7 +1111,9 @@ async function listMicrosoftBusyEvents({
   return busyEvents
 }
 
-function isTokenExpiring(connection: ProviderConnectionRow): boolean {
+function isTokenExpiring(
+  connection: Pick<ProviderConnectionRow, 'token_expires_at'>
+): boolean {
   if (!connection.token_expires_at) {
     return false
   }

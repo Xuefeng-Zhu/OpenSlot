@@ -120,13 +120,32 @@ export function publicRateLimitResponseBody(
   }
 }
 
+/**
+ * Extracts the client IP from request headers.
+ *
+ * IMPORTANT: These headers are only trustworthy when the deployment sits behind
+ * a reverse proxy that strips/overwrites them on ingress (Cloudflare for
+ * cf-connecting-ip, Vercel for x-forwarded-for). If no such proxy is in front,
+ * clients can spoof arbitrary IPs and bypass rate limits.
+ *
+ * Deployment operators must ensure the outermost proxy sets one of these
+ * headers authoritatively.
+ */
 export function getClientIp(request: NextRequest): string {
+  // Cloudflare is the outermost proxy in production, so its canonical client
+  // address takes precedence over the address Vercel sees from Cloudflare.
   return (
-    request.headers.get('cf-connecting-ip') ??
-    request.headers.get('x-real-ip') ??
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    firstForwardedAddress(request.headers.get('cf-connecting-ip')) ??
+    firstForwardedAddress(request.headers.get('x-vercel-forwarded-for')) ??
+    firstForwardedAddress(request.headers.get('x-real-ip')) ??
+    firstForwardedAddress(request.headers.get('x-forwarded-for')) ??
     'unknown-ip'
   )
+}
+
+function firstForwardedAddress(value: string | null): string | null {
+  const address = value?.split(',')[0]?.trim()
+  return address || null
 }
 
 function hashRateLimitIdentifier(parts: Array<string | null | undefined>): string {

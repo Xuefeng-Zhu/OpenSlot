@@ -149,6 +149,8 @@ export type BackendFunctionName =
   | 'claimWebhookDeliveries'
   | 'consumePublicRateLimit'
   | 'expireStaleSlotHolds'
+  | 'refreshProviderToken'
+  | 'resolveWebhookHostname'
   | 'saveAvailability'
   | 'saveDashboardPreferences'
 
