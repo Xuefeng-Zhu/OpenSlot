@@ -146,6 +146,20 @@ describe('mapRpcToFunction', () => {
     })
   })
 
+  describe('resolve_webhook_hostname', () => {
+    it('maps DNS validation to the protected Butterbase function', () => {
+      const result = mapRpcToFunction('resolve_webhook_hostname', {
+        p_hostname: 'hooks.example.com',
+      })
+
+      expect(result).toEqual({
+        slug: 'resolve-webhook-hostname',
+        serviceRole: true,
+        body: { hostname: 'hooks.example.com' },
+      })
+    })
+  })
+
   describe('save_availability', () => {
     it('maps host-owned rows to the atomic platform-authenticated function', () => {
       const result = mapRpcToFunction('save_availability', {

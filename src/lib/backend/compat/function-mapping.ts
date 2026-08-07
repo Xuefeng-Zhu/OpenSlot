@@ -117,6 +117,12 @@ export function mapRpcToFunction(
           scopes: params.p_scopes,
         },
       }
+    case 'resolve_webhook_hostname':
+      return {
+        slug: backendFunctionSlugs.resolveWebhookHostname,
+        serviceRole: true,
+        body: { hostname: params.p_hostname },
+      }
     case 'save_availability':
       return {
         slug: backendFunctionSlugs.saveAvailability,

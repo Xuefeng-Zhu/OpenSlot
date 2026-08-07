@@ -48,6 +48,13 @@
       "version": 1
     },
     {
+      "name": "resolve-webhook-hostname",
+      "operation": "resolveWebhookHostname",
+      "transactionRequired": false,
+      "source": "functions/resolve-webhook-hostname.v1.ts",
+      "version": 1
+    },
+    {
       "name": "save-availability",
       "operation": "saveAvailability",
       "transactionRequired": true,

@@ -293,6 +293,7 @@ describe('Butterbase backend adapter', () => {
     ['createSlotHold', 'create-slot-hold'],
     ['consumePublicRateLimit', 'consume-public-rate-limit'],
     ['refreshProviderToken', 'refresh-provider-token'],
+    ['resolveWebhookHostname', 'resolve-webhook-hostname'],
     ['saveAvailability', 'save-availability'],
     ['saveDashboardPreferences', 'save-dashboard-preferences'],
   ] as const)(

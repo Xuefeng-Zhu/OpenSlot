@@ -41,6 +41,8 @@ const claimedDelivery = {
   updated_at: '2026-05-08T00:00:00.000Z',
 }
 
+const resolvePublicHostname = async () => ['203.0.113.20']
+
 function createDeliveryAdminClient(
   endpointUrl: string,
   updates: Array<Record<string, unknown>>
@@ -193,12 +195,34 @@ describe('processWebhookDeliveriesBatch', () => {
     })
   })
 
+  it('rejects a hostname that resolves to a private address', async () => {
+    const updates: Array<Record<string, unknown>> = []
+    const fetchImpl = vi.fn()
+    const adminClient = createDeliveryAdminClient(
+      'https://127.0.0.1.nip.io/webhook',
+      updates
+    )
+
+    const result = await processWebhookDeliveriesBatch({
+      adminClient,
+      fetchImpl: fetchImpl as any,
+      resolveHostname: async () => ['203.0.113.20', '127.0.0.1'],
+    })
+
+    expect(result).toEqual({ claimed: 1, delivered: 0, failed: 1 })
+    expect(fetchImpl).not.toHaveBeenCalled()
+    expect(updates[0]).toMatchObject({
+      status: 'failed',
+      last_error: 'Webhook endpoint resolved to a non-public address',
+    })
+  })
+
   it('rejects an unsafe redirect target before requesting it', async () => {
     const updates: Array<Record<string, unknown>> = []
     const fetchImpl = vi.fn().mockResolvedValueOnce(
       new Response(null, {
         status: 307,
-        headers: { Location: 'http://127.0.0.1/internal' },
+        headers: { Location: 'https://127.0.0.1.nip.io/internal' },
       })
     )
     const adminClient = {
@@ -234,6 +258,8 @@ describe('processWebhookDeliveriesBatch', () => {
     const result = await processWebhookDeliveriesBatch({
       adminClient,
       fetchImpl: fetchImpl as any,
+      resolveHostname: async (hostname) =>
+        hostname === '127.0.0.1.nip.io' ? ['127.0.0.1'] : ['203.0.113.20'],
     })
 
     expect(result).toEqual({ claimed: 1, delivered: 0, failed: 1 })
@@ -244,7 +270,7 @@ describe('processWebhookDeliveriesBatch', () => {
     )
     expect(updates[0]).toMatchObject({
       status: 'failed',
-      last_error: 'Webhook redirect URL is not allowed',
+      last_error: 'Webhook endpoint resolved to a non-public address',
     })
   })
 
@@ -269,6 +295,7 @@ describe('processWebhookDeliveriesBatch', () => {
       const result = await processWebhookDeliveriesBatch({
         adminClient,
         fetchImpl: fetchImpl as any,
+        resolveHostname: resolvePublicHostname,
       })
 
       expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0 })
@@ -309,6 +336,7 @@ describe('processWebhookDeliveriesBatch', () => {
       const result = await processWebhookDeliveriesBatch({
         adminClient,
         fetchImpl: fetchImpl as any,
+        resolveHostname: resolvePublicHostname,
       })
 
       expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0 })
@@ -386,6 +414,7 @@ describe('processWebhookDeliveriesBatch', () => {
     const result = await processWebhookDeliveriesBatch({
       adminClient,
       fetchImpl: fetchImpl as any,
+      resolveHostname: resolvePublicHostname,
     })
 
     expect(result).toEqual({ claimed: 1, delivered: 1, failed: 0 })
@@ -469,6 +498,7 @@ describe('processWebhookDeliveriesBatch', () => {
       adminClient,
       fetchImpl: fetchImpl as any,
       maxAttempts: 5,
+      resolveHostname: resolvePublicHostname,
     })
 
     expect(result).toEqual({ claimed: 1, delivered: 0, failed: 1 })

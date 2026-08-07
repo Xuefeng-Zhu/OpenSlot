@@ -57,8 +57,14 @@ preserve the transaction semantics documented in
 - `refresh-provider-token` owns the provider credential compare-and-swap.
   Deploy `functions/refresh-provider-token.v1.ts` under that exact slug before
   deploying app code that invokes it. Its single conditional `UPDATE` compares
-  `provider_connections.updated_at` and stores the encrypted access token,
-  refresh token, expiry, and scopes without a REST read/PATCH race.
+  `provider_connections.updated_at` at the REST API's millisecond precision and
+  stores the encrypted access token, refresh token, expiry, and scopes without
+  a REST read/PATCH race.
+- `resolve-webhook-hostname` resolves both IPv4 and IPv6 addresses inside the
+  trusted Butterbase runtime immediately before each tenant webhook request and
+  redirect. Deploy `functions/resolve-webhook-hostname.v1.ts` before deploying
+  the matching worker code; resolution errors fail closed and leave the
+  delivery eligible for retry.
 - `save-availability` owns the schedule/rules/overrides batch write. Deploy
   `functions/save-availability.v1.ts` under that exact slug. Its HTTP trigger
   must require authentication and disable service-key impersonation; the

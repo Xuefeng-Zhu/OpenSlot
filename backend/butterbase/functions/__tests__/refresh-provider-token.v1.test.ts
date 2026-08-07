@@ -24,7 +24,9 @@ describe('refresh-provider-token Butterbase function', () => {
 
     const [sql, params] = query.mock.calls[0]
     expect(sql).toContain('UPDATE public.provider_connections')
-    expect(sql).toContain('AND updated_at = $2::timestamptz')
+    expect(sql).toContain("date_trunc('milliseconds', statement_timestamp())")
+    expect(sql).toContain("date_trunc('milliseconds', updated_at)")
+    expect(sql).toContain("date_trunc('milliseconds', $2::timestamptz)")
     expect(sql).toContain('RETURNING id')
     expect(sql).not.toMatch(/\bBEGIN\b|\bCOMMIT\b|\bROLLBACK\b/i)
     expect(params).toEqual([

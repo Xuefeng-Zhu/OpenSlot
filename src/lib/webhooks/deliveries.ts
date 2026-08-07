@@ -1,7 +1,10 @@
 import type { BackendCompatClient } from '@/lib/backend/compat/query-client'
 import { hmacSha256Hex } from '@/lib/security/edge-crypto'
 import type { Database, Json, Tables } from '@/lib/types/database'
-import { isSafeWebhookUrl } from '@/lib/validations/webhooks'
+import {
+  isSafeWebhookAddress,
+  isSafeWebhookUrl,
+} from '@/lib/validations/webhooks'
 
 type OutboxEventRow = Tables<'outbox_events'>
 type WebhookDeliveryRow = Tables<'webhook_deliveries'>
@@ -13,6 +16,8 @@ interface WebhookEndpointRow {
   is_active: boolean
   subscribed_events?: string[]
 }
+
+type WebhookHostnameResolver = (hostname: string) => Promise<string[]>
 
 export interface EnqueueWebhookDeliveriesResult {
   queued: number
@@ -26,6 +31,7 @@ export interface ProcessWebhookDeliveriesOptions {
   limit?: number
   maxAttempts?: number
   fetchImpl?: typeof fetch
+  resolveHostname?: WebhookHostnameResolver
 }
 
 export interface ProcessWebhookDeliveriesResult {
@@ -132,6 +138,7 @@ export async function processWebhookDeliveriesBatch({
   limit = DEFAULT_LIMIT,
   maxAttempts = DEFAULT_MAX_ATTEMPTS,
   fetchImpl = fetch,
+  resolveHostname,
 }: ProcessWebhookDeliveriesOptions): Promise<ProcessWebhookDeliveriesResult> {
   const { data: deliveriesData, error } = await adminClient.rpc(
     'claim_webhook_deliveries',
@@ -152,6 +159,9 @@ export async function processWebhookDeliveriesBatch({
     delivered: 0,
     failed: 0,
   }
+  const destinationResolver =
+    resolveHostname ??
+    ((hostname: string) => resolveWebhookHostname(adminClient, hostname))
 
   for (const delivery of deliveries) {
     try {
@@ -165,6 +175,7 @@ export async function processWebhookDeliveriesBatch({
         delivery,
         endpoint,
         fetchImpl,
+        resolveHostname: destinationResolver,
       })
       await markWebhookDeliveryDelivered(
         adminClient,
@@ -213,10 +224,12 @@ async function deliverWebhook({
   delivery,
   endpoint,
   fetchImpl,
+  resolveHostname,
 }: {
   delivery: WebhookDeliveryRow
   endpoint: WebhookEndpointRow
   fetchImpl: typeof fetch
+  resolveHostname: WebhookHostnameResolver
 }): Promise<{ status: number; body: string }> {
   // Revalidate persisted endpoints at send time so legacy or externally
   // modified rows cannot bypass the current SSRF protections.
@@ -243,7 +256,8 @@ async function deliverWebhook({
   const response = await fetchWebhookWithSafeRedirects(
     endpoint.url,
     requestInit,
-    fetchImpl
+    fetchImpl,
+    resolveHostname
   )
 
   const responseBody = await response.text().catch(() => '')
@@ -264,15 +278,14 @@ async function deliverWebhook({
 async function fetchWebhookWithSafeRedirects(
   initialUrl: string,
   requestInit: RequestInit,
-  fetchImpl: typeof fetch
+  fetchImpl: typeof fetch,
+  resolveHostname: WebhookHostnameResolver
 ): Promise<Response> {
   let url = initialUrl
   let currentRequestInit = requestInit
 
   for (let redirectCount = 0; ; redirectCount += 1) {
-    if (!isSafeWebhookUrl(url)) {
-      throw new Error('Webhook endpoint URL is not allowed')
-    }
+    await assertSafeWebhookDestination(url, resolveHostname)
 
     const response = await fetchImpl(url, {
       ...currentRequestInit,
@@ -307,6 +320,50 @@ async function fetchWebhookWithSafeRedirects(
     await response.body?.cancel().catch(() => undefined)
     url = nextUrl
   }
+}
+
+async function assertSafeWebhookDestination(
+  urlString: string,
+  resolveHostname: WebhookHostnameResolver
+): Promise<void> {
+  if (!isSafeWebhookUrl(urlString)) {
+    throw new Error('Webhook endpoint URL is not allowed')
+  }
+
+  const hostname = new URL(urlString).hostname
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
+    .toLowerCase()
+
+  if (isSafeWebhookAddress(hostname)) return
+
+  const addresses = await resolveHostname(hostname)
+  if (
+    addresses.length === 0 ||
+    addresses.some((address) => !isSafeWebhookAddress(address))
+  ) {
+    throw new Error('Webhook endpoint resolved to a non-public address')
+  }
+}
+
+async function resolveWebhookHostname(
+  adminClient: BackendCompatClient<Database>,
+  hostname: string
+): Promise<string[]> {
+  const { data, error } = await adminClient
+    .rpc('resolve_webhook_hostname', { p_hostname: hostname })
+    .single<{ addresses: unknown }>()
+
+  if (
+    error ||
+    !data ||
+    !Array.isArray(data.addresses) ||
+    !data.addresses.every((address) => typeof address === 'string')
+  ) {
+    throw new Error('Webhook destination DNS lookup failed')
+  }
+
+  return data.addresses as string[]
 }
 
 function redirectedWebhookRequestInit(

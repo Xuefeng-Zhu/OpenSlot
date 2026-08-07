@@ -7,14 +7,21 @@ const webhookDescriptionSchema = z
   .string()
   .max(200, 'Description must be 200 characters or less')
 
-function isBlockedIpv4(hostname: string): boolean {
+function parseIpv4(hostname: string): number[] | null {
   const octets = hostname.split('.').map(Number)
   if (
     octets.length !== 4 ||
     octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)
   ) {
-    return false
+    return null
   }
+
+  return octets
+}
+
+function isBlockedIpv4(hostname: string): boolean {
+  const octets = parseIpv4(hostname)
+  if (!octets) return false
 
   const [first, second] = octets
   return (
@@ -92,6 +99,23 @@ function isBlockedIpv6(hostname: string): boolean {
     isSiteLocal ||
     isMulticast
   )
+}
+
+/**
+ * Returns whether a resolved IPv4 or IPv6 address is public and eligible as a
+ * webhook destination. Hostnames intentionally return false because callers
+ * must resolve and validate every returned address before sending.
+ */
+export function isSafeWebhookAddress(address: string): boolean {
+  const normalized = address
+    .replace(/^\[|\]$/g, '')
+    .replace(/\.+$/, '')
+    .toLowerCase()
+
+  if (parseIpv4(normalized)) return !isBlockedIpv4(normalized)
+  if (parseIpv6(normalized)) return !isBlockedIpv6(normalized)
+
+  return false
 }
 
 /**

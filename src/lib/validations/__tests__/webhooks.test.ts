@@ -1,10 +1,30 @@
 import { describe, expect, it } from 'vitest'
 import {
+  isSafeWebhookAddress,
   isSafeWebhookUrl,
   webhookEndpointSchema,
 } from '@/lib/validations/webhooks'
 
 describe('webhook URL validation', () => {
+  it.each([
+    '127.0.0.1',
+    '10.0.0.1',
+    '169.254.169.254',
+    '::1',
+    '::ffff:127.0.0.1',
+    'fc00::1',
+    'fe80::1',
+  ])('rejects resolved non-public address %s', (address) => {
+    expect(isSafeWebhookAddress(address)).toBe(false)
+  })
+
+  it.each(['203.0.113.20', '2001:db8::1'])(
+    'allows resolved public address %s',
+    (address) => {
+      expect(isSafeWebhookAddress(address)).toBe(true)
+    }
+  )
+
   it.each([
     'http://localhost./hook',
     'http://api.localhost/hook',

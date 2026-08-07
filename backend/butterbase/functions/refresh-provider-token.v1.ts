@@ -29,11 +29,12 @@ SET
   scopes = $6::text[],
   last_error = NULL,
   updated_at = GREATEST(
-    statement_timestamp(),
-    updated_at + INTERVAL '1 millisecond'
+    date_trunc('milliseconds', statement_timestamp()),
+    date_trunc('milliseconds', updated_at) + INTERVAL '1 millisecond'
   )
 WHERE id = $1::uuid
-  AND updated_at = $2::timestamptz
+  AND date_trunc('milliseconds', updated_at) =
+    date_trunc('milliseconds', $2::timestamptz)
 RETURNING id
 `
 
